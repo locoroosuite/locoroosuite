@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Document not found — LocoRoo Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Manrope', ui-sans-serif, system-ui; background: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .error-card { background: #fff; border-radius: 16px; border: 1px solid #e2e8f0; padding: 48px 32px; text-align: center; max-width: 400px; width: 100%; margin: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+    .error-icon { width: 48px; height: 48px; margin: 0 auto 16px; border-radius: 50%; background: #fef2f2; display: flex; align-items: center; justify-content: center; }
+    .error-icon svg { width: 24px; height: 24px; color: #dc2626; }
+    h1 { font-size: 18px; font-weight: 600; color: #0f172a; margin-bottom: 8px; }
+    p { font-size: 14px; color: #64748b; line-height: 1.5; }
+    .logo { font-size: 13px; font-weight: 600; color: #94a3b8; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="error-card">
+    <div class="error-icon">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+    </div>
+    <h1>Link unavailable</h1>
+    <p>{{ message or 'This shared link has been revoked or does not exist.' }}</p>
+    <p class="logo">LocoRoo Docs</p>
+  </div>
+</body>
+</html>

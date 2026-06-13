@@ -1,0 +1,7 @@
+{% extends "layout.html" %}
+{% block content %}
+<meta http-equiv="refresh" content="0;url={{ url_for('mail.mailbox') }}" />
+<div class="max-w-lg mx-auto bg-white/90 border border-slate-200/80 rounded-2xl p-6 shadow-sm">
+  <p class="text-sm text-slate-600">Redirecting to inbox…</p>
+</div>
+{% endblock %}

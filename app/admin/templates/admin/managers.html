@@ -1,0 +1,37 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+<section class="bg-white border border-slate-200 rounded-lg p-5">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-xl font-semibold">Managers</h1>
+      <p class="text-sm text-slate-500">Reset passwords and keep manager access up to date.</p>
+    </div>
+  </div>
+  <div class="border border-slate-200 rounded-lg divide-y text-sm text-slate-700">
+    {% for manager in managers %}
+    <div class="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <div class="font-medium">{{ manager.email }}</div>
+        <div class="text-xs text-slate-500">Status: {{ 'Active' if manager.is_active else 'Disabled' }}</div>
+      </div>
+      <form method="post" action="{{ url_for('admin.reset_manager_password', manager_id=manager.id) }}" class="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <input name="password" placeholder="New password" class="border rounded px-2 py-1 text-xs" />
+        <button class="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">Reset password</button>
+      </form>
+    </div>
+    {% endfor %}
+    {% if managers|length == 0 %}
+    <div class="px-3 py-3 text-xs text-slate-500">No managers created yet.</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-lg p-5">
+  <h2 class="text-lg font-semibold mb-3">Add manager</h2>
+  <form method="post" action="{{ url_for('admin.create_manager') }}" class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_200px_auto]">
+    <input name="email" placeholder="Manager email" class="border rounded px-2 py-1" required />
+    <input name="password" placeholder="Temp password" class="border rounded px-2 py-1" required />
+    <button class="bg-slate-900 text-white rounded px-3">Add</button>
+  </form>
+</section>
+{% endblock %}

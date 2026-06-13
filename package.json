@@ -1,0 +1,25 @@
+{
+  "name": "locoroomail",
+  "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://codeberg.org/locoroo/locoroosuite.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "AGPL-3.0",
+  "dependencies": {
+    "typescript": "^6.0.3",
+    "typescript-language-server": "^5.2.0",
+    "vscode-langservers-extracted": "^4.10.0"
+  }
+}

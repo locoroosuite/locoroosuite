@@ -1,0 +1,165 @@
+{% extends "admin/domain_review_base.html" %}
+
+{% block review_content %}
+<div class="flex items-center justify-between mb-4">
+  <div>
+    <p class="text-sm text-slate-600">Compare local accounts with the mail server for <strong>{{ domain.name }}</strong>.</p>
+  </div>
+  <div class="flex items-center gap-2">
+    <a href="{{ url_for('admin.review_domain_accounts', domain_id=domain.id) }}" class="text-xs text-slate-500 hover:text-slate-700">Back to accounts</a>
+  </div>
+</div>
+
+<div id="sync-error" class="hidden mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"></div>
+
+<div class="mb-4">
+  <button type="button" id="btn-sync-preview" onclick="previewSync()" class="inline-flex items-center gap-1.5 rounded bg-slate-900 px-3 py-1.5 text-xs text-white hover:bg-slate-800 disabled:opacity-50">
+    <svg class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+    Check sync status
+  </button>
+</div>
+
+<div id="sync-loading" class="hidden text-sm text-slate-500 py-4 text-center">Comparing accounts...</div>
+
+<div id="sync-results" class="hidden">
+  <div id="sync-empty" class="hidden rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 mb-4">All accounts are in sync. No actions needed.</div>
+  <div id="sync-remote-only-section" class="hidden mb-4">
+    <h3 class="text-sm font-semibold text-slate-700 mb-2">
+      <span class="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold mr-1">&rarr;</span>
+      On mail server only (will be created locally)
+    </h3>
+    <div class="border border-slate-200 rounded-lg divide-y text-sm">
+      <div class="px-3 py-2 bg-slate-50 text-xs text-slate-500 grid grid-cols-[minmax(0,1fr)_auto]"><span>Email</span><span>Action</span></div>
+      <div id="sync-remote-only-rows"></div>
+    </div>
+  </div>
+  <div id="sync-local-only-section" class="hidden mb-4">
+    <h3 class="text-sm font-semibold text-slate-700 mb-2">
+      <span class="inline-flex items-center justify-center h-5 w-5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold mr-1">&larr;</span>
+      Local only (not on mail server)
+    </h3>
+    <div class="border border-slate-200 rounded-lg divide-y text-sm">
+      <div class="px-3 py-2 bg-slate-50 text-xs text-slate-500 grid grid-cols-[minmax(0,1fr)_auto]"><span>Email</span><span>Action</span></div>
+      <div id="sync-local-only-rows"></div>
+    </div>
+  </div>
+  <div id="sync-in-sync-section" class="hidden mb-4">
+    <h3 class="text-sm font-semibold text-slate-700 mb-2">
+      <span class="inline-flex items-center justify-center h-5 w-5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold mr-1">&check;</span>
+      In sync
+    </h3>
+    <div class="border border-slate-200 rounded-lg divide-y text-sm"><div id="sync-in-sync-rows"></div></div>
+  </div>
+  <div id="sync-actions" class="hidden flex justify-end">
+    <button type="button" id="btn-sync-apply" onclick="applySync()" class="inline-flex items-center gap-1.5 rounded bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800 disabled:opacity-50">
+      <svg class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+      Apply selected actions
+    </button>
+  </div>
+</div>
+
+<script>
+(function() {
+  var domainId = {{ domain.id }};
+  function el(id) { return document.getElementById(id); }
+  function btnState(btn, loading) {
+    btn.disabled = loading;
+    var svg = btn.querySelector('svg');
+    if (svg) svg.classList.toggle('hidden', !loading);
+  }
+
+  window.previewSync = function() {
+    var btn = el('btn-sync-preview');
+    var errorDiv = el('sync-error');
+    btnState(btn, true);
+    errorDiv.classList.add('hidden');
+    el('sync-results').classList.add('hidden');
+    el('sync-loading').classList.remove('hidden');
+    fetch('/admin/domains/' + domainId + '/sync-preview', {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      el('sync-loading').classList.add('hidden');
+      if (data.error) { errorDiv.textContent = data.error; errorDiv.classList.remove('hidden'); return; }
+      renderSyncResults(data);
+    })
+    .catch(function(e) { el('sync-loading').classList.add('hidden'); errorDiv.textContent = 'Request failed: ' + e.message; errorDiv.classList.remove('hidden'); })
+    .finally(function() { btnState(btn, false); });
+  };
+
+  function renderSyncResults(data) {
+    var results = el('sync-results');
+    results.classList.remove('hidden');
+    var hasDiff = data.remote_only.length > 0 || data.local_only.length > 0;
+    el('sync-empty').classList.toggle('hidden', hasDiff);
+    el('sync-actions').classList.toggle('hidden', !hasDiff);
+    renderRemoteOnly(data.remote_only);
+    renderLocalOnly(data.local_only);
+    renderInSync(data.in_sync);
+  }
+
+  function renderRemoteOnly(emails) {
+    var section = el('sync-remote-only-section');
+    var rows = el('sync-remote-only-rows');
+    if (emails.length === 0) { section.classList.add('hidden'); return; }
+    section.classList.remove('hidden');
+    rows.innerHTML = emails.map(function(email) {
+      return '<div class="px-3 py-2 grid grid-cols-[minmax(0,1fr)_auto] items-center"><span class="text-slate-700">' + email + '</span><span class="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">Create locally</span></div>';
+    }).join('');
+  }
+
+  function renderLocalOnly(emails) {
+    var section = el('sync-local-only-section');
+    var rows = el('sync-local-only-rows');
+    if (emails.length === 0) { section.classList.add('hidden'); return; }
+    section.classList.remove('hidden');
+    rows.innerHTML = emails.map(function(email) {
+      return '<div class="px-3 py-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3"><span class="text-slate-700">' + email + '</span><select data-email="' + email + '" class="sync-local-action text-xs border rounded px-2 py-1"><option value="create_remotely">Create on mail server</option><option value="soft_delete_locally">Soft-delete locally</option><option value="skip">Skip</option></select></div>';
+    }).join('');
+  }
+
+  function renderInSync(emails) {
+    var section = el('sync-in-sync-section');
+    var rows = el('sync-in-sync-rows');
+    if (emails.length === 0) { section.classList.add('hidden'); return; }
+    section.classList.remove('hidden');
+    rows.innerHTML = emails.map(function(email) { return '<div class="px-3 py-2 text-slate-500">' + email + '</div>'; }).join('');
+  }
+
+  window.applySync = function() {
+    var btn = el('btn-sync-apply');
+    btnState(btn, true);
+    var remoteOnlyRows = el('sync-remote-only-rows');
+    var createLocally = [];
+    if (remoteOnlyRows) {
+      remoteOnlyRows.querySelectorAll('span').forEach(function(span) {
+        if (span.classList.contains('text-slate-700')) createLocally.push(span.textContent.trim());
+      });
+    }
+    var createRemotely = [];
+    var softDeleteLocally = [];
+    document.querySelectorAll('.sync-local-action').forEach(function(sel) {
+      var email = sel.dataset.email;
+      var action = sel.value;
+      if (action === 'create_remotely') createRemotely.push(email);
+      else if (action === 'soft_delete_locally') softDeleteLocally.push(email);
+    });
+    fetch('/admin/domains/' + domainId + '/sync-apply', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ create_locally: createLocally, create_remotely: createRemotely, soft_delete_locally: softDeleteLocally }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var parts = [];
+      if (data.created_locally.length) parts.push('Created locally: ' + data.created_locally.join(', '));
+      if (data.created_remotely.length) parts.push('Created on mail server: ' + data.created_remotely.join(', '));
+      if (data.soft_deleted_locally.length) parts.push('Deactivated locally: ' + data.soft_deleted_locally.join(', '));
+      if (parts.length === 0) parts.push('No changes applied.');
+      el('sync-results').innerHTML = '<div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">' + parts.join('<br/>') + '</div>';
+    })
+    .catch(function(e) { el('sync-error').textContent = 'Apply failed: ' + e.message; el('sync-error').classList.remove('hidden'); })
+    .finally(function() { btnState(btn, false); });
+  };
+})();
+</script>
+{% endblock %}

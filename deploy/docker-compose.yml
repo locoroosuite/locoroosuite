@@ -1,0 +1,50 @@
+services:
+  app:
+    build: ..
+    container_name: locoroomail
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - COLLABORA_INTERNAL_URL=http://collabora:9980
+      - COLLABORA_PUBLIC_URL=https://${SERVER_NAME}/collabora
+      - WOPI_HOST_URL=https://${SERVER_NAME}
+    volumes:
+      - ../data:/app/data
+    depends_on:
+      - collabora
+    networks:
+      - locoroomail
+
+  collabora:
+    image: collabora/code:latest
+    container_name: locoroomail-collabora
+    restart: unless-stopped
+    environment:
+      - aliasgroup1=https://${SERVER_NAME}:443
+      - extra_params=--o:ssl.enable=false --o:ssl.termination=true --o:security.capabilities=true --o:welcome.enable=false --o:ui.about.enabled=false --o:productbranding.logoLink=https://${SERVER_NAME}/app/docs/
+    cap_add:
+      - MKNOD
+    expose:
+      - "9980"
+    networks:
+      - locoroomail
+
+  nginx:
+    image: nginx:alpine
+    container_name: locoroomail-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+      - collabora
+    networks:
+      - locoroomail
+
+networks:
+  locoroomail:
+    driver: bridge

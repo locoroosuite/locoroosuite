@@ -1,0 +1,480 @@
+{% extends "admin/domain_review_base.html" %}
+
+{% block review_content %}
+<div class="flex items-center justify-between mb-4">
+  <div>
+    <p class="text-sm text-slate-600">Enable self-hosted email to manage DNS records and mailboxes via a Mail API connection.</p>
+  </div>
+  <label class="inline-flex items-center gap-2 cursor-pointer shrink-0 ml-4">
+    <span class="text-sm text-slate-600" id="self-hosted-label">{{ 'Enabled' if dns_config and dns_config.is_self_hosted else 'Disabled' }}</span>
+    <button type="button" id="btn-toggle-self-hosted" onclick="toggleSelfHosted()"
+      class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors {{ 'bg-emerald-500' if dns_config and dns_config.is_self_hosted else 'bg-slate-200' }}">
+      <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform {{ 'translate-x-6' if dns_config and dns_config.is_self_hosted else 'translate-x-1' }}"></span>
+    </button>
+  </label>
+</div>
+
+<div id="self-hosted-error" class="hidden mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"></div>
+
+<div id="self-hosted-body" class="{{ 'hidden' if not dns_config or not dns_config.is_self_hosted }}">
+
+  <div class="border border-slate-200 rounded-lg p-4 mb-4">
+    <h2 class="text-sm font-semibold text-slate-700 mb-3">Mail API</h2>
+    <div class="grid gap-2 sm:grid-cols-2">
+      <label class="text-xs font-semibold text-slate-600">
+        URL
+        <input id="mail_api_url" value="{{ domain.mail_api_url or '' }}" class="mt-1 w-full border rounded px-2 py-1" placeholder="http://mail-api:8800" />
+      </label>
+      <label class="text-xs font-semibold text-slate-600">
+        API Key
+        <input id="mail_api_key" type="password" value="{{ domain.mail_api_key or '' }}" class="mt-1 w-full border rounded px-2 py-1" placeholder="Bearer token / API key" />
+      </label>
+    </div>
+    <div class="mt-3 flex items-center gap-3">
+      <button type="button" id="btn-test-conn" onclick="testConnection()" class="inline-flex items-center gap-1.5 rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+        <svg class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        Test connection
+      </button>
+      <span id="conn-result" class="text-xs"></span>
+    </div>
+  </div>
+
+  <div id="dkim-settings" class="border border-slate-200 rounded-lg p-4 mb-4">
+    <h2 class="text-sm font-semibold text-slate-700 mb-3">DKIM / DMARC</h2>
+    <div class="grid gap-4 sm:grid-cols-3 mb-4">
+      <div>
+        <label class="text-xs font-semibold text-slate-600">
+          DKIM selector
+          <input id="dkim-selector" value="{{ dns_config.dkim_selector if dns_config else 'default' }}" class="mt-1 w-full border rounded px-2 py-1" placeholder="default" />
+        </label>
+        <p class="text-xs text-slate-400 mt-1">DNS record at <code class="bg-slate-100 px-1 rounded">&lt;selector&gt;._domainkey.{{ domain.name }}</code></p>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-600">
+          DMARC policy
+          <select id="dmarc-policy" class="mt-1 w-full border rounded px-2 py-1">
+            <option value="none" {{ 'selected' if not dns_config or dns_config.dmarc_policy == 'none' }}>none — Monitor only</option>
+            <option value="quarantine" {{ 'selected' if dns_config and dns_config.dmarc_policy == 'quarantine' }}>quarantine — Send to spam</option>
+            <option value="reject" {{ 'selected' if dns_config and dns_config.dmarc_policy == 'reject' }}>reject — Reject outright</option>
+          </select>
+        </label>
+        <p class="text-xs text-slate-400 mt-1">Start with <code>none</code>, tighten after review.</p>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-600">
+          DMARC report recipient
+          <input id="dmarc-rua" value="{{ dns_config.dmarc_rua or '' }}" class="mt-1 w-full border rounded px-2 py-1" placeholder="dmarc@example.com" />
+        </label>
+        <p class="text-xs text-slate-400 mt-1">Email for aggregate DMARC reports.</p>
+      </div>
+    </div>
+
+    <hr class="my-4 border-slate-100" />
+
+    <div id="dkim-key-section">
+      <h3 class="text-xs font-semibold text-slate-700 mb-2">DKIM signing key</h3>
+      <div id="dkim-key-loading" class="text-xs text-slate-400">Checking...</div>
+      <div id="dkim-key-absent" class="hidden">
+        <p class="text-xs text-slate-500 mb-2">No DKIM key configured. Generate one to enable email signing.</p>
+        <button type="button" id="btn-generate-dkim" onclick="generateDkimKey()" class="inline-flex items-center gap-1.5 rounded bg-slate-900 px-3 py-1.5 text-xs text-white hover:bg-slate-800 disabled:opacity-50">
+          <svg class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+          Generate DKIM key
+        </button>
+        <span id="dkim-generate-result" class="text-xs"></span>
+      </div>
+      <div id="dkim-key-present" class="hidden">
+        <div class="flex items-start justify-between mb-2">
+          <div class="flex items-center gap-1.5">
+            <span class="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+            <span class="text-xs text-emerald-700 font-medium">DKIM key active</span>
+          </div>
+          <button type="button" id="btn-regenerate-dkim" onclick="confirmRegenerate()" class="inline-flex items-center gap-1.5 rounded border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs text-amber-800 hover:bg-amber-100 disabled:opacity-50">
+            Regenerate key
+          </button>
+        </div>
+        <details class="text-xs">
+          <summary class="cursor-pointer text-slate-600 hover:text-slate-800">View public key and DNS record</summary>
+          <div class="mt-2 space-y-2">
+            <div>
+              <span class="font-medium text-slate-600">TXT record name:</span>
+              <code id="dkim-selector-label" class="ml-1 bg-slate-100 px-1 rounded"></code>
+            </div>
+            <div>
+              <span class="font-medium text-slate-600">TXT record value:</span>
+              <code id="dkim-txt-record" class="ml-1 bg-slate-100 px-1 rounded break-all"></code>
+            </div>
+          </div>
+        </details>
+        <span id="dkim-regenerate-result" class="text-xs"></span>
+      </div>
+      <div id="dkim-key-unavailable" class="hidden">
+        <p class="text-xs text-slate-400">Mail API is not configured. DKIM key management requires a Mail API connection.</p>
+      </div>
+    </div>
+
+    <hr class="my-4 border-slate-100" />
+
+    <div class="flex items-center gap-3">
+      <button type="button" id="btn-save-self-hosted" onclick="saveSelfHosted()" class="inline-flex items-center gap-1.5 rounded bg-slate-900 px-3 py-1.5 text-xs text-white hover:bg-slate-800 disabled:opacity-50">
+        <svg class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        Save DKIM / DMARC settings
+      </button>
+      <span id="self-hosted-save-result" class="text-xs"></span>
+    </div>
+  </div>
+
+  <div id="dns-health-section">
+    <div class="flex items-center justify-between mb-4">
+      <h2 id="dns-health-heading" class="text-sm font-semibold text-slate-700">DNS Health</h2>
+      <button type="button" id="btn-dns-check" onclick="runDnsCheck()" class="inline-flex items-center gap-1.5 rounded bg-slate-900 px-3 py-1.5 text-xs text-white hover:bg-slate-800 disabled:opacity-50">
+        <svg class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        Test all records
+      </button>
+    </div>
+
+    {% if not platform_dns %}
+    <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      Platform DNS is not configured. <a href="{{ url_for('admin.platform_dns') }}" class="underline font-medium">Configure MX servers</a> before testing.
+    </div>
+    {% endif %}
+
+    <div id="dns-check-error" class="hidden mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"></div>
+
+    <div id="dns-cards" class="grid gap-4 sm:grid-cols-2">
+      <div id="card-mx" class="border border-slate-200 rounded-lg p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <span id="status-dot-mx" class="inline-block h-2.5 w-2.5 rounded-full bg-slate-300"></span>
+          <h3 class="text-sm font-semibold text-slate-700">MX Record</h3>
+          <span id="status-label-mx" class="text-xs text-slate-400 ml-auto">Not tested</span>
+        </div>
+        <p class="text-xs font-medium text-slate-500 mb-1">Expected value</p>
+        <div id="expected-mx" class="text-xs font-mono bg-slate-50 rounded p-2 text-slate-600 mb-2 whitespace-pre-wrap break-all">
+          {% if platform_dns %}{% for e in platform_dns %}@  IN  MX  {{ e.mx_priority }}  {{ e.mx_hostname }}.
+{% endfor %}{% else %}Platform DNS not configured{% endif %}
+        </div>
+        <div id="details-mx" class="text-xs text-slate-500"></div>
+        <button type="button" onclick="runDnsCheckSingle('mx')" class="mt-2 text-xs text-slate-500 hover:text-slate-700 underline">Test this record</button>
+      </div>
+      <div id="card-spf" class="border border-slate-200 rounded-lg p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <span id="status-dot-spf" class="inline-block h-2.5 w-2.5 rounded-full bg-slate-300"></span>
+          <h3 class="text-sm font-semibold text-slate-700">SPF Record</h3>
+          <span id="status-label-spf" class="text-xs text-slate-400 ml-auto">Not tested</span>
+        </div>
+        <p class="text-xs font-medium text-slate-500 mb-1">Expected value</p>
+        <div id="expected-spf" class="text-xs font-mono bg-slate-50 rounded p-2 text-slate-600 mb-2 break-all">v=spf1 mx ~all</div>
+        <div id="details-spf" class="text-xs text-slate-500"></div>
+        <button type="button" onclick="runDnsCheckSingle('spf')" class="mt-2 text-xs text-slate-500 hover:text-slate-700 underline">Test this record</button>
+      </div>
+      <div id="card-dkim" class="border border-slate-200 rounded-lg p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <span id="status-dot-dkim" class="inline-block h-2.5 w-2.5 rounded-full bg-slate-300"></span>
+          <h3 class="text-sm font-semibold text-slate-700">DKIM Record</h3>
+          <span id="status-label-dkim" class="text-xs text-slate-400 ml-auto">Not tested</span>
+        </div>
+        <p class="text-xs font-medium text-slate-500 mb-1">Expected value</p>
+        <div id="expected-dkim" class="text-xs font-mono bg-slate-50 rounded p-2 text-slate-600 mb-2 break-all">DKIM key not yet available</div>
+        <div id="details-dkim" class="text-xs text-slate-500"></div>
+        <button type="button" onclick="runDnsCheckSingle('dkim')" class="mt-2 text-xs text-slate-500 hover:text-slate-700 underline">Test this record</button>
+      </div>
+      <div id="card-dmarc" class="border border-slate-200 rounded-lg p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <span id="status-dot-dmarc" class="inline-block h-2.5 w-2.5 rounded-full bg-slate-300"></span>
+          <h3 class="text-sm font-semibold text-slate-700">DMARC Record</h3>
+          <span id="status-label-dmarc" class="text-xs text-slate-400 ml-auto">Not tested</span>
+        </div>
+        <p class="text-xs font-medium text-slate-500 mb-1">Expected value</p>
+        <div id="expected-dmarc" class="text-xs font-mono bg-slate-50 rounded p-2 text-slate-600 mb-2 break-all">
+          v=DMARC1; p={{ dns_config.dmarc_policy if dns_config else 'none' }}{% if dns_config and dns_config.dmarc_rua %}; rua=mailto:{{ dns_config.dmarc_rua }}{% endif %}
+        </div>
+        <div id="details-dmarc" class="text-xs text-slate-500"></div>
+        <button type="button" onclick="runDnsCheckSingle('dmarc')" class="mt-2 text-xs text-slate-500 hover:text-slate-700 underline">Test this record</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function() {
+  var domainId = {{ domain.id }};
+  var isSelfHosted = {{ 'true' if dns_config and dns_config.is_self_hosted else 'false' }};
+  var dnsHealthLoaded = false;
+
+  function el(id) { return document.getElementById(id); }
+  function btnState(btn, loading) {
+    btn.disabled = loading;
+    var svg = btn.querySelector('svg');
+    if (svg) svg.classList.toggle('hidden', !loading);
+  }
+
+  function updateSelfHostedUI(enabled) {
+    isSelfHosted = enabled;
+    var toggle = el('btn-toggle-self-hosted');
+    var label = el('self-hosted-label');
+    var body = el('self-hosted-body');
+    if (enabled) {
+      toggle.className = 'relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-emerald-500';
+      toggle.querySelector('span').className = 'inline-block h-4 w-4 transform rounded-full bg-white transition-transform translate-x-6';
+      label.textContent = 'Enabled';
+      body.classList.remove('hidden');
+    } else {
+      toggle.className = 'relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-slate-200';
+      toggle.querySelector('span').className = 'inline-block h-4 w-4 transform rounded-full bg-white transition-transform translate-x-1';
+      label.textContent = 'Disabled';
+      body.classList.add('hidden');
+    }
+  }
+
+  window.toggleSelfHosted = function() {
+    var newState = !isSelfHosted;
+    var errorDiv = el('self-hosted-error');
+    errorDiv.classList.add('hidden');
+    var fd = new FormData();
+    fd.append('is_self_hosted', newState ? '1' : '0');
+    fd.append('dkim_selector', el('dkim-selector') ? el('dkim-selector').value : 'default');
+    fd.append('dmarc_policy', el('dmarc-policy') ? el('dmarc-policy').value : 'none');
+    fd.append('dmarc_rua', el('dmarc-rua') ? el('dmarc-rua').value : '');
+    fetch('/admin/domains/' + domainId + '/self-hosted', { method: 'POST', body: fd })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.ok) {
+        updateSelfHostedUI(newState);
+        if (newState) {
+          el('self-hosted-save-result').textContent = 'Self-hosted enabled.';
+          el('self-hosted-save-result').className = 'text-xs text-emerald-600';
+          if (!dnsHealthLoaded) { dnsHealthLoaded = true; runDnsCheck(); }
+          loadDkimKeyStatus();
+        } else {
+          el('self-hosted-save-result').textContent = '';
+          dnsHealthLoaded = false;
+        }
+      } else {
+        errorDiv.textContent = data.error || 'Failed to update self-hosted setting.';
+        errorDiv.classList.remove('hidden');
+      }
+    })
+    .catch(function(e) {
+      errorDiv.textContent = 'Request failed: ' + e.message;
+      errorDiv.classList.remove('hidden');
+    });
+  };
+
+  window.saveSelfHosted = function() {
+    var btn = el('btn-save-self-hosted');
+    var result = el('self-hosted-save-result');
+    btnState(btn, true);
+    result.textContent = '';
+    result.className = 'text-xs';
+    var saveApi = new FormData();
+    saveApi.append('mail_api_url', el('mail_api_url').value.trim());
+    saveApi.append('mail_api_key', el('mail_api_key').value.trim());
+    var saveDkim = new FormData();
+    saveDkim.append('is_self_hosted', '1');
+    saveDkim.append('dkim_selector', el('dkim-selector').value);
+    saveDkim.append('dmarc_policy', el('dmarc-policy').value);
+    saveDkim.append('dmarc_rua', el('dmarc-rua').value);
+    Promise.all([
+      fetch('/admin/domains/' + domainId + '/mail-api-config', { method: 'POST', body: saveApi }).then(function(r) { return r.json(); }),
+      fetch('/admin/domains/' + domainId + '/self-hosted', { method: 'POST', body: saveDkim }).then(function(r) { return r.json(); }),
+    ])
+    .then(function(responses) {
+      var apiOk = responses[0].ok;
+      var dkimOk = responses[1].ok;
+      if (apiOk && dkimOk) {
+        result.textContent = 'Settings saved.';
+        result.className = 'text-xs text-emerald-600';
+      } else {
+        var errors = [];
+        if (!apiOk) errors.push(responses[0].error || 'Mail API failed');
+        if (!dkimOk) errors.push(responses[1].error || 'DKIM/DMARC failed');
+        result.textContent = errors.join('; ');
+        result.className = 'text-xs text-red-600';
+      }
+    })
+    .catch(function(e) {
+      result.textContent = 'Request failed: ' + e.message;
+      result.className = 'text-xs text-red-600';
+    })
+    .finally(function() { btnState(btn, false); });
+  };
+
+  window.testConnection = function() {
+    var btn = el('btn-test-conn');
+    var result = el('conn-result');
+    btnState(btn, true);
+    result.textContent = '';
+    result.className = 'text-xs';
+    var fd = new FormData();
+    fd.append('mail_api_url', el('mail_api_url').value.trim());
+    fd.append('mail_api_key', el('mail_api_key').value.trim());
+    fetch('/admin/domains/' + domainId + '/test-mail-api', {
+      method: 'POST',
+      headers: {'X-Ignore-Mail-Api-Fields': '1'},
+      body: fd,
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      result.textContent = data.ok ? data.message : data.error;
+      result.className = 'text-xs ' + (data.ok ? 'text-emerald-600' : 'text-red-600');
+    })
+    .catch(function(e) {
+      result.textContent = 'Request failed: ' + e.message;
+      result.className = 'text-xs text-red-600';
+    })
+    .finally(function() { btnState(btn, false); });
+  };
+
+  function showDkimKey(data) {
+    el('dkim-key-loading').classList.add('hidden');
+    if (data.has_key) {
+      el('dkim-key-present').classList.remove('hidden');
+      el('dkim-selector-label').textContent = (data.selector || 'default') + '._domainkey.{{ domain.name }}';
+      el('dkim-txt-record').textContent = data.txt_record || 'p=' + data.public_key;
+      var expectedDkim = el('expected-dkim');
+      if (expectedDkim && data.txt_record) {
+        expectedDkim.textContent = data.txt_record;
+      }
+    } else if (data.unavailable) {
+      el('dkim-key-unavailable').classList.remove('hidden');
+    } else {
+      el('dkim-key-absent').classList.remove('hidden');
+    }
+  }
+
+  function loadDkimKeyStatus() {
+    el('dkim-key-loading').classList.remove('hidden');
+    fetch('/admin/domains/' + domainId + '/dkim-key')
+    .then(function(r) { return r.json(); })
+    .then(function(data) { showDkimKey(data); })
+    .catch(function() { showDkimKey({has_key: false}); });
+  }
+
+  window.generateDkimKey = function() {
+    var btn = el('btn-generate-dkim');
+    var result = el('dkim-generate-result');
+    btnState(btn, true);
+    result.textContent = '';
+    result.className = 'text-xs';
+    fetch('/admin/domains/' + domainId + '/dkim-generate', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.ok) {
+        result.textContent = 'DKIM key generated. Update your DNS record.';
+        result.className = 'text-xs text-emerald-600';
+        showDkimKey({has_key: true, selector: data.selector, public_key: data.public_key, txt_record: data.txt_record});
+      } else {
+        result.textContent = data.error || 'Failed to generate.';
+        result.className = 'text-xs text-red-600';
+      }
+    })
+    .catch(function(e) {
+      result.textContent = 'Request failed: ' + e.message;
+      result.className = 'text-xs text-red-600';
+    })
+    .finally(function() { btnState(btn, false); });
+  };
+
+  window.confirmRegenerate = function() {
+    if (!confirm('This will replace the current DKIM key. You must update the DNS TXT record with the new public key. Continue?')) return;
+    var btn = el('btn-regenerate-dkim');
+    var result = el('dkim-regenerate-result');
+    btnState(btn, true);
+    result.textContent = '';
+    result.className = 'text-xs';
+    fetch('/admin/domains/' + domainId + '/dkim-generate', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.ok) {
+        result.textContent = 'New key generated. Update your DNS record immediately.';
+        result.className = 'text-xs text-amber-600';
+        showDkimKey({has_key: true, selector: data.selector, public_key: data.public_key, txt_record: data.txt_record});
+      } else {
+        result.textContent = data.error || 'Failed to regenerate.';
+        result.className = 'text-xs text-red-600';
+      }
+    })
+    .catch(function(e) {
+      result.textContent = 'Request failed: ' + e.message;
+      result.className = 'text-xs text-red-600';
+    })
+    .finally(function() { btnState(btn, false); });
+  };
+
+  var statusColors = {
+    not_configured: {dot: 'bg-red-500', label: 'text-red-600', text: 'Not configured'},
+    mismatch: {dot: 'bg-red-500', label: 'text-red-600', text: 'Value mismatch'},
+    propagating: {dot: 'bg-amber-500', label: 'text-amber-600', text: 'Propagating'},
+    verified: {dot: 'bg-emerald-500', label: 'text-emerald-600', text: 'Verified'},
+  };
+
+  function updateCard(type, data) {
+    var s = statusColors[data.status] || statusColors.not_configured;
+    el('status-dot-' + type).className = 'inline-block h-2.5 w-2.5 rounded-full ' + s.dot;
+    el('status-label-' + type).className = 'text-xs ml-auto ' + s.label;
+    el('status-label-' + type).textContent = s.text + ' (' + data.nameservers_ok + '/' + data.nameservers_checked + ' NS)';
+    if (data.expected && el('expected-' + type)) {
+      el('expected-' + type).textContent = data.expected;
+    }
+    var detailHtml = data.details || '';
+    if (data.found && data.found.length > 0) {
+      detailHtml += '<br/><span class="font-medium text-slate-600">Found:</span> ';
+      detailHtml += data.found.map(function(v) { return '<code class="bg-slate-100 px-1 rounded">' + v + '</code>'; }).join(' ');
+    }
+    if (data.instructions && data.status !== 'verified') {
+      detailHtml += '<div class="mt-2 rounded border border-blue-200 bg-blue-50 px-2.5 py-2 text-blue-800">' + data.instructions + '</div>';
+    }
+    el('details-' + type).innerHTML = detailHtml;
+  }
+
+  function resetDnsCards() {
+    ['mx', 'spf', 'dkim', 'dmarc'].forEach(function(type) {
+      el('status-dot-' + type).className = 'inline-block h-2.5 w-2.5 rounded-full bg-slate-300';
+      el('status-label-' + type).textContent = 'Not tested';
+    });
+  }
+
+  window.runDnsCheck = function() {
+    var btn = el('btn-dns-check');
+    var errorDiv = el('dns-check-error');
+    btnState(btn, true);
+    errorDiv.classList.add('hidden');
+    ['mx', 'spf', 'dkim', 'dmarc'].forEach(function(type) {
+      el('status-dot-' + type).className = 'inline-block h-2.5 w-2.5 rounded-full bg-slate-300 animate-pulse';
+      el('status-label-' + type).className = 'text-xs ml-auto text-slate-400';
+      el('status-label-' + type).textContent = 'Testing...';
+      el('details-' + type).innerHTML = '';
+    });
+    fetch('/admin/domains/' + domainId + '/dns-check', {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) { errorDiv.textContent = data.error; errorDiv.classList.remove('hidden'); resetDnsCards(); return; }
+      ['mx', 'spf', 'dkim', 'dmarc'].forEach(function(type) { if (data[type]) updateCard(type, data[type]); });
+    })
+    .catch(function(e) { errorDiv.textContent = 'DNS check failed: ' + e.message; errorDiv.classList.remove('hidden'); resetDnsCards(); })
+    .finally(function() { btnState(btn, false); });
+  };
+
+  window.runDnsCheckSingle = function(type) {
+    el('dns-check-error').classList.add('hidden');
+    el('status-dot-' + type).className = 'inline-block h-2.5 w-2.5 rounded-full bg-slate-300 animate-pulse';
+    el('status-label-' + type).className = 'text-xs ml-auto text-slate-400';
+    el('status-label-' + type).textContent = 'Testing...';
+    el('details-' + type).innerHTML = '';
+    fetch('/admin/domains/' + domainId + '/dns-check', {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) { el('dns-check-error').textContent = data.error; el('dns-check-error').classList.remove('hidden'); el('status-dot-' + type).className = 'inline-block h-2.5 w-2.5 rounded-full bg-slate-300'; el('status-label-' + type).textContent = 'Not tested'; return; }
+      if (data[type]) updateCard(type, data[type]);
+    })
+    .catch(function(e) { el('dns-check-error').textContent = 'DNS check failed: ' + e.message; el('dns-check-error').classList.remove('hidden'); el('status-dot-' + type).className = 'inline-block h-2.5 w-2.5 rounded-full bg-slate-300'; el('status-label-' + type).textContent = 'Not tested'; });
+  };
+
+  {% if dns_config and dns_config.is_self_hosted %}
+  dnsHealthLoaded = true;
+  runDnsCheck();
+  loadDkimKeyStatus();
+  {% endif %}
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="bg-white border border-slate-200 rounded-lg p-4">
+  <h2 class="text-lg font-semibold mb-3">Customers</h2>
+  <form method="post" action="{{ url_for('manager.create_customer') }}" class="flex gap-2 mb-4">
+    <input name="email" placeholder="Customer email" class="border rounded px-2 py-1 flex-1" required />
+    <button class="bg-slate-900 text-white rounded px-3">Add</button>
+  </form>
+  <ul class="text-sm text-slate-700 space-y-2">
+    {% for customer in customers %}
+    <li class="flex items-center justify-between">
+      <span>{{ customer.email }}</span>
+      <div class="flex gap-2">
+        <form method="post" action="{{ url_for('manager.toggle_customer', customer_id=customer.id) }}">
+          <button class="text-xs px-2 py-1 rounded {{ 'bg-green-100 text-green-700' if customer.is_active else 'bg-red-100 text-red-700' }}">
+            {{ 'Active' if customer.is_active else 'Inactive' }}
+          </button>
+        </form>
+        <form method="post" action="{{ url_for('manager.purge_customer', customer_id=customer.id) }}">
+          <button class="text-xs px-2 py-1 rounded bg-slate-200">Purge cache</button>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

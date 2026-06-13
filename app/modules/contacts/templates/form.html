@@ -1,0 +1,97 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <div class="mb-6">
+    <a href="{{ url_for('contacts.contact_list') }}" class="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900">
+      <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd"/></svg>
+      Back to contacts
+    </a>
+  </div>
+
+  <div class="rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
+    <div class="px-6 py-5 border-b border-slate-100">
+      <h1 class="text-xl font-semibold text-slate-900">{{ 'Edit Contact' if contact else 'New Contact' }}</h1>
+    </div>
+
+    {% if errors.get('_server') %}
+    <div class="mx-6 mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+      {{ errors._server }}
+    </div>
+    {% endif %}
+
+    <form method="post" class="px-6 py-5 space-y-5">
+      <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">First Name</label>
+          <input name="first_name" type="text" value="{{ (contact.first_name or '') if contact else '' }}" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Last Name</label>
+          <input name="last_name" type="text" value="{{ (contact.last_name or '') if contact else '' }}" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">Display Name <span class="text-rose-500">*</span></label>
+                  <input name="fn" type="text" value="{{ (contact.fn or '') if contact else '' }}" class="w-full rounded-lg border {{ 'border-rose-300 ring-2 ring-rose-100' if errors.fn else 'border-slate-200' }} bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+        {% if errors.fn %}
+        <p class="mt-1 text-xs text-rose-600">{{ errors.fn }}</p>
+        {% endif %}
+      </div>
+
+      <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Email (Work)</label>
+          <input name="email_work" type="email" value="{{ (contact.email_work or '') if contact else '' }}" class="w-full rounded-lg border {{ 'border-rose-300 ring-2 ring-rose-100' if errors.email_work else 'border-slate-200' }} bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+          {% if errors.email_work %}
+          <p class="mt-1 text-xs text-rose-600">{{ errors.email_work }}</p>
+          {% endif %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Email (Home)</label>
+          <input name="email_home" type="email" value="{{ (contact.email_home or '') if contact else '' }}" class="w-full rounded-lg border {{ 'border-rose-300 ring-2 ring-rose-100' if errors.email_home else 'border-slate-200' }} bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+          {% if errors.email_home %}
+          <p class="mt-1 text-xs text-rose-600">{{ errors.email_home }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Phone (Work)</label>
+          <input name="tel_work" type="tel" value="{{ (contact.tel_work or '') if contact else '' }}" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Phone (Home)</label>
+          <input name="tel_home" type="tel" value="{{ (contact.tel_home or '') if contact else '' }}" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Phone (Cell)</label>
+          <input name="tel_cell" type="tel" value="{{ (contact.tel_cell or '') if contact else '' }}" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Organization</label>
+          <input name="org" type="text" value="{{ (contact.org or '') if contact else '' }}" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Job Title</label>
+          <input name="title" type="text" value="{{ (contact.title or '') if contact else '' }}" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">Note</label>
+        <textarea name="note" rows="3" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">{{ (contact.note or '') if contact else '' }}</textarea>
+      </div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800">{{ 'Save Changes' if contact else 'Create Contact' }}</button>
+        <a href="{{ url_for('contacts.contact_list') }}" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

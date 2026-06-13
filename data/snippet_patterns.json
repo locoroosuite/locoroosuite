@@ -1,0 +1,42 @@
+{
+  "greeting_phrases": [
+    "hi",
+    "hello",
+    "dear",
+    "hey",
+    "greetings"
+  ],
+  "header_phrases": [
+    "view in browser",
+    "view online",
+    "web version",
+    "open in browser",
+    "email preferences",
+    "manage preferences",
+    "update preferences"
+  ],
+  "boilerplate_phrases": [
+    "unsubscribe",
+    "manage preferences",
+    "email preferences",
+    "update preferences",
+    "privacy policy",
+    "terms of service",
+    "forward to a friend",
+    "sent to you by",
+    "you are receiving",
+    "why am i receiving",
+    "add us to your address book",
+    "this email was sent",
+    "all rights reserved",
+    "copyright"
+  ],
+  "signature_markers": [
+    "--",
+    "__",
+    "sent from my iphone",
+    "sent from my ipad",
+    "sent from my android",
+    "sent from my mobile"
+  ]
+}

@@ -1,0 +1,784 @@
+{% extends "layout.html" %}
+{% block content %}
+{% set is_unread = "\\Seen" not in (flags or []) %}
+{% set is_flagged = "\\Flagged" in (flags or []) %}
+{% set thread_count = thread_messages | length %}
+<div class="bg-white/90 border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+  {% if is_draft %}
+  <div class="bg-amber-50 border-b border-amber-200/80 px-5 py-2.5 flex items-center gap-3">
+    <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+      <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"/></svg>
+      Draft
+    </span>
+    <span class="text-xs text-amber-700">This message has not been sent yet.</span>
+    <div class="flex items-center gap-1.5 ml-auto">
+      <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message[1]) }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">Edit draft</a>
+      <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=message[1]) }}" class="message-action" data-action="discard-draft">
+        <button class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+  <div class="border-b border-slate-200/80 px-5 py-3">
+    <div class="flex items-start justify-between gap-4">
+      <div class="flex items-start gap-3 min-w-0">
+        <a href="{{ url_for('mail.folder_view', account_id=account.id, folder=current_folder) }}" class="mt-0.5 flex-shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition" title="Back to {{ current_folder }}" data-back-link>
+          <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 0 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10z" clip-rule="evenodd"/></svg>
+        </a>
+        <div class="min-w-0 pt-0.5">
+          <h1 class="text-lg font-semibold text-slate-900 truncate">{{ message[3] }}</h1>
+          {% if thread_count > 1 %}
+          <div class="text-xs text-slate-500 mt-0.5">{{ thread_count }} messages in this conversation</div>
+          {% else %}
+          <div class="text-xs text-slate-500 mt-0.5 truncate">From {{ message[4] }} &middot; To {{ message[5] }}{% if cc_display %} &middot; Cc {{ cc_display }}{% endif %}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
+        {% if is_draft %}
+        <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message[1]) }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">Edit draft</a>
+        <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=message[1]) }}" class="message-action" data-action="discard-draft">
+          <button class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
+        </form>
+        {% else %}
+        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message[0]) }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Reply</a>
+        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message[0], reply_all='1') }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Reply All</a>
+        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message[0], forward='1') }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Forward</a>
+        <span class="h-4 w-px bg-slate-200 mx-0.5"></span>
+        <a id="create-event-btn" href="{{ url_for('calendar.event_new', subject=message[3], description=(message[8] or '')[:2000], attendee=message[4]) }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition hidden">Create event</a>
+        {% endif %}
+        <form method="post" action="{{ url_for('mail.archive_message', account_id=account.id, message_id=message[0]) }}" class="message-action" data-action="archive">
+          <button class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Archive</button>
+        </form>
+        <form method="post" action="{{ url_for('mail.delete_message', account_id=account.id, message_id=message[0]) }}" class="message-action" data-action="delete">
+          <button class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Delete</button>
+        </form>
+        <div class="relative">
+          <button type="button" class="text-[11px] px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition" data-overflow-toggle aria-label="More actions" aria-haspopup="menu" aria-expanded="false">&#8943;</button>
+          <div class="absolute right-0 mt-1 py-1 min-w-[170px] rounded-lg border border-slate-200 bg-white shadow-lg hidden z-50" data-overflow-menu role="menu">
+            <form method="post" action="{{ url_for('mail.flag_message', account_id=account.id, message_id=message[0]) }}" class="message-action" data-action="flag">
+              <input type="hidden" name="action" value="{{ 'remove' if is_flagged else 'add' }}" />
+              <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ 'Unstar' if is_flagged else 'Star' }}</button>
+            </form>
+            <form method="post" action="{{ url_for('mail.mark_message', account_id=account.id, message_id=message[0]) }}" class="message-action" data-action="mark">
+              <input type="hidden" name="action" value="{{ 'read' if is_unread else 'unread' }}" />
+              <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ 'Mark as read' if is_unread else 'Mark as unread' }}</button>
+            </form>
+            <button type="button" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-to-folder role="menuitem">Move to folder</button>
+            {% if spam_action_enabled %}
+            <form method="post" action="{{ url_for('mail.junk_message', account_id=account.id, message_id=message[0]) }}" class="message-action" data-action="junk">
+              <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">Report spam</button>
+            </form>
+            {% endif %}
+            <div class="border-t border-slate-100 my-1"></div>
+            <a class="block text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.download_message', account_id=account.id, message_id=message[0]) }}" role="menuitem">Download .eml</a>
+            <a class="block text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.print_message', account_id=account.id, message_id=message[0]) }}" target="_blank" role="menuitem">Print</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divide-y divide-slate-100">
+    {% for tm in thread_messages %}
+    <div class="thread-msg" data-thread-msg-id="{{ tm.id }}">
+      <div class="px-5 py-3 flex items-center justify-between gap-3 cursor-pointer select-none transition-colors duration-150 {% if tm.is_bounce %}bg-red-50/60{% elif tm.is_draft %}bg-amber-50/60{% elif tm.is_current %}bg-slate-50/80{% elif tm.is_sent %}hover:bg-indigo-50/60{% else %}hover:bg-slate-50/80{% endif %}" data-thread-header data-thread-expanded="{{ 'true' if tm.is_current else 'false' }}">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="flex-shrink-0 w-8 h-8 rounded-full {% if tm.is_bounce %}bg-red-100 text-red-600{% elif tm.is_draft %}bg-amber-100 text-amber-600{% elif tm.is_sent %}bg-indigo-100 text-indigo-600{% else %}bg-slate-200 text-slate-600{% endif %} flex items-center justify-center text-xs font-semibold overflow-hidden">
+            {% if tm.is_bounce %}<svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>{% elif tm.is_draft %}<svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"/></svg>{% elif tm.is_sent %}You{% else %}{{ tm.sender_display[:1] | upper }}{% endif %}
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 text-sm flex-wrap">
+              {% if tm.is_bounce %}
+              <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">Delivery failed</span>
+              <span class="font-medium text-red-700 truncate" title="{{ tm.sender_tooltip }}">{{ tm.sender_display }}</span>
+              {% elif tm.is_draft %}
+              <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Draft</span>
+              <span class="font-medium text-amber-700">You</span>
+              {% if tm.recipients_display %}
+              <svg class="w-3 h-3 text-amber-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
+              <span class="text-slate-500 truncate cursor-pointer hover:underline" {% if tm.recipients_email %}data-copy-email="{{ tm.recipients_email }}" title="Click to copy {{ tm.recipients_email }}"{% endif %}>{{ tm.recipients_display }}</span>
+              {% endif %}
+              {% if tm.cc %}<span class="text-xs text-slate-400 hidden sm:inline"><span class="text-slate-300">&middot;</span> cc {{ tm.cc }}</span>{% endif %}
+              {% elif tm.is_sent %}
+              <span class="font-medium text-indigo-700 cursor-pointer hover:underline" data-copy-email="{{ account.email_address }}" title="Click to copy {{ account.email_address }}">You</span>
+              <span class="text-[11px] text-slate-400 truncate max-w-[180px]">&lt;{{ account.email_address }}&gt;</span>
+              {% if tm.recipients_display %}
+              <svg class="w-3 h-3 text-indigo-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
+              <span class="text-slate-500 truncate cursor-pointer hover:underline" {% if tm.recipients_email %}data-copy-email="{{ tm.recipients_email }}" title="Click to copy {{ tm.recipients_email }}"{% endif %}>{{ tm.recipients_display }}</span>
+              {% endif %}
+              {% if tm.cc %}<span class="text-xs text-slate-400 hidden sm:inline"><span class="text-slate-300">&middot;</span> cc {{ tm.cc }}</span>{% endif %}
+              {% else %}
+              <span class="font-medium text-slate-900 truncate cursor-pointer hover:underline" data-copy-email="{% if tm.sender_email %}{{ tm.sender_email }}{% elif tm.sender_tooltip %}{{ tm.sender_tooltip }}{% else %}{{ tm.sender_display }}{% endif %}" title="{% if tm.sender_email %}Click to copy {{ tm.sender_email }}{% elif tm.sender_tooltip %}{{ tm.sender_tooltip }}{% else %}{{ tm.sender_display }}{% endif %}">{{ tm.sender_display }}</span>
+              {% if tm.sender_email %}
+              <span class="text-[11px] text-slate-400 truncate max-w-[180px]">&lt;{{ tm.sender_email }}&gt;</span>
+              {% endif %}
+              <span class="text-xs text-slate-400 hidden sm:inline">to {{ tm.recipients }}{% if tm.cc %} <span class="text-slate-300">&middot;</span> cc {{ tm.cc }}{% endif %}</span>
+              {% endif %}
+              <span class="text-slate-300 hidden sm:inline">&middot;</span>
+              <span class="text-xs text-slate-400 whitespace-nowrap">{{ tm.date_display }}</span>
+              {% if tm.is_unread and not tm.is_current %}
+              <span class="inline-block w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+              {% endif %}
+              {% if tm.has_attachments %}
+              <svg class="w-3 h-3 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              {% endif %}
+            </div>
+            {% if not tm.is_current %}
+            <div class="text-xs text-slate-500 line-clamp-1 mt-0.5" data-thread-snippet>{{ tm.snippet | striptags }}</div>
+            {% endif %}
+          </div>
+        </div>
+        {% if not tm.is_current %}
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+          {% if tm.is_draft %}
+          <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=tm.uid) }}" class="text-[10px] px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition" data-no-row-nav>Edit</a>
+          <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=tm.uid) }}" class="thread-draft-discard message-action" data-action="discard-draft" data-no-row-nav data-thread-draft>
+            <button class="text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
+          </form>
+          {% endif %}
+          <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 flex-shrink-0" data-expand-icon viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+        </div>
+        {% elif tm.is_draft and not is_draft %}
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+          <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=tm.uid) }}" class="text-[10px] px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition">Edit</a>
+          <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=tm.uid) }}" class="thread-draft-discard message-action" data-action="discard-draft" data-thread-draft>
+            <button class="text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="{% if not tm.is_current %}hidden{% endif %}" data-thread-body>
+        <div class="px-5 pb-5">
+          {% if tm.is_bounce and tm.bounce_reason %}
+          <div class="mb-3 rounded-xl border border-red-200/80 bg-gradient-to-r from-red-50/60 to-white shadow-sm overflow-hidden">
+            <div class="flex items-start gap-3 px-4 py-3 border-l-4 border-red-400">
+              <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center mt-0.5">
+                <svg class="w-5 h-5 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-semibold text-red-800">Delivery failed</div>
+                <div class="text-xs text-red-600/80 mt-1 break-words">{{ tm.bounce_reason }}</div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+          {% if tm.is_current and not allow_images %}
+          <div class="text-xs text-slate-500 mb-3">
+            External images blocked. <a class="text-slate-900 underline decoration-slate-300" href="{{ url_for('mail.message_view', account_id=account.id, message_id=message[0], show_images=1) }}">Show external images</a>
+          </div>
+          {% endif %}
+          {% if tm.is_current and ics_attachments %}
+          {% for ics in ics_attachments %}
+          <div class="mb-3 rounded-xl border border-blue-200/80 bg-gradient-to-r from-blue-50/60 to-white shadow-sm overflow-hidden" data-ics-card data-ical-text="{{ ics.ical_text | e }}">
+            <div class="flex items-start gap-3 px-4 py-3 border-l-4 border-blue-500">
+              <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center mt-0.5">
+                <svg class="w-5 h-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-semibold text-slate-900 truncate">{{ ics.parsed.summary or '(no title)' }}</div>
+                <div class="text-xs text-slate-600 mt-0.5 space-y-0.5">
+                  {% if ics.formatted_date %}
+                  <div class="font-medium text-slate-700">{{ ics.formatted_date }}</div>
+                  {% endif %}
+                  {% if ics.parsed.location %}
+                  <div>{{ ics.parsed.location }}</div>
+                  {% endif %}
+                  {% if ics.parsed.organizer %}
+                  <div>Organizer: {{ ics.parsed.organizer.get('cn', ics.parsed.organizer.get('email', '')) }}</div>
+                  {% endif %}
+                  {% if ics.parsed.attendees %}
+                  <div class="truncate">{{ ics.parsed.attendees | length }} attendee(s): {{ ics.parsed.attendees | map(attribute='cn') | join(', ') }}</div>
+                  {% endif %}
+                </div>
+                <div class="mt-2 flex items-center gap-2" data-ics-actions>
+                  <select data-ics-calendar-select class="text-[11px] rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-600 shadow-sm">
+                    <option value="">Loading calendars...</option>
+                  </select>
+                  <div data-ics-buttons data-method="{{ ics.parsed.get('method', '') | upper }}" data-status="{{ ics.parsed.get('status', 'CONFIRMED') | upper }}" class="flex items-center gap-1.5">
+                    <span class="text-xs text-slate-400">Loading...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+          {% endif %}
+          <iframe class="thread-msg-body w-full border border-slate-200/80 rounded-xl bg-white shadow-sm" sandbox="allow-scripts allow-popups allow-same-origin" referrerpolicy="no-referrer"></iframe>
+          {% if tm.is_current and attachments %}
+          <div class="mt-3 rounded-xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm" data-attachments-section>
+            <div class="text-sm font-semibold text-slate-900 mb-2">Attachments</div>
+            <ul class="text-sm text-slate-600 space-y-1.5">
+              {% for attachment in attachments %}
+              <li class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span class="truncate flex-1" title="{{ attachment.filename }}">{{ attachment.filename }}</span>
+                <div class="flex items-center gap-1 flex-shrink-0">
+                  {% set att_actions = attachment_actions.get(attachment.filename, {}) %}
+                  {% if att_actions.get("view") %}
+                  <a href="{{ url_for('mail.view_attachment', account_id=account.id, message_id=message[0], index=attachment.index) }}" target="_blank" title="View" class="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition" data-no-row-nav>
+                    <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/><path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/></svg>
+                  </a>
+                  {% endif %}
+                  <a href="{{ url_for('mail.download_attachment', account_id=account.id, message_id=message[0], index=attachment.index) }}" title="Download" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition" data-no-row-nav>
+                    <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"/><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"/></svg>
+                  </a>
+                  {% if att_actions.get("open_in_docs") %}
+                  <button type="button" title="Open in Docs" class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition" data-open-in-docs data-account-id="{{ account.id }}" data-message-id="{{ message[0] }}" data-attachment-index="{{ attachment.index }}" data-filename="{{ attachment.filename }}" data-no-row-nav>
+                    <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M3.5 2A1.5 1.5 0 002 3.5V5c0 1.1.9 2 2 2h12a2 2 0 002-2V3.5A1.5 1.5 0 0016.5 2h-13zM4 8.5a.5.5 0 01.5-.5h11a.5.5 0 01.5.5v8a.5.5 0 01-.5.5h-11a.5.5 0 01-.5-.5v-8z"/></svg>
+                  </button>
+                  {% endif %}
+                </div>
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% elif not tm.is_current and tm.attachment_names %}
+          <div class="mt-3 rounded-xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
+            <div class="text-sm font-semibold text-slate-900 mb-2">Attachments</div>
+            <ul class="text-sm text-slate-600 space-y-1">
+              {% for filename in tm.attachment_names %}
+              <li><a class="text-slate-900 underline decoration-slate-300" href="{{ url_for('mail.message_view', account_id=account.id, message_id=tm.id) }}">{{ filename }}</a></li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+          {% if not tm.is_current %}
+          <div class="mt-3 text-center">
+            <a class="text-[11px] text-slate-400 hover:text-slate-600 transition" href="{{ url_for('mail.message_view', account_id=account.id, message_id=tm.id) }}">View full message</a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="fixed inset-0 z-50 hidden" data-folder-picker-backdrop>
+  <div class="absolute inset-0 bg-black/30" data-folder-picker-close></div>
+  <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-sm pointer-events-auto overflow-hidden">
+      <div class="px-4 py-3 border-b border-slate-200/80">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-semibold text-slate-900">Move to folder</span>
+          <button type="button" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100" data-folder-picker-close aria-label="Close">&times;</button>
+        </div>
+        <input type="text" placeholder="Filter folders..." class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" data-folder-filter />
+      </div>
+      <div class="max-h-60 overflow-y-auto px-2 py-1" data-folder-list>
+        {% for folder in move_folders %}
+        <button type="button" class="w-full text-left text-sm px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 truncate" data-folder-name="{{ folder }}">{{ folder }}</button>
+        {% endfor %}
+        {% if not move_folders %}
+        <div class="px-3 py-4 text-center text-sm text-slate-400">No other folders available</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var threadBodies = {};
+  var lrBaseOrigin = window.location.origin + "/";
+  {% for tm in thread_messages %}
+  threadBodies[{{ tm.id }}] = {{ tm.body_html | tojson }}.replace('<base target="_blank"', '<base href="' + lrBaseOrigin + '" target="_blank"');
+  {% endfor %}
+
+  function lrResizeIframe(iframe) {
+    try {
+      var doc = iframe.contentDocument;
+      if (doc && doc.body) {
+        iframe.style.height = Math.max(100, doc.documentElement.scrollHeight + 16) + "px";
+      }
+    } catch (e) {}
+  }
+
+  window.addEventListener("message", function (e) {
+    if (e.data && e.data.lrIframeHeight) {
+      var frames = document.querySelectorAll(".thread-msg-body");
+      for (var i = 0; i < frames.length; i++) {
+        try {
+          if (frames[i].contentWindow === e.source) {
+            frames[i].style.height = Math.max(100, e.data.lrIframeHeight + 16) + "px";
+            return;
+          }
+        } catch (ex) {}
+      }
+    }
+  });
+
+  document.querySelectorAll(".thread-msg").forEach(function (msgEl) {
+    var msgId = parseInt(msgEl.getAttribute("data-thread-msg-id"));
+    var bodyHtml = threadBodies[msgId];
+    var iframe = msgEl.querySelector(".thread-msg-body");
+    var isExpanded = !msgEl.querySelector("[data-thread-body]").classList.contains("hidden");
+    if (iframe && bodyHtml && isExpanded) {
+      iframe.srcdoc = bodyHtml;
+      iframe.addEventListener("load", function () {
+        lrResizeIframe(iframe);
+        setTimeout(function () { lrResizeIframe(iframe); }, 300);
+      });
+    }
+  });
+
+  document.querySelectorAll("[data-thread-header]").forEach(function (header) {
+    if (header.getAttribute("data-thread-expanded") === "true") return;
+    header.addEventListener("click", function (e) {
+      if (e.target.closest("[data-no-row-nav]")) return;
+      var msg = header.closest(".thread-msg");
+      var msgId = parseInt(msg.getAttribute("data-thread-msg-id"));
+      var body = msg.querySelector("[data-thread-body]");
+      var snippet = header.querySelector("[data-thread-snippet]");
+      var icon = header.querySelector("[data-expand-icon]");
+      var isHidden = body.classList.contains("hidden");
+      if (isHidden) {
+        body.classList.remove("hidden");
+        if (snippet) snippet.classList.add("hidden");
+        if (icon) icon.style.transform = "rotate(180deg)";
+        header.classList.add("bg-slate-50/80");
+        var iframe = msg.querySelector(".thread-msg-body");
+        if (iframe && threadBodies[msgId] && !iframe.srcdoc) {
+          iframe.srcdoc = threadBodies[msgId];
+          iframe.addEventListener("load", function () {
+            lrResizeIframe(iframe);
+            setTimeout(function () { lrResizeIframe(iframe); }, 300);
+          });
+        } else if (iframe) {
+          setTimeout(function () { lrResizeIframe(iframe); }, 50);
+        }
+      } else {
+        body.classList.add("hidden");
+        if (snippet) snippet.classList.remove("hidden");
+        if (icon) icon.style.transform = "";
+        header.classList.remove("bg-slate-50/80");
+      }
+    });
+  });
+
+  var overflowBtn = document.querySelector("[data-overflow-toggle]");
+  var overflowMenu = document.querySelector("[data-overflow-menu]");
+
+  if (overflowBtn && overflowMenu) {
+    overflowBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var isOpen = !overflowMenu.classList.contains("hidden");
+      overflowMenu.classList.toggle("hidden");
+      overflowBtn.setAttribute("aria-expanded", !isOpen);
+    });
+    document.addEventListener("click", function (e) {
+      if (!overflowMenu.contains(e.target)) {
+        overflowMenu.classList.add("hidden");
+        overflowBtn.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
+
+  var moveBtn = document.querySelector("[data-move-to-folder]");
+  var pickerBackdrop = document.querySelector("[data-folder-picker-backdrop]");
+  var pickerFilter = document.querySelector("[data-folder-filter]");
+  var folderListEl = document.querySelector("[data-folder-list]");
+
+  function openPicker() {
+    if (overflowMenu) overflowMenu.classList.add("hidden");
+    if (pickerBackdrop) {
+      pickerBackdrop.classList.remove("hidden");
+      if (pickerFilter) {
+        pickerFilter.value = "";
+        var btns = folderListEl.querySelectorAll("[data-folder-name]");
+        for (var i = 0; i < btns.length; i++) btns[i].style.display = "";
+        pickerFilter.focus();
+      }
+    }
+  }
+  function closePicker() {
+    if (pickerBackdrop) pickerBackdrop.classList.add("hidden");
+  }
+
+  if (moveBtn) moveBtn.addEventListener("click", openPicker);
+  var closeBtns = document.querySelectorAll("[data-folder-picker-close]");
+  for (var i = 0; i < closeBtns.length; i++) closeBtns[i].addEventListener("click", closePicker);
+
+  if (pickerFilter && folderListEl) {
+    pickerFilter.addEventListener("input", function () {
+      var q = pickerFilter.value.toLowerCase();
+      var btns = folderListEl.querySelectorAll("[data-folder-name]");
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].style.display = btns[i].getAttribute("data-folder-name").toLowerCase().indexOf(q) >= 0 ? "" : "none";
+      }
+    });
+  }
+
+  if (folderListEl) {
+    folderListEl.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-folder-name]");
+      if (!btn) return;
+      var folder = btn.getAttribute("data-folder-name");
+      var form = document.createElement("form");
+      form.method = "post";
+      form.action = "{{ url_for('mail.move_message_route', account_id=account.id, message_id=message[0]) }}";
+      var inp = document.createElement("input");
+      inp.type = "hidden";
+      inp.name = "dest";
+      inp.value = folder;
+      form.appendChild(inp);
+      var btnEl = btn;
+      window.LR.setButtonLoading(btnEl);
+      document.body.appendChild(form);
+      var fd = new FormData(form);
+      fetch(form.action, { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.ok || data.status === "ok") {
+            var url = "{{ url_for('mail.folder_view', account_id=account.id, folder=current_folder) }}";
+            var sep = url.indexOf("?") >= 0 ? "&" : "?";
+            window.location.href = url + sep + "undo_token=" + (data.undo_token || "");
+          } else {
+            window.LR.notifyError(data.error || "Move failed. Please try again.");
+            window.LR.clearButtonLoading(btnEl);
+            closePicker();
+          }
+        })
+        .catch(function () {
+          window.LR.notifyError("Network error. Please check your connection and try again.");
+          window.LR.clearButtonLoading(btnEl);
+        });
+    });
+  }
+
+  var folderUrl = "{{ url_for('mail.folder_view', account_id=account.id, folder=current_folder) }}";
+
+  document.querySelectorAll(".message-action").forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var btn = form.querySelector('button[type="submit"]');
+      if (btn) window.LR.setButtonLoading(btn);
+      var fd = new FormData(form);
+      fetch(form.getAttribute("action"), { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var ok = data.ok || data.status === "ok";
+          if (!ok) {
+            window.LR.notifyError(data.error || "Action failed. Please try again.");
+            if (btn) window.LR.clearButtonLoading(btn);
+            return;
+          }
+          var action = form.getAttribute("data-action");
+          if (action === "discard-draft" && form.hasAttribute("data-thread-draft")) {
+            var msgEl = form.closest(".thread-msg");
+            if (msgEl) {
+              msgEl.style.transition = "opacity 0.2s ease-out";
+              msgEl.style.opacity = "0";
+              setTimeout(function () { msgEl.remove(); }, 200);
+            }
+            if (btn) window.LR.clearButtonLoading(btn);
+            window.LR.notifySuccess("Draft discarded.");
+          } else if (action === "archive" || action === "delete" || action === "junk" || action === "discard-draft") {
+            var sep = folderUrl.indexOf("?") >= 0 ? "&" : "?";
+            window.location.href = folderUrl + sep + "undo_token=" + (data.undo_token || "");
+          } else {
+            if (overflowMenu) overflowMenu.classList.add("hidden");
+            if (btn) {
+              if (action === "flag") {
+                btn.textContent = data.is_flagged ? "Unstar" : "Star";
+                var hidden = form.querySelector('input[name="action"]');
+                if (hidden) hidden.value = data.is_flagged ? "remove" : "add";
+              } else if (action === "mark") {
+                btn.textContent = data.is_unread ? "Mark as read" : "Mark as unread";
+                var hidden = form.querySelector('input[name="action"]');
+                if (hidden) hidden.value = data.is_unread ? "read" : "unread";
+              }
+            }
+            if (btn) window.LR.clearButtonLoading(btn);
+          }
+        })
+        .catch(function () {
+          window.LR.notifyError("Network error. Please check your connection and try again.");
+          if (btn) window.LR.clearButtonLoading(btn);
+        });
+    });
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      closePicker();
+      if (overflowMenu) {
+        overflowMenu.classList.add("hidden");
+        if (overflowBtn) overflowBtn.setAttribute("aria-expanded", "false");
+      }
+    }
+  });
+
+  var createEventBtn = document.getElementById("create-event-btn");
+  if (createEventBtn) createEventBtn.classList.remove("hidden");
+
+  var icsCards = document.querySelectorAll("[data-ics-card]");
+  if (icsCards.length > 0) {
+    var calendarsLoaded = fetch("/app/calendar/api/calendars", { headers: { "X-Requested-With": "XMLHttpRequest" } })
+      .then(function (r) { return r.json(); })
+      .catch(function () { return []; });
+
+    function loadCalendarsForIcs(calendars) {
+      icsCards.forEach(function (card) {
+        var select = card.querySelector("[data-ics-calendar-select]");
+        var buttonsEl = card.querySelector("[data-ics-buttons]");
+        if (!select || !buttonsEl) return;
+
+        var calendarId = "";
+        if (calendars.length === 1) {
+          calendarId = String(calendars[0].id);
+          select.style.display = "none";
+        } else {
+          var opts = '<option value="">Select calendar</option>';
+          calendars.forEach(function (c) {
+            opts += '<option value="' + c.id + '">' + c.displayname + '</option>';
+          });
+          select.innerHTML = opts;
+        }
+
+        var icalText = card.getAttribute("data-ical-text");
+        fetch("/app/calendar/api/ics-parse", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+          body: JSON.stringify({ ical_text: icalText }),
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (parsed) {
+            buttonsEl.innerHTML = "";
+            if (parsed.error) {
+              buttonsEl.innerHTML = '<span class="text-xs text-slate-400">Could not parse invite</span>';
+              return;
+            }
+
+            var method = (parsed.method || "").toUpperCase();
+            var isCancelled = method === "CANCEL";
+
+            if (isCancelled) {
+              if (parsed.already_imported) {
+                buttonsEl.innerHTML =
+                  '<span class="text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-2 py-0.5">Event cancelled</span>' +
+                  '<button type="button" data-ics-cancel class="text-[11px] px-2.5 py-1.5 rounded-lg border border-rose-200 bg-white text-rose-700 hover:bg-rose-50 transition">Remove from calendar</button>';
+                var cancelBtn = buttonsEl.querySelector("[data-ics-cancel]");
+                if (cancelBtn) cancelBtn.addEventListener("click", function () {
+                  window.LR.setButtonLoading(cancelBtn);
+                  fetch("/app/calendar/api/ics-cancel", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+                    body: JSON.stringify({ ical_text: icalText }),
+                  }).then(function (r) { return r.json(); }).then(function (d) {
+                    if (d.status === "ok") {
+                      buttonsEl.innerHTML = '<span class="text-xs text-slate-500">Event removed from calendar.</span>';
+                    } else {
+                      window.LR.notifyError(d.error || "Failed to handle cancellation.");
+                      window.LR.clearButtonLoading(cancelBtn);
+                    }
+                  }).catch(function () { window.LR.notifyError("Network error."); window.LR.clearButtonLoading(cancelBtn); });
+                });
+              } else {
+                buttonsEl.innerHTML = '<span class="text-xs text-slate-400">This event has been cancelled</span>';
+              }
+              select.style.display = "none";
+              return;
+            }
+
+            if (parsed.already_imported && parsed.existing_event_id) {
+              if (parsed.is_invitation && parsed.existing_my_partstat) {
+                showRsvpStatus(parsed.existing_my_partstat, String(parsed.existing_calendar_id || ""), parsed.existing_event_id);
+              } else {
+                buttonsEl.innerHTML =
+                  '<span class="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">Already in calendar</span>' +
+                  '<a href="/app/calendar/events/' + parsed.existing_event_id + '" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">View in calendar</a>';
+              }
+              select.style.display = "none";
+              return;
+            }
+
+
+            var isInvitation = parsed.is_invitation;
+            var isPublish = parsed.is_publish || !method;
+
+            function getSelectedCalendarId() {
+              return calendars.length === 1 ? calendarId : select.value;
+            }
+
+            if (isInvitation) {
+              buttonsEl.innerHTML =
+                '<button type="button" data-ics-action="ACCEPTED" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">Accept</button>' +
+                '<button type="button" data-ics-action="TENTATIVE" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">Tentative</button>' +
+                '<button type="button" data-ics-action="DECLINED" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">Decline</button>';
+
+              buttonsEl.querySelectorAll("[data-ics-action]").forEach(function (btn) {
+                btn.addEventListener("click", function () {
+                  var calId = getSelectedCalendarId();
+                  if (!calId) { if (select.style.display !== "none") select.focus(); return; }
+                  var partstat = btn.getAttribute("data-ics-action");
+                  var start = parsed.dtstart;
+                  var end = parsed.dtend || start;
+                  if (start && end && partstat !== "DECLINED") {
+                    fetch("/app/calendar/api/conflicts?start=" + encodeURIComponent(start) + "&end=" + encodeURIComponent(end), {
+                      headers: { "X-Requested-With": "XMLHttpRequest" },
+                    }).then(function (r) { return r.json(); }).then(function (conflicts) {
+                      if (conflicts.length > 0) {
+                        var names = conflicts.map(function (c) { return c.summary || "Untitled"; }).join(", ");
+                        var proceed = confirm("This event conflicts with: " + names + ". Proceed anyway?");
+                        if (!proceed) return;
+                      }
+                      doRsvp(calId, partstat);
+                    }).catch(function () { doRsvp(calId, partstat); });
+                  } else {
+                    doRsvp(calId, partstat);
+                  }
+                });
+              });
+            } else {
+              buttonsEl.innerHTML =
+                '<button type="button" data-ics-import class="text-[11px] px-2.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition">Add to calendar</button>';
+              var importBtn = buttonsEl.querySelector("[data-ics-import]");
+              if (importBtn) importBtn.addEventListener("click", function () {
+                var calId = getSelectedCalendarId();
+                if (!calId) { if (select.style.display !== "none") select.focus(); return; }
+                window.LR.setButtonLoading(importBtn);
+                fetch("/app/calendar/api/ics-import", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+                  body: JSON.stringify({
+                    ical_text: icalText,
+                    calendar_id: parseInt(calId),
+                    source_email_message_id: {{ message[0] }},
+                    source_email_account_id: {{ account.id }},
+                  }),
+                }).then(function (r) { return r.json(); }).then(function (d) {
+                  if (d.status === "ok") {
+                    buttonsEl.innerHTML =
+                      '<span class="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">Added to calendar</span>' +
+                      '<a href="' + (d.calendar_event_url || '/app/calendar/') + '" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 transition">View in calendar</a>';
+                    select.style.display = "none";
+                  } else {
+                    window.LR.notifyError(d.error || "Failed to import event.");
+                    window.LR.clearButtonLoading(importBtn);
+                  }
+                }).catch(function () { window.LR.notifyError("Network error."); window.LR.clearButtonLoading(importBtn); });
+              });
+            }
+
+            function doRsvp(calId, partstat) {
+              var actionBtns = buttonsEl.querySelectorAll("[data-ics-action]");
+              actionBtns.forEach(function (b) { b.disabled = true; });
+              var activeBtn = buttonsEl.querySelector('[data-ics-action="' + partstat + '"]');
+              if (activeBtn) window.LR.setButtonLoading(activeBtn);
+              fetch("/app/calendar/api/ics-rsvp", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+                body: JSON.stringify({
+                  ical_text: icalText,
+                  calendar_id: parseInt(calId),
+                  partstat: partstat,
+                  source_email_message_id: {{ message[0] }},
+                  source_email_account_id: {{ account.id }},
+                }),
+              }).then(function (r) { return r.json(); }).then(function (d) {
+                if (d.status === "ok") {
+                  showRsvpStatus(partstat, calId, d.event_id);
+                } else {
+                  window.LR.notifyError(d.error || "Failed to respond.");
+                  actionBtns.forEach(function (b) { b.disabled = false; window.LR.clearButtonLoading(b); });
+                }
+              }).catch(function () {
+                window.LR.notifyError("Network error.");
+                actionBtns.forEach(function (b) { b.disabled = false; window.LR.clearButtonLoading(b); });
+              });
+            }
+
+            function showRsvpStatus(partstat, calId, eventId) {
+              var label = partstat === "ACCEPTED" ? "Accepted" : partstat === "TENTATIVE" ? "Tentative" : "Declined";
+              var color = partstat === "ACCEPTED" ? "green" : partstat === "TENTATIVE" ? "amber" : "rose";
+              var alternatives = [];
+              if (partstat !== "ACCEPTED") alternatives.push('<button type="button" data-ics-action="ACCEPTED" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">Accept</button>');
+              if (partstat !== "TENTATIVE") alternatives.push('<button type="button" data-ics-action="TENTATIVE" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">Tentative</button>');
+              if (partstat !== "DECLINED") alternatives.push('<button type="button" data-ics-action="DECLINED" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">Decline</button>');
+              buttonsEl.innerHTML =
+                '<span class="text-xs font-medium text-' + color + '-700 bg-' + color + '-50 border border-' + color + '-200 rounded-full px-2 py-0.5">' + label + '</span>' +
+                '<a href="/app/calendar/events/' + (eventId || '') + '" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 transition">View in calendar</a>' +
+                alternatives.join("");
+              buttonsEl.querySelectorAll("[data-ics-action]").forEach(function (btn) {
+                btn.addEventListener("click", function () {
+                  var newPartstat = btn.getAttribute("data-ics-action");
+                  doRsvp(calId, newPartstat);
+                });
+              });
+            }
+          })
+          .catch(function () {
+            buttonsEl.innerHTML = '<span class="text-xs text-slate-400">Could not load invite details</span>';
+          });
+      });
+    }
+    calendarsLoaded.then(function (calendars) {
+      loadCalendarsForIcs(calendars || []);
+    });
+  }
+  document.querySelectorAll("[data-copy-email]").forEach(function (el) {
+    el.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var email = el.getAttribute("data-copy-email");
+      if (!email) return;
+      navigator.clipboard.writeText(email).then(function () {
+        el.classList.add("text-green-600");
+        var orig = el.textContent;
+        el.textContent = "Copied!";
+        setTimeout(function () {
+          el.textContent = orig;
+          el.classList.remove("text-green-600");
+        }, 1200);
+      }).catch(function () {
+        window.LR.notifyError("Could not copy email address.");
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-open-in-docs]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var accountId = btn.getAttribute("data-account-id");
+      var messageId = btn.getAttribute("data-message-id");
+      var index = btn.getAttribute("data-attachment-index");
+      var filename = btn.getAttribute("data-filename");
+      var origHTML = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<svg class="w-4 h-4 animate-spin" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a7 7 0 017 7h-3a4 4 0 00-4-4V3z"/></svg>';
+      var downloadUrl = "/app/mail/message/" + accountId + "/" + messageId + "/attachment/" + index;
+      fetch(downloadUrl).then(function (r) {
+        if (!r.ok) throw new Error("Failed to download attachment");
+        return r.blob();
+      }).then(function (blob) {
+        var fd = new FormData();
+        fd.append("file", blob, filename);
+        return fetch("/app/docs/upload", {
+          method: "POST",
+          body: fd,
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+        });
+      }).then(function (r) {
+        if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || "Upload failed"); });
+        return r.json();
+      }).then(function (data) {
+        if (data.editor_url) {
+          window.open(data.editor_url, "_blank");
+        } else if (data.doc_id) {
+          window.open("/app/docs/" + data.doc_id + "/edit", "_blank");
+        }
+        btn.disabled = false;
+        btn.innerHTML = origHTML;
+      }).catch(function (err) {
+        btn.disabled = false;
+        btn.innerHTML = origHTML;
+        window.LR.notifyError("Could not open in Docs: " + err.message);
+      });
+    });
+  });
+})();
+</script>
+{% endblock %}

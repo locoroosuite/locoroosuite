@@ -1,0 +1,37 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="max-w-md mx-auto bg-white/90 border border-slate-200/80 rounded-2xl p-6 shadow-sm">
+  <div class="mb-6 text-center">
+    <div class="mx-auto h-14 w-14 rounded-2xl bg-slate-900 text-white text-lg font-bold grid place-items-center mb-4">LR</div>
+    <h1 class="text-xl font-semibold text-slate-900">Welcome to LocoRooSuite</h1>
+    <p class="text-sm text-slate-500 mt-1">Create your admin account to get started</p>
+  </div>
+  {% if errors %}
+  <div class="mb-4 space-y-1">
+    {% for error in errors %}
+    <div class="text-sm text-red-600">{{ error }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <form method="post" action="{{ url_for('auth.setup') }}" class="space-y-3">
+    <div>
+      <label class="block text-sm font-medium">Admin email</label>
+      <input name="email" type="email" value="{{ email|default('') }}" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" required />
+    </div>
+    <div>
+      <label class="block text-sm font-medium">Password</label>
+      <input name="password" type="password" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" required />
+    </div>
+    <div>
+      <label class="block text-sm font-medium">Confirm password</label>
+      <input name="password_confirm" type="password" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" required />
+    </div>
+    <div>
+      <label class="block text-sm font-medium">Email domain</label>
+      <input name="domain" type="text" value="{{ domain|default('test.localhost') }}" placeholder="test.localhost" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+      <p class="mt-1 text-xs text-slate-400">The domain for email addresses. Use <code class="text-slate-500">test.localhost</code> for local development.</p>
+    </div>
+    <button class="w-full bg-slate-900 text-white rounded-lg py-2 text-sm">Create admin</button>
+  </form>
+</div>
+{% endblock %}

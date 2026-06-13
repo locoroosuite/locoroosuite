@@ -1,0 +1,146 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: locoroomail-dev
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+      - "8001:8001"
+    env_file: .env
+    environment:
+      - COLLABORA_URL=http://collabora:9980
+      - COLLABORA_INTERNAL_URL=http://collabora:9980
+      - COLLABORA_PUBLIC_URL=http://localhost:9980
+      - WOPI_HOST_URL=http://app:5001
+      - MAIL_API_URL=http://mail-api:8800
+      - MAIL_API_KEY=${MAIL_API_KEY:-dev-mail-api-secret}
+      - SERVER_NAME=${SERVER_NAME:-}
+      - FLASK_BACKEND_URL=http://localhost:5001
+      - NGROK_URL=${NGROK_URL:-}
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      mail-api:
+        condition: service_healthy
+      dovecot:
+        condition: service_started
+      postfix:
+        condition: service_started
+    networks:
+      - locoroomail-dev
+
+  mail-api:
+    build:
+      context: ./mail-api
+      dockerfile: Dockerfile
+    container_name: locoroomail-mail-api
+    restart: unless-stopped
+    ports:
+      - "8800:8800"
+    environment:
+      - MAIL_API_SETTINGS=/app/settings.cfg
+      - MAIL_API_KEY=${MAIL_API_KEY:-dev-mail-api-secret}
+    volumes:
+      - dovecot-users:/var/lib/dovecot-users
+      - maildata:/var/mail/vhosts
+      - postfix-config:/etc/postfix
+      - opendkim-keys:/etc/opendkim/keys
+      - opendkim-config:/etc/opendkim
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8800/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      - dovecot
+      - postfix
+    networks:
+      - locoroomail-dev
+
+  dovecot:
+    build:
+      context: ./dev-infra/dovecot
+      dockerfile: Dockerfile
+    container_name: locoroomail-dovecot
+    restart: unless-stopped
+    ports:
+      - "143:143"
+      - "993:993"
+    volumes:
+      - dovecot-users:/var/lib/dovecot-users
+      - maildata:/var/mail/vhosts
+      - postfix-spool:/var/spool/postfix
+    networks:
+      - locoroomail-dev
+
+  postfix:
+    build:
+      context: ./dev-infra/postfix
+      dockerfile: Dockerfile
+    container_name: locoroomail-postfix
+    restart: unless-stopped
+    ports:
+      - "25:25"
+      - "587:587"
+    volumes:
+      - postfix-config:/etc/postfix
+      - postfix-spool:/var/spool/postfix
+    depends_on:
+      - dovecot
+      - opendkim
+    networks:
+      - locoroomail-dev
+
+  opendkim:
+    build:
+      context: ./dev-infra/opendkim
+      dockerfile: Dockerfile
+    container_name: locoroomail-opendkim
+    restart: unless-stopped
+    volumes:
+      - opendkim-keys:/etc/opendkim/keys
+      - opendkim-config:/etc/opendkim
+    networks:
+      - locoroomail-dev
+
+  collabora:
+    image: collabora/code:latest
+    container_name: locoroomail-collabora
+    restart: unless-stopped
+    environment:
+      - aliasgroup1=http://app:5001
+      - extra_params=--o:ssl.enable=false --o:ssl.termination=false --o:net.frame_ancestors=http://localhost:5001 --o:welcome.enable=false --o:ui.about.enabled=false --o:productbranding.logoLink=http://localhost:5001/app/docs/
+    cap_add:
+      - MKNOD
+    expose:
+      - "9980"
+    ports:
+      - "9980:9980"
+    networks:
+      - locoroomail-dev
+
+  radicale:
+    image: tomsquest/docker-radicale:latest
+    container_name: locoroomail-radicale
+    restart: unless-stopped
+    ports:
+      - "5232:5232"
+    volumes:
+      - ./data/radicale:/data
+    networks:
+      - locoroomail-dev
+
+volumes:
+  dovecot-users:
+  postfix-config:
+  postfix-spool:
+  maildata:
+  opendkim-keys:
+  opendkim-config:
+
+networks:
+  locoroomail-dev:
+    driver: bridge

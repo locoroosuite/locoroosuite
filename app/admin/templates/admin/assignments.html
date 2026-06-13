@@ -1,0 +1,44 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+<section class="bg-white border border-slate-200 rounded-lg p-5">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-xl font-semibold">Assignments</h1>
+      <p class="text-sm text-slate-500">See which managers own each domain and adjust assignments.</p>
+    </div>
+  </div>
+  <div class="border border-slate-200 rounded-lg divide-y text-sm text-slate-700">
+    {% for link, manager, domain in assignments %}
+    <div class="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <div class="font-medium">{{ domain.name }}</div>
+        <div class="text-xs text-slate-500">{{ manager.email }}</div>
+      </div>
+      <form method="post" action="{{ url_for('admin.unassign_manager', domain_id=domain.id, manager_id=manager.id) }}">
+        <button class="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">Remove</button>
+      </form>
+    </div>
+    {% endfor %}
+    {% if assignments|length == 0 %}
+    <div class="px-3 py-3 text-xs text-slate-500">No manager assignments yet.</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-lg p-5">
+  <h2 class="text-lg font-semibold mb-3">Assign manager</h2>
+  <form method="post" action="{{ url_for('admin.assign_manager') }}" class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+    <select name="manager_id" class="border rounded px-2 py-1">
+      {% for manager in managers %}
+      <option value="{{ manager.id }}">{{ manager.email }}</option>
+      {% endfor %}
+    </select>
+    <select name="domain_id" class="border rounded px-2 py-1">
+      {% for domain in domains %}
+      <option value="{{ domain.id }}">{{ domain.name }}</option>
+      {% endfor %}
+    </select>
+    <button class="bg-slate-900 text-white rounded px-3">Assign</button>
+  </form>
+</section>
+{% endblock %}

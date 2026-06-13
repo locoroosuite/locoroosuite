@@ -1,0 +1,59 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+{% if show_setup_banner and domains %}
+<div id="setup-banner" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+  <div class="flex items-start gap-3">
+    <div class="flex-1">
+      <h2 class="text-sm font-semibold text-blue-900 mb-1">Your environment is ready</h2>
+      <p class="text-sm text-blue-800">
+        We configured the domain <strong>{{ domains[0].name }}</strong> with admin
+        <strong>{{ setup_admin_email }}</strong>, plus Calendar, Contacts, and Docs services.
+        To get started, <a href="{{ url_for('admin.customers') }}" class="underline font-medium hover:text-blue-600">create your first customer</a>.
+      </p>
+    </div>
+    <button type="button" id="dismiss-setup-banner"
+            class="flex-shrink-0 rounded-lg p-1 text-blue-400 hover:text-blue-600 hover:bg-blue-100 transition-colors">
+      <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+    </button>
+  </div>
+</div>
+<script>
+(function(){
+  var btn = document.getElementById('dismiss-setup-banner');
+  var banner = document.getElementById('setup-banner');
+  if (!btn || !banner) return;
+  btn.addEventListener('click', function(){
+    fetch('{{ url_for("admin.dismiss_setup_banner") }}', {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}})
+      .then(function(){ banner.remove(); })
+      .catch(function(){ banner.remove(); });
+  });
+})();
+</script>
+{% endif %}
+<section class="bg-white border border-slate-200 rounded-lg p-5">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-xl font-semibold">Overview</h1>
+      <p class="text-sm text-slate-500">Quick snapshot of the current environment.</p>
+    </div>
+  </div>
+  <div class="grid gap-3 sm:grid-cols-3">
+    <div class="border border-slate-200 rounded-lg p-3">
+      <div class="text-xs uppercase tracking-wide text-slate-500">Domains</div>
+      <div class="text-2xl font-semibold">{{ domains|length }}</div>
+    </div>
+    <div class="border border-slate-200 rounded-lg p-3">
+      <div class="text-xs uppercase tracking-wide text-slate-500">Managers</div>
+      <div class="text-2xl font-semibold">{{ managers|length }}</div>
+    </div>
+    <div class="border border-slate-200 rounded-lg p-3">
+      <div class="text-xs uppercase tracking-wide text-slate-500">Customers</div>
+      <div class="text-2xl font-semibold">{{ customers|length }}</div>
+    </div>
+    <div class="border border-slate-200 rounded-lg p-3">
+      <div class="text-xs uppercase tracking-wide text-slate-500">Imports</div>
+      <div class="text-2xl font-semibold">{{ import_requests|length }}</div>
+    </div>
+  </div>
+</section>
+{% endblock %}

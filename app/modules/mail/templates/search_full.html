@@ -1,0 +1,237 @@
+{% extends "layout.html" %}
+{% block content %}
+<h1 class="text-lg font-semibold mb-3 text-slate-900">Full search results for "{{ query }}"</h1>
+<div id="search-results" class="bg-white/90 border border-slate-200/80 rounded-2xl divide-y divide-slate-200/70 shadow-sm">
+  {% for row in results %}
+  {% if row.message_id %}
+  <div class="message-row group relative px-4 py-2.5 text-sm cursor-pointer {{ 'bg-amber-100/70 hover:bg-amber-100' if row.is_unread else 'hover:bg-slate-50/80' }} transition-all duration-200" data-message-id="{{ row.message_id }}" data-account-id="{{ account_id }}" data-message-url="{{ url_for('mail.message_view', account_id=account_id, message_id=row.message_id) }}" data-is-unread="{{ '1' if row.is_unread else '0' }}" data-is-flagged="{{ '1' if row.is_flagged else '0' }}">
+    <div class="flex items-start gap-2">
+      <form method="post" action="{{ url_for('mail.flag_message', account_id=account_id, message_id=row.message_id) }}" class="message-action flex-shrink-0 pt-0.5" data-action="flag" data-no-row-nav>
+        <input type="hidden" name="action" value="{{ 'remove' if row.is_flagged else 'add' }}" />
+        <button type="submit" class="p-0.5 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400" data-star-toggle aria-label="{{ 'Unstar' if row.is_flagged else 'Star' }}">
+          <svg class="w-[18px] h-[18px] transition-colors {{ 'text-amber-400' if row.is_flagged else 'text-slate-300 hover:text-amber-400' }}" data-star-icon viewBox="0 0 24 24" fill="{{ 'currentColor' if row.is_flagged else 'none' }}" stroke="currentColor" stroke-width="{{ '1' if row.is_flagged else '1.5' }}">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+        </button>
+      </form>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between gap-3 text-[13px]">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="truncate {{ 'font-bold text-slate-950' if row.is_unread else 'text-slate-700' }}" title="{{ row.subject }}">{{ row.subject }}</span>
+          </div>
+          <div class="flex items-center gap-2 text-[11px] text-slate-500 min-w-0 max-w-[45%] justify-end">
+            <span class="truncate" title="{{ row.from }}">{{ row.from }}</span>
+            <span class="text-slate-300">&middot;</span>
+            <span class="whitespace-nowrap text-slate-400">{{ row.date_display or row.date }}</span>
+            <span class="text-slate-300">&middot;</span>
+            <span class="truncate text-slate-400">{{ row.folder }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="absolute inset-y-0 right-0 flex items-center justify-end gap-1 pl-12 pr-3 bg-gradient-to-l from-white/90 via-white/70 to-transparent opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition z-20" data-message-actions="true">
+      <form method="post" action="{{ url_for('mail.archive_message', account_id=account_id, message_id=row.message_id) }}" class="message-action" data-action="archive" data-no-row-nav>
+        <button class="text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300">Archive</button>
+      </form>
+      <form method="post" action="{{ url_for('mail.delete_message', account_id=account_id, message_id=row.message_id) }}" class="message-action" data-action="delete" data-no-row-nav>
+        <button class="text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300">Delete</button>
+      </form>
+      <div class="relative">
+        <button type="button" class="text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300" data-overflow-toggle data-no-row-nav aria-label="More actions">&#8943;</button>
+        <div class="absolute right-0 py-1 min-w-[160px] rounded-lg border border-slate-200 bg-white shadow-lg hidden z-50" data-overflow-menu>
+          <form method="post" action="{{ url_for('mail.mark_message', account_id=account_id, message_id=row.message_id) }}" class="message-action" data-action="mark" data-no-row-nav>
+            <input type="hidden" name="action" value="{{ 'read' if row.is_unread else 'unread' }}" />
+            <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">{{ 'Mark as read' if row.is_unread else 'Mark as unread' }}</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="px-4 py-2.5 text-sm hover:bg-slate-50/80 transition-colors duration-200">
+    <div class="flex items-center justify-between gap-3 text-[13px]">
+      <span class="truncate text-slate-700" title="{{ row.subject }}">{{ row.subject }}</span>
+      <div class="flex items-center gap-2 text-[11px] text-slate-500 min-w-0 max-w-[55%] justify-end">
+        <span class="truncate" title="{{ row.from }}">{{ row.from }}</span>
+        <span class="text-slate-300">&middot;</span>
+        <span class="whitespace-nowrap text-slate-400">{{ row.date_display or row.date }}</span>
+        <span class="text-slate-300">&middot;</span>
+        <span class="truncate text-slate-400">{{ row.folder }}</span>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="p-8 text-center text-sm text-slate-500">
+    <p class="font-medium text-slate-700 mb-1">No messages found</p>
+    <p>Try different keywords or check your spelling.</p>
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+(function () {
+  var container = document.getElementById('search-results');
+  if (!container) return;
+
+  container.addEventListener('click', function (e) {
+    var overflowToggle = e.target.closest('[data-overflow-toggle]');
+    if (overflowToggle) {
+      e.preventDefault();
+      e.stopPropagation();
+      var row = overflowToggle.closest('.message-row');
+      if (!row) return;
+      var menu = row.querySelector('[data-overflow-menu]');
+      if (!menu) return;
+      var wasHidden = menu.classList.contains('hidden');
+      container.querySelectorAll('[data-overflow-menu]').forEach(function (m) { m.classList.add('hidden'); });
+      if (wasHidden) {
+        menu.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (e.target.closest('[data-no-row-nav]')) return;
+
+    var row = e.target.closest('.message-row');
+    if (!row) return;
+    var url = row.dataset.messageUrl;
+    if (!url) return;
+
+    if (e.metaKey || e.ctrlKey) {
+      window.open(url, '_blank');
+    } else {
+      window.location.href = url;
+    }
+  });
+
+  container.addEventListener('submit', function (e) {
+    var form = e.target.closest('form.message-action');
+    if (!form) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var row = form.closest('.message-row');
+    var action = form.dataset.action || '';
+    var fd = new FormData(form);
+    var btn = form.querySelector('button[type="submit"]') || form.querySelector('button');
+    var isFlagAction = action === 'flag';
+
+    if (isFlagAction && btn) {
+      var starIcon = btn.querySelector('[data-star-icon]');
+      if (starIcon) starIcon.classList.add('hidden');
+      var spinner = document.createElement('span');
+      spinner.className = 'lr-spinner inline-block w-[18px] h-[18px] border-2 border-slate-400 border-r-transparent rounded-full animate-spin';
+      spinner.dataset.starSpinner = '1';
+      btn.appendChild(spinner);
+      btn.disabled = true;
+    } else if (btn) {
+      window.LR.setButtonLoading(btn);
+    }
+
+    fetch(form.getAttribute('action'), {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      body: fd,
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || data.error) {
+          window.LR.notifyError(data && data.error ? data.error : 'Action failed. Please try again.');
+          return;
+        }
+        if (action === 'flag') {
+          updateFlagUI(row, data.is_flagged);
+          return;
+        }
+        if (action === 'mark') {
+          updateUnreadUI(row, data.is_unread);
+          return;
+        }
+        if (action === 'archive' || action === 'delete' || action === 'junk') {
+          row.classList.add('opacity-0', 'translate-x-2');
+          row.style.maxHeight = row.offsetHeight + 'px';
+          row.style.overflow = 'hidden';
+          requestAnimationFrame(function () {
+            row.style.maxHeight = '0px';
+            row.style.paddingTop = '0px';
+            row.style.paddingBottom = '0px';
+          });
+          setTimeout(function () { row.remove(); checkEmpty(); }, 220);
+          return;
+        }
+      })
+      .catch(function () {
+        window.LR.notifyError('Network error. Please check your connection and try again.');
+      })
+      .finally(function () {
+        if (isFlagAction && btn) {
+          var sp = btn.querySelector('[data-star-spinner]');
+          if (sp) sp.remove();
+          var si = btn.querySelector('[data-star-icon]');
+          if (si) si.classList.remove('hidden');
+          btn.disabled = false;
+        } else if (btn) {
+          window.LR.clearButtonLoading(btn);
+        }
+      });
+  });
+
+  function updateFlagUI(row, isFlagged) {
+    row.dataset.isFlagged = isFlagged ? '1' : '0';
+    var icon = row.querySelector('[data-star-icon]');
+    if (icon) {
+      icon.setAttribute('fill', isFlagged ? 'currentColor' : 'none');
+      icon.setAttribute('stroke-width', isFlagged ? '1' : '1.5');
+      icon.classList.toggle('text-amber-400', isFlagged);
+      icon.classList.toggle('text-slate-300', !isFlagged);
+      icon.classList.toggle('hover:text-amber-400', !isFlagged);
+    }
+    var toggle = row.querySelector('[data-star-toggle]');
+    if (toggle) toggle.setAttribute('aria-label', isFlagged ? 'Unstar' : 'Star');
+    var form = row.querySelector('form[data-action="flag"]');
+    if (form) {
+      var input = form.querySelector('input[name="action"]');
+      if (input) input.value = isFlagged ? 'remove' : 'add';
+    }
+  }
+
+  function updateUnreadUI(row, isUnread) {
+    row.dataset.isUnread = isUnread ? '1' : '0';
+    if (isUnread) {
+      row.classList.remove('hover:bg-slate-50/80');
+      row.classList.add('bg-amber-100/70', 'hover:bg-amber-100');
+    } else {
+      row.classList.remove('bg-amber-100/70', 'hover:bg-amber-100');
+      row.classList.add('hover:bg-slate-50/80');
+    }
+    var subject = row.querySelector('[data-subject]');
+    if (subject) {
+      subject.classList.toggle('font-bold', isUnread);
+      subject.classList.toggle('text-slate-950', isUnread);
+      subject.classList.toggle('text-slate-700', !isUnread);
+    }
+    var form = row.querySelector('form[data-action="mark"]');
+    if (form) {
+      var input = form.querySelector('input[name="action"]');
+      if (input) input.value = isUnread ? 'read' : 'unread';
+      var b = form.querySelector('button');
+      if (b) b.textContent = isUnread ? 'Mark as read' : 'Mark as unread';
+    }
+  }
+
+  function checkEmpty() {
+    if (!container.querySelector('.message-row') && !container.querySelector('.text-slate-500')) {
+      var empty = document.createElement('div');
+      empty.className = 'p-8 text-center text-sm text-slate-500';
+      empty.innerHTML = '<p class="font-medium text-slate-700 mb-1">No messages found</p><p>Try different keywords or check your spelling.</p>';
+      container.appendChild(empty);
+    }
+  }
+
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('[data-overflow-toggle]') || e.target.closest('[data-overflow-menu]')) return;
+    container.querySelectorAll('[data-overflow-menu]').forEach(function (m) { m.classList.add('hidden'); });
+  });
+})();
+</script>
+{% endblock %}

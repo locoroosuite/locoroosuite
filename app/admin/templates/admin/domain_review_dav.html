@@ -1,0 +1,74 @@
+{% extends "admin/domain_review_base.html" %}
+
+{% block review_content %}
+<form id="dav-form" class="grid gap-6">
+  <div class="grid gap-2 sm:grid-cols-3">
+    <h2 class="text-sm font-semibold text-slate-700 sm:col-span-3">CalDAV</h2>
+    <label class="text-xs font-semibold text-slate-600">
+      CalDAV host
+      <input name="caldav_host" value="{{ domain.caldav_host or '' }}" class="mt-1 w-full border rounded px-2 py-1" placeholder="e.g. localhost" />
+    </label>
+    <label class="text-xs font-semibold text-slate-600">
+      CalDAV port
+      <input name="caldav_port" value="{{ domain.caldav_port or '' }}" class="mt-1 w-full border rounded px-2 py-1" placeholder="5232" />
+    </label>
+    <label class="text-xs font-semibold text-slate-600 flex items-center gap-2 mt-5">
+      <input type="checkbox" name="caldav_use_tls" value="1" {{ 'checked' if domain.caldav_use_tls else '' }} />
+      Use TLS
+    </label>
+  </div>
+  <div class="grid gap-2 sm:grid-cols-3">
+    <h2 class="text-sm font-semibold text-slate-700 sm:col-span-3">CardDAV</h2>
+    <label class="text-xs font-semibold text-slate-600">
+      CardDAV host
+      <input name="carddav_host" value="{{ domain.carddav_host or '' }}" class="mt-1 w-full border rounded px-2 py-1" placeholder="e.g. localhost" />
+    </label>
+    <label class="text-xs font-semibold text-slate-600">
+      CardDAV port
+      <input name="carddav_port" value="{{ domain.carddav_port or '' }}" class="mt-1 w-full border rounded px-2 py-1" placeholder="5232" />
+    </label>
+    <label class="text-xs font-semibold text-slate-600 flex items-center gap-2 mt-5">
+      <input type="checkbox" name="carddav_use_tls" value="1" {{ 'checked' if domain.carddav_use_tls else '' }} />
+      Use TLS
+    </label>
+  </div>
+  <div class="flex items-center gap-3">
+    <button type="submit" id="btn-save-dav" class="inline-flex items-center gap-1.5 bg-slate-900 text-white rounded px-4 py-2 text-sm hover:bg-slate-800 disabled:opacity-50">
+      <svg class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+      Save contacts &amp; calendar settings
+    </button>
+    <span id="dav-save-result" class="text-xs"></span>
+  </div>
+</form>
+<script>
+(function() {
+  var domainId = {{ domain.id }};
+  function el(id) { return document.getElementById(id); }
+  function btnState(btn, loading) {
+    btn.disabled = loading;
+    var svg = btn.querySelector('svg');
+    if (svg) svg.classList.toggle('hidden', !loading);
+  }
+  el('dav-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var btn = el('btn-save-dav');
+    var result = el('dav-save-result');
+    btnState(btn, true);
+    result.textContent = '';
+    result.className = 'text-xs';
+    var fd = new FormData(el('dav-form'));
+    fetch('/admin/domains/' + domainId + '/dav-config', { method: 'POST', body: fd })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      result.textContent = data.ok ? 'Contacts & calendar settings saved.' : (data.error || 'Failed to save.');
+      result.className = 'text-xs ' + (data.ok ? 'text-emerald-600' : 'text-red-600');
+    })
+    .catch(function(e) {
+      result.textContent = 'Request failed: ' + e.message;
+      result.className = 'text-xs text-red-600';
+    })
+    .finally(function() { btnState(btn, false); });
+  });
+})();
+</script>
+{% endblock %}

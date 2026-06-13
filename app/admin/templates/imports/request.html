@@ -1,0 +1,270 @@
+{% extends "layout.html" %}
+{% block content %}
+{% if import_request %}
+<section class="mx-auto max-w-3xl space-y-6">
+  <div class="rounded-2xl border border-slate-200 bg-white/90 shadow-sm px-6 py-6">
+    <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+      <div>
+        <div class="text-xs uppercase tracking-[0.24em] text-slate-500">Mailbox Import</div>
+        <h1 class="mt-2 text-2xl font-semibold text-slate-900">{{ 'Google Takeout to IMAP import' if import_request.source_type == 'google_takeout' else 'Google to IMAP import' }}</h1>
+        <p class="mt-2 text-sm text-slate-600">
+          {% if import_request.source_type == 'google_takeout' %}
+          This link uploads a Google Takeout MBOX file into the destination IMAP mailbox configured by your administrator. Uploads are chunked for large files and the import remains append-only on the destination mailbox.
+          {% else %}
+          This link imports mail from a Gmail or Google Workspace account into the destination IMAP mailbox configured by your administrator. The import is read-only on Google and append-only on the destination mailbox.
+          {% endif %}
+        </p>
+      </div>
+      <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        <div class="text-xs uppercase tracking-wide text-slate-500">Status</div>
+        <div class="mt-1 font-medium">{{ import_request.status|replace('_', ' ')|title }}</div>
+        <div class="mt-1 text-xs text-slate-500">Expires {{ import_request.expires_at.strftime('%Y-%m-%d %H:%M UTC') if import_request.expires_at else '—' }}</div>
+      </div>
+    </div>
+  </div>
+
+  {% if page_error %}
+  <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ page_error }}</div>
+  {% endif %}
+  {% if page_notice %}
+  <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ page_notice }}</div>
+  {% endif %}
+
+  <div class="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
+    <section class="rounded-2xl border border-slate-200 bg-white/90 shadow-sm px-6 py-6 space-y-5">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900">What will be imported</h2>
+        <div class="mt-3 grid gap-3 sm:grid-cols-2 text-sm text-slate-700">
+          <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div class="text-xs uppercase tracking-wide text-slate-500">Source</div>
+            <div class="mt-1 font-medium">{{ 'Google Takeout' if import_request.source_type == 'google_takeout' else 'Google' }}</div>
+            <div class="mt-1 text-xs text-slate-500">
+              {% if import_request.source_type == 'google_takeout' %}
+              {% if import_request.upload_status == 'consumed' %}
+              {{ import_request.upload_filename or 'Previous MBOX import completed.' }} · upload consumed
+              {% else %}
+              {{ import_request.upload_filename or 'Select a Google Takeout MBOX file to continue.' }}
+              {% endif %}
+              {% else %}
+              {{ import_request.source_account_email or 'Connect your Google account to continue.' }}
+              {% endif %}
+            </div>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div class="text-xs uppercase tracking-wide text-slate-500">Destination</div>
+            <div class="mt-1 font-medium">{{ import_request.destination_email }}</div>
+            <div class="mt-1 text-xs text-slate-500">{{ import_request.destination_imap_host }}:{{ import_request.destination_imap_port }} · {{ 'TLS' if import_request.destination_imap_tls else 'No TLS' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700">
+        <div class="font-medium text-slate-900">Scope and safety</div>
+        <ul class="mt-2 space-y-1 text-sm text-slate-600">
+          <li>Imports Inbox, Sent, Drafts, and Archive.</li>
+          <li>Skips Spam and Trash.</li>
+          <li>Preserves read/unread and starred state when the destination server supports it.</li>
+          <li>Second and later runs only add mail that has not already been imported by this link.</li>
+          <li>No messages are deleted from either side.</li>
+          {% if import_request.source_type == 'google_takeout' %}
+          <li>Only MBOX files are accepted for the Takeout path in this MVP.</li>
+          {% endif %}
+        </ul>
+      </div>
+
+      <div class="flex flex-wrap gap-3">
+        {% if import_request.source_type == 'google_takeout' %}
+        <div class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+          <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div class="text-sm font-medium text-slate-900">Upload Google Takeout MBOX</div>
+              <div class="mt-1 text-xs text-slate-500">Large uploads are sent in chunks. You can refresh and resume the same file later.</div>
+            </div>
+            <div class="text-xs text-slate-500" id="takeout-upload-meta">
+              {% if import_request.upload_status == 'consumed' %}
+              Previous upload completed. Select a new file to upload again.
+              {% elif upload_state.filename %}
+              {{ upload_state.filename }} · {{ upload_state.uploaded_bytes }} / {{ upload_state.total_bytes }} bytes
+              {% else %}
+              No file uploaded yet.
+              {% endif %}
+            </div>
+          </div>
+          <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <input id="takeout-file" type="file" accept=".mbox" class="block w-full text-sm text-slate-700" />
+            <button id="takeout-upload-button" type="button" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white">Upload MBOX</button>
+          </div>
+          <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+            <div id="takeout-upload-bar" class="h-full rounded-full bg-sky-600 transition-all duration-200" style="width: {% if import_request.upload_status == 'consumed' %}100{% elif upload_state.total_bytes %}{{ (100 * upload_state.uploaded_bytes / upload_state.total_bytes) }}{% else %}0{% endif %}%;"></div>
+          </div>
+          <div id="takeout-upload-label" class="mt-2 text-xs text-slate-500">
+            {% if import_request.upload_status == 'consumed' %}
+            The previous upload was imported successfully. Upload a new MBOX file to import another Takeout export.
+            {% elif upload_state.total_bytes %}
+            Uploaded {{ upload_state.uploaded_bytes }} of {{ upload_state.total_bytes }} bytes.
+            {% else %}
+            Choose an MBOX file to begin.
+            {% endif %}
+          </div>
+        </div>
+        {% elif not google_ready %}
+        <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Google import is not configured on this server yet.</div>
+        {% elif not import_request.encrypted_source_refresh_token %}
+        <form method="post" action="{{ url_for('imports.start_google_oauth', token=token) }}">
+          <button class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white">Connect Google</button>
+        </form>
+        {% endif %}
+
+        {% if import_request.source_type == 'google_takeout' %}
+        <form method="post" action="{{ url_for('imports.run_request', token=token) }}">
+          <button class="rounded-xl {{ 'bg-slate-300 text-slate-600' if import_request.status in ('queued', 'running') else 'bg-sky-600 text-white' }} px-4 py-2 text-sm font-medium" {% if import_request.status in ('queued', 'running') or upload_state.upload_status != 'uploaded' %}disabled{% endif %}>
+            {{ 'Import in progress' if import_request.status in ('queued', 'running') else 'Start Import' }}
+          </button>
+        </form>
+        {% elif import_request.encrypted_source_refresh_token %}
+        <form method="post" action="{{ url_for('imports.run_request', token=token) }}">
+          <button class="rounded-xl {{ 'bg-slate-300 text-slate-600' if import_request.status in ('queued', 'running') else 'bg-sky-600 text-white' }} px-4 py-2 text-sm font-medium" {% if import_request.status in ('queued', 'running') %}disabled{% endif %}>
+            {{ 'Import in progress' if import_request.status in ('queued', 'running') else 'Import New Mail' }}
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </section>
+
+    <aside class="rounded-2xl border border-slate-200 bg-white/90 shadow-sm px-6 py-6 space-y-4">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900">Progress</h2>
+        <p class="mt-1 text-sm text-slate-500">Only counts and sanitized errors are shown here.</p>
+      </div>
+      <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+        <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <div class="text-xs uppercase tracking-wide text-slate-500">Seen</div>
+          <div class="mt-1 text-2xl font-semibold text-slate-900">{{ import_request.total_seen_count }}</div>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <div class="text-xs uppercase tracking-wide text-slate-500">Imported</div>
+          <div class="mt-1 text-2xl font-semibold text-slate-900">{{ import_request.total_imported_count }}</div>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <div class="text-xs uppercase tracking-wide text-slate-500">Skipped</div>
+          <div class="mt-1 text-2xl font-semibold text-slate-900">{{ import_request.total_skipped_count }}</div>
+        </div>
+      </div>
+      {% if latest_run and folder_counts %}
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <div class="text-xs uppercase tracking-wide text-slate-500">Folders</div>
+        <div class="mt-2 space-y-1 text-sm text-slate-700">
+          {% for folder_name, count in folder_counts|dictsort %}
+          <div class="flex items-center justify-between">
+            <span>{{ folder_name }}</span>
+            <span>{{ count }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% if latest_run and latest_run.last_error %}
+      <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+        {{ latest_run.last_error }}
+      </div>
+      {% elif import_request.last_error %}
+      <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+        {{ import_request.last_error }}
+      </div>
+      {% endif %}
+      {% if latest_run %}
+      <div class="text-xs text-slate-500">
+        Last run:
+        {{ latest_run.started_at.strftime('%Y-%m-%d %H:%M UTC') if latest_run.started_at else '—' }}
+        {% if latest_run.finished_at %}
+        to {{ latest_run.finished_at.strftime('%Y-%m-%d %H:%M UTC') }}
+        {% endif %}
+      </div>
+      {% endif %}
+    </aside>
+  </div>
+</section>
+{% if import_request.status in ('queued', 'running') %}
+<script>
+  window.setTimeout(() => window.location.reload(), 8000);
+</script>
+{% endif %}
+{% if import_request.source_type == 'google_takeout' %}
+<script>
+  (() => {
+    const fileInput = document.getElementById('takeout-file');
+    const button = document.getElementById('takeout-upload-button');
+    const bar = document.getElementById('takeout-upload-bar');
+    const label = document.getElementById('takeout-upload-label');
+    const meta = document.getElementById('takeout-upload-meta');
+    if (!fileInput || !button || !bar || !label || !meta) return;
+
+    const token = {{ token|tojson }};
+    const initUrl = {{ url_for('imports.init_takeout_upload', token=token)|tojson }};
+    const chunkUrl = {{ url_for('imports.upload_takeout_chunk', token=token)|tojson }};
+    const chunkSize = 8 * 1024 * 1024;
+
+    const setProgress = (sent, total, text) => {
+      const percent = total > 0 ? Math.min(100, Math.round((sent / total) * 100)) : 0;
+      bar.style.width = `${percent}%`;
+      label.textContent = text || `Uploaded ${sent} of ${total} bytes.`;
+      meta.textContent = total > 0 ? `${sent} / ${total} bytes` : 'No file uploaded yet.';
+    };
+
+    button.addEventListener('click', async () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) {
+        window.LR.notifyError('Select an MBOX file before uploading.');
+        return;
+      }
+      if (!file.name.toLowerCase().endsWith('.mbox')) {
+        window.LR.notifyError('Only MBOX files are supported for Google Takeout imports.');
+        return;
+      }
+      window.LR.setButtonLoading(button);
+      try {
+        const initData = new FormData();
+        initData.append('filename', file.name);
+        initData.append('total_size', String(file.size));
+        const initResponse = await fetch(initUrl, { method: 'POST', body: initData, credentials: 'same-origin' });
+        const initPayload = await initResponse.json();
+        if (!initResponse.ok || !initPayload.ok) {
+          throw new Error(initPayload.error || 'Upload could not be started.');
+        }
+        let offset = Number(initPayload.uploaded_bytes || 0);
+        setProgress(offset, file.size, `Uploaded ${offset} of ${file.size} bytes.`);
+        while (offset < file.size) {
+          const nextOffset = Math.min(offset + chunkSize, file.size);
+          const chunk = file.slice(offset, nextOffset);
+          const formData = new FormData();
+          formData.append('filename', file.name);
+          formData.append('total_size', String(file.size));
+          formData.append('offset', String(offset));
+          formData.append('is_last', nextOffset >= file.size ? '1' : '0');
+          formData.append('chunk', chunk, file.name);
+          const response = await fetch(chunkUrl, { method: 'POST', body: formData, credentials: 'same-origin' });
+          const payload = await response.json();
+          if (!response.ok || !payload.ok) {
+            throw new Error(payload.error || 'Upload failed.');
+          }
+          offset = Number(payload.uploaded_bytes || nextOffset);
+          setProgress(offset, file.size, payload.complete ? 'Upload complete. Start the import when ready.' : `Uploaded ${offset} of ${file.size} bytes.`);
+        }
+        window.location.reload();
+      } catch (error) {
+        window.LR.notifyError(error.message || 'Upload failed.');
+      } finally {
+        window.LR.clearButtonLoading(button);
+      }
+    });
+  })();
+</script>
+{% endif %}
+{% else %}
+<section class="mx-auto max-w-xl">
+  <div class="rounded-2xl border border-rose-200 bg-white px-6 py-6 text-sm text-rose-800 shadow-sm">
+    {{ page_error or 'Import link is invalid.' }}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

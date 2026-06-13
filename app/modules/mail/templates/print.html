@@ -1,0 +1,12 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Print</title>
+</head>
+<body>
+  <h1>{{ message[3] }}</h1>
+  <p>From {{ message[4] }} &middot; To {{ message[5] }}{% if cc_display %} &middot; Cc {{ cc_display }}{% endif %}</p>
+  <pre>{{ message[8] }}</pre>
+</body>
+</html>

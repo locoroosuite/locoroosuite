@@ -1,0 +1,307 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <div class="mb-6">
+    <a href="{{ url_for('calendar.index') }}" class="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900">
+      <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd"/></svg>
+      Back to calendar
+    </a>
+  </div>
+
+  <div class="rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
+    <div class="px-6 py-5 border-b border-slate-100">
+      <h1 class="text-xl font-semibold text-slate-900">{{ 'Edit Event' if event and event.id else 'New Event' }}</h1>
+    </div>
+
+    {% if errors.get('_server') %}
+    <div class="mx-6 mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+      {{ errors._server }}
+    </div>
+    {% endif %}
+
+    <form method="post" class="px-6 py-5 space-y-5">
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">Title <span class="text-rose-500">*</span></label>
+        <input name="summary" type="text" value="{{ event.summary if event else '' }}" class="w-full rounded-lg border {{ 'border-rose-300 ring-2 ring-rose-100' if errors.summary else 'border-slate-200' }} bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+        {% if errors.summary %}<p class="mt-1 text-xs text-rose-600">{{ errors.summary }}</p>{% endif %}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">Calendar <span class="text-rose-500">*</span></label>
+        <select name="calendar_id" class="w-full rounded-lg border {{ 'border-rose-300' if errors.calendar_id else 'border-slate-200' }} bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">
+          {% for cal in calendars %}
+          <option value="{{ cal.id }}" {{ 'selected' if (event and event.calendar_id == cal.id) or (not event and default_calendar_id == cal.id|string) }}>{{ cal.displayname }}</option>
+          {% endfor %}
+        </select>
+        {% if errors.calendar_id %}<p class="mt-1 text-xs text-rose-600">{{ errors.calendar_id }}</p>{% endif %}
+      </div>
+
+      <div class="flex items-center gap-3 mb-2">
+        <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+          <input type="checkbox" name="all_day" value="1" {{ 'checked' if event and event.all_day else '' }} class="rounded border-slate-300" />
+          All day
+        </label>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Start <span class="text-rose-500">*</span></label>
+          <div class="flex gap-2">
+            <input id="dtstart-date" name="dtstart_date" type="date" value="{{ dtstart_date | default('') }}" class="flex-1 min-w-0 rounded-lg border {{ 'border-rose-300 ring-2 ring-rose-100' if errors.dtstart else 'border-slate-200' }} bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+            <select id="dtstart-time" name="dtstart_time" class="time-select w-28 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">
+              {% for t in time_options %}
+              <option value="{{ t }}" {{ 'selected' if t == dtstart_time }}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% if errors.dtstart %}<p class="mt-1 text-xs text-rose-600">{{ errors.dtstart }}</p>{% endif %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">End</label>
+          <div class="flex gap-2">
+            <input id="dtend-date" name="dtend_date" type="date" value="{{ dtend_date | default('') }}" class="flex-1 min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+            <select id="dtend-time" name="dtend_time" class="time-select w-28 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">
+              {% for t in time_options %}
+              <option value="{{ t }}" {{ 'selected' if t == dtend_time }}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div id="tz-section" class="hidden">
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">Timezone</label>
+        <select name="timezone" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">
+          {% for tz in timezone_options %}
+          <option value="{{ tz }}" {{ 'selected' if tz == selected_timezone }}>{{ tz }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="button" id="tz-toggle" class="text-xs text-slate-400 hover:text-slate-600 focus:outline-none">{{ selected_timezone if selected_timezone else 'Timezone' }}</button>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">Location</label>
+        <input name="location" type="text" value="{{ (event.location or '') if event else '' }}" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
+        <textarea name="description" rows="3" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">{{ (event.description or '') if event else '' }}</textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">Attendees</label>
+        <input type="hidden" name="attendees" id="attendees-hidden" value="{{ attendees_json | default('[]') }}" />
+        <div class="relative">
+          <div class="w-full rounded-lg border {{ 'border-rose-300 ring-2 ring-rose-100' if errors.attendees else 'border-slate-200' }} bg-white px-2 py-1.5 text-sm shadow-sm focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-slate-200 min-h-[38px] flex flex-wrap items-center gap-1.5 cursor-text" data-chips-container="attendees">
+            <input type="text" class="flex-1 min-w-[140px] border-0 bg-transparent p-0.5 text-sm outline-none focus:ring-0 placeholder:text-slate-400" placeholder="Type a name or email…" data-chip-input autocomplete="off" />
+          </div>
+          <div class="hidden absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-lg border border-slate-200 shadow-lg max-h-56 overflow-y-auto" data-dropdown="attendees"></div>
+        </div>
+        {% if errors.attendees %}<p class="mt-1 text-xs text-rose-600">{{ errors.attendees }}</p>{% endif %}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">Repeat (RRULE)</label>
+        <select name="rrule" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">
+          <option value="" {{ 'selected' if not event or not event.rrule }}>Does not repeat</option>
+          <option value="FREQ=DAILY" {{ 'selected' if event and event.rrule == 'FREQ=DAILY' }}>Daily</option>
+          <option value="FREQ=WEEKLY" {{ 'selected' if event and event.rrule == 'FREQ=WEEKLY' }}>Weekly</option>
+          <option value="FREQ=WEEKLY;INTERVAL=2" {{ 'selected' if event and event.rrule == 'FREQ=WEEKLY;INTERVAL=2' }}>Biweekly</option>
+          <option value="FREQ=MONTHLY" {{ 'selected' if event and event.rrule == 'FREQ=MONTHLY' }}>Monthly</option>
+          <option value="FREQ=YEARLY" {{ 'selected' if event and event.rrule == 'FREQ=YEARLY' }}>Yearly</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">Reminder</label>
+        <select name="reminder_trigger" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">
+          <option value="" {{ 'selected' if not event or not event.reminders }}>No reminder</option>
+          <option value="-PT0M" {{ 'selected' if event and event.reminders and event.reminders[0].trigger_val == '-PT0M' }}>At time of event</option>
+          <option value="-PT5M" {{ 'selected' if event and event.reminders and event.reminders[0].trigger_val == '-PT5M' }}>5 minutes before</option>
+          <option value="-PT15M" {{ 'selected' if event and event.reminders and event.reminders[0].trigger_val == '-PT15M' }}>15 minutes before</option>
+          <option value="-PT30M" {{ 'selected' if event and event.reminders and event.reminders[0].trigger_val == '-PT30M' }}>30 minutes before</option>
+          <option value="-PT1H" {{ 'selected' if event and event.reminders and event.reminders[0].trigger_val == '-PT1H' }}>1 hour before</option>
+          <option value="-PT2H" {{ 'selected' if event and event.reminders and event.reminders[0].trigger_val == '-PT2H' }}>2 hours before</option>
+          <option value="-P1D" {{ 'selected' if event and event.reminders and event.reminders[0].trigger_val == '-P1D' }}>1 day before</option>
+        </select>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Status</label>
+          <select name="status" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">
+            <option value="CONFIRMED" {{ 'selected' if not event or event.status == 'CONFIRMED' }}>Confirmed</option>
+            <option value="TENTATIVE" {{ 'selected' if event and event.status == 'TENTATIVE' }}>Tentative</option>
+            <option value="CANCELLED" {{ 'selected' if event and event.status == 'CANCELLED' }}>Cancelled</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Visibility</label>
+          <select name="class_" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">
+            <option value="PUBLIC" {{ 'selected' if not event or event.class == 'PUBLIC' }}>Public</option>
+            <option value="PRIVATE" {{ 'selected' if event and event.class == 'PRIVATE' }}>Private</option>
+            <option value="CONFIDENTIAL" {{ 'selected' if event and event.class == 'CONFIDENTIAL' }}>Confidential</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800">{{ 'Save Changes' if event and event.id else 'Create Event' }}</button>
+        {% if event and event.id %}
+        <a href="{{ url_for('calendar.event_detail', event_id=event.id) }}" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50">Cancel</a>
+        {% else %}
+        <a href="{{ url_for('calendar.index') }}" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50">Cancel</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/recipient-chips.js') }}"></script>
+<script>
+(function () {
+  var allDayCheckbox = document.querySelector('input[name="all_day"]');
+  var timeSelects = document.querySelectorAll('.time-select');
+  var dtstartDate = document.getElementById('dtstart-date');
+  var dtstartTime = document.getElementById('dtstart-time');
+  var dtendDate = document.getElementById('dtend-date');
+  var dtendTime = document.getElementById('dtend-time');
+
+  function toggleAllDay() {
+    var isAllDay = allDayCheckbox.checked;
+    timeSelects.forEach(function (sel) {
+      sel.style.display = isAllDay ? 'none' : '';
+    });
+  }
+
+  function autoCompleteEnd() {
+    if (dtendDate.value) return;
+    syncEnd();
+  }
+
+  function syncEnd() {
+    if (!dtstartDate.value) return;
+    if (allDayCheckbox.checked) {
+      dtendDate.value = dtstartDate.value;
+    } else {
+      var startMin = _timeToMinutes(dtstartTime.value);
+      var endMin = startMin + 60;
+      if (endMin >= 1440) {
+        endMin -= 1440;
+        dtendDate.value = _addDay(dtstartDate.value);
+      } else {
+        dtendDate.value = dtstartDate.value;
+      }
+      dtendTime.value = _minutesToTime(endMin);
+    }
+  }
+
+  function _timeToMinutes(t) {
+    var parts = t.split(':');
+    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+  }
+
+  function _minutesToTime(m) {
+    var h = Math.floor(m / 60) % 24;
+    var min = m % 60;
+    return (h < 10 ? '0' : '') + h + ':' + (min < 10 ? '0' : '') + min;
+  }
+
+  function _addDay(dateStr) {
+    var d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().substring(0, 10);
+  }
+
+  allDayCheckbox.addEventListener('change', function () {
+    toggleAllDay();
+    if (!dtendDate.value) syncEnd();
+  });
+  toggleAllDay();
+
+  dtstartDate.addEventListener('change', autoCompleteEnd);
+  dtstartTime.addEventListener('change', function () {
+    if (!dtendDate.value || dtendDate.value === dtstartDate.value) {
+      var startMin = _timeToMinutes(dtstartTime.value);
+      var endMin = startMin + 60;
+      if (endMin >= 1440) {
+        endMin -= 1440;
+        dtendDate.value = _addDay(dtstartDate.value);
+      } else {
+        dtendDate.value = dtstartDate.value;
+      }
+      dtendTime.value = _minutesToTime(endMin);
+    }
+  });
+
+  var tzToggle = document.getElementById('tz-toggle');
+  var tzSection = document.getElementById('tz-section');
+  tzToggle.addEventListener('click', function () {
+    var open = !tzSection.classList.contains('hidden');
+    if (open) {
+      tzSection.classList.add('hidden');
+      tzToggle.textContent = document.querySelector('#tz-section select').value || 'Timezone';
+    } else {
+      tzSection.classList.remove('hidden');
+      tzToggle.textContent = 'Hide timezone';
+    }
+  });
+
+  var SEARCH_URL = "{{ url_for('contacts.api_search') }}";
+  var AUTO_SAVE_URL = "{{ url_for('contacts.api_auto_save') }}";
+  var ACCOUNT_ID = {{ account.id }};
+
+  function parseAttendeesJson(value) {
+    if (!value || !value.trim()) return [];
+    try {
+      var list = JSON.parse(value);
+      return list.map(function (a) {
+        return {
+          name: a.cn || '',
+          email: a.email,
+          extra: {
+            cn: a.cn || a.email,
+            role: a.role || 'REQ-PARTICIPANT',
+            partstat: a.partstat || 'NEEDS-ACTION',
+            rsvp: a.rsvp || 'TRUE'
+          }
+        };
+      });
+    } catch (e) { return []; }
+  }
+
+  function serializeAttendeesJson(chipsData) {
+    return JSON.stringify(chipsData.map(function (c) {
+      return {
+        email: c.email,
+        cn: (c.extra && c.extra.cn) || c.name || c.email,
+        role: (c.extra && c.extra.role) || 'REQ-PARTICIPANT',
+        partstat: (c.extra && c.extra.partstat) || 'NEEDS-ACTION',
+        rsvp: (c.extra && c.extra.rsvp) || 'TRUE'
+      };
+    }));
+  }
+
+  var attendeeChips = new RecipientChips('attendees', {
+    searchUrl: SEARCH_URL,
+    parseInitial: parseAttendeesJson,
+    serializeChips: serializeAttendeesJson,
+    defaultExtra: { cn: '', role: 'REQ-PARTICIPANT', partstat: 'NEEDS-ACTION', rsvp: 'TRUE' }
+  });
+
+  var form = document.querySelector('form[method="post"]');
+  form.addEventListener('submit', function () {
+    attendeeChips._addFromInput();
+    var recipients = attendeeChips.getRecipients().filter(function (r) { return isValidEmail(r.email); });
+    if (recipients.length === 0) return;
+    fetch(AUTO_SAVE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ account_id: ACCOUNT_ID, recipients: recipients }),
+      keepalive: true
+    }).catch(function () {});
+  });
+})();
+</script>
+{% endblock %}

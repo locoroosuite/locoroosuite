@@ -1,0 +1,62 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
+  <aside class="col-span-12 lg:col-span-3 bg-white/90 border border-slate-200/80 rounded-2xl p-4 shadow-sm">
+    <div class="mb-4">
+      <div class="text-[11px] uppercase tracking-wide text-slate-500">Account</div>
+      <select class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">
+        {% for account in accounts %}
+        <option value="{{ account.id }}">{{ account.email_address }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% if accounts %}
+    <a href="{{ url_for('mail.compose', account_id=accounts[0].id) }}" class="mb-4 inline-flex w-full items-center justify-center rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800">
+      Compose
+    </a>
+    {% endif %}
+    <div class="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Smart</div>
+    <div class="space-y-1.5 text-sm mb-4">
+      {% if accounts %}
+      <a class="block px-2.5 py-1.5 rounded-lg hover:bg-slate-100/80" href="{{ url_for('mail.smart_folder', account_id=accounts[0].id, view='unread') }}">Unread</a>
+      <a class="block px-2.5 py-1.5 rounded-lg hover:bg-slate-100/80" href="{{ url_for('mail.smart_folder', account_id=accounts[0].id, view='starred') }}">Starred</a>
+      <a class="block px-2.5 py-1.5 rounded-lg hover:bg-slate-100/80" href="{{ url_for('mail.smart_folder', account_id=accounts[0].id, view='attachments') }}">Attachments</a>
+      {% endif %}
+    </div>
+    <div class="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Folders</div>
+    <div class="space-y-2 text-sm text-slate-700">
+      <div class="font-medium">Inbox</div>
+      <div>Sent</div>
+      <div>Drafts</div>
+      <div>Trash</div>
+      <div>Spam</div>
+      <div>Archive</div>
+    </div>
+  </aside>
+  <section class="col-span-12 lg:col-span-9 bg-white/90 border border-slate-200/80 rounded-2xl p-4 shadow-sm">
+    <div class="flex items-center justify-between mb-3">
+      <div class="text-sm text-slate-600">Messages</div>
+      <a href="{{ url_for('mail.compose') }}" class="text-sm text-slate-900 underline decoration-slate-300">Compose</a>
+    </div>
+    <div class="border-t border-slate-200/70 divide-y divide-slate-200/70">
+      <div class="py-3 text-sm text-slate-600">Welcome to LocoRooSuite</div>
+      {% if not accounts %}
+      <div class="py-3 text-sm text-slate-600">No accounts configured yet.</div>
+      {% else %}
+      <div class="py-3 text-sm text-slate-600">Redirecting to Inbox…</div>
+      {% endif %}
+    </div>
+  </section>
+</div>
+
+<script>
+  const source = new EventSource('/events/stream');
+  source.addEventListener('counts_updated', (evt) => {
+    console.log('Counts updated', evt.data);
+  });
+  source.addEventListener('search_results', (evt) => {
+    console.log('Search results', evt.data);
+  });
+</script>
+
+{% endblock %}

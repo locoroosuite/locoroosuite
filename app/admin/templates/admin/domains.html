@@ -1,0 +1,114 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+{% if app_env == "development" %}
+<div class="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 flex items-start gap-3">
+  <svg class="h-4 w-4 mt-0.5 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd"/></svg>
+  <span>Domains ending in <strong>.localhost</strong> are automatically configured with local IMAP, SMTP, CardDAV, CalDAV, and mail API settings for development. Local email delivery is enabled by default.</span>
+</div>
+{% endif %}
+<section class="bg-white border border-slate-200 rounded-lg p-5">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-xl font-semibold">Domains</h1>
+      <p class="text-sm text-slate-500">Manage service settings and monitor connectivity.</p>
+    </div>
+  </div>
+  <div class="border border-slate-200 rounded-lg divide-y text-sm text-slate-700">
+    {% for domain in domains %}
+    {% set dns_cfg = dns_configs.get(domain.id) %}
+    <div class="px-4 py-4" id="domain-row-{{ domain.id }}">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-3">
+            <div class="font-medium text-base">{{ domain.name }}</div>
+            <form method="post" action="{{ url_for('admin.toggle_domain', domain_id=domain.id) }}">
+              <button type="submit" class="text-xs px-2 py-0.5 rounded font-medium {{ 'bg-emerald-100 text-emerald-700' if domain.is_active else 'bg-red-100 text-red-700' }}">
+                {{ 'Active' if domain.is_active else 'Disabled' }}
+              </button>
+            </form>
+            {% if dns_cfg and dns_cfg.is_self_hosted %}
+            <span class="text-xs px-2 py-0.5 rounded font-medium bg-violet-100 text-violet-700">Self-hosted</span>
+            {% endif %}
+          </div>
+          <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1.5" id="health-{{ domain.id }}">
+            <span class="text-xs text-slate-400">Checking services...</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <a href="{{ url_for('admin.review_domain_mail', domain_id=domain.id) }}" class="text-xs px-3 py-1.5 rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors">
+            Edit / Review
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% if domains|length == 0 %}
+    <div class="px-4 py-4 text-xs text-slate-500">No domains created yet.</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-lg p-5">
+  <h2 class="text-lg font-semibold mb-3">Add domain</h2>
+  <form method="post" action="{{ url_for('admin.create_domain') }}" class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+    <input name="name" placeholder="example.com" class="border rounded px-2 py-1" required />
+    <button class="bg-slate-900 text-white rounded px-3 py-1">Discover settings</button>
+  </form>
+  <p class="mt-2 text-xs text-slate-500">We will attempt DNS-based discovery for IMAP/SMTP and prompt for missing details.</p>
+</section>
+
+<script>
+(function() {
+  var SERVICE_LABELS = {
+    imap: "Email (IMAP)",
+    smtp: "Email (SMTP)",
+    carddav: "Contacts (CardDAV)",
+    caldav: "Calendar (CalDAV)",
+    collabora: "Docs (Collabora)",
+    mail_api: "Mail API"
+  };
+  var SERVICE_ORDER = ["imap", "smtp", "mail_api", "carddav", "caldav", "collabora"];
+
+  function renderHealth(container, statuses) {
+    var html = "";
+    SERVICE_ORDER.forEach(function(key) {
+      var st = statuses[key] || "not_configured";
+      if (st === "not_configured" && key === "mail_api") return;
+      var dotClass, labelClass, label;
+      if (st === "connected") {
+        dotClass = "bg-emerald-500";
+        labelClass = "text-slate-500";
+        label = SERVICE_LABELS[key];
+      } else if (st === "misconfigured") {
+        dotClass = "bg-amber-500";
+        labelClass = "text-amber-600";
+        label = SERVICE_LABELS[key] + " (unreachable)";
+      } else {
+        dotClass = "bg-slate-300";
+        labelClass = "text-slate-400";
+        label = SERVICE_LABELS[key] + " (not set)";
+      }
+      html += '<div class="flex items-center gap-1.5" title="' + SERVICE_LABELS[key] + '">'
+        + '<span class="inline-block h-2 w-2 rounded-full ' + dotClass + '"></span>'
+        + '<span class="text-xs ' + labelClass + '">' + label + '</span>'
+        + '</div>';
+    });
+    container.innerHTML = html || '<span class="text-xs text-slate-400">No services configured</span>';
+  }
+
+  fetch("{{ url_for('admin.domains_health') }}")
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      Object.keys(data).forEach(function(domainId) {
+        var el = document.getElementById("health-" + domainId);
+        if (el) renderHealth(el, data[domainId]);
+      });
+    })
+    .catch(function() {
+      document.querySelectorAll("[id^='health-']").forEach(function(el) {
+        el.innerHTML = '<span class="text-xs text-red-400">Failed to load health status</span>';
+      });
+    });
+})();
+</script>
+{% endblock %}

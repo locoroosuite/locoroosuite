@@ -1,0 +1,1617 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-12" id="mailbox-grid">
+  <aside id="sidebar" class="col-span-12 lg:col-span-3 bg-white/90 border border-slate-200/80 rounded-2xl p-4 shadow-sm">
+    <div class="flex items-center justify-between mb-4">
+      <div class="text-[11px] uppercase tracking-wide text-slate-500" data-collapsible="hide">Account</div>
+      <button type="button" id="sidebar-toggle" class="text-[11px] font-medium text-slate-500 hover:text-slate-900">Collapse</button>
+    </div>
+    <form method="post" action="{{ url_for('mail.set_active_account') }}" class="mb-4" data-collapsible="hide">
+      <select name="account_id" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" onchange="this.form.submit()">
+        {% for acct in accounts %}
+        <option value="{{ acct.id }}" {% if acct.id == account.id %}selected{% endif %}>{{ acct.email_address }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% if account %}
+    <a href="{{ url_for('mail.compose', account_id=account.id) }}" class="mb-4 inline-flex w-full items-center justify-center rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800">
+      Compose
+    </a>
+    {% endif %}
+
+    <div class="space-y-4 text-sm">
+      {% set pinned_keys = pinned_lookup or {} %}
+      {% for section in folder_sections %}
+      {% set is_folders_section = section.title|lower == 'folders' %}
+      <div class="{{ 'group/folders' if is_folders_section else '' }}">
+        <div class="flex items-center justify-between text-[11px] uppercase tracking-wide text-slate-400 mb-2" data-collapsible="hide">
+          <span>{{ section.title }}</span>
+          {% if is_folders_section %}
+          <button type="button" id="create-folder-toggle" class="flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100/80 opacity-100 sm:opacity-0 sm:group-hover/folders:opacity-100 transition" aria-label="Create folder" aria-expanded="false">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path d="M9 4a1 1 0 0 1 2 0v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H4a1 1 0 1 1 0-2h5V4z"></path>
+            </svg>
+          </button>
+          {% endif %}
+        </div>
+        {% if is_folders_section %}
+        <form id="create-folder-form" method="post" action="{{ url_for('mail.create_folder_route', account_id=account.id) }}" class="mb-3 hidden" data-collapsible="hide" data-create-folder-form>
+          <div class="flex items-center gap-2">
+            <input name="name" placeholder="New folder" class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+            <button type="submit" class="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg bg-slate-900 text-white disabled:opacity-60" data-create-folder-submit>
+              <span data-create-folder-label>Add</span>
+              <svg class="hidden h-3.5 w-3.5 animate-spin text-white" viewBox="0 0 24 24" data-create-folder-spinner>
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v3a5 5 0 0 0-5 5H4z"></path>
+              </svg>
+            </button>
+          </div>
+          <div class="mt-2 hidden text-[11px] text-rose-600" data-create-folder-error>
+            Unable to create folder. Retry or refresh.
+          </div>
+        </form>
+        {% endif %}
+        <ul class="space-y-1.5">
+          {% for f in section.folders %}
+          <li>
+            <div class="group/row flex items-center justify-between gap-2">
+              <a class="folder-drop flex-1 flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-slate-100/80 {% if f|upper == active_folder_key %}bg-slate-100{% endif %}" data-folder="{{ f }}" href="{{ url_for('mail.folder_view', account_id=account.id, folder=f) }}">
+                <span class="flex items-center gap-2 min-w-0">
+                  <span class="truncate {{ 'font-semibold text-slate-900' if cached_folders.get(f) else '' }}" data-folder-label="{{ f }}">{{ f }}</span>
+                  <span class="text-[11px] text-slate-500 {{ '' if cached_folders.get(f) else 'hidden' }}" data-folder-count="{{ f }}">{% if cached_folders.get(f) %}{{ cached_folders.get(f) }}{% endif %}</span>
+                </span>
+                <span class="sync-indicator flex h-4 w-4 items-center justify-center" data-folder="{{ f }}"></span>
+              </a>
+              <div class="relative" data-no-row-nav>
+                <button type="button" class="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100/80 opacity-0 group-hover/row:opacity-100 transition" data-folder-actions-toggle="{{ f }}" aria-haspopup="menu" aria-expanded="false">
+                  <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <circle cx="4" cy="10" r="1.5"></circle>
+                    <circle cx="10" cy="10" r="1.5"></circle>
+                    <circle cx="16" cy="10" r="1.5"></circle>
+                  </svg>
+                </button>
+                <div class="folder-actions-menu hidden absolute right-0 mt-1 w-40 rounded-xl border border-slate-200 bg-white py-1 text-xs shadow-lg" data-folder-actions-menu="{{ f }}" role="menu">
+                  <form method="post" action="{{ url_for('mail.toggle_pin_folder', account_id=account.id, folder=f) }}">
+                    <button class="w-full px-3 py-1.5 text-left text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                      {{ 'Unpin' if pinned_keys.get(f|lower) else 'Pin' }}
+                    </button>
+                  </form>
+                  <form method="post" action="{{ url_for('mail.mark_all_read', account_id=account.id, folder=f) }}" class="{{ '' if cached_folders.get(f) else 'hidden' }}" data-folder-mark-read="{{ f }}">
+                    <button class="w-full px-3 py-1.5 text-left text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                      Mark all read
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </li>
+          {% if section.title == 'INBOX' and f|upper == 'INBOX' %}
+          {% set ns = namespace(total=0) %}
+          {% for _fname, _fcount in (cached_folders or {}).items() %}
+            {% if _fname|lower not in unread_excluded_folders %}
+              {% set ns.total = ns.total + (_fcount or 0) %}
+            {% endif %}
+          {% endfor %}
+          {% set unread_total = ns.total %}
+          <li class="pl-4">
+            <a class="block px-2.5 py-1.5 rounded-lg text-xs text-slate-600 hover:bg-slate-100/80" href="{{ url_for('mail.smart_folder', account_id=account.id, view='unread') }}">
+              <span class="flex items-center gap-2">
+                <span class="{{ 'font-semibold text-slate-900' if unread_total else '' }}" data-smart-unread-label="true">Unread</span>
+                <span class="text-[11px] text-slate-500 {{ '' if unread_total else 'hidden' }}" data-smart-unread-count="true">{% if unread_total %}{{ unread_total }}{% endif %}</span>
+              </span>
+            </a>
+          </li>
+          <li class="pl-4">
+            <a class="block px-2.5 py-1.5 rounded-lg text-xs text-slate-600 hover:bg-slate-100/80" href="{{ url_for('mail.smart_folder', account_id=account.id, view='starred') }}">
+              <span class="flex items-center gap-2">
+                <span class="{{ 'font-semibold text-slate-900' if starred_count else '' }}" data-smart-starred-label="true">Starred</span>
+                <span class="text-[11px] text-slate-500 {{ '' if starred_count else 'hidden' }}" data-smart-starred-count="true">{% if starred_count %}{{ starred_count }}{% endif %}</span>
+              </span>
+            </a>
+          </li>
+          {% endif %}
+          {% endfor %}
+        </ul>
+      </div>
+      {% endfor %}
+    </div>
+  </aside>
+
+  <section id="message-area" class="col-span-12 lg:col-span-9 bg-white/90 border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+    <div class="border-b border-slate-200/80 px-5 py-4">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <div class="text-base font-semibold">{{ folder }}</div>
+          <div id="thread-count" class="text-xs text-slate-500">{% if pagination %}{{ pagination.total_threads }} conversation{{ 's' if pagination.total_threads != 1 else '' }} ({{ pagination.total_messages }} email{{ 's' if pagination.total_messages != 1 else '' }}){% else %}{{ threads|length }} conversations{% endif %}</div>
+        </div>
+        <div class="flex items-center gap-2">
+          {% if not is_smart_view %}
+          <form method="post" action="{{ url_for('mail.mark_all_read', account_id=account.id, folder=folder) }}">
+            <button class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50">Mark all read</button>
+          </form>
+          {% endif %}
+          <button type="button" id="preview-toggle" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50">Preview</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="undo-banner" class="px-4 py-2 bg-amber-50 border-b border-amber-200 flex items-center justify-between gap-3 {{ '' if undo_action else 'hidden' }}">
+      <div class="text-xs text-amber-800">
+        <span id="undo-label">{{ undo_action.label if undo_action else '' }}</span>
+        <span id="undo-timer-wrap" class="{{ '' if (undo_action and undo_action.expires_at) else 'hidden' }}">. Undo available for <span id="undo-timer">10</span>s.</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <a id="undo-view-folder" class="{{ '' if (undo_action and undo_action.view_url) else 'hidden' }} text-[11px] px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-100 text-amber-900 hover:bg-amber-200" href="{{ undo_action.view_url if undo_action and undo_action.view_url else '#' }}">{{ undo_action.view_label if undo_action and undo_action.view_label else 'View folder' }}</a>
+        <form method="post" action="{{ url_for('mail.undo_message_action') }}" id="undo-form">
+          <input type="hidden" name="token" id="undo-token" value="{{ undo_action.token if undo_action else '' }}" />
+          <button class="text-[11px] px-2.5 py-1.5 rounded-lg bg-amber-200">Undo</button>
+        </form>
+      </div>
+    </div>
+
+    {% if undo_error %}
+    <div class="px-4 py-2 bg-rose-50 border-b border-rose-200 text-xs text-rose-700">{{ undo_error }}</div>
+    {% endif %}
+    {% if imap_sidebar_warning %}
+    <div class="px-4 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800">
+      {{ imap_sidebar_warning }} Next step: keep using cached messages; background sync will retry with backoff automatically.
+    </div>
+    {% endif %}
+    {% if send_failure %}
+    <div class="px-4 py-2 bg-rose-50 border-b border-rose-200 flex items-center justify-between gap-3">
+      <div class="text-xs text-rose-700">
+        {{ send_failure.error }} Next step: retry send now, or open draft to edit and send again.
+      </div>
+      <div class="flex items-center gap-2">
+        <form method="post" action="{{ url_for('mail.retry_send') }}">
+          <input type="hidden" name="token" value="{{ send_failure.token }}" />
+          <button class="text-[11px] px-2.5 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700">Retry send</button>
+        </form>
+        <a class="text-[11px] px-2.5 py-1.5 rounded-lg border border-rose-300 bg-white text-rose-700 hover:bg-rose-100" href="{{ url_for('mail.compose', account_id=send_failure.account_id, prefill_token=send_failure.token) }}">Open draft</a>
+      </div>
+    </div>
+    {% endif %}
+
+    <div id="message-content" class="grid grid-cols-12">
+      <div id="message-list" class="col-span-12 px-3 py-2 space-y-4">
+        {% if threads|length == 0 and initial_syncing %}
+        <div id="message-skeleton">
+          {% for _ in range(5) %}
+          <div class="rounded-xl border border-slate-200/80 bg-white mb-4">
+            <div class="px-4 py-3 flex items-start gap-2">
+              <div class="skeleton-shimmer h-[18px] w-[18px] rounded-sm flex-shrink-0 mt-0.5"></div>
+              <div class="flex-1 min-w-0 space-y-2.5">
+                <div class="flex items-center justify-between gap-3">
+                  <div class="skeleton-shimmer h-4 rounded" style="width:{{ [55, 65, 45, 70, 50]|random }}%"></div>
+                  <div class="flex items-center gap-2">
+                    <div class="skeleton-shimmer h-3 w-16 rounded"></div>
+                    <div class="skeleton-shimmer h-3 w-10 rounded"></div>
+                  </div>
+                </div>
+                <div class="skeleton-shimmer h-3 rounded" style="width:{{ [80, 70, 90, 60, 75]|random }}%"></div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        {% include "message_list.html" %}
+        {% endif %}
+      </div>
+      {% if pagination is defined and not is_smart_view and pagination.total_pages > 1 %}
+      <div id="pagination-controls" class="col-span-12 border-t border-slate-200/80 px-5 py-3 flex items-center justify-between">
+        <div class="text-xs text-slate-500">
+          Page {{ pagination.current_page }} of {{ pagination.total_pages }}
+        </div>
+        <div class="flex items-center gap-2">
+          {% if pagination.current_page > 1 %}
+          <a href="{{ url_for('mail.folder_view', account_id=account.id, folder=folder, page=pagination.current_page - 1) }}"
+             class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50">
+            Previous
+          </a>
+          {% else %}
+          <span class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed">Previous</span>
+          {% endif %}
+          {% if pagination.current_page < pagination.total_pages %}
+          <a href="{{ url_for('mail.folder_view', account_id=account.id, folder=folder, page=pagination.current_page + 1) }}"
+             class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50">
+            Next
+          </a>
+          {% else %}
+          <span class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed">Next</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+      <div id="message-list-status" class="hidden w-full px-4 pb-4 text-sm text-slate-500 whitespace-nowrap text-center"></div>
+
+      <div id="preview-pane" class="hidden col-span-5 border-l border-slate-200/70 bg-slate-50/70 p-5 overflow-y-auto">
+        <div class="text-sm text-slate-500">Select a message to preview.</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  const UNREAD_EXCLUDED_FOLDERS = new Set({{ unread_excluded_folders | tojson }});
+  const grid = document.getElementById('mailbox-grid');
+  const sidebar = document.getElementById('sidebar');
+  const messageArea = document.getElementById('message-area');
+  const sidebarToggle = document.getElementById('sidebar-toggle');
+  const createFolderToggle = document.getElementById('create-folder-toggle');
+  const createFolderForm = document.getElementById('create-folder-form');
+  const createFolderInput = createFolderForm ? createFolderForm.querySelector('input[name="name"]') : null;
+  const createFolderSubmit = createFolderForm ? createFolderForm.querySelector('[data-create-folder-submit]') : null;
+  const createFolderSpinner = createFolderForm ? createFolderForm.querySelector('[data-create-folder-spinner]') : null;
+  const createFolderError = createFolderForm ? createFolderForm.querySelector('[data-create-folder-error]') : null;
+
+  const setSidebarCollapsed = (collapsed) => {
+    sidebar.classList.toggle('lg:col-span-3', !collapsed);
+    sidebar.classList.toggle('lg:col-span-2', collapsed);
+    messageArea.classList.toggle('lg:col-span-9', !collapsed);
+    messageArea.classList.toggle('lg:col-span-10', collapsed);
+    document.querySelectorAll('[data-collapsible="hide"]').forEach(el => {
+      el.classList.toggle('hidden', collapsed);
+    });
+    sidebarToggle.textContent = collapsed ? 'Expand' : 'Collapse';
+    localStorage.setItem('sidebar_collapsed', collapsed ? '1' : '0');
+  };
+
+  sidebarToggle.addEventListener('click', () => {
+    const collapsed = sidebar.classList.contains('lg:col-span-3');
+    setSidebarCollapsed(collapsed);
+  });
+
+  const initialSidebarCollapsed = localStorage.getItem('sidebar_collapsed') === '1';
+  if (initialSidebarCollapsed) {
+    setSidebarCollapsed(true);
+  }
+
+  if (createFolderToggle && createFolderForm) {
+    const showCreateFolder = (show) => {
+      createFolderForm.classList.toggle('hidden', !show);
+      createFolderToggle.setAttribute('aria-expanded', show ? 'true' : 'false');
+      if (show) {
+        if (createFolderError) {
+          createFolderError.classList.add('hidden');
+        }
+        if (createFolderInput) {
+          createFolderInput.focus();
+        }
+      }
+    };
+
+    createFolderToggle.addEventListener('click', () => {
+      const willShow = createFolderForm.classList.contains('hidden');
+      showCreateFolder(willShow);
+    });
+
+    if (createFolderInput && createFolderError) {
+      createFolderInput.addEventListener('input', () => {
+        createFolderError.classList.add('hidden');
+      });
+    }
+
+    createFolderForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (!createFolderSubmit) {
+        createFolderForm.submit();
+        return;
+      }
+      const nameValue = (createFolderInput && createFolderInput.value) ? createFolderInput.value.trim() : '';
+      if (!nameValue) {
+        if (createFolderError) {
+          createFolderError.textContent = 'Folder name is required.';
+          createFolderError.classList.remove('hidden');
+        }
+        if (createFolderInput) {
+          createFolderInput.focus();
+        }
+        return;
+      }
+      if (createFolderError) {
+        createFolderError.textContent = 'Unable to create folder. Retry or refresh.';
+        createFolderError.classList.add('hidden');
+      }
+      createFolderSubmit.disabled = true;
+      if (createFolderSpinner) {
+        createFolderSpinner.classList.remove('hidden');
+      }
+      if (createFolderInput) {
+        createFolderInput.setAttribute('disabled', 'disabled');
+      }
+
+      const formData = new FormData(createFolderForm);
+      fetch(createFolderForm.action, {
+        method: 'POST',
+        body: new URLSearchParams(formData)
+      }).then(response => {
+        if (!response.ok) {
+          throw new Error('Create folder failed');
+        }
+        if (response.redirected) {
+          window.location.assign(response.url);
+        } else {
+          window.location.reload();
+        }
+      }).catch(() => {
+        if (createFolderError) {
+          createFolderError.classList.remove('hidden');
+        }
+      }).finally(() => {
+        createFolderSubmit.disabled = false;
+        if (createFolderSpinner) {
+          createFolderSpinner.classList.add('hidden');
+        }
+        if (createFolderInput) {
+          createFolderInput.removeAttribute('disabled');
+        }
+      });
+    });
+  }
+
+  const previewToggle = document.getElementById('preview-toggle');
+  const messageList = document.getElementById('message-list');
+  const previewPane = document.getElementById('preview-pane');
+  const threadCount = document.getElementById('thread-count');
+  const messageListStatus = document.getElementById('message-list-status');
+  const currentFolder = {{ folder|tojson }};
+  const currentFolderKey = (currentFolder || '').toLowerCase();
+  const currentAccountId = {{ account.id }};
+  {% set all_folders = [] %}
+  {% for section in folder_sections %}
+    {% for f in section.folders %}
+      {% if all_folders.append(f) %}{% endif %}
+    {% endfor %}
+  {% endfor %}
+  const allFolders = {{ all_folders | tojson }};
+  const messagesUrl = {{ url_for('mail.folder_messages', account_id=account.id, folder=folder, snippet_debug=1 if snippet_debug else None)|tojson }};
+  const currentPage = {{ pagination.current_page | default(1) if pagination is defined else 1 }};
+  const initialSyncing = {{ initial_syncing|default(false)|tojson }};
+  const undoBanner = document.getElementById('undo-banner');
+  const undoLabel = document.getElementById('undo-label');
+  const undoTimer = document.getElementById('undo-timer');
+  const undoToken = document.getElementById('undo-token');
+  const undoTimerWrap = document.getElementById('undo-timer-wrap');
+  const undoViewFolder = document.getElementById('undo-view-folder');
+
+  const closeMessageActions = (exceptRow = null) => {
+    if (!messageList) {
+      return;
+    }
+    if (!exceptRow || (openOverflowMenu && !exceptRow.contains(openOverflowMenu))) {
+      closeOverflowMenu();
+    }
+    messageList.querySelectorAll('.message-row.is-actions-open').forEach(row => {
+      if (exceptRow && row === exceptRow) {
+        return;
+      }
+      row.classList.remove('is-actions-open');
+      row.removeAttribute('data-overlay-locked');
+      const toggle = row.querySelector('[data-message-actions-toggle]');
+      if (toggle) {
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+      const overflowMenu = row.querySelector('[data-overflow-menu]');
+      if (overflowMenu) {
+        overflowMenu.classList.add('hidden');
+      }
+    });
+  };
+
+  const setPreviewEnabled = (enabled) => {
+    previewPane.classList.toggle('hidden', !enabled);
+    previewPane.classList.toggle('col-span-5', enabled);
+    messageList.classList.toggle('col-span-12', !enabled);
+    messageList.classList.toggle('col-span-7', enabled);
+    previewToggle.textContent = enabled ? 'Hide preview' : 'Preview';
+    localStorage.setItem('preview_enabled', enabled ? '1' : '0');
+  };
+
+  const setPreviewHeight = () => {
+    if (previewPane.classList.contains('hidden')) {
+      previewPane.style.height = '';
+      return;
+    }
+    const rect = previewPane.getBoundingClientRect();
+    const height = window.innerHeight - rect.top - 16;
+    previewPane.style.height = `${Math.max(height, 240)}px`;
+  };
+
+  const initialPreview = localStorage.getItem('preview_enabled') === '1';
+  setPreviewEnabled(initialPreview);
+  setPreviewHeight();
+
+  previewToggle.addEventListener('click', () => {
+    const enabled = previewPane.classList.contains('hidden');
+    setPreviewEnabled(enabled);
+    setPreviewHeight();
+  });
+
+  const hydratePreview = (container) => {
+    const iframe = container.querySelector('#message-preview-body');
+    const srcTemplate = container.querySelector('#message-preview-srcdoc');
+    if (!iframe || !srcTemplate) {
+      return;
+    }
+    try {
+      var html = JSON.parse(srcTemplate.textContent);
+      iframe.srcdoc = html.replace('<base target="_blank"', '<base href="' + window.location.origin + '/' + '" target="_blank"');
+    } catch (err) {
+      var html = srcTemplate.textContent || '';
+      iframe.srcdoc = html.replace('<base target="_blank"', '<base href="' + window.location.origin + '/' + '" target="_blank"');
+    }
+  };
+
+  const loadPreviewUrl = (url) => {
+    previewPane.innerHTML = '<div class="text-sm text-slate-500">Loading preview...</div>';
+    fetch(url).then(resp => {
+      if (!resp.ok) {
+        previewPane.innerHTML = '<div class="text-sm text-rose-500">Unable to load preview.</div>';
+        return;
+      }
+      return resp.text();
+    }).then(html => {
+      if (html) {
+        previewPane.innerHTML = html;
+        hydratePreview(previewPane);
+        setPreviewHeight();
+      }
+    }).catch(() => {
+      previewPane.innerHTML = '<div class="text-sm text-rose-500">Unable to load preview.</div>';
+    });
+  };
+
+  const loadPreview = (row) => {
+    const url = row.dataset.previewUrl;
+    if (url) {
+      loadPreviewUrl(url);
+    }
+  };
+
+  let draggedRow = null;
+  let dragEnterCounters = new WeakMap();
+
+  messageList.addEventListener('dragstart', (e) => {
+    const row = e.target.closest('.message-row');
+    if (!row) {
+      return;
+    }
+    e.dataTransfer.setData('message_id', row.dataset.messageId);
+    e.dataTransfer.setData('account_id', row.dataset.accountId);
+    e.dataTransfer.effectAllowed = 'move';
+    draggedRow = row;
+    row.classList.add('is-dragging');
+    document.querySelectorAll('.folder-drop').forEach(el => {
+      dragEnterCounters.set(el, 0);
+      el.classList.add('is-drag-active');
+      if (el.dataset.folder && el.dataset.folder.toLowerCase() === currentFolderKey) {
+        el.classList.add('is-drag-invalid');
+      }
+    });
+  });
+
+  const cleanupDragState = () => {
+    if (draggedRow) {
+      draggedRow.classList.remove('is-dragging');
+      draggedRow = null;
+    }
+    document.querySelectorAll('.folder-drop').forEach(el => {
+      el.classList.remove('is-drag-over', 'is-drag-invalid', 'is-drag-active');
+      dragEnterCounters.set(el, 0);
+    });
+  };
+
+  document.addEventListener('dragend', () => {
+    cleanupDragState();
+  });
+
+  document.querySelectorAll('.folder-drop').forEach(folder => {
+    folder.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      if (folder.classList.contains('is-drag-invalid')) {
+        return;
+      }
+      const count = (dragEnterCounters.get(folder) || 0) + 1;
+      dragEnterCounters.set(folder, count);
+      if (count === 1) {
+        folder.classList.add('is-drag-over');
+      }
+    });
+
+    folder.addEventListener('dragleave', () => {
+      const count = (dragEnterCounters.get(folder) || 1) - 1;
+      dragEnterCounters.set(folder, count);
+      if (count <= 0) {
+        folder.classList.remove('is-drag-over');
+      }
+    });
+
+    folder.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (folder.classList.contains('is-drag-invalid')) {
+        e.dataTransfer.dropEffect = 'none';
+        return;
+      }
+      e.dataTransfer.dropEffect = 'move';
+    });
+
+    folder.addEventListener('drop', (e) => {
+      e.preventDefault();
+      cleanupDragState();
+      const messageId = e.dataTransfer.getData('message_id');
+      const accountId = e.dataTransfer.getData('account_id');
+      const destination = folder.dataset.folder;
+      if (!messageId || !accountId || !destination) {
+        return;
+      }
+      fetch(`/app/mail/message/${accountId}/${messageId}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+        body: `destination=${encodeURIComponent(destination)}`
+      }).then(resp => {
+        if (!resp.ok && resp.status !== 302) {
+          throw new Error('Move failed');
+        }
+        const row = messageList.querySelector(`.message-row[data-message-id="${messageId}"]`);
+        if (row) {
+          removeRowWithAnimation(row);
+        } else {
+          window.location.reload();
+        }
+      }).catch(() => {
+        if (window.LR) {
+          window.LR.notifyError('Failed to move message. Please retry. If it keeps happening, check your connection or refresh.');
+        }
+      });
+    });
+  });
+
+  messageList.addEventListener('click', (e) => {
+    const toggle = e.target.closest('[data-message-actions-toggle]');
+    if (!toggle) {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    const row = toggle.closest('.message-row');
+    if (!row) {
+      return;
+    }
+    const menu = row.querySelector('[data-message-actions]');
+    const isOpen = row.classList.contains('is-actions-open');
+    if (!isOpen) {
+      closeMessageActions(row);
+    }
+    row.classList.toggle('is-actions-open', !isOpen);
+    if (!isOpen) {
+      row.setAttribute('data-overlay-locked', '');
+    } else {
+      if (openOverflowMenu && row.contains(openOverflowMenu)) {
+        closeOverflowMenu();
+      }
+      row.removeAttribute('data-overlay-locked');
+    }
+    toggle.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+  });
+
+  let openOverflowMenu = null;
+
+  const positionOverflowMenu = (menu, row) => {
+    menu.classList.remove('bottom-full', 'mb-1', 'top-full', 'mt-1');
+    const rowRect = row.getBoundingClientRect();
+    const spaceAbove = rowRect.top;
+    const spaceBelow = window.innerHeight - rowRect.bottom;
+    const menuHeight = menu.scrollHeight || 160;
+    if (spaceAbove < menuHeight && spaceBelow > spaceAbove) {
+      menu.classList.add('top-full', 'mt-1');
+    } else {
+      menu.classList.add('bottom-full', 'mb-1');
+    }
+  };
+
+  const closeOverflowMenu = () => {
+    if (!openOverflowMenu) return;
+    const menu = openOverflowMenu;
+    const row = menu.closest('.message-row');
+    renderOverflowMenu(menu);
+    menu.classList.add('hidden');
+    menu.classList.remove('bottom-full', 'mb-1', 'top-full', 'mt-1');
+    openOverflowMenu = null;
+    if (row && !row.classList.contains('is-actions-open')) {
+      row.removeAttribute('data-overlay-locked');
+    }
+    if (refreshPending) {
+      setTimeout(() => refreshMessages({ force: true }), 100);
+    }
+  };
+
+  messageList.addEventListener('click', (e) => {
+    const overflowToggle = e.target.closest('[data-overflow-toggle]');
+    if (!overflowToggle) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const row = overflowToggle.closest('.message-row');
+    if (!row) return;
+    const menu = row.querySelector('[data-overflow-menu]');
+    if (!menu) return;
+    const wasHidden = menu.classList.contains('hidden');
+    if (openOverflowMenu && openOverflowMenu !== menu) {
+      closeOverflowMenu();
+    }
+    if (wasHidden) {
+      menu.classList.remove('hidden');
+      positionOverflowMenu(menu, row);
+      openOverflowMenu = menu;
+      row.setAttribute('data-overlay-locked', '');
+    } else {
+      closeOverflowMenu();
+    }
+  });
+
+  const renderOverflowMenu = (menu) => {
+    if (!menu) return;
+    menu.innerHTML = menu.dataset.originalContent || '';
+  };
+
+  const renderFolderPicker = (menu, currentFolderPath) => {
+    if (!menu) return;
+    if (!menu.dataset.originalContent) {
+      menu.dataset.originalContent = menu.innerHTML;
+    }
+    const folders = allFolders.filter(f => f.toLowerCase() !== currentFolderPath.toLowerCase());
+    if (folders.length === 0) {
+      if (window.LR) window.LR.notifyError('No other folders available.');
+      renderOverflowMenu(menu);
+      return;
+    }
+    let html = '<button type="button" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-600 whitespace-nowrap" data-move-back>&larr; Back</button>';
+    html += '<div class="border-t border-slate-100"></div>';
+    html += '<div class="px-2 py-1"><input type="text" placeholder="Filter folders..." class="w-full text-[11px] px-2 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:border-slate-400" data-folder-filter /></div>';
+    html += '<div class="max-h-40 overflow-y-auto" data-folder-list>';
+    folders.forEach(f => {
+      html += `<button type="button" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-target="${CSS.escape(f)}">${f}</button>`;
+    });
+    html += '</div>';
+    menu.innerHTML = html;
+    const row = menu.closest('.message-row');
+    if (row) positionOverflowMenu(menu, row);
+  };
+
+  messageList.addEventListener('click', (e) => {
+    const moveBtn = e.target.closest('[data-move-to-folder]');
+    if (!moveBtn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const row = moveBtn.closest('.message-row');
+    if (!row) return;
+    const menu = row.querySelector('[data-overflow-menu]');
+    renderFolderPicker(menu, currentFolder);
+  });
+
+  messageList.addEventListener('input', (e) => {
+    const filter = e.target.closest('[data-folder-filter]');
+    if (!filter) return;
+    e.stopPropagation();
+    const list = filter.closest('[data-overflow-menu]').querySelector('[data-folder-list]');
+    if (!list) return;
+    const query = filter.value.toLowerCase();
+    list.querySelectorAll('[data-move-target]').forEach(btn => {
+      const match = !query || btn.textContent.toLowerCase().includes(query);
+      btn.classList.toggle('hidden', !match);
+    });
+  });
+
+  messageList.addEventListener('click', (e) => {
+    const backBtn = e.target.closest('[data-move-back]');
+    if (!backBtn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const menu = backBtn.closest('[data-overflow-menu]');
+    renderOverflowMenu(menu);
+    const row = menu ? menu.closest('.message-row') : null;
+    if (menu && row) positionOverflowMenu(menu, row);
+  });
+
+  messageList.addEventListener('click', (e) => {
+    const target = e.target.closest('[data-move-target]');
+    if (!target) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const row = target.closest('.message-row');
+    if (!row) return;
+    const menu = row.querySelector('[data-overflow-menu]');
+    const destination = target.dataset.moveTarget;
+    if (!destination) return;
+    const messageId = row.dataset.messageId;
+    const accountId = row.dataset.accountId;
+    if (!messageId || !accountId) return;
+    target.disabled = true;
+    const spinner = document.createElement('span');
+    spinner.className = 'inline-block w-3 h-3 border-2 border-slate-400 border-r-transparent rounded-full animate-spin ml-1';
+    target.appendChild(spinner);
+    fetch(`/app/mail/message/${accountId}/${messageId}/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+      body: `destination=${encodeURIComponent(destination)}`
+    }).then(resp => {
+      if (!resp.ok) throw new Error('Move failed');
+      return resp.json();
+    }).then(() => {
+      openOverflowMenu = null;
+      removeRowWithAnimation(row);
+    }).catch(() => {
+      if (window.LR) window.LR.notifyError('Failed to move message. Please retry. If it keeps happening, check your connection or refresh.');
+      renderOverflowMenu(menu);
+    });
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-message-actions]') || e.target.closest('[data-message-actions-toggle]')) {
+      return;
+    }
+    closeOverflowMenu();
+    closeMessageActions();
+  });
+
+  messageList.addEventListener('mouseout', (e) => {
+    const row = e.target.closest('.message-row');
+    if (!row) return;
+    if (e.relatedTarget && row.contains(e.relatedTarget)) return;
+    if (openOverflowMenu && row.contains(openOverflowMenu)) return;
+    const overflowMenu = row.querySelector('[data-overflow-menu]');
+    if (overflowMenu && !overflowMenu.classList.contains('hidden')) return;
+  });
+
+  messageList.addEventListener('submit', (e) => {
+    const form = e.target.closest('form.message-action');
+    if (!form) {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    const row = form.closest('.message-row');
+    const action = form.dataset.action || '';
+    const formData = new FormData(form);
+    const button = form.querySelector('button');
+    const isFlagAction = action === 'flag';
+    if (isFlagAction && button) {
+      const starIcon = button.querySelector('[data-star-icon]');
+      if (starIcon) starIcon.classList.add('hidden');
+      const spinner = document.createElement('span');
+      spinner.className = 'lr-spinner inline-block w-[18px] h-[18px] border-2 border-slate-400 border-r-transparent rounded-full animate-spin';
+      spinner.dataset.starSpinner = '1';
+      button.appendChild(spinner);
+      button.disabled = true;
+    } else if (button && window.LR) {
+      window.LR.setButtonLoading(button);
+    }
+    const actionUrl = form.getAttribute('action') || '';
+    fetch(actionUrl, {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      body: formData
+    }).then(resp => resp.ok ? resp.json() : null)
+      .then(data => {
+        if (!data || !row) {
+          if (window.LR) {
+            window.LR.notifyError();
+          }
+          return;
+        }
+        if (data.error) {
+          if (window.LR) {
+            window.LR.notifyError(`Action failed: ${data.error}`);
+          }
+          return;
+        }
+        if (action === 'mark') {
+          const wasUnread = row.dataset.isUnread === '1';
+          updateRowUnreadUI(row, data.is_unread);
+          const delta = (data.is_unread ? 1 : 0) - (wasUnread ? 1 : 0);
+          if (delta !== 0) {
+            applyUnreadDelta(delta);
+          }
+          const wasFlagged = row.dataset.isFlagged === '1';
+          if (wasFlagged) {
+            applyStarredDelta(delta);
+          }
+          const overflowMenu = row.querySelector('[data-overflow-menu]');
+          if (overflowMenu) overflowMenu.classList.add('hidden');
+          return;
+        }
+        if (action === 'flag') {
+          const wasFlagged = row.dataset.isFlagged === '1';
+          updateRowFlagUI(row, data.is_flagged);
+          const wasUnread = row.dataset.isUnread === '1';
+          if (wasUnread) {
+            const delta = (data.is_flagged ? 1 : 0) - (wasFlagged ? 1 : 0);
+            if (delta !== 0) {
+              applyStarredDelta(delta);
+            }
+          }
+          const starBtn = form.querySelector('[data-star-toggle]');
+          if (starBtn) starBtn.blur();
+          return;
+        }
+        if (action === 'archive' || action === 'delete' || action === 'junk') {
+          if (data.was_unread) {
+            applyUnreadDelta(-1);
+          }
+          const wasFlagged = row.dataset.isFlagged === '1';
+          if (wasFlagged && row.dataset.isUnread === '1') {
+            applyStarredDelta(-1);
+          }
+          removeRowWithAnimation(row);
+          if (data.undo_action) {
+            renderUndoBanner(data.undo_action);
+          }
+          return;
+        }
+      })
+      .catch(() => {
+        if (window.LR) {
+          window.LR.notifyError();
+        }
+      })
+      .finally(() => {
+        if (isFlagAction && button) {
+          const spinner = button.querySelector('[data-star-spinner]');
+          if (spinner) spinner.remove();
+          const starIcon = button.querySelector('[data-star-icon]');
+          if (starIcon) starIcon.classList.remove('hidden');
+          button.disabled = false;
+        } else if (button && window.LR) {
+          window.LR.clearButtonLoading(button);
+        }
+      });
+  });
+
+  const expandedThreads = new Set();
+
+  function saveExpandState() {
+    expandedThreads.clear();
+    messageList.querySelectorAll('[data-thread-collapse-toggle][aria-expanded="true"]').forEach(toggle => {
+      const card = toggle.closest('[data-thread-card]');
+      if (card && card.dataset.threadKey) {
+        expandedThreads.add(card.dataset.threadKey);
+      }
+    });
+  }
+
+  function restoreExpandState() {
+    if (expandedThreads.size === 0) return;
+    messageList.querySelectorAll('[data-thread-card]').forEach(card => {
+      if (!card.dataset.threadKey || !expandedThreads.has(card.dataset.threadKey)) return;
+      const toggle = card.querySelector('[data-thread-collapse-toggle]');
+      const content = card.querySelector('[data-thread-collapse-content]');
+      if (!toggle || !content) return;
+      toggle.setAttribute('aria-expanded', 'true');
+      content.style.maxHeight = 'none';
+      content.style.opacity = '1';
+      const chevron = toggle.querySelector('[data-collapse-chevron]');
+      if (chevron) chevron.style.transform = 'rotate(180deg)';
+      const label = toggle.querySelector('[data-collapse-label]');
+      if (label) label.textContent = 'Collapse older messages';
+    });
+  }
+
+  messageList.addEventListener('click', (e) => {
+    const toggleBar = e.target.closest('[data-thread-collapse-toggle]');
+    if (toggleBar) {
+      e.stopPropagation();
+      const wrapper = toggleBar.parentElement;
+      const content = wrapper.querySelector('[data-thread-collapse-content]');
+      if (!content) return;
+      const chevron = toggleBar.querySelector('[data-collapse-chevron]');
+      const label = toggleBar.querySelector('[data-collapse-label]');
+      const isExpanded = toggleBar.getAttribute('aria-expanded') === 'true';
+      if (isExpanded) {
+        content.style.maxHeight = content.scrollHeight + 'px';
+        requestAnimationFrame(() => {
+          content.style.maxHeight = '0';
+          content.style.opacity = '0';
+        });
+        toggleBar.setAttribute('aria-expanded', 'false');
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
+        if (label) {
+          const count = content.querySelectorAll('.message-row').length;
+          label.textContent = count + ' older message' + (count !== 1 ? 's' : '');
+        }
+        const card = toggleBar.closest('[data-thread-card]');
+        if (card && card.dataset.threadKey) {
+          expandedThreads.delete(card.dataset.threadKey);
+        }
+      } else {
+        toggleBar.setAttribute('aria-expanded', 'true');
+        content.style.maxHeight = content.scrollHeight + 'px';
+        content.style.opacity = '1';
+        if (chevron) chevron.style.transform = 'rotate(180deg)';
+        if (label) label.textContent = 'Collapse older messages';
+        const onEnd = () => {
+          content.style.maxHeight = 'none';
+          content.removeEventListener('transitionend', onEnd);
+        };
+        content.addEventListener('transitionend', onEnd);
+        const card = toggleBar.closest('[data-thread-card]');
+        if (card && card.dataset.threadKey) {
+          expandedThreads.add(card.dataset.threadKey);
+        }
+      }
+      return;
+    }
+    const row = e.target.closest('.message-row');
+    if (!row) {
+      return;
+    }
+    if (e.target.closest('[data-no-row-nav]')) {
+      return;
+    }
+    const messageUrl = row.dataset.messageUrl;
+    if (!messageUrl) {
+      return;
+    }
+    if (e.metaKey || e.ctrlKey) {
+      window.open(messageUrl, '_blank');
+      return;
+    }
+    if (previewPane.classList.contains('hidden')) {
+      window.location.href = messageUrl;
+      return;
+    }
+    document.querySelectorAll('.message-row').forEach(el => el.classList.remove('bg-slate-50'));
+    row.classList.add('bg-slate-50');
+    loadPreview(row);
+  });
+
+  messageList.addEventListener('auxclick', (e) => {
+    if (e.button !== 1) {
+      return;
+    }
+    const row = e.target.closest('.message-row');
+    if (!row) {
+      return;
+    }
+    if (e.target.closest('[data-no-row-nav]')) {
+      return;
+    }
+    const messageUrl = row.dataset.messageUrl;
+    if (!messageUrl) {
+      return;
+    }
+    e.preventDefault();
+    window.open(messageUrl, '_blank');
+  });
+
+  previewPane.addEventListener('click', (e) => {
+    const link = e.target.closest('a[data-preview-url]');
+    if (!link) {
+      return;
+    }
+    e.preventDefault();
+    const url = link.dataset.previewUrl;
+    if (url) {
+      loadPreviewUrl(url);
+    }
+  });
+
+  window.addEventListener('resize', setPreviewHeight);
+
+  const isSmartView = {{ is_smart_view|tojson }};
+  let lastRefreshAt = 0;
+  let refreshInFlight = false;
+  let lastSyncStatus = null;
+  let hasCompletedSync = {{ has_completed_sync|tojson }};
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let skeletonVisible = !!document.getElementById('message-skeleton');
+  const updateEmptyState = () => {
+    if (!messageListStatus || !messageList) {
+      return;
+    }
+    const hasMessages = messageList.querySelector('.message-row');
+    if (hasMessages) {
+      messageListStatus.classList.add('hidden');
+      messageListStatus.textContent = '';
+      if (skeletonVisible) {
+        const skel = document.getElementById('message-skeleton');
+        if (skel) skel.remove();
+        skeletonVisible = false;
+      }
+      return;
+    }
+    if (skeletonVisible) {
+      messageListStatus.classList.add('hidden');
+      messageListStatus.textContent = '';
+      return;
+    }
+    if (lastSyncStatus && lastSyncStatus.state === 'syncing') {
+      const done = Number.isFinite(lastSyncStatus.done) ? lastSyncStatus.done : null;
+      const total = Number.isFinite(lastSyncStatus.total) ? lastSyncStatus.total : null;
+      if (done !== null && total && total > 0) {
+        messageListStatus.textContent = `Syncing ${done} of ${total}...`;
+      } else {
+        messageListStatus.textContent = 'Syncing...';
+      }
+    } else if (hasCompletedSync) {
+      messageListStatus.textContent = 'No messages.';
+    } else {
+      messageListStatus.textContent = 'Syncing...';
+    }
+    messageListStatus.classList.remove('hidden');
+  };
+  const FLIP_DURATION = 250;
+  const FLIP_STAGGER = 20;
+
+  const applyFLIPUpdate = (container, newHtml) => {
+    saveExpandState();
+    if (prefersReducedMotion) {
+      container.innerHTML = newHtml;
+      restoreExpandState();
+      return;
+    }
+    const oldRects = new Map();
+    container.querySelectorAll('.message-row').forEach(row => {
+      const id = row.dataset.messageId;
+      if (id) {
+        oldRects.set(id, row.getBoundingClientRect());
+      }
+    });
+
+    const oldThreadCards = new Map();
+    container.querySelectorAll('[data-thread-card]').forEach(card => {
+      card.querySelectorAll('.message-row').forEach(row => {
+        const id = row.dataset.messageId;
+        if (id) {
+          oldThreadCards.set(id, card);
+        }
+      });
+    });
+
+    container.innerHTML = newHtml;
+    restoreExpandState();
+
+    const skeleton = document.getElementById('message-skeleton');
+    if (skeleton) {
+      skeleton.remove();
+      skeletonVisible = false;
+    }
+
+    const newRows = container.querySelectorAll('.message-row');
+    const newRowsById = new Map();
+    newRows.forEach(row => {
+      const id = row.dataset.messageId;
+      if (id) newRowsById.set(id, row);
+    });
+
+    let staggerIndex = 0;
+    const animatedRows = [];
+
+    newRows.forEach(row => {
+      const id = row.dataset.messageId;
+      if (!id) return;
+
+      if (oldRects.has(id)) {
+        const oldRect = oldRects.get(id);
+        const newRect = row.getBoundingClientRect();
+        const deltaY = oldRect.top - newRect.top;
+
+        if (Math.abs(deltaY) > 1) {
+          row.style.transform = `translateY(${deltaY}px)`;
+          row.style.transition = 'none';
+          animatedRows.push({ row, delay: 0 });
+          row.getBoundingClientRect();
+        }
+      } else {
+        row.style.opacity = '0';
+        row.style.transform = 'translateY(8px)';
+        row.style.transition = 'none';
+        animatedRows.push({ row, delay: staggerIndex * FLIP_STAGGER });
+        staggerIndex++;
+      }
+    });
+
+    if (animatedRows.length === 0) return;
+
+    requestAnimationFrame(() => {
+      animatedRows.forEach(({ row, delay }) => {
+        row.style.transition = `transform ${FLIP_DURATION}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${FLIP_DURATION}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+        if (delay > 0) {
+          row.style.transitionDelay = `${delay}ms`;
+        }
+        row.style.transform = '';
+        row.style.opacity = '';
+      });
+
+      const maxDelay = animatedRows.reduce((max, { delay }) => Math.max(max, delay), 0);
+      setTimeout(() => {
+        animatedRows.forEach(({ row }) => {
+          row.style.transition = '';
+          row.style.transitionDelay = '';
+          row.style.transform = '';
+          row.style.opacity = '';
+        });
+      }, FLIP_DURATION + maxDelay + 50);
+    });
+  };
+
+  let refreshPending = false;
+  const refreshMessages = (opts = {}) => {
+    const now = Date.now();
+    const force = opts.force === true;
+    if (openOverflowMenu) {
+      refreshPending = true;
+      return;
+    }
+    if (refreshInFlight || (!force && now - lastRefreshAt < 500)) {
+      return;
+    }
+    refreshInFlight = true;
+    refreshPending = false;
+    const url = new URL(messagesUrl, window.location.origin);
+    url.searchParams.set('page', currentPage);
+    fetch(url.toString())
+      .then(resp => resp.ok ? resp.json() : null)
+      .then(data => {
+        if (!data) {
+          return;
+        }
+        applyFLIPUpdate(messageList, data.html);
+        if (threadCount && data.total_threads !== undefined) {
+          const totalThreads = data.total_threads;
+          const totalMessages = data.total_messages;
+          threadCount.textContent = `${totalThreads} conversation${totalThreads !== 1 ? 's' : ''} (${totalMessages} email${totalMessages !== 1 ? 's' : ''})`;
+        }
+        updateEmptyState();
+        lastRefreshAt = Date.now();
+      })
+      .catch(() => {})
+      .finally(() => {
+        refreshInFlight = false;
+      });
+  };
+  const indicatorByFolder = new Map();
+  document.querySelectorAll('.sync-indicator').forEach(el => {
+    indicatorByFolder.set((el.dataset.folder || '').toLowerCase(), el);
+  });
+
+  const countByFolder = new Map();
+  document.querySelectorAll('[data-folder-count]').forEach(el => {
+    countByFolder.set((el.dataset.folderCount || '').toLowerCase(), el);
+  });
+  const labelByFolder = new Map();
+  document.querySelectorAll('[data-folder-label]').forEach(el => {
+    labelByFolder.set((el.dataset.folderLabel || '').toLowerCase(), el);
+  });
+  const markReadByFolder = new Map();
+  document.querySelectorAll('[data-folder-mark-read]').forEach(el => {
+    markReadByFolder.set((el.dataset.folderMarkRead || '').toLowerCase(), el);
+  });
+  const smartUnreadCount = document.querySelector('[data-smart-unread-count="true"]');
+  const smartUnreadLabel = document.querySelector('[data-smart-unread-label="true"]');
+  const smartStarredCount = document.querySelector('[data-smart-starred-count="true"]');
+  const smartStarredLabel = document.querySelector('[data-smart-starred-label="true"]');
+
+  const closeAllFolderMenus = (except = null) => {
+    document.querySelectorAll('[data-folder-actions-menu]').forEach(menu => {
+      if (except && menu === except) {
+        return;
+      }
+      menu.classList.add('hidden');
+    });
+    document.querySelectorAll('[data-folder-actions-toggle]').forEach(toggle => {
+      if (except && toggle.dataset.folderActionsToggle === except.dataset.folderActionsMenu) {
+        toggle.setAttribute('aria-expanded', 'true');
+        return;
+      }
+      toggle.setAttribute('aria-expanded', 'false');
+    });
+  };
+
+  document.querySelectorAll('[data-folder-actions-toggle]').forEach(toggle => {
+    toggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const key = toggle.dataset.folderActionsToggle || '';
+      const menu = document.querySelector(`[data-folder-actions-menu="${CSS.escape(key)}"]`);
+      if (!menu) return;
+      const isOpen = !menu.classList.contains('hidden');
+      closeAllFolderMenus();
+      if (!isOpen) {
+        menu.classList.remove('hidden');
+        toggle.setAttribute('aria-expanded', 'true');
+      }
+    });
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-folder-actions-menu]') || e.target.closest('[data-folder-actions-toggle]')) {
+      return;
+    }
+    closeAllFolderMenus();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeAllFolderMenus();
+    }
+  });
+
+  const renderSpinner = (el, title) => {
+    el.title = title || '';
+    el.innerHTML = `
+      <svg class="h-4 w-4 animate-spin text-slate-400" viewBox="0 0 24 24" aria-hidden="true">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"></path>
+      </svg>
+    `;
+  };
+
+  const renderProgress = (el, percent, title) => {
+    const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+    el.title = title || '';
+    el.innerHTML = `
+      <svg class="h-4 w-4" viewBox="0 0 36 36" aria-hidden="true">
+        <path d="M18 2.0845a 15.9155 15.9155 0 0 1 0 31.831a 15.9155 15.9155 0 0 1 0 -31.831"
+          fill="none" stroke="#e2e8f0" stroke-width="3"></path>
+        <path d="M18 2.0845a 15.9155 15.9155 0 0 1 0 31.831a 15.9155 15.9155 0 0 1 0 -31.831"
+          fill="none" stroke="#0ea5e9" stroke-linecap="round" stroke-width="3"
+          stroke-dasharray="${clamped}, 100"></path>
+      </svg>
+    `;
+  };
+
+  const renderError = (el, title) => {
+    el.title = title || '';
+    el.innerHTML = `
+      <svg class="h-4 w-4 text-rose-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M8.485 1.098a1.5 1.5 0 012.63 0l7.023 12.29A1.5 1.5 0 0116.847 15H3.153a1.5 1.5 0 01-1.291-2.312l7.023-12.29zM10 6.75a.75.75 0 00-.75.75v3.5a.75.75 0 001.5 0v-3.5A.75.75 0 0010 6.75zm0 7a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+      </svg>
+    `;
+  };
+
+  const clearIndicator = (el) => {
+    if (!el) return;
+    el.title = '';
+    el.innerHTML = '';
+  };
+
+  const updateIndicator = (data) => {
+    const folderKey = (data.folder || '').toLowerCase();
+    const el = indicatorByFolder.get(folderKey);
+    if (!el) {
+      return;
+    }
+    if (data.state === 'syncing') {
+      const done = Number.isFinite(data.done) ? data.done : 0;
+      const total = Number.isFinite(data.total) ? data.total : 0;
+      if (total > 0) {
+        const percent = (done / total) * 100;
+        renderProgress(el, percent, `Syncing ${data.folder} — ${done} of ${total} downloaded`);
+      } else {
+        renderSpinner(el, `Syncing ${data.folder}…`);
+      }
+      return;
+    }
+    if (data.state === 'error') {
+      const message = data.message ? `: ${data.message}` : '';
+      renderError(el, `Sync error in ${data.folder}${message}`);
+      return;
+    }
+    clearIndicator(el);
+  };
+
+  const updateCounts = (data) => {
+    const counts = data.folder_counts || {};
+    Object.keys(counts).forEach(folder => {
+      const key = folder.toLowerCase();
+      const el = countByFolder.get(key);
+      const label = labelByFolder.get(key);
+      const markRead = markReadByFolder.get(key);
+      const count = counts[folder];
+      if (el) {
+        if (count) {
+          el.textContent = count;
+          el.classList.remove('hidden');
+        } else {
+          el.textContent = '';
+          el.classList.add('hidden');
+        }
+      }
+      if (label) {
+        label.classList.toggle('font-semibold', Boolean(count));
+        label.classList.toggle('text-slate-900', Boolean(count));
+      }
+      if (markRead) {
+        markRead.classList.toggle('hidden', !count);
+      }
+    });
+    if (smartUnreadCount && smartUnreadLabel) {
+      const _excluded = UNREAD_EXCLUDED_FOLDERS;
+      const totalUnread = Object.entries(counts).reduce(
+        (sum, [folder, value]) => _excluded.has(folder.toLowerCase()) ? sum : sum + (Number(value) || 0), 0
+      );
+      if (totalUnread > 0) {
+        smartUnreadCount.textContent = totalUnread;
+        smartUnreadCount.classList.remove('hidden');
+      } else {
+        smartUnreadCount.textContent = '';
+        smartUnreadCount.classList.add('hidden');
+      }
+      smartUnreadLabel.classList.toggle('font-semibold', totalUnread > 0);
+      smartUnreadLabel.classList.toggle('text-slate-900', totalUnread > 0);
+    }
+  };
+
+  const _unreadExcluded = UNREAD_EXCLUDED_FOLDERS;
+  const sumUnreadCounts = () => {
+    let total = 0;
+    countByFolder.forEach((el, key) => {
+      if (_unreadExcluded.has(key)) return;
+      const value = Number(el.textContent || 0);
+      if (Number.isFinite(value)) {
+        total += value;
+      }
+    });
+    return total;
+  };
+
+  const updateSmartStarred = (next) => {
+    if (!smartStarredCount || !smartStarredLabel) return;
+    const total = Math.max(0, Number(next) || 0);
+    if (total > 0) {
+      smartStarredCount.textContent = total;
+      smartStarredCount.classList.remove('hidden');
+    } else {
+      smartStarredCount.textContent = '';
+      smartStarredCount.classList.add('hidden');
+    }
+    smartStarredLabel.classList.toggle('font-semibold', total > 0);
+    smartStarredLabel.classList.toggle('text-slate-900', total > 0);
+  };
+
+  const applyStarredDelta = (delta) => {
+    if (!smartStarredCount) return;
+    const current = Number(smartStarredCount.textContent || 0) || 0;
+    updateSmartStarred(current + delta);
+  };
+
+  const applyUnreadDelta = (delta) => {
+    const countEl = countByFolder.get(currentFolderKey);
+    const labelEl = labelByFolder.get(currentFolderKey);
+    const markRead = markReadByFolder.get(currentFolderKey);
+    if (countEl) {
+      const current = Number(countEl.textContent || 0) || 0;
+      const next = Math.max(0, current + delta);
+      if (next > 0) {
+        countEl.textContent = next;
+        countEl.classList.remove('hidden');
+      } else {
+        countEl.textContent = '';
+        countEl.classList.add('hidden');
+      }
+      if (labelEl) {
+        labelEl.classList.toggle('font-semibold', next > 0);
+        labelEl.classList.toggle('text-slate-900', next > 0);
+      }
+      if (markRead) {
+        markRead.classList.toggle('hidden', next <= 0);
+      }
+      if (smartUnreadCount && smartUnreadLabel) {
+        const totalUnread = sumUnreadCounts();
+        if (totalUnread > 0) {
+          smartUnreadCount.textContent = totalUnread;
+          smartUnreadCount.classList.remove('hidden');
+        } else {
+          smartUnreadCount.textContent = '';
+          smartUnreadCount.classList.add('hidden');
+        }
+        smartUnreadLabel.classList.toggle('font-semibold', totalUnread > 0);
+        smartUnreadLabel.classList.toggle('text-slate-900', totalUnread > 0);
+      }
+    }
+  };
+
+  const updateRowUnreadUI = (row, isUnread) => {
+    row.dataset.isUnread = isUnread ? '1' : '0';
+    row.classList.toggle('bg-amber-100/70', isUnread);
+    row.classList.toggle('hover:bg-amber-100', isUnread);
+    row.classList.toggle('hover:bg-slate-50/80', !isUnread);
+    const subject = row.querySelector('[data-subject="true"]');
+    if (subject) {
+      subject.classList.toggle('font-bold', isUnread);
+      subject.classList.toggle('text-slate-950', isUnread);
+      subject.classList.toggle('text-slate-700', !isUnread);
+    }
+    const markForm = row.querySelector('form[data-action="mark"]');
+    if (markForm) {
+      const input = markForm.querySelector('input[name="action"]');
+      const button = markForm.querySelector('button');
+      if (input) {
+        input.value = isUnread ? 'read' : 'unread';
+      }
+      if (button) {
+        button.textContent = isUnread ? 'Mark as read' : 'Mark as unread';
+      }
+    }
+  };
+
+  const updateRowFlagUI = (row, isFlagged) => {
+    row.dataset.isFlagged = isFlagged ? '1' : '0';
+    const starIcon = row.querySelector('[data-star-icon]');
+    if (starIcon) {
+      starIcon.setAttribute('fill', isFlagged ? 'currentColor' : 'none');
+      starIcon.setAttribute('stroke-width', isFlagged ? '1' : '1.5');
+      starIcon.classList.toggle('text-amber-400', isFlagged);
+      starIcon.classList.toggle('text-slate-300', !isFlagged);
+      starIcon.classList.toggle('hover:text-amber-400', !isFlagged);
+    }
+    const starToggle = row.querySelector('[data-star-toggle]');
+    if (starToggle) {
+      starToggle.setAttribute('aria-label', isFlagged ? 'Unstar' : 'Star');
+    }
+    const form = row.querySelector('form[data-action="flag"]');
+    if (form) {
+      const input = form.querySelector('input[name="action"]');
+      if (input) {
+        input.value = isFlagged ? 'remove' : 'add';
+      }
+    }
+  };
+
+  const updateThreadCountsAfterRemoval = (threadCard) => {
+    if (!threadCard) return;
+    const rows = threadCard.querySelectorAll('.message-row');
+    const badge = threadCard.querySelector('.thread-count');
+    if (rows.length === 0) {
+      threadCard.remove();
+      if (threadCount) {
+        const matches = threadCount.textContent.match(/^\d+/);
+        if (matches) {
+          const current = Number(matches[0]) || 0;
+          const next = Math.max(0, current - 1);
+          threadCount.textContent = `${next} conversations`;
+        }
+      }
+      return;
+    }
+    if (badge) {
+      badge.textContent = rows.length;
+    }
+  };
+
+  const moveThreadCountBadge = (row) => {
+    const badge = row.querySelector('.thread-count');
+    if (!badge) return;
+    const threadCard = row.closest('[data-thread-card="true"]');
+    if (!threadCard) return;
+    const rows = Array.from(threadCard.querySelectorAll('.message-row')).filter((item) => item !== row);
+    const target = rows[0];
+    if (!target) return;
+    const subject = target.querySelector('[data-subject="true"]');
+    if (subject && subject.parentElement) {
+      subject.parentElement.appendChild(badge);
+    } else {
+      target.appendChild(badge);
+    }
+  };
+
+  const removeRowWithAnimation = (row) => {
+    const threadCard = row.closest('[data-thread-card="true"]');
+    row.classList.add('opacity-0', 'translate-x-2');
+    row.style.maxHeight = `${row.offsetHeight}px`;
+    row.style.overflow = 'hidden';
+    requestAnimationFrame(() => {
+      row.style.maxHeight = '0px';
+      row.style.paddingTop = '0px';
+      row.style.paddingBottom = '0px';
+    });
+    setTimeout(() => {
+      moveThreadCountBadge(row);
+      row.remove();
+      updateThreadCountsAfterRemoval(threadCard);
+      updateEmptyState();
+    }, 220);
+  };
+
+  const renderUndoBanner = (undo) => {
+    if (!undoBanner || !undoLabel || !undoToken || !undoTimer || !undoTimerWrap) return;
+    if (!undo) {
+      undoBanner.classList.add('hidden');
+      undoLabel.textContent = '';
+      undoToken.value = '';
+      if (undoViewFolder) {
+        undoViewFolder.classList.add('hidden');
+        undoViewFolder.setAttribute('href', '#');
+        undoViewFolder.textContent = 'View folder';
+      }
+      return;
+    }
+    undoLabel.textContent = undo.label;
+    undoToken.value = undo.token;
+    undoBanner.classList.remove('hidden');
+    if (undoViewFolder) {
+      if (undo.view_url) {
+        undoViewFolder.classList.remove('hidden');
+        undoViewFolder.setAttribute('href', undo.view_url);
+        undoViewFolder.textContent = undo.view_label || 'View folder';
+      } else {
+        undoViewFolder.classList.add('hidden');
+        undoViewFolder.setAttribute('href', '#');
+        undoViewFolder.textContent = 'View folder';
+      }
+    }
+    if (undo.expires_at) {
+      undoTimerWrap.classList.remove('hidden');
+      const startUndoTimer = (expiresAt) => {
+        const tick = () => {
+          const remaining = Math.max(0, Math.ceil(expiresAt - Date.now() / 1000));
+          undoTimer.textContent = remaining;
+          if (remaining > 0) {
+            requestAnimationFrame(tick);
+          }
+        };
+        tick();
+      };
+      startUndoTimer(undo.expires_at);
+    } else {
+      undoTimerWrap.classList.add('hidden');
+      undoTimer.textContent = '';
+    }
+  };
+
+  const source = new EventSource('/events/stream');
+  source.addEventListener('sync_status', (evt) => {
+    const data = JSON.parse(evt.data || '{}');
+    if (data.account_id !== currentAccountId) {
+      return;
+    }
+    updateIndicator(data);
+    const sameFolder = data.folder && data.folder.toLowerCase() === currentFolder.toLowerCase();
+    const relevant = isSmartView ? true : sameFolder;
+    if (relevant) {
+      lastSyncStatus = data;
+      if (data.state === 'complete') {
+        hasCompletedSync = true;
+      }
+      updateEmptyState();
+      if (!isSmartView) {
+        const force = data.state === 'complete';
+        refreshMessages({ force });
+        if (force) {
+          setTimeout(() => refreshMessages({ force: true }), 300);
+        }
+      }
+    }
+  });
+  source.addEventListener('counts_updated', (evt) => {
+    const data = JSON.parse(evt.data || '{}');
+    if (data.account_id !== currentAccountId) {
+      return;
+    }
+    updateCounts(data);
+  });
+  source.addEventListener('ui_change', (evt) => {
+    const data = JSON.parse(evt.data || '{}');
+    if (data.module !== 'mail') return;
+    if (data.account_id && data.account_id !== currentAccountId) return;
+    refreshMessages({ force: true });
+    setTimeout(() => refreshMessages({ force: true }), 300);
+  });
+
+  if (undoLabel && undoToken) {
+    const initialUndo = {{ undo_action | tojson if undo_action else 'null' }};
+    if (initialUndo) {
+      renderUndoBanner(initialUndo);
+    }
+  }
+
+  if (initialSyncing) {
+    hasCompletedSync = false;
+    lastSyncStatus = { state: 'syncing', done: null, total: null, folder: currentFolder };
+    updateEmptyState();
+    setTimeout(() => refreshMessages({ force: true }), 1200);
+  } else {
+    updateEmptyState();
+  }
+</script>
+{% endblock %}

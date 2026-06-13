@@ -1,0 +1,210 @@
+{% macro message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled) %}
+{% if snippet_debug %}
+{% set preview_url = url_for('mail.message_preview', account_id=account.id, message_id=msg.id, snippet_debug=1) %}
+{% else %}
+{% set preview_url = url_for('mail.message_preview', account_id=account.id, message_id=msg.id) %}
+{% endif %}
+{% if msg.is_bounce %}
+<div class="message-row group relative px-4 py-2.5 text-sm cursor-pointer bg-red-50/50 hover:bg-red-50/80 border-l-2 border-l-red-400 transition-all duration-200" draggable="false" data-message-id="{{ msg.id }}" data-account-id="{{ account.id }}" data-message-url="{{ url_for('mail.message_view', account_id=account.id, message_id=msg.id) }}" data-preview-url="{{ preview_url }}" data-is-unread="{{ '1' if msg.is_unread else '0' }}" data-is-flagged="{{ '1' if msg.is_flagged else '0' }}" data-is-bounce="1">
+  <div class="flex items-start gap-2">
+    <div class="flex-shrink-0 pt-0.5">
+      <div class="flex h-[18px] w-[18px] items-center justify-center">
+        <svg class="w-4 h-4 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+      </div>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center justify-between gap-3 text-[13px]">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">Delivery failed</span>
+          <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
+          {% if loop.first and msgs|length > 1 %}
+          <span class="thread-count text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ msgs|length }}</span>
+          {% endif %}
+          {% if msg.has_attachments %}
+          <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          {% endif %}
+        </div>
+        <div class="flex items-center gap-2 text-[11px] text-slate-500 min-w-0 max-w-[55%] justify-end">
+          <span class="truncate" title="{{ msg.sender_tooltip }}">{{ msg.sender_display }}</span>
+          <span class="text-slate-300">&middot;</span>
+          <span class="whitespace-nowrap text-slate-400">{{ msg.date_display }}</span>
+        </div>
+      </div>
+      {% if msg.bounce_reason %}
+      <div class="mt-1 text-[12px] text-red-600/80 line-clamp-1">{{ msg.bounce_reason }}</div>
+      {% else %}
+      <div class="mt-1 text-[12px] text-slate-500 line-clamp-1">{{ msg.snippet|striptags }}</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% elif msg.is_draft %}
+<div class="message-row group relative px-4 py-2.5 text-sm cursor-pointer bg-amber-50/50 hover:bg-amber-50/80 border-l-2 border-l-amber-400 transition-all duration-200" draggable="false" data-message-id="{{ msg.id }}" data-account-id="{{ account.id }}" data-message-url="{{ url_for('mail.message_view', account_id=account.id, message_id=msg.id) }}" data-preview-url="{{ preview_url }}" data-is-unread="{{ '1' if msg.is_unread else '0' }}" data-is-flagged="{{ '1' if msg.is_flagged else '0' }}" data-is-draft="1">
+  <div class="flex items-start gap-2">
+    <div class="flex-shrink-0 pt-0.5">
+      <div class="flex h-[18px] w-[18px] items-center justify-center">
+        <svg class="w-3.5 h-3.5 text-amber-500" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"/></svg>
+      </div>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center justify-between gap-3 text-[13px]">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Draft</span>
+          <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
+          {% if loop.first and msgs|length > 1 %}
+          <span class="thread-count text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ msgs|length }}</span>
+          {% endif %}
+          {% if msg.has_attachments %}
+          <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          {% endif %}
+        </div>
+        <div class="flex items-center gap-2 text-[11px] text-slate-500 min-w-0 max-w-[55%] justify-end">
+          {% if msg.recipients_display %}
+          <span class="inline-flex items-center gap-1 text-amber-600 font-medium">
+            <span>To</span>
+            <svg class="w-3 h-3 text-amber-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
+            <span class="truncate font-normal text-slate-500" title="{{ msg.recipients_display }}">{{ msg.recipients_display }}</span>
+          </span>
+          {% else %}
+          <span class="truncate text-slate-500" title="{{ msg.sender_tooltip }}">{{ msg.sender_display }}</span>
+          {% endif %}
+          <span class="text-slate-300">&middot;</span>
+          <span class="whitespace-nowrap text-slate-400">{{ msg.date_display }}</span>
+        </div>
+      </div>
+      <div class="mt-1 text-[12px] text-slate-500 line-clamp-1">{{ msg.snippet|striptags }}</div>
+    </div>
+  </div>
+</div>
+{% elif msg.is_sent %}
+<div class="message-row group relative px-4 py-2.5 text-sm cursor-pointer bg-indigo-50/40 hover:bg-indigo-50/70 transition-all duration-200" draggable="false" data-message-id="{{ msg.id }}" data-account-id="{{ account.id }}" data-message-url="{{ url_for('mail.message_view', account_id=account.id, message_id=msg.id) }}" data-preview-url="{{ preview_url }}" data-is-unread="{{ '1' if msg.is_unread else '0' }}" data-is-flagged="{{ '1' if msg.is_flagged else '0' }}" data-is-sent="1">
+  <div class="flex items-start gap-2">
+    <div class="flex-shrink-0 pt-0.5">
+      <div class="flex h-[18px] w-[18px] items-center justify-center">
+        <svg class="w-3.5 h-3.5 text-indigo-500" viewBox="0 0 20 20" fill="currentColor"><path d="M3.105 2.289a.75.75 0 00-.826.95l1.414 4.925A1.5 1.5 0 005.135 9.25h6.115a.75.75 0 010 1.5H5.135a1.5 1.5 0 00-1.442 1.086l-1.414 4.926a.75.75 0 00.826.95 28.896 28.896 0 0015.293-7.154.75.75 0 000-1.115A28.897 28.897 0 003.105 2.289z"/></svg>
+      </div>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center justify-between gap-3 text-[13px]">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
+          {% if loop.first and msgs|length > 1 %}
+          <span class="thread-count text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ msgs|length }}</span>
+          {% endif %}
+          {% if msg.has_attachments %}
+          <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          {% endif %}
+        </div>
+        <div class="flex items-center gap-2 text-[11px] text-slate-500 min-w-0 max-w-[55%] justify-end">
+          <span class="inline-flex items-center gap-1 text-indigo-600 font-medium">
+            <span>You</span>
+            {% if msg.recipients_display %}
+            <svg class="w-3 h-3 text-indigo-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
+            <span class="truncate font-normal text-slate-500" title="{{ msg.recipients_display }}">{{ msg.recipients_display }}</span>
+            {% endif %}
+          </span>
+          <span class="text-slate-300">&middot;</span>
+          <span class="whitespace-nowrap text-slate-400">{{ msg.date_display }}</span>
+        </div>
+      </div>
+      <div class="mt-1 text-[12px] text-slate-500 line-clamp-1">{{ msg.snippet|striptags }}</div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="message-row group relative px-4 py-2.5 text-sm cursor-pointer {{ 'bg-amber-100/70 hover:bg-amber-100' if msg.is_unread else 'hover:bg-slate-50/80' }} transition-all duration-200" draggable="true" data-message-id="{{ msg.id }}" data-account-id="{{ account.id }}" data-message-url="{{ url_for('mail.message_view', account_id=account.id, message_id=msg.id) }}" data-preview-url="{{ preview_url }}" data-is-unread="{{ '1' if msg.is_unread else '0' }}" data-is-flagged="{{ '1' if msg.is_flagged else '0' }}">
+  <div class="flex items-start gap-2">
+    <form method="post" action="{{ url_for('mail.flag_message', account_id=account.id, message_id=msg.id) }}" class="message-action flex-shrink-0 pt-0.5" data-action="flag" data-no-row-nav>
+      <input type="hidden" name="action" value="{{ 'remove' if msg.is_flagged else 'add' }}" />
+      <button type="submit" class="p-0.5 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400" data-star-toggle aria-label="{{ 'Unstar' if msg.is_flagged else 'Star' }}">
+        <svg class="w-[18px] h-[18px] transition-colors {{ 'text-amber-400' if msg.is_flagged else 'text-slate-300 hover:text-amber-400' }}" data-star-icon viewBox="0 0 24 24" fill="{{ 'currentColor' if msg.is_flagged else 'none' }}" stroke="currentColor" stroke-width="{{ '1' if msg.is_flagged else '1.5' }}">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+      </button>
+    </form>
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center justify-between gap-3 text-[13px]">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
+          {% if loop.first and msgs|length > 1 %}
+          <span class="thread-count text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ msgs|length }}</span>
+          {% endif %}
+          {% if msg.has_attachments %}
+          <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          {% endif %}
+        </div>
+        <div class="flex items-center gap-2 text-[11px] text-slate-500 min-w-0 max-w-[45%] justify-end">
+          <span class="truncate" title="{{ msg.sender_tooltip }}" tabindex="0" aria-label="{{ msg.sender_tooltip }}">{{ msg.sender_display }}</span>
+          <span class="text-slate-300">&middot;</span>
+          <span class="whitespace-nowrap text-slate-400">{{ msg.date_display }}</span>
+        </div>
+      </div>
+      <div class="mt-1 text-[12px] text-slate-600 line-clamp-1">{{ msg.snippet|striptags }}</div>
+    </div>
+  </div>
+  <button type="button" class="lg:hidden absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full border border-slate-200 bg-white/95 text-[12px] text-slate-600 shadow-sm z-30" data-message-actions-toggle="true" data-no-row-nav aria-expanded="false" aria-label="Show actions">...</button>
+  <div class="absolute inset-y-0 right-0 flex items-center justify-end gap-1 pl-12 pr-3 bg-gradient-to-l from-white/90 via-white/70 to-transparent opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition z-20 message-actions-overlay" data-message-actions="true">
+    <form method="post" action="{{ url_for('mail.archive_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="archive" data-no-row-nav>
+      <button class="text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300">Archive</button>
+    </form>
+    <form method="post" action="{{ url_for('mail.delete_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="delete" data-no-row-nav>
+      <button class="text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300">Delete</button>
+    </form>
+    <div class="relative">
+      <button type="button" class="text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300" data-overflow-toggle data-no-row-nav aria-label="More actions">&#8943;</button>
+      <div class="absolute right-0 py-1 min-w-[160px] rounded-lg border border-slate-200 bg-white shadow-lg hidden z-50" data-overflow-menu>
+        <form method="post" action="{{ url_for('mail.mark_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="mark" data-no-row-nav>
+          <input type="hidden" name="action" value="{{ 'read' if msg.is_unread else 'unread' }}" />
+          <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">{{ 'Mark as read' if msg.is_unread else 'Mark as unread' }}</button>
+        </form>
+        {% if spam_action_enabled %}
+        <form method="post" action="{{ url_for('mail.junk_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="junk" data-no-row-nav>
+          <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">Report spam</button>
+        </form>
+        {% endif %}
+        <button type="button" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-to-folder data-no-row-nav>Move to folder</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% for subject, msgs in threads.items() %}
+{% set collapsed_threshold = 4 %}
+{% set thread_key = msgs[0].id|string if msgs|length > 0 else '' %}
+{% set has_bounce = msgs | selectattr('is_bounce') | list | length > 0 %}
+{% set has_draft = msgs | selectattr('is_draft') | list | length > 0 %}
+<div class="thread-card rounded-xl border border-slate-200/80 border-l-2 {{ 'border-l-red-400' if has_bounce else ('border-l-amber-400' if has_draft else 'border-l-indigo-400') }} bg-white" data-thread-card="true" {% if thread_key %}data-thread-key="{{ thread_key }}"{% endif %}>
+  <div class="divide-y divide-slate-200/70">
+    {% if msgs|length > collapsed_threshold %}
+      {% set visible_count = 2 %}
+      {% set older_msgs = msgs[visible_count:] %}
+      {% set older_count = older_msgs|length %}
+
+      {% for msg in msgs[:visible_count] %}
+        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled) }}
+      {% endfor %}
+
+      <div class="border-l-2 border-slate-200">
+        <div class="thread-collapse-bar relative px-4 py-2 text-[12px] text-slate-500 cursor-pointer select-none bg-slate-50/60 hover:bg-slate-100/70 transition-colors duration-150" data-thread-collapse-toggle aria-expanded="false" data-no-row-nav>
+          <div class="flex items-center justify-center gap-1.5">
+            <svg class="w-3 h-3 text-slate-400 transition-transform duration-200" data-collapse-chevron viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+            <span data-collapse-label>{{ older_count }} older message{{ 's' if older_count != 1 else '' }}</span>
+          </div>
+        </div>
+
+        <div class="thread-collapse-content bg-slate-50/40 overflow-hidden" data-thread-collapse-content style="max-height: 0; opacity: 0; transition: max-height 0.3s ease-out, opacity 0.2s ease-out;">
+          {% for msg in older_msgs %}
+            {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled) }}
+          {% endfor %}
+        </div>
+      </div>
+    {% else %}
+      {% for msg in msgs %}
+        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled) }}
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+{% endfor %}

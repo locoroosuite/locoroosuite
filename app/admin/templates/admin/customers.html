@@ -1,0 +1,452 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+<section class="bg-white border border-slate-200 rounded-lg p-5">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-xl font-semibold">Customers</h1>
+      <p class="text-sm text-slate-500">Manage customer access without touching IMAP data.</p>
+    </div>
+    {% if sync_domains %}
+    <div class="relative">
+      <button type="button" onclick="document.getElementById('sync-dropdown').classList.toggle('hidden')"
+              class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
+        Sync accounts
+        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+      </button>
+      <div id="sync-dropdown" class="hidden absolute right-0 z-20 mt-1 w-64 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+        {% for d in sync_domains %}
+        <a href="{{ url_for('admin.domain_sync', domain_id=d.id) }}" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+          {{ d.name }}
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if invitation_link %}
+  <div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+    <div class="text-sm font-medium text-emerald-800 mb-1">Invitation link for <strong>{{ invitation_email }}</strong></div>
+    <div class="flex items-center gap-2">
+      <input type="text" readonly value="{{ invitation_link }}" id="invitation-link" class="flex-1 rounded border border-emerald-300 bg-white px-3 py-1.5 text-xs font-mono" onclick="this.select()" />
+      <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('invitation-link').value); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 2000)" class="rounded bg-emerald-600 px-3 py-1.5 text-xs text-white hover:bg-emerald-700">Copy</button>
+    </div>
+    <p class="text-xs text-emerald-600 mt-1">This link expires in 7 days. Send it to the customer so they can set their password.</p>
+  </div>
+  {% endif %}
+
+  <div class="border border-slate-200 rounded-lg divide-y text-sm text-slate-700">
+    {% if admin_user %}
+    {% set admin_accounts = [admin_account] if admin_account else [] %}
+    <div class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between bg-slate-50">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="font-medium">{{ admin_user.email }}</span>
+          <span class="text-xs px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200">Admin</span>
+        </div>
+        <div class="flex items-center gap-2 mt-0.5">
+          {% if admin_account %}
+          {% if admin_account.auth_type == 'password' %}
+          <span class="text-xs px-1.5 py-0.5 rounded bg-slate-50 text-slate-500 border border-slate-200">Hosted</span>
+          {% elif admin_account.auth_type == 'external' %}
+          <span class="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200">External</span>
+          {% endif %}
+          {% else %}
+          <span class="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200">No account</span>
+          {% endif %}
+        </div>
+      </div>
+      {% if admin_account %}
+      <div class="relative">
+        <button type="button" onclick="toggleDropdown('admin')" class="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">
+          Actions
+          <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+        </button>
+        <div id="dropdown-admin" class="hidden absolute right-0 z-20 mt-1 w-52 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+          {% if admin_account.auth_type == 'external' %}
+          <form method="post" action="{{ url_for('admin.toggle_customer_external', customer_id=admin_user.id) }}">
+            <input type="hidden" name="mode" value="hosted" />
+            <button type="submit" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-50">
+              Convert to hosted
+              <span class="block text-slate-400 font-normal">Enable password management for this mailbox</span>
+            </button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ url_for('admin.reset_customer_password', customer_id=admin_user.id) }}">
+            <button type="submit" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-50">
+              Send reset link
+              <span class="block text-slate-400 font-normal">Generate a signup link to set a new password</span>
+            </button>
+          </form>
+          <div>
+            <button type="button" onclick="showPwInput('admin')" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-50">
+              Set password
+              <span class="block text-slate-400 font-normal">Choose a new password for this mailbox</span>
+            </button>
+            <form id="pw-form-admin" method="post" action="{{ url_for('admin.set_customer_password', customer_id=admin_user.id) }}" class="hidden px-3 pb-2" onsubmit="return submitSetPassword(this, 'admin')">
+              <input type="password" name="password" placeholder="New password" class="w-full rounded border border-slate-200 px-2 py-1 text-xs" required />
+              <div class="flex items-center gap-2 mt-1.5">
+                <button type="submit" class="inline-flex items-center gap-1.5 rounded bg-slate-900 px-2.5 py-1 text-xs text-white hover:bg-slate-800 disabled:opacity-50">
+                  <svg class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                  Save
+                </button>
+                <button type="button" onclick="hidePwInput('admin')" class="text-xs text-slate-500 hover:text-slate-700">Cancel</button>
+              </div>
+            </form>
+          </div>
+          {% endif %}
+          <form method="post" action="{{ url_for('admin.toggle_customer_external', customer_id=admin_user.id) }}">
+            <input type="hidden" name="mode" value="external" />
+            <button type="submit" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-50">
+              Convert to external
+              <span class="block text-slate-400 font-normal">Mailbox is hosted elsewhere; disable password management</span>
+            </button>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% for customer in customers %}
+    {% set accounts = customer_accounts.get(customer.id, []) %}
+    <div class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="min-w-0">
+        <div class="font-medium">{{ customer.email }}</div>
+        {% if accounts | length > 1 %}
+        <div class="text-xs text-slate-400 mt-0.5">{% for acc in accounts %}{{ acc.email_address }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+        {% endif %}
+        <div class="flex items-center gap-2 mt-0.5">
+          <span class="text-xs {{ 'text-emerald-600' if customer.is_active else 'text-red-500' }}">
+            {{ 'Active' if customer.is_active else 'Inactive' }}
+          </span>
+          {% for acc in accounts %}
+          {% if acc.auth_type == 'external' %}
+          <span class="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200">External</span>
+          {% elif acc.auth_type == 'password' %}
+          <span class="text-xs px-1.5 py-0.5 rounded bg-slate-50 text-slate-500 border border-slate-200">Hosted</span>
+          {% endif %}
+          {% else %}
+          <span class="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200">No account</span>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="relative">
+        <button type="button" onclick="toggleDropdown('{{ customer.id }}')" class="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">
+          Actions
+          <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+        </button>
+        <div id="dropdown-{{ customer.id }}" class="hidden absolute right-0 z-20 mt-1 w-52 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+          {% set is_external = accounts | selectattr('auth_type', 'equalto', 'external') | list | length > 0 %}
+          {% set has_account = accounts | length > 0 %}
+          {% if is_external %}
+          <form method="post" action="{{ url_for('admin.toggle_customer_external', customer_id=customer.id) }}">
+            <input type="hidden" name="mode" value="hosted" />
+            <button type="submit" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-50">
+              Convert to hosted
+              <span class="block text-slate-400 font-normal">Enable password management for this mailbox</span>
+            </button>
+          </form>
+          {% else %}
+          {% if has_account %}
+          <form method="post" action="{{ url_for('admin.reset_customer_password', customer_id=customer.id) }}">
+            <button type="submit" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-50">
+              Send reset link
+              <span class="block text-slate-400 font-normal">Generate a signup link to set a new password</span>
+            </button>
+          </form>
+          <div>
+            <button type="button" onclick="showPwInput('{{ customer.id }}')" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-50">
+              Set password
+              <span class="block text-slate-400 font-normal">Choose a new password for this customer</span>
+            </button>
+            <form id="pw-form-{{ customer.id }}" method="post" action="{{ url_for('admin.set_customer_password', customer_id=customer.id) }}" class="hidden px-3 pb-2" onsubmit="return submitSetPassword(this, '{{ customer.id }}')">
+              <input type="password" name="password" placeholder="New password" class="w-full rounded border border-slate-200 px-2 py-1 text-xs" required />
+              <div class="flex items-center gap-2 mt-1.5">
+                <button type="submit" class="inline-flex items-center gap-1.5 rounded bg-slate-900 px-2.5 py-1 text-xs text-white hover:bg-slate-800 disabled:opacity-50">
+                  <svg class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                  Save
+                </button>
+                <button type="button" onclick="hidePwInput('{{ customer.id }}')" class="text-xs text-slate-500 hover:text-slate-700">Cancel</button>
+              </div>
+            </form>
+          </div>
+          {% endif %}
+          <form method="post" action="{{ url_for('admin.toggle_customer_external', customer_id=customer.id) }}">
+            <input type="hidden" name="mode" value="external" />
+            <button type="submit" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-50">
+              Convert to external
+              <span class="block text-slate-400 font-normal">Mailbox is hosted elsewhere; disable password management</span>
+            </button>
+          </form>
+          {% endif %}
+          <div class="border-t border-slate-100 my-1"></div>
+          {% if domains | length > 0 %}
+          <div>
+            <button type="button" onclick="showAddAccount('{{ customer.id }}')" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-50">
+              Add account
+              <span class="block text-slate-400 font-normal">Add an email account for this customer</span>
+            </button>
+            <form id="add-account-form-{{ customer.id }}" method="post" action="{{ url_for('admin.add_customer_account', customer_id=customer.id) }}" class="hidden px-3 pb-2" onsubmit="return submitAddAccount(this, '{{ customer.id }}')">
+              <select name="domain_id" class="w-full rounded border border-slate-200 px-2 py-1 text-xs mb-1.5" required>
+                <option value="">Select domain</option>
+                {% for domain in domains %}
+                <option value="{{ domain.id }}">{{ domain.name }}</option>
+                {% endfor %}
+              </select>
+              <input type="password" name="password" placeholder="Password (optional)" class="w-full rounded border border-slate-200 px-2 py-1 text-xs mb-1.5" />
+              <div class="flex items-center gap-2">
+                <button type="submit" class="inline-flex items-center gap-1.5 rounded bg-slate-900 px-2.5 py-1 text-xs text-white hover:bg-slate-800 disabled:opacity-50">
+                  <svg class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                  Add
+                </button>
+                <button type="button" onclick="hideAddAccount('{{ customer.id }}')" class="text-xs text-slate-500 hover:text-slate-700">Cancel</button>
+              </div>
+            </form>
+          </div>
+          {% endif %}
+          <div class="border-t border-slate-100 my-1"></div>
+          <form method="post" action="{{ url_for('admin.toggle_customer', customer_id=customer.id) }}">
+            <button type="submit" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-50">
+              {{ 'Disable' if customer.is_active else 'Enable' }}
+            </button>
+          </form>
+          <form method="post" action="{{ url_for('admin.purge_customer', customer_id=customer.id) }}">
+            <button type="submit" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 text-red-600">Purge cache</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% if customers|length == 0 %}
+    <div class="px-4 py-3 text-xs text-slate-500">No customers created yet.</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-lg p-5">
+  <h2 class="text-lg font-semibold mb-3">Add customer</h2>
+
+  <div class="space-y-4">
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-1">Email address</label>
+      <div class="flex items-stretch">
+        <input name="username" form="customer-form" type="text" placeholder="username" class="w-40 rounded-l-lg border border-r-0 border-slate-200 bg-white px-3 py-1.5 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" required />
+        <span class="flex items-center border border-slate-200 bg-slate-50 px-2 text-sm text-slate-500">@</span>
+        <div class="relative flex-1" id="domain-combobox">
+          <input type="text" id="domain-search" placeholder="Search domains..." autocomplete="off" class="w-full rounded-r-lg border border-slate-200 bg-white px-3 py-1.5 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" onfocus="showDomainList()" oninput="filterDomains()" />
+          <input type="hidden" name="domain_id" id="domain-id-input" form="customer-form" value="" />
+          <div id="domain-list" class="hidden absolute z-10 mt-1 w-full max-h-48 overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg py-1 text-sm">
+            {% for domain in domains %}
+            <button type="button" data-domain-id="{{ domain.id }}" data-domain-name="{{ domain.name }}" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 domain-option">{{ domain.name }}</button>
+            {% endfor %}
+            <div id="domain-no-results" class="hidden px-3 py-1.5 text-xs text-slate-400">No results with '<span id="domain-no-results-query"></span>'</div>
+            {% if domains|length == 0 %}
+            <div class="px-3 py-1.5 text-xs text-slate-400">No domains configured</div>
+            {% endif %}
+          </div>
+          <div id="domain-selected" class="hidden absolute inset-0 flex items-center rounded-r-lg border border-slate-200 bg-slate-50 px-3 text-sm">
+            <span id="domain-selected-name" class="flex-1 truncate"></span>
+            <button type="button" onclick="clearDomainSelection()" class="ml-1 text-slate-400 hover:text-slate-600">
+              <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="password-section" class="hidden">
+      <label class="block text-xs font-medium text-slate-600 mb-1">Password</label>
+      <input name="password" form="customer-form" type="password" placeholder="Set a password" class="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm" />
+    </div>
+
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+        <input type="radio" name="create_mode" form="customer-form" value="invite" checked onchange="switchCreateMode('invite')" class="accent-slate-900" />
+        Invitation link
+      </label>
+      <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+        <input type="radio" name="create_mode" form="customer-form" value="password" onchange="switchCreateMode('password')" class="accent-slate-900" />
+        Set password
+      </label>
+      <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+        <input type="radio" name="create_mode" form="customer-form" value="external" onchange="switchCreateMode('external')" class="accent-slate-900" />
+        External mailbox
+        <span class="relative" id="external-tooltip-wrap">
+          <button type="button" onclick="toggleExternalTooltip()" class="inline-flex items-center justify-center h-4 w-4 rounded-full border border-slate-300 text-[10px] text-slate-400 hover:text-slate-600 hover:border-slate-400">?</button>
+          <div id="external-tooltip" class="hidden absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 shadow-lg z-30">
+            <strong class="text-slate-800">External mailbox</strong> means the email is hosted elsewhere (e.g. Gmail, Outlook, or another provider). No mailbox or password will be created on this server. The customer will sign in using their existing IMAP credentials from the external provider.
+            <div class="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 border-b border-r border-slate-200 bg-white rotate-45 -mt-1"></div>
+          </div>
+        </span>
+      </label>
+    </div>
+
+    <form id="customer-form" method="post" action="{{ url_for('admin.create_customer') }}">
+      <button type="submit" class="bg-slate-900 text-white rounded-lg px-3 py-1.5 text-sm">Add customer</button>
+    </form>
+  </div>
+</section>
+
+<script>
+(function() {
+  const search = document.getElementById('domain-search');
+  const list = document.getElementById('domain-list');
+  const idInput = document.getElementById('domain-id-input');
+  const selected = document.getElementById('domain-selected');
+  const selectedName = document.getElementById('domain-selected-name');
+  const options = list.querySelectorAll('.domain-option');
+
+  window.showDomainList = function() {
+    if (selected.classList.contains('hidden')) {
+      list.classList.remove('hidden');
+      filterDomains();
+    }
+  };
+
+  const noResults = document.getElementById('domain-no-results');
+  const noResultsQuery = document.getElementById('domain-no-results-query');
+
+  window.filterDomains = function() {
+    const q = search.value.toLowerCase();
+    let visible = 0;
+    options.forEach(opt => {
+      const match = opt.dataset.domainName.toLowerCase().includes(q);
+      opt.classList.toggle('hidden', !match);
+      if (match) visible++;
+    });
+    if (!list.classList.contains('hidden') || q) list.classList.remove('hidden');
+    if (q && visible === 0) {
+      noResultsQuery.textContent = search.value;
+      noResults.classList.remove('hidden');
+    } else {
+      noResults.classList.add('hidden');
+    }
+  };
+
+  options.forEach(opt => {
+    opt.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      selectDomain(opt.dataset.domainId, opt.dataset.domainName);
+    });
+  });
+
+  function selectDomain(id, name) {
+    idInput.value = id;
+    selectedName.textContent = name;
+    selected.classList.remove('hidden');
+    search.classList.add('hidden');
+    list.classList.add('hidden');
+  }
+
+  window.clearDomainSelection = function() {
+    idInput.value = '';
+    selected.classList.add('hidden');
+    search.classList.remove('hidden');
+    search.value = '';
+    search.focus();
+  };
+
+  document.addEventListener('click', function(e) {
+    if (!document.getElementById('domain-combobox').contains(e.target)) {
+      list.classList.add('hidden');
+    }
+  });
+
+  search.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      list.classList.add('hidden');
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const visible = Array.from(options).filter(o => !o.classList.contains('hidden'));
+      if (visible.length === 1) {
+        selectDomain(visible[0].dataset.domainId, visible[0].dataset.domainName);
+      }
+    }
+  });
+
+  {% if domains|length == 1 %}
+  selectDomain('{{ domains[0].id }}', '{{ domains[0].name }}');
+  {% endif %}
+
+  window.switchCreateMode = function(mode) {
+    document.getElementById('password-section').classList.toggle('hidden', mode !== 'password');
+  };
+
+  let openDropdown = null;
+  window.toggleDropdown = function(customerId) {
+    const el = document.getElementById('dropdown-' + customerId);
+    if (openDropdown && openDropdown !== el) {
+      openDropdown.classList.add('hidden');
+      const prevId = openDropdown.id.replace('dropdown-', '');
+      const prevForm = document.getElementById('pw-form-' + prevId);
+      if (prevForm) prevForm.classList.add('hidden');
+    }
+    el.classList.toggle('hidden');
+    openDropdown = el.classList.contains('hidden') ? null : el;
+  };
+
+  document.addEventListener('click', function(e) {
+    if (openDropdown && !e.target.closest('[id^="dropdown-"]') && !e.target.closest('button[onclick*="toggleDropdown"]')) {
+      const prevId = openDropdown.id.replace('dropdown-', '');
+      const prevForm = document.getElementById('pw-form-' + prevId);
+      if (prevForm) prevForm.classList.add('hidden');
+      openDropdown.classList.add('hidden');
+      openDropdown = null;
+    }
+  });
+
+  window.showPwInput = function(customerId) {
+    var btn = document.getElementById('pw-form-' + customerId);
+    btn.classList.remove('hidden');
+    btn.querySelector('input[name="password"]').focus();
+  };
+
+  window.hidePwInput = function(customerId) {
+    var form = document.getElementById('pw-form-' + customerId);
+    form.classList.add('hidden');
+    form.querySelector('input[name="password"]').value = '';
+  };
+
+  window.showAddAccount = function(customerId) {
+    var form = document.getElementById('add-account-form-' + customerId);
+    form.classList.remove('hidden');
+  };
+
+  window.hideAddAccount = function(customerId) {
+    var form = document.getElementById('add-account-form-' + customerId);
+    form.classList.add('hidden');
+  };
+
+  window.submitAddAccount = function(form, customerId) {
+    var domainId = form.querySelector('select[name="domain_id"]').value;
+    if (!domainId) return false;
+    var btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.querySelector('svg').classList.remove('hidden');
+    return true;
+  };
+
+  window.submitSetPassword = function(form, customerId) {
+    var pw = form.querySelector('input[name="password"]').value.trim();
+    if (!pw) return false;
+    var btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.querySelector('svg').classList.remove('hidden');
+    return true;
+  };
+
+  window.toggleExternalTooltip = function() {
+    document.getElementById('external-tooltip').classList.toggle('hidden');
+  };
+
+  document.addEventListener('click', function(e) {
+    const wrap = document.getElementById('external-tooltip-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+      document.getElementById('external-tooltip').classList.add('hidden');
+    }
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% if accounts and accounts|length > 1 %}
+<form method="post" action="{{ url_for('mail.set_active_account') }}" class="mb-3">
+  <input type="hidden" name="next" value="{{ request.path }}" />
+  <select name="account_id" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" onchange="this.form.submit()">
+    {% for acct in accounts %}
+    <option value="{{ acct.id }}" {% if acct.id == active_account_id %}selected{% endif %}>{{ acct.email_address }}</option>
+    {% endfor %}
+  </select>
+</form>
+{% endif %}

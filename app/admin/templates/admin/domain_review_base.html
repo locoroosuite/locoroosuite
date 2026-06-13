@@ -1,0 +1,40 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+<section class="bg-white border border-slate-200 rounded-lg p-5">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-xl font-semibold">Review domain</h1>
+      <p class="text-sm text-slate-500">{{ domain.name }} · Status {{ domain.status|capitalize }}</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="{{ url_for('admin.domains') }}" class="text-sm text-slate-600 hover:text-slate-900">Back to domains</a>
+      <form method="post" action="{{ url_for('admin.delete_domain', domain_id=domain.id) }}" onsubmit="return confirm('Delete domain {{ domain.name }} and all its accounts? This cannot be undone.');">
+        <button type="submit" class="text-sm text-red-600 hover:text-red-800">Delete domain</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="border-b border-slate-200 mb-6">
+    <nav class="-mb-px flex gap-6">
+      <a href="{{ url_for('admin.review_domain_mail', domain_id=domain.id) }}"
+         class="whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium {{ 'border-slate-900 text-slate-900' if active_tab == 'mail' else 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300' }}">
+        Mail
+      </a>
+      <a href="{{ url_for('admin.review_domain_dav', domain_id=domain.id) }}"
+         class="whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium {{ 'border-slate-900 text-slate-900' if active_tab == 'dav' else 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300' }}">
+        Contacts &amp; Calendar
+      </a>
+      <a href="{{ url_for('admin.review_domain_selfhosted', domain_id=domain.id) }}"
+         class="whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium {{ 'border-slate-900 text-slate-900' if active_tab == 'selfhosted' else 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300' }}">
+        Self-Hosted
+      </a>
+      <a href="{{ url_for('admin.review_domain_accounts', domain_id=domain.id) }}"
+         class="whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium {{ 'border-slate-900 text-slate-900' if active_tab == 'accounts' else 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300' }}">
+        Accounts
+      </a>
+    </nav>
+  </div>
+
+  {% block review_content %}{% endblock %}
+</section>
+{% endblock %}

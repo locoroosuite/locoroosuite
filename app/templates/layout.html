@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title or "LocoRooSuite" }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    window.tailwind = window.tailwind || {};
+    window.tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Manrope', 'ui-sans-serif', 'system-ui']
+          }
+        }
+      }
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      color-scheme: light;
+    }
+    body {
+      font-family: "Manrope", ui-sans-serif, system-ui;
+      background:
+        radial-gradient(900px at 10% -10%, rgba(226, 232, 240, 0.9), rgba(248, 250, 252, 0) 60%),
+        radial-gradient(700px at 90% 0%, rgba(224, 242, 254, 0.9), rgba(248, 250, 252, 0) 55%),
+        #f8fafc;
+    }
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .lr-spinner {
+      display: inline-flex;
+      align-items: center;
+    }
+    .message-row.is-dragging {
+      opacity: 0.45;
+    }
+    .message-row[data-overlay-locked] > [data-message-actions] {
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    .message-row[data-overlay-locked] [data-message-actions-toggle] {
+      display: none !important;
+    }
+    .folder-drop.is-drag-over {
+      background-color: rgba(219, 234, 254, 0.9);
+      box-shadow: inset 3px 0 0 0 #3b82f6;
+    }
+    .folder-drop.is-drag-invalid {
+      opacity: 0.35;
+      pointer-events: none;
+    }
+    .folder-drop.is-drag-active:not(.is-drag-over):not(.is-drag-invalid) {
+      transition: background-color 0.15s;
+    }
+    .lr-spinner svg {
+      animation: lr-spin 0.9s linear infinite;
+    }
+    @keyframes lr-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    .skeleton-shimmer {
+      background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+      background-size: 200% 100%;
+      animation: lr-shimmer 1.5s ease-in-out infinite;
+    }
+    @keyframes lr-shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+  </style>
+  <script>
+    (function() {
+      try {
+        var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (tz && window.fetch) {
+          fetch("/app/api/set-timezone", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({timezone: tz}),
+            credentials: "same-origin"
+          }).catch(function(){});
+        }
+      } catch(e) {}
+    })();
+  </script>
+  <script>
+    window.LR = window.LR || {};
+    window.LR.setButtonLoading = (button) => {
+      if (!button || button.dataset.loading === '1') return;
+      button.dataset.loading = '1';
+      button.disabled = true;
+      button.classList.add('opacity-60', 'cursor-wait');
+      const spinner = document.createElement('span');
+      spinner.className = 'lr-spinner ml-2';
+      spinner.setAttribute('aria-hidden', 'true');
+      spinner.innerHTML = `
+        <svg class="h-3.5 w-3.5 text-current" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"></path>
+        </svg>
+      `;
+      button.appendChild(spinner);
+    };
+    window.LR.clearButtonLoading = (button) => {
+      if (!button || button.dataset.loading !== '1') return;
+      button.dataset.loading = '0';
+      button.disabled = false;
+      button.classList.remove('opacity-60', 'cursor-wait');
+      const spinner = button.querySelector('.lr-spinner');
+      if (spinner) spinner.remove();
+    };
+    window.LR.notifyError = (message) => {
+      const toast = document.getElementById('action-toast');
+      const label = document.getElementById('action-toast-label');
+      if (!toast || !label) return;
+      let text = message || 'Action failed.';
+      if (!text.includes('retry')) {
+        text = `${text} Please retry. If it keeps happening, check your connection or refresh.`;
+      }
+      label.textContent = text;
+      toast.classList.remove('hidden');
+      toast.classList.add('opacity-100');
+      clearTimeout(window.LR._toastTimer);
+      window.LR._toastTimer = setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 4500);
+    };
+    window.LR.notifySuccess = (message) => {
+      const toast = document.getElementById('action-toast-success');
+      const label = document.getElementById('action-toast-label-success');
+      if (!toast || !label) return;
+      label.textContent = message || 'Done.';
+      toast.classList.remove('hidden');
+      toast.classList.add('opacity-100');
+      clearTimeout(window.LR._toastTimerSuccess);
+      window.LR._toastTimerSuccess = setTimeout(() => {
+        toast.classList.add('hidden');
+        toast.classList.remove('opacity-100');
+      }, 3000);
+    };
+    document.addEventListener('submit', (e) => {
+      const form = e.target;
+      if (!form || form.dataset.noLoading === 'true') return;
+      const submitter = e.submitter || form.querySelector('button[type="submit"], input[type="submit"]');
+      if (submitter) {
+        setTimeout(() => window.LR.setButtonLoading(submitter), 0);
+      }
+    });
+  </script>
+</head>
+<body class="h-full text-slate-900 antialiased">
+  <div class="min-h-full">
+    <header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/80 backdrop-blur">
+      <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center gap-4">
+        <a href="{% if session.get('role') == 'admin' %}{{ url_for('admin.dashboard') }}{% elif session.get('role') == 'manager' %}{{ url_for('manager.dashboard') }}{% elif session.get('role') == 'customer' %}{{ url_for('mail.mailbox') }}{% else %}{{ url_for('mail.login') }}{% endif %}" class="flex items-center gap-3">
+          <div class="h-9 w-9 rounded-xl bg-slate-900 text-white text-sm font-semibold grid place-items-center">LR</div>
+          <div class="font-semibold tracking-wide">LocoRooSuite</div>
+        </a>
+        <div class="flex-1">
+          {% if session.get("role") == "customer" %}
+          <form method="post" action="{{ url_for('mail.search') }}">
+            <input type="hidden" name="account_id" value="{{ session.get('active_account_id', 0) }}" />
+            <input name="q" type="search" placeholder="Search mail" class="w-full rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+          </form>
+          {% endif %}
+        </div>
+        {% if user_menu %}
+        <div class="flex items-center gap-1.5">
+          <div class="relative" id="app-launcher">
+            <button type="button" id="app-launcher-button" class="h-9 w-9 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors" aria-label="App launcher">
+              <svg class="h-5 w-5 text-slate-600" viewBox="0 0 20 20" fill="currentColor"><path d="M3 3h5v5H3V3zm7 0h5v5h-5V3zm0 7h5v5h-5v-5zM3 10h5v5H3v-5z"/></svg>
+            </button>
+            <div id="app-launcher-panel" class="hidden absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 bg-white shadow-lg py-1 text-sm">
+              {% if user_menu.show_mail %}
+              <a href="{{ url_for('mail.mailbox') }}" class="flex items-center gap-3 px-3 py-2.5 text-slate-700 hover:bg-slate-50">
+                <svg class="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.25 1.25 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z"/><path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z"/></svg>
+                Mail
+              </a>
+              {% endif %}
+              {% if user_menu.show_contacts %}
+              <a href="{{ url_for('contacts.contact_list') }}" class="flex items-center gap-3 px-3 py-2.5 text-slate-700 hover:bg-slate-50">
+                <svg class="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path d="M7 8a3 3 0 100-6 3 3 0 000 6zM14.5 9a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM1.615 16.428a1.224 1.224 0 01-.569-1.175 6.002 6.002 0 0111.908 0c.058.467-.172.92-.57 1.174A9.953 9.953 0 017 18a9.953 9.953 0 01-5.385-1.572zM14.5 16h-.106c.07-.297.088-.611.048-.933a7.47 7.47 0 00-1.588-3.755 4.502 4.502 0 015.874 2.636.818.818 0 01-.36.98A7.465 7.465 0 0114.5 16z"/></svg>
+                Contacts
+              </a>
+              {% endif %}
+              {% if user_menu.show_calendar %}
+              <a href="{{ url_for('calendar.index') }}" class="flex items-center gap-3 px-3 py-2.5 text-slate-700 hover:bg-slate-50">
+                <svg class="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1.5 3.5c-.69 0-1.25.56-1.25 1.25v.25h12v-.25c0-.69-.56-1.25-1.25-1.25H4.25zM3.5 8.75v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5h-12z" clip-rule="evenodd"/></svg>
+                Calendar
+              </a>
+              {% endif %}
+              {% if user_menu.show_docs %}
+              <a href="{{ url_for('docs.index') }}" class="flex items-center gap-3 px-3 py-2.5 text-slate-700 hover:bg-slate-50">
+                <svg class="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zM6 8a1 1 0 000 2h8a1 1 0 100-2H6zm0 4a1 1 0 100 2h4a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>
+                Docs
+              </a>
+              {% endif %}
+              {% if user_menu.show_admin %}
+              <a href="{{ url_for('admin.dashboard') }}" class="flex items-center gap-3 px-3 py-2.5 text-slate-700 hover:bg-slate-50">
+                <svg class="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zm4.75 6.5a.75.75 0 011.5 0v2.25h2.25a.75.75 0 010 1.5h-2.25v2.25a.75.75 0 01-1.5 0v-2.25H7a.75.75 0 010-1.5h2.25V8.5z" clip-rule="evenodd"/></svg>
+                Admin
+              </a>
+              {% endif %}
+            </div>
+          </div>
+          <div class="relative" id="user-menu">
+            <button type="button" id="user-menu-button" class="h-9 w-9 rounded-full bg-slate-900 text-white text-[11px] font-semibold flex items-center justify-center">
+              {{ user_menu.initials }}
+            </button>
+            <div id="user-menu-panel" class="hidden absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white shadow-lg py-1 text-sm">
+              <div class="px-3 py-2 text-xs text-slate-500 truncate">{{ user_menu.email }}</div>
+              {% if user_menu.settings_url %}
+              <a href="{{ user_menu.settings_url }}" class="block px-3 py-2 text-slate-700 hover:bg-slate-50">Settings</a>
+              {% endif %}
+              {% if user_menu.domain_url %}
+              <a href="{{ user_menu.domain_url }}" class="block px-3 py-2 text-slate-700 hover:bg-slate-50">Domain Management</a>
+              {% endif %}
+              <a href="{{ user_menu.logout_url }}" class="block px-3 py-2 text-slate-700 hover:bg-slate-50">Log out</a>
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <a href="{{ url_for('auth.login') }}" class="text-sm text-slate-600 hover:text-slate-900">Domain Management</a>
+        {% endif %}
+      </div>
+    </header>
+    <main class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for category, message in messages %}
+        <div class="rounded-lg border px-4 py-3 text-sm {% if category == 'error' %}border-rose-200 bg-rose-50 text-rose-800{% elif category == 'warning' %}border-amber-200 bg-amber-50 text-amber-800{% elif category == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-slate-200 bg-slate-50 text-slate-800{% endif %}">
+          {{ message }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  <div id="action-toast-success" class="hidden fixed bottom-5 right-5 max-w-sm rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow-lg">
+    <div id="action-toast-label-success">Done.</div>
+  </div>
+  <div id="action-toast" class="hidden fixed bottom-5 right-5 max-w-sm rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 shadow-lg">
+    <div id="action-toast-label">Action failed. Please retry. If it keeps happening, check your connection or refresh.</div>
+  </div>
+  {% if active_send %}
+  <div id="send-widget" data-token="{{ active_send.token }}" data-subject="{{ active_send.subject }}"
+       class="fixed bottom-4 right-4 sm:bottom-5 sm:right-5 left-4 sm:left-auto z-50 max-w-sm sm:w-96 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-lg transition-all duration-300 opacity-100 translate-y-0"
+       style="bottom: 5rem;">
+    <div class="flex items-start gap-3">
+      <div class="flex-shrink-0 mt-0.5">
+        <div id="sw-icon-sending" class="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center">
+          <svg class="h-4 w-4 text-blue-600 animate-pulse" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.25 1.25 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z"/><path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z"/></svg>
+        </div>
+        <div id="sw-icon-sent" class="hidden h-8 w-8 rounded-full bg-emerald-50 flex items-center justify-center">
+          <svg class="h-4 w-4 text-emerald-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>
+        </div>
+        <div id="sw-icon-error" class="hidden h-8 w-8 rounded-full bg-rose-50 flex items-center justify-center">
+          <svg class="h-4 w-4 text-rose-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd"/></svg>
+        </div>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p id="sw-subject" class="text-sm font-medium text-slate-900 truncate">{{ active_send.subject }}</p>
+        <p id="sw-status" class="text-xs text-slate-500 mt-0.5">Preparing to send…</p>
+        <p id="sw-error-msg" class="hidden text-xs text-rose-600 mt-1"></p>
+      </div>
+      <button type="button" id="sw-dismiss" class="hidden flex-shrink-0 text-slate-400 hover:text-slate-600 transition-colors">
+        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
+      </button>
+    </div>
+    <div id="sw-actions" class="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-slate-100">
+      <button type="button" id="sw-undo-btn" class="text-xs font-medium text-slate-700 hover:text-slate-900 px-2.5 py-1 rounded-md hover:bg-slate-100 transition-colors">Undo</button>
+      <button type="button" id="sw-send-now-btn" class="text-xs font-medium text-blue-700 hover:text-blue-900 px-2.5 py-1 rounded-md hover:bg-blue-50 transition-colors">Send now</button>
+      <span id="sw-countdown" class="ml-auto text-xs tabular-nums text-slate-400"></span>
+    </div>
+  </div>
+  {% endif %}
+  <script>
+    (() => {
+      const setupDropdown = (buttonId, panelId) => {
+        const button = document.getElementById(buttonId);
+        const panel = document.getElementById(panelId);
+        if (!button || !panel) return;
+        const close = () => panel.classList.add('hidden');
+        const closeAll = () => {
+          document.getElementById('user-menu-panel')?.classList.add('hidden');
+          document.getElementById('app-launcher-panel')?.classList.add('hidden');
+        };
+        button.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const wasHidden = panel.classList.contains('hidden');
+          closeAll();
+          if (wasHidden) panel.classList.remove('hidden');
+        });
+        panel.addEventListener('click', (e) => e.stopPropagation());
+        document.addEventListener('click', closeAll);
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') closeAll();
+        });
+      };
+      setupDropdown('user-menu-button', 'user-menu-panel');
+      setupDropdown('app-launcher-button', 'app-launcher-panel');
+    })();
+
+    (() => {
+      const widget = document.getElementById('send-widget');
+      if (!widget) return;
+
+      const token = widget.dataset.token;
+      const statusUrl = `/app/mail/send/status/${encodeURIComponent(token)}`;
+      const sendNowUrl = `/app/mail/send/now`;
+      const undoUrl = `/app/mail/undo-send`;
+      const retryUrl = `/app/mail/send/retry`;
+      const dismissUrl = `/app/mail/send/dismiss`;
+
+      const iconSending = document.getElementById('sw-icon-sending');
+      const iconSent = document.getElementById('sw-icon-sent');
+      const iconError = document.getElementById('sw-icon-error');
+      const statusEl = document.getElementById('sw-status');
+      const errorMsg = document.getElementById('sw-error-msg');
+      const actionsRow = document.getElementById('sw-actions');
+      const undoBtn = document.getElementById('sw-undo-btn');
+      const sendNowBtn = document.getElementById('sw-send-now-btn');
+      const countdownEl = document.getElementById('sw-countdown');
+      const dismissBtn = document.getElementById('sw-dismiss');
+
+      let pollTimer = null;
+      let dismissed = false;
+
+      const showIcon = (name) => {
+        iconSending.classList.toggle('hidden', name !== 'sending');
+        iconSent.classList.toggle('hidden', name !== 'sent');
+        iconError.classList.toggle('hidden', name !== 'error');
+      };
+
+      const hideWidget = () => {
+        if (dismissed) return;
+        dismissed = true;
+        widget.style.opacity = '0';
+        widget.style.transform = 'translateY(1rem)';
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        setTimeout(() => widget.remove(), 300);
+        fetch(dismissUrl, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }).catch(() => {});
+      };
+
+      const setLoading = (btn, loading) => {
+        if (!btn) return;
+        btn.disabled = loading;
+        if (loading) {
+          btn.dataset.defaultText = btn.dataset.defaultText || btn.textContent;
+          btn.textContent = '…';
+          btn.classList.add('opacity-50');
+        } else {
+          btn.textContent = btn.dataset.defaultText || btn.textContent;
+          btn.classList.remove('opacity-50');
+        }
+      };
+
+      const applyStatus = (data) => {
+        const state = data && data.state ? data.state : 'unknown';
+        const remaining = data && Number.isFinite(data.seconds_remaining) ? data.seconds_remaining : 0;
+        const canSendNow = !!(data && data.can_send_now);
+        const canUndo = !!(data && data.can_undo);
+        const canRetry = !!(data && data.can_retry);
+
+        if (state === 'countdown' || state === 'queued') {
+          showIcon('sending');
+          statusEl.textContent = remaining > 0 ? `Sending in ${remaining}s…` : 'Queued, sending soon…';
+          countdownEl.textContent = remaining > 0 ? `${remaining}s` : '';
+          errorMsg.classList.add('hidden');
+          errorMsg.textContent = '';
+          undoBtn.classList.toggle('hidden', !canUndo);
+          sendNowBtn.classList.toggle('hidden', !canSendNow);
+          sendNowBtn.textContent = 'Send now';
+          actionsRow.classList.remove('hidden');
+          return;
+        }
+        if (state === 'sending') {
+          showIcon('sending');
+          statusEl.textContent = 'Sending now…';
+          countdownEl.textContent = '';
+          undoBtn.classList.add('hidden');
+          sendNowBtn.classList.add('hidden');
+          actionsRow.classList.remove('hidden');
+          return;
+        }
+        if (state === 'sent') {
+          showIcon('sent');
+          statusEl.textContent = 'Message sent';
+          countdownEl.textContent = '';
+          errorMsg.classList.add('hidden');
+          actionsRow.classList.add('hidden');
+          dismissBtn.classList.remove('hidden');
+          if (data && data.warning) {
+            errorMsg.textContent = data.warning;
+            errorMsg.classList.remove('hidden');
+          }
+          hideWidget();
+          return;
+        }
+        if (state === 'failed') {
+          showIcon('error');
+          statusEl.textContent = 'Send failed';
+          countdownEl.textContent = '';
+          errorMsg.textContent = (data && data.error) || 'Unable to send right now.';
+          errorMsg.classList.remove('hidden');
+          dismissBtn.classList.remove('hidden');
+          undoBtn.classList.add('hidden');
+          sendNowBtn.textContent = 'Retry';
+          sendNowBtn.classList.toggle('hidden', !canRetry);
+          sendNowBtn.onclick = () => retrySend();
+          actionsRow.classList.remove('hidden');
+          if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+          return;
+        }
+        if (state === 'cancelled') {
+          hideWidget();
+          return;
+        }
+      };
+
+      const loadStatus = async () => {
+        try {
+          const resp = await fetch(statusUrl, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+          if (!resp.ok) throw new Error('status fetch failed');
+          const data = await resp.json();
+          applyStatus(data);
+          if (['sent', 'failed', 'cancelled'].includes(data.state)) {
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+          }
+        } catch (_e) {
+          statusEl.textContent = 'Unable to refresh status.';
+        }
+      };
+
+      const retrySend = async () => {
+        setLoading(sendNowBtn, true);
+        try {
+          const resp = await fetch(retryUrl, {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ token }),
+            credentials: 'same-origin',
+          });
+          const data = await resp.json();
+          applyStatus(data);
+          if (!pollTimer) pollTimer = setInterval(loadStatus, 1000);
+        } catch (_e) {
+          errorMsg.textContent = 'Retry failed. Please refresh.';
+          errorMsg.classList.remove('hidden');
+        } finally {
+          setLoading(sendNowBtn, false);
+        }
+      };
+
+      undoBtn?.addEventListener('click', async () => {
+        setLoading(undoBtn, true);
+        try {
+          await fetch(undoUrl, {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ token }),
+            credentials: 'same-origin',
+          });
+          hideWidget();
+        } catch (_e) {
+          errorMsg.textContent = 'Undo failed. Please refresh.';
+          errorMsg.classList.remove('hidden');
+          setLoading(undoBtn, false);
+        }
+      });
+
+      sendNowBtn?.addEventListener('click', async () => {
+        setLoading(sendNowBtn, true);
+        try {
+          const resp = await fetch(sendNowUrl, {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ token }),
+            credentials: 'same-origin',
+          });
+          const data = await resp.json();
+          applyStatus(data);
+          await loadStatus();
+        } catch (_e) {
+          errorMsg.textContent = 'Unable to send now. Retry or refresh.';
+          errorMsg.classList.remove('hidden');
+        } finally {
+          setLoading(sendNowBtn, false);
+        }
+      });
+
+      dismissBtn?.addEventListener('click', hideWidget);
+
+      loadStatus();
+      pollTimer = setInterval(loadStatus, 1000);
+    })();
+  </script>
+</body>
+</html>

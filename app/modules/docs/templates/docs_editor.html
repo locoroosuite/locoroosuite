@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ doc.name }} — LocoRooSuite Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { height: 100%; overflow: hidden; font-family: 'Manrope', ui-sans-serif, system-ui; }
+    #editor-frame { width: 100%; height: 100%; border: none; display: block; }
+
+    #floating-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 12px;
+      background: rgba(255,255,255,0.92); backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(226,232,240,0.6);
+      opacity: 1; transition: opacity 0.4s ease;
+    }
+    #floating-bar.auto-hidden { opacity: 0; pointer-events: none; }
+    #floating-bar:hover,
+    #floating-bar.reveal { opacity: 1; pointer-events: auto; }
+
+    #hover-trigger {
+      position: fixed; top: 0; left: 0; right: 0; height: 6px;
+      z-index: 60; pointer-events: auto;
+    }
+    #floating-bar:not(.auto-hidden) ~ #hover-trigger { pointer-events: none; }
+
+    #floating-bar .left { display: flex; align-items: center; gap: 8px; }
+    #floating-bar .right { display: flex; align-items: center; gap: 6px; }
+
+    .fb-btn {
+      height: 32px; min-width: 32px; border-radius: 8px; border: none;
+      background: transparent; cursor: pointer; display: inline-flex;
+      align-items: center; justify-content: center; color: #475569;
+      transition: background 0.15s;
+    }
+    .fb-btn:hover { background: #f1f5f9; }
+    .fb-btn svg { width: 18px; height: 18px; }
+
+    .fb-text { font-size: 13px; font-weight: 500; color: #0f172a; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fb-ext { font-size: 11px; color: #94a3b8; text-transform: uppercase; margin-left: 2px; }
+    .fb-divider { width: 1px; height: 20px; background: #e2e8f0; margin: 0 4px; }
+
+    .fb-action {
+      height: 30px; border-radius: 8px; border: 1px solid #e2e8f0;
+      background: #fff; cursor: pointer; display: inline-flex;
+      align-items: center; justify-content: center; gap: 5px;
+      padding: 0 10px; font-size: 12px; font-weight: 500;
+      color: #475569; transition: all 0.15s;
+      font-family: 'Manrope', ui-sans-serif, system-ui;
+    }
+    .fb-action:hover { background: #f8fafc; border-color: #cbd5e1; }
+    .fb-action.danger { color: #e11d48; }
+    .fb-action.danger:hover { background: #fff1f2; border-color: #fecdd3; }
+    .fb-action.share-btn { color: #0f172a; }
+    .fb-action.share-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
+    .fb-action svg { width: 14px; height: 14px; }
+
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0; z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.25); }
+    .modal-dialog {
+      position: relative; background: #fff; border-radius: 16px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15);
+      width: 100%; max-width: 520px; margin: 0 16px;
+      max-height: 80vh; display: flex; flex-direction: column;
+    }
+    .modal-dialog h3 { font-size: 14px; font-weight: 600; color: #0f172a; }
+    .modal-dialog input, .modal-dialog select {
+      font-family: 'Manrope', ui-sans-serif, system-ui;
+    }
+  </style>
+</head>
+<body>
+
+<div id="floating-bar">
+  <div class="left">
+    <button class="fb-btn" id="back-btn" title="Close and return to documents">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
+    </button>
+    <span class="fb-text" id="doc-name">{{ doc.name }}</span>
+    {% if doc.original_format %}
+    <span class="fb-ext">.{{ doc.original_format }}</span>
+    <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:6px;background:#fef3c7;font-size:10px;font-weight:600;color:#92400e;text-transform:uppercase;letter-spacing:0.03em;">Read only</span>
+    {% else %}
+    <span class="fb-ext">.{{ doc.doc_type }}</span>
+    {% endif %}
+    <div class="fb-divider"></div>
+    {% if not doc.original_format %}
+    <button class="fb-btn" id="rename-btn" title="Rename">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.38-2.83-2.828z"/></svg>
+    </button>
+    {% endif %}
+  </div>
+  <div class="right">
+    {% if doc.original_format %}
+    <button class="fb-action" id="convert-btn" title="Convert to editable document">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+      Convert to editable document
+    </button>
+    {% else %}
+    <button class="fb-action share-btn" id="share-btn" title="Share">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z"/></svg>
+      Share
+    </button>
+    {% endif %}
+    <a href="{{ url_for('docs.download', doc_id=doc.id) }}" class="fb-action" title="Download">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/></svg>
+      Download
+    </a>
+    <button class="fb-action danger" id="delete-btn" title="Delete">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+      Delete
+    </button>
+  </div>
+</div>
+
+<iframe id="editor-frame" src="{{ collabora_src }}" allow="clipboard-read; clipboard-write"></iframe>
+<div id="hover-trigger"></div>
+
+<div id="rename-modal" class="modal-backdrop">
+  <div class="modal-overlay"></div>
+  <div id="rename-dialog" class="modal-dialog" style="max-width:380px;">
+    <div style="padding:24px;">
+      <h3>Rename document</h3>
+      <input type="text" id="rename-input" value="{{ doc.name }}" maxlength="255" style="width:100%;border-radius:10px;border:1px solid #e2e8f0;padding:8px 12px;font-size:13px;outline:none;margin-top:12px;" />
+      <div id="rename-error" style="display:none;font-size:12px;color:#e11d48;margin-top:8px;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+        <button id="rename-cancel" style="height:34px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;padding:0 14px;font-size:13px;color:#475569;cursor:pointer;">Cancel</button>
+        <button id="rename-save" style="height:34px;border-radius:10px;border:none;background:#0f172a;padding:0 14px;font-size:13px;color:#fff;cursor:pointer;">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="share-modal" class="modal-backdrop">
+  <div class="modal-overlay" id="share-overlay"></div>
+  <div class="modal-dialog">
+    <div style="padding:16px 20px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
+      <h3 id="share-modal-title">Share: {{ doc.name }}</h3>
+      <button type="button" id="share-modal-close" style="height:32px;width:32px;border-radius:8px;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#475569;">
+        <svg style="width:16px;height:16px;" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </button>
+    </div>
+    <div style="padding:16px 20px;">
+      <div style="position:relative;display:flex;gap:8px;margin-bottom:10px;">
+        <input type="text" id="share-emails-input" placeholder="Enter email addresses (comma-separated)" autocomplete="off" style="flex:1;border-radius:8px;border:1px solid #e2e8f0;padding:8px 12px;font-size:13px;outline:none;" />
+        <div id="share-autocomplete" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:10;max-height:200px;overflow-y:auto;margin-top:4px;"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <select id="share-permission-select" style="border-radius:8px;border:1px solid #e2e8f0;padding:8px 12px;font-size:13px;outline:none;background:#fff;">
+          <option value="view">Can view</option>
+          <option value="write">Can edit</option>
+        </select>
+        <button type="button" id="share-add-btn" disabled style="border-radius:8px;background:#0f172a;color:#fff;padding:8px 16px;font-size:13px;font-weight:500;border:none;cursor:pointer;opacity:0.5;">Share</button>
+      </div>
+      <div id="share-error" style="display:none;font-size:12px;color:#e11d48;margin-top:8px;"></div>
+      <div id="share-success" style="display:none;font-size:12px;color:#16a34a;margin-top:8px;"></div>
+    </div>
+    <div style="padding:8px 20px;border-top:1px solid #f1f5f9;">
+      <p style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">People with access</p>
+    </div>
+    <div style="padding:4px 20px 16px;overflow-y:auto;max-height:240px;">
+      <div id="share-list-loading" style="display:flex;align-items:center;justify-content:center;padding:16px;">
+        <svg style="height:20px;width:20px;animation:spin 1s linear infinite;color:#94a3b8;" viewBox="0 0 24 24"><circle style="opacity:0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path style="opacity:0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+      </div>
+      <div id="share-list-empty" style="display:none;text-align:center;padding:16px;font-size:13px;color:#94a3b8;">No shares yet.</div>
+      <div id="share-list"></div>
+    </div>
+  </div>
+</div>
+<style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+
+<form method="post" action="{{ url_for('docs.delete', doc_id=doc.id) }}" id="delete-form" style="display:none"></form>
+
+<script>
+(() => {
+  const bar = document.getElementById('floating-bar');
+  const docName = document.getElementById('doc-name');
+  let hideTimer;
+
+  function scheduleHide() {
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => {
+      bar.classList.add('auto-hidden');
+    }, 2500);
+  }
+
+  function reveal() {
+    bar.classList.remove('auto-hidden', 'reveal');
+    scheduleHide();
+  }
+
+  bar.addEventListener('mouseenter', () => {
+    clearTimeout(hideTimer);
+    bar.classList.remove('auto-hidden');
+  });
+  bar.addEventListener('mouseleave', scheduleHide);
+
+  document.getElementById('hover-trigger').addEventListener('mouseenter', reveal);
+
+  scheduleHide();
+
+  document.getElementById('back-btn').addEventListener('click', () => {
+    window.close();
+    window.location.href = '{{ url_for("docs.index") }}';
+  });
+
+  const renameModal = document.getElementById('rename-modal');
+  const renameInput = document.getElementById('rename-input');
+  const renameError = document.getElementById('rename-error');
+
+  function closeRename() {
+    renameModal.classList.remove('open');
+    renameError.style.display = 'none';
+  }
+
+  document.getElementById('rename-btn').addEventListener('click', () => {
+    renameInput.value = docName.textContent.trim();
+    renameModal.classList.add('open');
+    renameInput.focus();
+    renameInput.select();
+  });
+
+  document.getElementById('rename-modal').querySelector('.modal-overlay').addEventListener('click', closeRename);
+  document.getElementById('rename-cancel').addEventListener('click', closeRename);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeRename(); closeShareModal(); } });
+
+  document.getElementById('rename-save').addEventListener('click', () => {
+    const name = renameInput.value.trim();
+    if (!name || name.length > 255 || /[\/\\\x00]/.test(name)) {
+      renameError.textContent = 'Please enter a valid name (no slashes, max 255 characters).';
+      renameError.style.display = 'block';
+      return;
+    }
+    const saveBtn = document.getElementById('rename-save');
+    saveBtn.disabled = true;
+    saveBtn.style.opacity = '0.6';
+
+    fetch('{{ url_for("docs.rename", doc_id=doc.id) }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'name=' + encodeURIComponent(name),
+    })
+    .then(r => r.json())
+    .then(data => {
+      saveBtn.disabled = false;
+      saveBtn.style.opacity = '1';
+      if (data.ok) {
+        docName.textContent = data.name;
+        document.title = data.name + ' — LocoRooSuite Docs';
+        closeRename();
+      } else {
+        renameError.textContent = data.error || 'Rename failed.';
+        renameError.style.display = 'block';
+      }
+    })
+    .catch(() => {
+      saveBtn.disabled = false;
+      saveBtn.style.opacity = '1';
+      renameError.textContent = 'Failed to rename. Please retry.';
+      renameError.style.display = 'block';
+    });
+  });
+
+  document.getElementById('delete-btn').addEventListener('click', () => {
+    if (confirm('Delete "{{ doc.name }}"?')) {
+      document.getElementById('delete-form').submit();
+    }
+  });
+
+  {% if doc.original_format %}
+  const convertBtn = document.getElementById('convert-btn');
+  if (convertBtn) {
+    convertBtn.addEventListener('click', () => {
+      convertBtn.disabled = true;
+      convertBtn.innerHTML = '<svg style="width:14px;height:14px;animation:spin 1s linear infinite;" viewBox="0 0 24 24"><circle style="opacity:0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path style="opacity:0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Converting...';
+      fetch('{{ url_for("docs.convert", doc_id=doc.id) }}', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.json())
+        .then(data => {
+          if (data.editor_url) {
+            window.location.href = data.editor_url;
+          } else {
+            convertBtn.disabled = false;
+            convertBtn.innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg> Convert to editable document';
+            alert(data.error || 'Conversion failed. Please try again.');
+          }
+        })
+        .catch(() => {
+          convertBtn.disabled = false;
+          convertBtn.innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg> Convert to editable document';
+          alert('Conversion failed. Please check your connection or try again.');
+        });
+    });
+  }
+  {% endif %}
+
+  // Share modal
+  const shareModal = document.getElementById('share-modal');
+  const shareEmailsInput = document.getElementById('share-emails-input');
+  const sharePermSelect = document.getElementById('share-permission-select');
+  const shareAddBtn = document.getElementById('share-add-btn');
+  const shareError = document.getElementById('share-error');
+  const shareSuccess = document.getElementById('share-success');
+  const shareListLoading = document.getElementById('share-list-loading');
+  const shareListEmpty = document.getElementById('share-list-empty');
+  const shareList = document.getElementById('share-list');
+  const shareModalTitle = document.getElementById('share-modal-title');
+  const docId = '{{ doc.id }}';
+
+  function openShareModal() {
+    shareEmailsInput.value = '';
+    shareError.style.display = 'none';
+    shareSuccess.style.display = 'none';
+    shareAddBtn.disabled = true;
+    shareAddBtn.style.opacity = '0.5';
+    shareModal.classList.add('open');
+    shareEmailsInput.focus();
+    loadShareList();
+  }
+
+  function closeShareModal() {
+    shareModal.classList.remove('open');
+  }
+
+  document.getElementById('share-btn').addEventListener('click', openShareModal);
+  document.getElementById('share-overlay').addEventListener('click', closeShareModal);
+  document.getElementById('share-modal-close').addEventListener('click', closeShareModal);
+
+  const shareAutocomplete = document.getElementById('share-autocomplete');
+  let acTimer = null;
+
+  shareEmailsInput.addEventListener('input', () => {
+    const hasVal = shareEmailsInput.value.trim().length > 0;
+    shareAddBtn.disabled = !hasVal;
+    shareAddBtn.style.opacity = hasVal ? '1' : '0.5';
+
+    clearTimeout(acTimer);
+    const parts = shareEmailsInput.value.split(',');
+    const lastPart = parts[parts.length - 1].trim();
+    if (lastPart.length >= 2) {
+      acTimer = setTimeout(() => {
+        fetch('/app/contacts/api/search?q=' + encodeURIComponent(lastPart))
+          .then(r => r.json())
+          .then(results => {
+            shareAutocomplete.innerHTML = '';
+            if (!results.length) { shareAutocomplete.style.display = 'none'; return; }
+            results.forEach(r => {
+              const emails = (r.emails || []).map(e => e.email).filter(Boolean);
+              if (!emails.length) return;
+              emails.forEach(email => {
+                const item = document.createElement('div');
+                item.style.cssText = 'padding:8px 12px;cursor:pointer;font-size:13px;color:#334155;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px;';
+                item.innerHTML = '<span style="font-weight:500;">' + esc(r.fn || email) + '</span><span style="color:#94a3b8;font-size:12px;">&lt;' + esc(email) + '&gt;</span>';
+                item.addEventListener('mouseenter', () => { item.style.background = '#f8fafc'; });
+                item.addEventListener('mouseleave', () => { item.style.background = ''; });
+                item.addEventListener('click', () => {
+                  parts[parts.length - 1] = ' ' + email;
+                  shareEmailsInput.value = parts.join(',') + ', ';
+                  shareAutocomplete.style.display = 'none';
+                  shareEmailsInput.focus();
+                  shareEmailsInput.dispatchEvent(new Event('input'));
+                });
+                shareAutocomplete.appendChild(item);
+              });
+            });
+            shareAutocomplete.style.display = 'block';
+          })
+          .catch(() => { shareAutocomplete.style.display = 'none'; });
+      }, 300);
+    } else {
+      shareAutocomplete.style.display = 'none';
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!shareAutocomplete.contains(e.target) && e.target !== shareEmailsInput) {
+      shareAutocomplete.style.display = 'none';
+    }
+  });
+
+  function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+  shareAddBtn.addEventListener('click', () => {
+    if (!shareEmailsInput.value.trim()) return;
+    shareAddBtn.disabled = true;
+    shareAddBtn.style.opacity = '0.5';
+    shareError.style.display = 'none';
+    shareSuccess.style.display = 'none';
+
+    fetch('/app/docs/' + docId + '/shares', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        emails: shareEmailsInput.value.trim(),
+        permission: sharePermSelect.value,
+        send_invite: true,
+      }),
+    })
+    .then(r => r.json())
+    .then(data => {
+      shareAddBtn.disabled = false;
+      shareAddBtn.style.opacity = '1';
+      if (data.shares && data.shares.length > 0) {
+        shareEmailsInput.value = '';
+        shareSuccess.textContent = 'Shared with ' + data.shares.map(s => s.recipient_email).join(', ');
+        shareSuccess.style.display = 'block';
+        setTimeout(() => { shareSuccess.style.display = 'none'; }, 4000);
+        loadShareList();
+      } else if (data.error) {
+        shareError.textContent = data.error;
+        shareError.style.display = 'block';
+      }
+    })
+    .catch(() => {
+      shareAddBtn.disabled = false;
+      shareAddBtn.style.opacity = '1';
+      shareError.textContent = 'Failed to share. Please try again.';
+      shareError.style.display = 'block';
+    });
+  });
+
+  function loadShareList() {
+    shareListLoading.style.display = 'flex';
+    shareListEmpty.style.display = 'none';
+    shareList.innerHTML = '';
+
+    fetch('/app/docs/' + docId + '/shares')
+      .then(r => r.json())
+      .then(data => {
+        shareListLoading.style.display = 'none';
+        const shares = data.shares || [];
+        if (shares.length === 0) {
+          shareListEmpty.style.display = 'block';
+          return;
+        }
+        shares.forEach(s => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:6px 0;';
+          const lastAccess = s.last_accessed_at ? relativeTime(s.last_accessed_at) : 'Never';
+          row.innerHTML = `
+            <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+              <div style="height:28px;width:28px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:#64748b;flex-shrink:0;">${s.recipient_email.charAt(0).toUpperCase()}</div>
+              <div style="min-width:0;">
+                <p style="font-size:13px;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.recipient_email}</p>
+                <p style="font-size:11px;color:#94a3b8;">${s.permission === 'write' ? 'Can edit' : 'Can view'} · ${s.view_count || 0} view${s.view_count !== 1 ? 's' : ''} · Last: ${lastAccess}</p>
+              </div>
+            </div>
+            <button type="button" class="revoke-btn" data-share-id="${s.id}" style="font-size:12px;color:#94a3b8;background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:6px;transition:all 0.15s;">Revoke</button>
+          `;
+          shareList.appendChild(row);
+        });
+        shareList.querySelectorAll('.revoke-btn').forEach(btn => {
+          btn.addEventListener('mouseenter', () => { btn.style.color = '#e11d48'; btn.style.background = '#fff1f2'; });
+          btn.addEventListener('mouseleave', () => { btn.style.color = '#94a3b8'; btn.style.background = 'none'; });
+          btn.addEventListener('click', () => {
+            btn.disabled = true;
+            btn.textContent = 'Revoking...';
+            fetch('/app/docs/' + docId + '/shares/' + btn.dataset.shareId, { method: 'DELETE' })
+              .then(() => loadShareList())
+              .catch(() => { btn.disabled = false; btn.textContent = 'Revoke'; });
+          });
+        });
+      })
+      .catch(() => {
+        shareListLoading.style.display = 'none';
+        shareError.textContent = 'Failed to load shares.';
+        shareError.style.display = 'block';
+      });
+  }
+
+  function relativeTime(isoStr) {
+    if (!isoStr) return 'Never';
+    const d = new Date(isoStr + (isoStr.includes('Z') || isoStr.includes('+') ? '' : 'Z'));
+    if (isNaN(d.getTime())) return isoStr;
+    const now = new Date();
+    const diffSec = Math.floor((now - d) / 1000);
+    if (diffSec < 60) return 'just now';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return diffMin + 'm ago';
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return diffHr + 'h ago';
+    const diffDay = Math.floor(diffHr / 24);
+    return diffDay + 'd ago';
+  }
+})();
+</script>
+</body>
+</html>

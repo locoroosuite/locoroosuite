@@ -1,0 +1,122 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="max-w-5xl mx-auto">
+  <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-3">
+      <h1 class="text-xl font-semibold text-slate-900">Contacts</h1>
+      {% include "_account_switcher.html" %}
+    </div>
+    <div class="flex items-center gap-3">
+      {% if carddav_configured %}
+      <form method="post" action="{{ url_for('contacts.contact_sync') }}" class="inline">
+        <button type="submit" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50">
+          <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+          Sync
+        </button>
+      </form>
+      <a href="{{ url_for('contacts.contact_new') }}" class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800">
+        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"/></svg>
+        New Contact
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if not carddav_configured %}
+  <div class="rounded-2xl border border-slate-200/80 bg-white p-8 text-center shadow-sm">
+    <svg class="mx-auto h-12 w-12 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+    <p class="mt-4 text-sm text-slate-500">Contacts are not configured for this domain.</p>
+    <p class="mt-1 text-xs text-slate-400">Ask your administrator to enable CardDAV in the domain settings.</p>
+  </div>
+  {% elif total == 0 and not q %}
+  <div class="rounded-2xl border border-slate-200/80 bg-white p-8 text-center shadow-sm">
+    <svg class="mx-auto h-12 w-12 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+    <p class="mt-4 text-sm text-slate-500">No contacts yet.</p>
+    <a href="{{ url_for('contacts.contact_new') }}" class="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-slate-900 hover:underline">Create your first contact</a>
+  </div>
+  {% else %}
+
+  <div class="mb-4">
+    <form method="get" action="{{ url_for('contacts.contact_list') }}" class="flex gap-2">
+      <input id="contacts-search-input" name="q" type="search" value="{{ q }}" placeholder="Search contacts by name, email, or phone" class="w-full max-w-md rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+      <button type="submit" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50">Search</button>
+    </form>
+  </div>
+
+  <div class="rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="border-b border-slate-100 bg-slate-50/50">
+        <tr>
+          <th class="px-5 py-3 text-left text-[11px] uppercase tracking-wide text-slate-500 font-medium">Name</th>
+          <th class="px-5 py-3 text-left text-[11px] uppercase tracking-wide text-slate-500 font-medium">Email</th>
+          <th class="px-5 py-3 text-left text-[11px] uppercase tracking-wide text-slate-500 font-medium">Phone</th>
+          <th class="px-5 py-3 text-left text-[11px] uppercase tracking-wide text-slate-500 font-medium">Organization</th>
+          <th class="px-5 py-3 text-right text-[11px] uppercase tracking-wide text-slate-500 font-medium">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for c in contacts %}
+        <tr class="hover:bg-slate-50/50 transition-colors">
+          <td class="px-5 py-3.5">
+            <a href="{{ url_for('contacts.contact_detail', account_id=account.id, uid=c.uid) }}" class="font-medium text-slate-900 hover:underline">{{ c.fn or c.first_name ~ ' ' ~ c.last_name }}</a>
+          </td>
+          <td class="px-5 py-3.5 text-slate-600">{{ c.email_work or c.email_home or '' }}</td>
+          <td class="px-5 py-3.5 text-slate-600">{{ c.tel_cell or c.tel_work or c.tel_home or '' }}</td>
+          <td class="px-5 py-3.5 text-slate-600">{{ c.org or '' }}</td>
+          <td class="px-5 py-3.5 text-right">
+            <div class="flex items-center justify-end gap-2">
+              <a href="{{ url_for('contacts.contact_edit', account_id=account.id, uid=c.uid) }}" class="text-slate-500 hover:text-slate-900 text-xs font-medium">Edit</a>
+              <form method="post" action="{{ url_for('contacts.contact_delete', account_id=account.id, uid=c.uid) }}" class="inline delete-contact-form">
+                <button type="button" class="text-slate-400 hover:text-rose-600 text-xs font-medium transition-colors delete-contact-btn">Delete</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if total_pages > 1 %}
+  <div class="flex items-center justify-between mt-4 text-sm text-slate-600">
+    <span>{{ total }} contact{{ 's' if total != 1 else '' }}</span>
+    <div class="flex gap-1">
+      {% if page > 1 %}
+      <a href="{{ url_for('contacts.contact_list', q=q, page=page-1) }}" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-50">Previous</a>
+      {% endif %}
+      <span class="flex items-center px-3 text-slate-500">Page {{ page }} of {{ total_pages }}</span>
+      {% if page < total_pages %}
+      <a href="{{ url_for('contacts.contact_list', q=q, page=page+1) }}" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-50">Next</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% endif %}
+</div>
+
+<script>
+document.querySelectorAll('.delete-contact-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var form = btn.closest('form');
+    var row = btn.closest('tr');
+    var name = row ? row.querySelector('a')?.textContent?.trim() || 'this contact' : 'this contact';
+    if (confirm('Delete ' + name + '?')) {
+      btn.disabled = true;
+      btn.textContent = 'Deleting...';
+      form.submit();
+    }
+  });
+});
+</script>
+
+<script>
+(function() {
+  var source = new EventSource('/events/stream');
+  source.addEventListener('ui_change', function(evt) {
+    var data = JSON.parse(evt.data || '{}');
+    if (data.module === 'contacts') window.location.reload();
+  });
+})();
+</script>
+{% endblock %}

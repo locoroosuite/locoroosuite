@@ -1,0 +1,45 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+  <aside class="bg-white border border-slate-200 rounded-lg p-4 h-fit lg:sticky lg:top-6">
+    <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Admin</div>
+    <nav class="space-y-2 text-sm">
+      <a href="{{ url_for('admin.dashboard') }}"
+         class="block px-2 py-1 rounded {{ 'bg-slate-100 text-slate-900' if active_page == 'overview' else 'text-slate-600 hover:bg-slate-100' }}">
+        Overview
+      </a>
+      <a href="{{ url_for('admin.domains') }}"
+         class="block px-2 py-1 rounded {{ 'bg-slate-100 text-slate-900' if active_page == 'domains' else 'text-slate-600 hover:bg-slate-100' }}">
+        Domains
+      </a>
+      <a href="{{ url_for('admin.platform_dns') }}"
+         class="block px-2 py-1 rounded {{ 'bg-slate-100 text-slate-900' if active_page == 'platform_dns' else 'text-slate-600 hover:bg-slate-100' }}">
+        Platform Configuration
+      </a>
+      <a href="{{ url_for('admin.managers') }}"
+         class="block px-2 py-1 rounded {{ 'bg-slate-100 text-slate-900' if active_page == 'managers' else 'text-slate-600 hover:bg-slate-100' }}">
+        Managers
+      </a>
+      <a href="{{ url_for('admin.assignments') }}"
+         class="block px-2 py-1 rounded {{ 'bg-slate-100 text-slate-900' if active_page == 'assignments' else 'text-slate-600 hover:bg-slate-100' }}">
+        Assignments
+      </a>
+      <a href="{{ url_for('admin.customers') }}"
+         class="block px-2 py-1 rounded {{ 'bg-slate-100 text-slate-900' if active_page == 'customers' else 'text-slate-600 hover:bg-slate-100' }}">
+        Customers
+      </a>
+      <a href="{{ url_for('admin.imports') }}"
+         class="block px-2 py-1 rounded {{ 'bg-slate-100 text-slate-900' if active_page == 'imports' else 'text-slate-600 hover:bg-slate-100' }}">
+        Imports
+      </a>
+    </nav>
+    <div class="mt-4 text-xs text-slate-500">
+      Privacy note: admin tools never expose customer email contents.
+    </div>
+  </aside>
+
+  <div class="space-y-6">
+    {% block admin_content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

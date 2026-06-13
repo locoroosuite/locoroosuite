@@ -1,0 +1,45 @@
+smtpd_banner = $myhostname ESMTP LocoRoomail Dev
+biff = no
+append_dot_mydomain = no
+readme_directory = no
+compatibility_level = 3.6
+
+myhostname = mail.dev.local
+myorigin = $myhostname
+mydestination = localhost.localdomain, localhost
+mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128 172.16.0.0/12 10.0.0.0/8
+inet_interfaces = all
+inet_protocols = all
+mailbox_size_limit = 0
+message_size_limit = 52428800
+
+virtual_transport = lmtp:dovecot:24
+virtual_mailbox_domains = /etc/postfix/virtual_domains
+virtual_alias_maps = hash:/etc/postfix/virtual
+
+default_transport = error:delivery to external recipients is not available in development
+
+smtpd_tls_cert_file = /etc/postfix/ssl/tls.crt
+smtpd_tls_key_file = /etc/postfix/ssl/tls.key
+smtpd_tls_security_level = may
+smtpd_tls_protocols = !SSLv2, !SSLv3, !TLSv1, !TLSv1.1
+
+smtp_tls_CApath = /etc/ssl/certs
+smtp_tls_security_level = may
+smtp_tls_session_cache_database = btree:${data_directory}/smtp_scache
+
+smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated reject_unauth_destination
+smtpd_recipient_restrictions = permit_mynetworks permit_sasl_authenticated reject_unauth_destination
+
+smtpd_sasl_type = dovecot
+smtpd_sasl_path = private/auth
+smtpd_sasl_auth_enable = yes
+
+relayhost =
+
+inet_socket_bind = all
+
+milter_default_action = accept
+milter_protocol = 6
+smtpd_milters = inet:opendkim:8891
+non_smtpd_milters = inet:opendkim:8891

@@ -1,0 +1,406 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="max-w-3xl mx-auto bg-white/90 border border-slate-200/80 rounded-2xl pt-6 px-6 pb-0 shadow-sm">
+  <h1 class="text-xl font-semibold mb-4 text-slate-900">Compose</h1>
+  {% if error %}
+  <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+    {{ error }}
+  </div>
+  {% endif %}
+  {% if compose_notice %}
+  <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+    {{ compose_notice }}
+  </div>
+  {% endif %}
+  <form id="compose-form" data-no-loading="true" method="post" action="{{ url_for('mail.send_mail') }}" class="space-y-4" enctype="multipart/form-data">
+    <input type="hidden" name="account_id" value="{{ account_id }}" />
+    <input type="hidden" name="body_html" id="body_html" />
+    <input type="hidden" name="draft_uid" id="draft_uid" value="{{ prefill.draft_uid if prefill and prefill.draft_uid else '' }}" />
+    <div>
+      <div class="flex items-center justify-between">
+        <label class="block text-sm font-medium">To</label>
+        <div class="flex items-center gap-3 text-xs text-slate-500">
+          <button type="button" class="hover:text-slate-900" data-cc-toggle tabindex="20">Add Cc</button>
+          <button type="button" class="hover:text-slate-900" data-bcc-toggle tabindex="21">Add Bcc</button>
+        </div>
+      </div>
+      <input type="hidden" name="to" id="to-hidden" value="{{ prefill.to_addrs if prefill else '' }}" />
+      <div class="relative">
+        <div class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm shadow-sm focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-slate-200 min-h-[38px] flex flex-wrap items-center gap-1.5 cursor-text" data-chips-container="to">
+          <input type="text" class="flex-1 min-w-[140px] border-0 bg-transparent p-0.5 text-sm outline-none focus:ring-0 placeholder:text-slate-400" placeholder="Type a name or email…" data-chip-input tabindex="1" autocomplete="off" />
+        </div>
+        <div class="hidden absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-lg border border-slate-200 shadow-lg max-h-56 overflow-y-auto" data-dropdown="to"></div>
+      </div>
+    </div>
+    <div class="{{ '' if prefill and prefill.cc_addrs else 'hidden' }}" data-cc-row>
+      <label class="block text-sm font-medium">Cc</label>
+      <input type="hidden" name="cc" id="cc-hidden" value="{{ prefill.cc_addrs if prefill else '' }}" />
+      <div class="relative">
+        <div class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm shadow-sm focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-slate-200 min-h-[38px] flex flex-wrap items-center gap-1.5 cursor-text" data-chips-container="cc">
+          <input type="text" class="flex-1 min-w-[140px] border-0 bg-transparent p-0.5 text-sm outline-none focus:ring-0 placeholder:text-slate-400" placeholder="Type a name or email…" data-chip-input tabindex="{{ '2' if prefill and prefill.cc_addrs else '-1' }}" autocomplete="off" />
+        </div>
+        <div class="hidden absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-lg border border-slate-200 shadow-lg max-h-56 overflow-y-auto" data-dropdown="cc"></div>
+      </div>
+    </div>
+    <div class="{{ '' if prefill and prefill.bcc_addrs else 'hidden' }}" data-bcc-row>
+      <label class="block text-sm font-medium">Bcc</label>
+      <input type="hidden" name="bcc" id="bcc-hidden" value="{{ prefill.bcc_addrs if prefill else '' }}" />
+      <div class="relative">
+        <div class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm shadow-sm focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-slate-200 min-h-[38px] flex flex-wrap items-center gap-1.5 cursor-text" data-chips-container="bcc">
+          <input type="text" class="flex-1 min-w-[140px] border-0 bg-transparent p-0.5 text-sm outline-none focus:ring-0 placeholder:text-slate-400" placeholder="Type a name or email…" data-chip-input tabindex="{{ '3' if prefill and prefill.bcc_addrs else '-1' }}" autocomplete="off" />
+        </div>
+        <div class="hidden absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-lg border border-slate-200 shadow-lg max-h-56 overflow-y-auto" data-dropdown="bcc"></div>
+      </div>
+    </div>
+    <div>
+      <label class="block text-sm font-medium">Subject</label>
+      <input name="subject" value="{{ prefill.subject if prefill else '' }}" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" tabindex="4" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium">Body</label>
+      <div class="mt-1 rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex flex-wrap items-center gap-2 border-b border-slate-200/80 px-3 py-2 text-xs text-slate-500">
+          <button type="button" class="rounded-md border border-slate-200 px-2 py-1 text-slate-600 hover:text-slate-900" data-format="bold" tabindex="10"><strong>B</strong></button>
+          <button type="button" class="rounded-md border border-slate-200 px-2 py-1 text-slate-600 hover:text-slate-900" data-format="italic" tabindex="11"><span class="italic">I</span></button>
+          <button type="button" class="rounded-md border border-slate-200 px-2 py-1 text-slate-600 hover:text-slate-900" data-format="underline" tabindex="12"><span class="underline">U</span></button>
+          <span class="h-4 w-px bg-slate-200"></span>
+          <button type="button" class="rounded-md border border-slate-200 px-2 py-1 text-slate-600 hover:text-slate-900" data-command="insertUnorderedList" tabindex="13">• List</button>
+          <button type="button" class="rounded-md border border-slate-200 px-2 py-1 text-slate-600 hover:text-slate-900" data-command="insertOrderedList" tabindex="14">1. List</button>
+          <button type="button" class="rounded-md border border-slate-200 px-2 py-1 text-slate-600 hover:text-slate-900" data-command="createLink" tabindex="15">Link</button>
+          <button type="button" class="rounded-md border border-slate-200 px-2 py-1 text-slate-600 hover:text-slate-900" data-command="removeFormat" tabindex="16">Clear</button>
+        </div>
+        <div id="compose-editor" contenteditable="true" tabindex="5" class="min-h-[220px] px-3 py-3 text-sm outline-none" style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.6; color: #0f172a;"></div>
+      </div>
+    </div>
+    <div>
+      <label class="block text-sm font-medium">Attachments</label>
+      <input type="file" name="attachments" multiple class="mt-1 w-full text-sm" tabindex="6" />
+    </div>
+    <div class="flex items-center gap-2">
+      <input type="checkbox" name="read_receipt" class="h-4 w-4 rounded border-slate-300 text-slate-900" tabindex="7" {% if prefill and prefill.request_receipt %}checked{% endif %} />
+      <label class="text-sm text-slate-600">Request read receipt</label>
+    </div>
+    <div class="sticky bottom-0 z-10 py-4 border-t border-slate-100 bg-white flex gap-2">
+      <button type="submit" class="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm inline-flex items-center gap-2" data-submit-button tabindex="8">
+        <span data-submit-label>Send</span>
+        <svg class="hidden h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" data-submit-spinner>
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v3a5 5 0 0 0-5 5H4z"></path>
+        </svg>
+      </button>
+      <button type="submit" formaction="{{ url_for('mail.save_draft') }}" class="bg-white text-slate-700 border border-slate-200 rounded-lg px-4 py-2 text-sm hover:border-slate-300 hover:text-slate-900 inline-flex items-center gap-2" data-submit-button tabindex="9">
+        <span data-submit-label>Save Draft</span>
+        <svg class="hidden h-4 w-4 animate-spin text-slate-600" viewBox="0 0 24 24" data-submit-spinner>
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v3a5 5 0 0 0-5 5H4z"></path>
+        </svg>
+      </button>
+    </div>
+  </form>
+
+<script src="{{ url_for('static', filename='js/recipient-chips.js') }}"></script>
+<script>
+(function () {
+  var SEARCH_URL = "{{ url_for('contacts.api_search') }}";
+  var AUTO_SAVE_URL = "{{ url_for('contacts.api_auto_save') }}";
+
+  var toChips = new RecipientChips('to', { searchUrl: SEARCH_URL });
+  var ccChips = new RecipientChips('cc', { searchUrl: SEARCH_URL });
+  var bccChips = new RecipientChips('bcc', { searchUrl: SEARCH_URL });
+
+  var form = document.getElementById('compose-form');
+  var editor = document.getElementById('compose-editor');
+  var bodyInput = document.getElementById('body_html');
+  var draftUidInput = document.getElementById('draft_uid');
+  var draftUid = {{ (prefill.draft_uid if prefill and prefill.draft_uid else '') | tojson }} || null;
+  var lastSavedSnapshot = null;
+
+  function isBodyEmpty(html) {
+    var div = document.createElement('div');
+    div.innerHTML = html || '';
+    var text = div.textContent || div.innerText || '';
+    return text.trim().length === 0;
+  }
+  var ccRow = document.querySelector('[data-cc-row]');
+  var bccRow = document.querySelector('[data-bcc-row]');
+  var ccToggle = document.querySelector('[data-cc-toggle]');
+  var bccToggle = document.querySelector('[data-bcc-toggle]');
+  var initialBodyHtml = {{ (prefill.body_html if prefill else '') | tojson }};
+
+  if (!ccRow.classList.contains('hidden')) ccToggle && ccToggle.classList.add('hidden');
+  if (!bccRow.classList.contains('hidden')) bccToggle && bccToggle.classList.add('hidden');
+  if (initialBodyHtml) editor.innerHTML = initialBodyHtml;
+
+  var quoteBlock = editor.querySelector('[data-quote-block]');
+  if (quoteBlock) {
+    var quoteSummary = quoteBlock.querySelector('[data-quote-summary]');
+    var quoteHeader = quoteBlock.querySelector('[data-quote-header]');
+    if (quoteSummary) quoteSummary.style.display = '';
+    if (quoteHeader) quoteHeader.style.display = 'none';
+    if (quoteBlock.scrollHeight > 80) {
+      quoteBlock.style.maxHeight = '80px';
+      quoteBlock.style.overflow = 'hidden';
+      quoteBlock.style.position = 'relative';
+      var fadeOverlay = document.createElement('div');
+      fadeOverlay.setAttribute('contenteditable', 'false');
+      fadeOverlay.setAttribute('data-quote-overlay', '');
+      fadeOverlay.style.cssText = 'position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(transparent,white);pointer-events:none;';
+      quoteBlock.appendChild(fadeOverlay);
+      var toggle = document.createElement('div');
+      toggle.setAttribute('contenteditable', 'false');
+      toggle.setAttribute('data-quote-toggle', '');
+      toggle.style.cssText = 'cursor:pointer;color:#3b82f6;font-size:13px;padding:4px 0 0 0;-webkit-user-select:none;user-select:none;';
+      toggle.textContent = '\u25B8 Show quoted text';
+      toggle.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var collapsed = quoteBlock.style.maxHeight === '80px';
+        if (collapsed) {
+          quoteBlock.style.maxHeight = '';
+          quoteBlock.style.overflow = '';
+          fadeOverlay.style.display = 'none';
+          toggle.textContent = '\u25BE Hide quoted text';
+          if (quoteSummary) quoteSummary.style.display = 'none';
+          if (quoteHeader) quoteHeader.style.display = '';
+        } else {
+          quoteBlock.style.maxHeight = '80px';
+          quoteBlock.style.overflow = 'hidden';
+          fadeOverlay.style.display = '';
+          toggle.textContent = '\u25B8 Show quoted text';
+          if (quoteSummary) quoteSummary.style.display = '';
+          if (quoteHeader) quoteHeader.style.display = 'none';
+        }
+      });
+      quoteBlock.parentNode.insertBefore(toggle, quoteBlock);
+    } else {
+      if (quoteSummary) quoteSummary.style.display = 'none';
+      if (quoteHeader) quoteHeader.style.display = '';
+    }
+  }
+
+  ccToggle && ccToggle.addEventListener('click', function () {
+    ccRow.classList.remove('hidden');
+    ccToggle.classList.add('hidden');
+    ccChips.setTabindex('2');
+    ccChips.focus();
+  });
+
+  bccToggle && bccToggle.addEventListener('click', function () {
+    bccRow.classList.remove('hidden');
+    bccToggle.classList.add('hidden');
+    bccChips.setTabindex('3');
+    bccChips.focus();
+  });
+
+  var wrapTagStyles = function (root, selector, styleText) {
+    root.querySelectorAll(selector).forEach(function (el) {
+      var span = document.createElement('span');
+      span.setAttribute('style', styleText);
+      span.innerHTML = el.innerHTML;
+      el.replaceWith(span);
+    });
+  };
+
+  var normalizeInlineHtml = function (html) {
+    var root = document.createElement('div');
+    root.innerHTML = html || '';
+    root.querySelectorAll('style').forEach(function (el) { el.remove(); });
+    root.querySelectorAll('[class]').forEach(function (el) { el.removeAttribute('class'); });
+    root.querySelectorAll('a').forEach(function (el) {
+      if (!el.getAttribute('href')) { el.replaceWith(el.textContent || ''); return; }
+      el.setAttribute('style', 'color:#0f172a;text-decoration:underline;');
+    });
+    root.querySelectorAll('ul,ol').forEach(function (el) {
+      el.setAttribute('style', 'margin:0 0 0 16px;padding:0;');
+    });
+    wrapTagStyles(root, 'strong,b', 'font-weight:700;');
+    wrapTagStyles(root, 'em,i', 'font-style:italic;');
+    wrapTagStyles(root, 'u', 'text-decoration:underline;');
+    var content = root.innerHTML.trim();
+    return '<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#0f172a;">' + content + '</div>';
+  };
+
+  var syncEditor = function () {
+    var clone = editor.cloneNode(true);
+    clone.querySelectorAll('[data-quote-toggle]').forEach(function(el) { el.remove(); });
+    clone.querySelectorAll('[data-quote-overlay]').forEach(function(el) { el.remove(); });
+    var qb = clone.querySelector('[data-quote-block]');
+    if (qb) {
+      qb.style.maxHeight = '';
+      qb.style.overflow = '';
+      qb.style.position = '';
+    }
+    var qs = clone.querySelector('[data-quote-summary]');
+    if (qs) qs.style.display = 'none';
+    var qh = clone.querySelector('[data-quote-header]');
+    if (qh) qh.style.display = '';
+    bodyInput.value = normalizeInlineHtml(clone.innerHTML);
+  };
+
+  var ensureEditorSelection = function () {
+    var selection = window.getSelection();
+    if (!selection) return;
+    if (selection.rangeCount > 0) {
+      var range = selection.getRangeAt(0);
+      if (editor.contains(range.commonAncestorContainer)) return;
+    }
+    var range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  };
+
+  var insertListFallback = function (ordered) {
+    var selection = window.getSelection();
+    var list = document.createElement(ordered ? 'ol' : 'ul');
+    list.setAttribute('style', 'margin:0 0 0 16px;padding:0;');
+    var li = document.createElement('li');
+    li.appendChild(document.createElement('br'));
+    list.appendChild(li);
+    if (!selection || selection.rangeCount === 0) {
+      editor.appendChild(list);
+    } else {
+      var range = selection.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(list);
+    }
+    var range = document.createRange();
+    range.selectNodeContents(li);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  };
+
+  document.querySelectorAll('[data-format]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var format = btn.getAttribute('data-format');
+      if (!format) return;
+      editor.focus();
+      ensureEditorSelection();
+      document.execCommand(format, false, null);
+    });
+  });
+
+  document.querySelectorAll('[data-command]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var command = btn.getAttribute('data-command');
+      if (!command) return;
+      editor.focus();
+      ensureEditorSelection();
+      if (command === 'createLink') {
+        var url = window.prompt('Enter link URL');
+        if (!url) return;
+        document.execCommand('createLink', false, url);
+      } else if (command === 'insertUnorderedList' || command === 'insertOrderedList') {
+        var before = editor.innerHTML;
+        document.execCommand(command, false, null);
+        if (before === editor.innerHTML) insertListFallback(command === 'insertOrderedList');
+      } else {
+        document.execCommand(command, false, null);
+      }
+    });
+  });
+
+  function collectAllRecipients() {
+    var all = [].concat(toChips.getRecipients(), ccChips.getRecipients());
+    var seen = {};
+    var unique = [];
+    for (var i = 0; i < all.length; i++) {
+      if (!seen[all[i].email] && isValidEmail(all[i].email)) { seen[all[i].email] = true; unique.push(all[i]); }
+    }
+    return unique;
+  }
+
+  function autoSaveRecipients() {
+    var recipients = collectAllRecipients();
+    if (recipients.length === 0) return Promise.resolve();
+    var accountId = document.querySelector('[name="account_id"]');
+    var controller = new AbortController();
+    var timeout = setTimeout(function () { controller.abort(); }, 3000);
+    return fetch(AUTO_SAVE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ account_id: parseInt(accountId ? accountId.value : '0'), recipients: recipients }),
+      signal: controller.signal
+    }).catch(function () {}).then(function () { clearTimeout(timeout); });
+  }
+
+  var submitViaFetch = function (action, formData, submitter) {
+    var label = submitter.querySelector('[data-submit-label]');
+    var spinner = submitter.querySelector('[data-submit-spinner]');
+    var isDraft = action.indexOf('/draft') !== -1;
+    var originalLabel = label ? label.textContent : '';
+    if (label) label.textContent = isDraft ? 'Saving...' : 'Sending...';
+    if (spinner) spinner.classList.remove('hidden');
+    submitter.disabled = true;
+
+    var doSend = function () {
+      fetch(action, { method: 'POST', body: formData, redirect: 'follow' })
+        .then(function (response) {
+          if (response.redirected) { window.location.href = response.url; return; }
+          if (response.ok) { window.location.href = response.url; return; }
+          return response.text().then(function (html) {
+            document.open(); document.write(html); document.close();
+          });
+        })
+        .catch(function () {
+          submitter.disabled = false;
+          if (label) label.textContent = originalLabel;
+          if (spinner) spinner.classList.add('hidden');
+          if (window.LR && window.LR.notifyError) {
+            window.LR.notifyError(isDraft ? 'Unable to save draft.' : 'Unable to send message.');
+          }
+        });
+    };
+
+    if (!isDraft) {
+      autoSaveRecipients().then(doSend).catch(doSend);
+    } else {
+      doSend();
+    }
+  };
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    syncEditor();
+    var toVal = document.getElementById('to-hidden').value.trim();
+    if (!toVal) {
+      var toLabel = document.querySelector('[data-chips-container="to"]').closest('div').querySelector('label');
+      if (toLabel) toLabel.classList.add('text-rose-600');
+      document.querySelector('[data-chips-container="to"]').classList.add('!border-rose-400');
+      toChips.focus();
+      return;
+    }
+    var submitter = event.submitter;
+    if (!submitter) return;
+    var action = submitter.getAttribute('formaction') || form.getAttribute('action');
+    var formData = new FormData(form);
+    submitViaFetch(action, formData, submitter);
+  });
+
+  setInterval(function () {
+    syncEditor();
+    var currentBody = bodyInput.value;
+    if (isBodyEmpty(currentBody)) return;
+    if (lastSavedSnapshot !== null && currentBody === lastSavedSnapshot) return;
+    var data = new FormData(form);
+    data.delete('attachments');
+    data.set('body_html', currentBody);
+    if (draftUid) data.set('draft_uid', draftUid);
+    fetch("{{ url_for('mail.auto_save_draft') }}", { method: 'POST', body: data })
+      .then(function (resp) { return resp.json(); })
+      .then(function (json) {
+        if (json.ok && json.draft_uid) {
+          draftUid = json.draft_uid;
+          draftUidInput.value = draftUid;
+          lastSavedSnapshot = currentBody;
+        }
+      })
+      .catch(function () {});
+  }, 30000);
+})();
+</script>
+
+</div>
+{% endblock %}

@@ -1,0 +1,119 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+<section class="bg-white border border-slate-200 rounded-lg p-5">
+  <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+    <div>
+      <h1 class="text-xl font-semibold">Mailbox Imports</h1>
+      <p class="text-sm text-slate-500">Create signed links for privacy-safe Google mailbox imports into destination IMAP accounts.</p>
+    </div>
+    <div class="text-xs rounded-full px-3 py-1 border {{ 'border-emerald-200 bg-emerald-50 text-emerald-700' if google_ready else 'border-amber-200 bg-amber-50 text-amber-700' }}">
+      {{ 'Google import configured' if google_ready else 'Google import not configured' }}
+    </div>
+  </div>
+  <div class="border border-slate-200 rounded-lg divide-y text-sm text-slate-700">
+    {% for row in import_requests %}
+    {% set latest_run = latest_runs.get(row.id) %}
+    <div class="px-4 py-4 space-y-3">
+      <div class="flex flex-col gap-2 xl:flex-row xl:items-start xl:justify-between">
+        <div class="space-y-1">
+          <div class="font-medium">{{ row.customer_email }}</div>
+          <div class="text-xs text-slate-500">Source: {{ 'Google Takeout' if row.source_type == 'google_takeout' else 'Google' }} · Destination: {{ row.destination_email }} via {{ row.destination_imap_host }}:{{ row.destination_imap_port }}</div>
+          <div class="text-xs text-slate-500">Link expires {{ row.expires_at.strftime('%Y-%m-%d %H:%M UTC') if row.expires_at else '—' }}</div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs px-2 py-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700">{{ row.status|replace('_', ' ')|title }}</span>
+          <form method="post" action="{{ url_for('admin.toggle_import_request', import_request_id=row.id) }}">
+            <button class="text-xs px-2 py-1 rounded {{ 'bg-green-100 text-green-700' if row.is_enabled else 'bg-red-100 text-red-700' }}">
+              {{ 'Enabled' if row.is_enabled else 'Disabled' }}
+            </button>
+          </form>
+        </div>
+      </div>
+      <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          <div class="uppercase tracking-wide text-slate-500 mb-1">Counts</div>
+          <div>Seen {{ row.total_seen_count }} · Imported {{ row.total_imported_count }} · Skipped {{ row.total_skipped_count }}</div>
+          {% if row.source_type == 'google_takeout' and row.upload_filename %}
+          <div class="mt-1">Upload {{ row.upload_filename }} · {{ row.uploaded_bytes }} / {{ row.upload_size_bytes }} bytes</div>
+          {% endif %}
+          {% if latest_run and latest_run.last_error %}
+          <div class="mt-1 text-rose-700">{{ latest_run.last_error }}</div>
+          {% elif row.last_error %}
+          <div class="mt-1 text-rose-700">{{ row.last_error }}</div>
+          {% endif %}
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 space-y-1">
+          <div class="uppercase tracking-wide text-slate-500">Signed Link</div>
+          <a class="break-all text-sky-700 hover:text-sky-900" href="{{ url_for('imports.view_request', token=row|import_token, _external=True) }}" target="_blank" rel="noreferrer">
+            {{ url_for('imports.view_request', token=row|import_token, _external=True) }}
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% if import_requests|length == 0 %}
+    <div class="px-4 py-4 text-xs text-slate-500">No import links created yet.</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-lg p-5">
+  <div class="flex items-start justify-between gap-4 mb-4">
+    <div>
+      <h2 class="text-lg font-semibold">Create Import Link</h2>
+      <p class="text-sm text-slate-500">The admin sets the destination IMAP mailbox. The signed link either connects Google OAuth or accepts a Google Takeout MBOX upload, depending on the selected source.</p>
+    </div>
+    <div class="text-xs text-slate-500">Other sources remain out of scope for this MVP.</div>
+  </div>
+  <form method="post" action="{{ url_for('admin.create_import_request') }}" class="grid gap-4 lg:grid-cols-2">
+    <label class="text-sm text-slate-700">
+      User email
+      <input name="customer_email" type="email" class="mt-1 w-full border rounded px-3 py-2" required />
+    </label>
+    <label class="text-sm text-slate-700">
+      Source
+      <select name="source_type" class="mt-1 w-full border rounded px-3 py-2">
+        <option value="google">Google (Gmail / Workspace)</option>
+        <option value="google_takeout">Google Takeout (MBOX)</option>
+      </select>
+      <span class="mt-1 block text-xs text-slate-500">IMAP and O365 stay hidden until implemented.</span>
+    </label>
+    <label class="text-sm text-slate-700">
+      Destination mailbox email
+      <input name="destination_email" type="email" class="mt-1 w-full border rounded px-3 py-2" required />
+    </label>
+    <label class="text-sm text-slate-700">
+      Destination IMAP host
+      <input name="destination_imap_host" class="mt-1 w-full border rounded px-3 py-2" placeholder="imap.example.com" required />
+    </label>
+    <label class="text-sm text-slate-700">
+      Destination IMAP port
+      <input name="destination_imap_port" type="number" min="1" value="993" class="mt-1 w-full border rounded px-3 py-2" required />
+    </label>
+    <label class="text-sm text-slate-700">
+      Destination username
+      <input name="destination_username" class="mt-1 w-full border rounded px-3 py-2" required />
+    </label>
+    <label class="text-sm text-slate-700">
+      Destination password
+      <input name="destination_password" type="password" class="mt-1 w-full border rounded px-3 py-2" required />
+    </label>
+    <label class="text-sm text-slate-700">
+      Link expiry
+      <select name="expiry_days" class="mt-1 w-full border rounded px-3 py-2">
+        <option value="7">7 days</option>
+        <option value="14">14 days</option>
+        <option value="30">30 days</option>
+      </select>
+    </label>
+    <div class="text-sm text-slate-700">
+      Destination transport
+      <div class="mt-1 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600">TLS required</div>
+    </div>
+    <div class="lg:col-span-2 flex items-center justify-between gap-4">
+      <p class="text-xs text-slate-500">Google OAuth imports are read-only. Google Takeout imports accept MBOX only. Destination mail is append-only; no deletes are performed.</p>
+      <button class="bg-slate-900 text-white rounded px-4 py-2">Create Link</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

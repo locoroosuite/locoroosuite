@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ filename }} - Attachment View</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; color: #1e293b; }
+    .toolbar {
+      position: sticky; top: 0; z-index: 10;
+      background: white; border-bottom: 1px solid #e2e8f0;
+      padding: 10px 20px; display: flex; align-items: center; gap: 12px;
+    }
+    .toolbar .filename { font-size: 14px; font-weight: 600; color: #0f172a; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .toolbar a, .toolbar button {
+      font-size: 12px; padding: 6px 12px; border-radius: 8px; border: 1px solid #e2e8f0;
+      background: white; color: #475569; text-decoration: none; cursor: pointer;
+      transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+    }
+    .toolbar a:hover, .toolbar button:hover { background: #f1f5f9; border-color: #cbd5e1; color: #0f172a; }
+    .toolbar button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .toolbar .spinner { display: none; width: 14px; height: 14px; border: 2px solid #cbd5e1; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.6s linear infinite; }
+    .toolbar button.loading .spinner { display: inline-block; }
+    .toolbar button.loading .btn-label { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .content { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+    .content iframe { width: 100%; min-height: 70vh; border: 1px solid #e2e8f0; border-radius: 12px; background: white; }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div class="filename" title="{{ filename }}">{{ filename }}</div>
+    <a href="{{ url_for('mail.download_attachment', account_id=account.id, message_id=message_id, index=attachment_index) }}" title="Download">
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"/><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"/></svg>
+      Download
+    </a>
+    <button id="open-in-docs-btn" title="Open in Docs">
+      <span class="spinner"></span>
+      <span class="btn-label">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M3.5 2A1.5 1.5 0 002 3.5V5c0 1.1.9 2 2 2h12a2 2 0 002-2V3.5A1.5 1.5 0 0016.5 2h-13zM4 8.5a.5.5 0 01.5-.5h11a.5.5 0 01.5.5v8a.5.5 0 01-.5.5h-11a.5.5 0 01-.5-.5v-8z"/></svg>
+        Open in Docs
+      </span>
+    </button>
+  </div>
+  <div class="content">
+    <iframe id="attachment-frame" sandbox="allow-scripts allow-same-origin"></iframe>
+  </div>
+  <script>
+    (function() {
+      var frame = document.getElementById("attachment-frame");
+      frame.srcdoc = {{ html_content | tojson }};
+
+      var docsBtn = document.getElementById("open-in-docs-btn");
+      if (docsBtn) {
+        docsBtn.addEventListener("click", function() {
+          docsBtn.classList.add("loading");
+          docsBtn.disabled = true;
+          var downloadUrl = "{{ url_for('mail.download_attachment', account_id=account.id, message_id=message_id, index=attachment_index) }}";
+          fetch(downloadUrl)
+            .then(function(r) {
+              if (!r.ok) throw new Error("Failed to download attachment");
+              return r.blob();
+            })
+            .then(function(blob) {
+              var fd = new FormData();
+              fd.append("file", blob, {{ filename | tojson }});
+              return fetch("{{ url_for('docs.upload') }}", {
+                method: "POST",
+                body: fd,
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+              });
+            })
+            .then(function(r) {
+              if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || "Upload failed"); });
+              return r.json();
+            })
+            .then(function(data) {
+              if (data.editor_url) {
+                window.location.href = data.editor_url;
+              } else if (data.doc_id) {
+                window.location.href = "/app/docs/" + data.doc_id + "/edit";
+              } else {
+                throw new Error("Unexpected response");
+              }
+            })
+            .catch(function(err) {
+              docsBtn.classList.remove("loading");
+              docsBtn.disabled = false;
+              alert("Could not open in Docs: " + err.message);
+            });
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

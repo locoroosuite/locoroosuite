@@ -1,0 +1,9 @@
+passdb {
+  driver = passwd-file
+  args = scheme=SHA256-CRYPT username_format=%u /var/lib/dovecot-users/passwd
+}
+
+userdb {
+  driver = passwd-file
+  args = username_format=%u /var/lib/dovecot-users/passwd
+}

@@ -1,0 +1,10 @@
+.git
+.gitignore
+.idea
+venv
+__pycache__
+*.pyc
+data/*
+!data/snippet_patterns.json
+*.md
+Makefile

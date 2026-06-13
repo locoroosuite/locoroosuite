@@ -1,0 +1,75 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: locoroomail
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5001:5001"
+      - "127.0.0.1:8001:8001"
+    env_file: .env
+    environment:
+      - COLLABORA_INTERNAL_URL=http://collabora:9980/collabora
+      - COLLABORA_PUBLIC_URL=https://${SERVER_NAME}/collabora
+      - WOPI_HOST_URL=https://${SERVER_NAME}
+      - MAIL_API_URL=http://mail-api:8800
+      - MAIL_API_KEY=${MAIL_API_KEY}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      mail-api:
+        condition: service_healthy
+    networks:
+      - locoroomail
+
+  mail-api:
+    build:
+      context: ./mail-api
+      dockerfile: Dockerfile
+    container_name: locoroomail-mail-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8800:8800"
+      - "127.0.0.1:9900:9900"
+    environment:
+      - MAIL_API_SETTINGS=/app/settings.prod.cfg
+      - MAIL_API_KEY=${MAIL_API_KEY}
+      - SENDING_LIMITS_DB=/var/lib/mail-api/sending_limits.db
+    volumes:
+      - /etc/locoroomail/mail-api.cfg:/app/settings.prod.cfg:ro
+      - /etc/dovecot/users:/host-etc/dovecot/users
+      - /var/mail/vhosts:/host-mail/vhosts
+      - /etc/postfix/virtual:/host-etc/postfix/virtual
+      - /etc/postfix/virtual_domains:/host-etc/postfix/virtual_domains
+      - /var/lib/mail-api:/var/lib/mail-api
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8800/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - locoroomail
+
+  collabora:
+    image: collabora/code:latest
+    container_name: locoroomail-collabora
+    restart: unless-stopped
+    environment:
+      - aliasgroup1=https://${SERVER_NAME}:443
+      - extra_params=--o:ssl.enable=false --o:ssl.termination=true --o:security.capabilities=true --o:net.service_root=/collabora --o:welcome.enable=false --o:ui.about.enabled=false --o:productbranding.logoLink=https://${SERVER_NAME}/app/docs/
+    extra_hosts:
+      - "suite.locoroo.net:host-gateway"
+    cap_add:
+      - MKNOD
+    ports:
+      - "172.17.0.1:9980:9980"
+    networks:
+      - locoroomail
+
+networks:
+  locoroomail:
+    driver: bridge

@@ -1,0 +1,93 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <div class="mb-6">
+    <a href="{{ url_for('contacts.contact_list') }}" class="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900">
+      <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd"/></svg>
+      Back to contacts
+    </a>
+  </div>
+
+  <div class="rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
+    <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-semibold text-slate-900">{{ contact.fn or 'Unnamed Contact' }}</h1>
+        {% if contact.title or contact.org %}
+        <p class="text-sm text-slate-500 mt-0.5">{{ [contact.title, contact.org] | select | join(' at ') }}</p>
+        {% endif %}
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="{{ url_for('contacts.contact_edit', account_id=account.id, uid=contact.uid) }}" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50">Edit</a>
+        <form method="post" action="{{ url_for('contacts.contact_delete', account_id=account.id, uid=contact.uid) }}" class="inline" onsubmit="return confirm('Delete this contact?');">
+          <button type="submit" class="rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-rose-700 shadow-sm hover:bg-rose-50">Delete</button>
+        </form>
+      </div>
+    </div>
+
+    <dl class="divide-y divide-slate-100">
+      {% if contact.first_name or contact.last_name %}
+      <div class="px-6 py-4 flex gap-4">
+        <dt class="w-32 flex-shrink-0 text-sm text-slate-500">Full Name</dt>
+        <dd class="text-sm text-slate-900">{{ [contact.first_name, contact.last_name] | select | join(' ') }}</dd>
+      </div>
+      {% endif %}
+
+      {% if contact.email_work %}
+      <div class="px-6 py-4 flex gap-4">
+        <dt class="w-32 flex-shrink-0 text-sm text-slate-500">Email (Work)</dt>
+        <dd class="text-sm text-slate-900"><a href="mailto:{{ contact.email_work }}" class="text-blue-600 hover:underline">{{ contact.email_work }}</a></dd>
+      </div>
+      {% endif %}
+
+      {% if contact.email_home %}
+      <div class="px-6 py-4 flex gap-4">
+        <dt class="w-32 flex-shrink-0 text-sm text-slate-500">Email (Home)</dt>
+        <dd class="text-sm text-slate-900"><a href="mailto:{{ contact.email_home }}" class="text-blue-600 hover:underline">{{ contact.email_home }}</a></dd>
+      </div>
+      {% endif %}
+
+      {% if contact.tel_work %}
+      <div class="px-6 py-4 flex gap-4">
+        <dt class="w-32 flex-shrink-0 text-sm text-slate-500">Phone (Work)</dt>
+        <dd class="text-sm text-slate-900"><a href="tel:{{ contact.tel_work }}" class="text-blue-600 hover:underline">{{ contact.tel_work }}</a></dd>
+      </div>
+      {% endif %}
+
+      {% if contact.tel_home %}
+      <div class="px-6 py-4 flex gap-4">
+        <dt class="w-32 flex-shrink-0 text-sm text-slate-500">Phone (Home)</dt>
+        <dd class="text-sm text-slate-900"><a href="tel:{{ contact.tel_home }}" class="text-blue-600 hover:underline">{{ contact.tel_home }}</a></dd>
+      </div>
+      {% endif %}
+
+      {% if contact.tel_cell %}
+      <div class="px-6 py-4 flex gap-4">
+        <dt class="w-32 flex-shrink-0 text-sm text-slate-500">Phone (Cell)</dt>
+        <dd class="text-sm text-slate-900"><a href="tel:{{ contact.tel_cell }}" class="text-blue-600 hover:underline">{{ contact.tel_cell }}</a></dd>
+      </div>
+      {% endif %}
+
+      {% if contact.org %}
+      <div class="px-6 py-4 flex gap-4">
+        <dt class="w-32 flex-shrink-0 text-sm text-slate-500">Organization</dt>
+        <dd class="text-sm text-slate-900">{{ contact.org }}</dd>
+      </div>
+      {% endif %}
+
+      {% if contact.title %}
+      <div class="px-6 py-4 flex gap-4">
+        <dt class="w-32 flex-shrink-0 text-sm text-slate-500">Title</dt>
+        <dd class="text-sm text-slate-900">{{ contact.title }}</dd>
+      </div>
+      {% endif %}
+
+      {% if contact.note %}
+      <div class="px-6 py-4 flex gap-4">
+        <dt class="w-32 flex-shrink-0 text-sm text-slate-500">Note</dt>
+        <dd class="text-sm text-slate-900 whitespace-pre-wrap">{{ contact.note }}</dd>
+      </div>
+      {% endif %}
+    </dl>
+  </div>
+</div>
+{% endblock %}

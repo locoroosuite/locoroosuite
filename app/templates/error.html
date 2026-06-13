@@ -1,0 +1,13 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="max-w-md mx-auto bg-white/90 border border-slate-200/80 rounded-2xl p-6 shadow-sm text-center">
+  <h1 class="text-xl font-semibold mb-2 text-slate-900">{{ title or "Error" }}</h1>
+  <p class="text-sm text-slate-600 mb-5">{{ message or "An unexpected error occurred." }}</p>
+  {% if show_cache_reset and account_id %}
+  <form action="{{ url_for('mail.reset_cache', account_id=account_id) }}" method="POST" class="mb-3">
+    <button type="submit" class="inline-block bg-red-600 text-white rounded-lg px-5 py-2 text-sm hover:bg-red-700">Reset cache</button>
+  </form>
+  {% endif %}
+  <a href="{{ url_for('mail.login') }}" class="inline-block bg-slate-900 text-white rounded-lg px-5 py-2 text-sm hover:bg-slate-800">Back to login</a>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{
+  "name": "locoroosuite-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for LocoRooSuite — translates MCP tool calls into REST API requests",
+  "type": "module",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "email",
+    "webmail",
+    "imap",
+    "carddav",
+    "caldav",
+    "ai",
+    "locoroosuite",
+    "self-hosted"
+  ],
+  "homepage": "https://locoroo.net/suite/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://codeberg.org/locoroo/locoroosuite.git",
+    "directory": "packages/locoroosuite-mcp"
+  },
+  "bugs": {
+    "url": "https://codeberg.org/locoroo/locoroosuite/issues"
+  },
+  "author": "LocoRoo",
+  "main": "dist/index.js",
+  "bin": {
+    "locoroosuite-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.0",
+    "vitest": "^4.1.7"
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "MIT"
+}

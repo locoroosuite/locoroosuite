@@ -118,7 +118,7 @@ The test suite treats warnings as errors (`filterwarnings = ["error", ...]` in `
 
 ## Reporting issues
 
-- **Bugs**: open an issue on [Codeberg](https://codeberg.org/locoroo/locoroosuite/issues) (or [GitHub mirror](https://github.com/locoroosuite/locoroosuite/issues)) with steps to reproduce, expected behavior, and actual behavior
+- **Bugs**: open an issue on [Codeberg](https://codeberg.org/locoroo/locoroosuite/issues) with steps to reproduce, expected behavior, and actual behavior
 - **Security vulnerabilities**: see [SECURITY.md](SECURITY.md) — do not file public issues for security problems
 - **Feature requests**: open an issue on [Codeberg](https://codeberg.org/locoroo/locoroosuite/issues) describing the use case, not just the solution
 

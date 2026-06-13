@@ -4,7 +4,7 @@ MCP server for [LocoRooSuite](https://locoroo.net) — the self-hosted email, co
 
 This package lets your AI assistant talk directly to your LocoRooSuite instance. It connects over the Model Context Protocol (MCP) and exposes your mail, contacts, calendar, and documents as tools the AI can use. Read email, send replies, check your calendar, look up a contact, edit a document — all from within your AI client.
 
-A managed hosted version is available at [locoroo.net/suite](https://locoroo.net/suite/) if you don't want to run your own instance. The open-source project is at [codeberg.org/locoroo/locoroosuite](https://codeberg.org/locoroo/locoroosuite) (mirrored on [GitHub](https://github.com/locoroosuite/locoroosuite)).
+A managed hosted version is available at [locoroo.net/suite](https://locoroo.net/suite/) if you don't want to run your own instance. The open-source project is at [codeberg.org/locoroo/locoroosuite](https://codeberg.org/locoroo/locoroosuite).
 
 ## Quick start
 

@@ -45,6 +45,7 @@ services:
       - /etc/postfix/virtual:/host-etc/postfix/virtual
       - /etc/postfix/virtual_domains:/host-etc/postfix/virtual_domains
       - /var/lib/mail-api:/var/lib/mail-api
+      - /etc/opendkim:/etc/opendkim
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8800/health')"]
       interval: 10s

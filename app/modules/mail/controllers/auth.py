@@ -5,7 +5,7 @@ import uuid
 import time
 from urllib.parse import urlparse
 
-from flask import session, request, redirect, url_for, render_template, current_app
+from flask import session, request, redirect, url_for, render_template, current_app, make_response
 
 from app.shared.db import db
 from app.shared.models.core import User, Domain, CustomerAccount
@@ -15,6 +15,8 @@ from app.modules.mail.services.imap_client import connect_imap, login_imap, safe
 from app.modules.mail.services.cache import build_cache_path
 from app.shared.auth import require_customer
 from app.shared.keys import set_user_key, clear_user_key
+from app.shared import totp as totp_mod
+from app.shared.rate_limit import record_failed_login, clear_failed_login, is_locked
 
 from app.modules.mail.controllers.helpers import mail_bp
 
@@ -143,6 +145,36 @@ def login():
 
     set_user_key(customer.id, user_key)
     session["user_id"] = customer.id
+
+    if totp_mod.is_2fa_enabled(customer):
+        trusted_token = request.cookies.get(totp_mod.TRUSTED_DEVICE_COOKIE)
+        device = totp_mod.validate_trusted_device(customer.id, trusted_token)
+        if device:
+            _complete_customer_session(customer, account, user_key, next_url, request_id)
+            if next_url and _is_safe_redirect_url(next_url):
+                return redirect(next_url)
+            return redirect(url_for("mail.folder_view", account_id=account.id, folder="INBOX"))
+        session.pop("user_id", None)
+        session.pop("role", None)
+        session.pop("active_account_id", None)
+        session.pop("user_key", None)
+        session["_pending_2fa_user_id"] = customer.id
+        session["_pending_2fa_account_id"] = account.id
+        session["_pending_2fa_user_key"] = user_key
+        session["_pending_2fa_next"] = next_url
+        logger.info("login 2fa pending request_id=%s user_id=%s", request_id, customer.id)
+        resp = make_response(render_template("twofa.html", backup_mode=False))
+        resp.delete_cookie(totp_mod.TRUSTED_DEVICE_COOKIE)
+        return resp
+
+    _complete_customer_session(customer, account, user_key, next_url, request_id)
+    logger.info("login redirect request_id=%s", request_id)
+    if next_url and _is_safe_redirect_url(next_url):
+        return redirect(next_url)
+    return redirect(url_for("mail.folder_view", account_id=account.id, folder="INBOX"))
+
+
+def _complete_customer_session(customer, account, user_key, next_url, request_id):
     session["role"] = "customer"
     session["active_account_id"] = account.id
     session["user_key"] = user_key
@@ -151,10 +183,76 @@ def login():
     current_app.sync_manager.set_active_folder(account.id, "INBOX")
     current_app.sync_manager.enqueue_sync(account.id, folder="INBOX", reason="login", priority=0)
     current_app.sync_manager.enqueue_sync(account.id, folder="Sent", reason="login", priority=5)
-    logger.info("login redirect request_id=%s", request_id)
-    if next_url and _is_safe_redirect_url(next_url):
-        return redirect(next_url)
-    return redirect(url_for("mail.folder_view", account_id=account.id, folder="INBOX"))
+
+
+@mail_bp.route("/twofa", methods=["GET", "POST"])
+def twofa_verify():
+    pending_id = session.get("_pending_2fa_user_id")
+    if not pending_id:
+        return redirect(url_for("mail.login"))
+
+    customer = db.session.get(User, pending_id)
+    if not customer or not totp_mod.is_2fa_enabled(customer):
+        _abort_customer_2fa(pending_id)
+        return redirect(url_for("mail.login"))
+
+    if request.method == "GET":
+        backup_mode = request.args.get("mode") == "backup"
+        return render_template("twofa.html", backup_mode=backup_mode)
+
+    ip = request.remote_addr
+    lock_key = f"2fa:{pending_id}"
+
+    if is_locked(lock_key, ip):
+        return render_template("twofa.html", error="Too many attempts. Please try again later.", backup_mode=False)
+
+    code = request.form.get("code", "").strip()
+    backup_mode = request.form.get("backup_mode") == "1"
+    remember_device = request.form.get("remember_device") == "1"
+
+    verified = False
+    if backup_mode:
+        verified = totp_mod.verify_backup_code(customer, code)
+    else:
+        verified = totp_mod.verify_code(customer.totp_secret, code)
+
+    if not verified:
+        record_failed_login(lock_key, ip)
+        return render_template("twofa.html", error="Invalid code. Please try again.", backup_mode=backup_mode)
+
+    clear_failed_login(lock_key, ip)
+    account_id = session.pop("_pending_2fa_account_id", None)
+    user_key = session.pop("_pending_2fa_user_key", None)
+    next_url = session.pop("_pending_2fa_next", "")
+    session.pop("_pending_2fa_user_id", None)
+    session["user_id"] = pending_id
+
+    account = db.session.get(CustomerAccount, account_id) if account_id else None
+    if not account:
+        _abort_customer_2fa(pending_id)
+        return redirect(url_for("mail.login"))
+
+    request_id = uuid.uuid4().hex[:8]
+    _complete_customer_session(customer, account, user_key, next_url, request_id)
+    logger.info("login 2fa complete request_id=%s user_id=%s", request_id, customer.id)
+
+    resp = make_response(redirect(next_url if (next_url and _is_safe_redirect_url(next_url)) else url_for("mail.folder_view", account_id=account.id, folder="INBOX")))
+    if remember_device:
+        token = totp_mod.issue_trusted_device(customer.id, request.headers.get("User-Agent"), ip)
+        resp.set_cookie(
+            totp_mod.TRUSTED_DEVICE_COOKIE, token,
+            max_age=totp_mod.TRUSTED_DEVICE_DAYS * 86400,
+            httponly=True, samesite="Lax", secure=not current_app.config.get("TESTING", False),
+        )
+    return resp
+
+
+def _abort_customer_2fa(user_id):
+    clear_user_key(user_id)
+    session.pop("_pending_2fa_user_id", None)
+    session.pop("_pending_2fa_account_id", None)
+    session.pop("_pending_2fa_user_key", None)
+    session.pop("_pending_2fa_next", None)
 
 
 @mail_bp.route("/logout")

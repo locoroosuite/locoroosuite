@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, session, flash, current_app, make_response
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from datetime import datetime, timedelta, timezone
@@ -7,6 +7,7 @@ from app.shared.models.core import User, Domain, CustomerAccount
 from app.shared.db import db
 from app.shared.audit import log_audit
 from app.shared.rate_limit import record_failed_login, clear_failed_login, is_locked
+from app.shared import totp as totp_mod
 
 
 def _dev_defaults():
@@ -81,6 +82,33 @@ def login():
     session["user_id"] = user.id
     session["role"] = user.role
 
+    if totp_mod.is_2fa_enabled(user):
+        trusted_token = request.cookies.get(totp_mod.TRUSTED_DEVICE_COOKIE)
+        device = totp_mod.validate_trusted_device(user.id, trusted_token)
+        if device:
+            _complete_admin_login(user, ip, user_agent)
+            if user.role == "admin":
+                return redirect(url_for("admin.dashboard"))
+            return redirect(url_for("manager.dashboard"))
+        session.pop("role", None)
+        session.pop("user_id", None)
+        session["_pending_2fa_user_id"] = user.id
+        session["_pending_2fa_role"] = user.role
+        session["_pending_2fa_email"] = email
+        resp = make_response(render_template("auth/twofa.html", title="Two-Factor Authentication", backup_mode=False))
+        resp.delete_cookie(totp_mod.TRUSTED_DEVICE_COOKIE)
+        return resp
+
+    _complete_admin_login(user, ip, user_agent)
+
+    if user.role == "admin":
+        return redirect(url_for("admin.dashboard"))
+    return redirect(url_for("manager.dashboard"))
+
+
+def _complete_admin_login(user, ip, user_agent):
+    session["user_id"] = user.id
+    session["role"] = user.role
     log_audit(
         actor_user_id=user.id,
         actor_role=user.role,
@@ -90,7 +118,66 @@ def login():
         user_agent=user_agent,
     )
 
-    if user.role == "admin":
+
+@auth_bp.route("/admin/twofa", methods=["GET", "POST"])
+def twofa_verify():
+    pending_id = session.get("_pending_2fa_user_id")
+    if not pending_id:
+        return redirect(url_for("auth.login"))
+
+    user = db.session.get(User, pending_id)
+    if not user or not totp_mod.is_2fa_enabled(user):
+        session.pop("_pending_2fa_user_id", None)
+        session.pop("_pending_2fa_role", None)
+        session.pop("_pending_2fa_email", None)
+        return redirect(url_for("auth.login"))
+
+    title = "Two-Factor Authentication"
+    lock_key = f"2fa:{pending_id}"
+
+    if request.method == "GET":
+        backup_mode = request.args.get("mode") == "backup"
+        return render_template("auth/twofa.html", title=title, backup_mode=backup_mode)
+
+    ip = request.remote_addr
+    user_agent = request.headers.get("User-Agent")
+
+    if is_locked(lock_key, ip):
+        return render_template("auth/twofa.html", title=title, error="Too many attempts. Please try again later.", backup_mode=False)
+
+    code = request.form.get("code", "").strip()
+    backup_mode = request.form.get("backup_mode") == "1"
+    remember_device = request.form.get("remember_device") == "1"
+
+    verified = False
+    if backup_mode:
+        verified = totp_mod.verify_backup_code(user, code)
+    else:
+        verified = totp_mod.verify_code(user.totp_secret, code)
+
+    if not verified:
+        record_failed_login(lock_key, ip)
+        return render_template("auth/twofa.html", title=title, error="Invalid code. Please try again.", backup_mode=backup_mode)
+
+    clear_failed_login(lock_key, ip)
+    session.pop("_pending_2fa_user_id", None)
+    role = session.pop("_pending_2fa_role", user.role)
+    session.pop("_pending_2fa_email", None)
+
+    resp = _finish_admin_twofa(user, role, ip, user_agent)
+    if remember_device:
+        token = totp_mod.issue_trusted_device(user.id, user_agent, ip)
+        resp.set_cookie(
+            totp_mod.TRUSTED_DEVICE_COOKIE, token,
+            max_age=totp_mod.TRUSTED_DEVICE_DAYS * 86400,
+            httponly=True, samesite="Lax", secure=not current_app.config.get("TESTING", False),
+        )
+    return resp
+
+
+def _finish_admin_twofa(user, role, ip, user_agent):
+    _complete_admin_login(user, ip, user_agent)
+    if role == "admin":
         return redirect(url_for("admin.dashboard"))
     return redirect(url_for("manager.dashboard"))
 

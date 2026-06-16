@@ -172,3 +172,21 @@ def ensure_domain_dns_config_columns():
         db.session.execute(text(statement))
     if statements:
         db.session.commit()
+
+
+def ensure_user_totp_columns():
+    inspector = inspect(db.engine)
+    if "users" not in inspector.get_table_names():
+        return
+    columns = {col["name"] for col in inspector.get_columns("users")}
+    statements = []
+    if "totp_secret" not in columns:
+        statements.append("ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64)")
+    if "totp_enabled" not in columns:
+        statements.append("ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN NOT NULL DEFAULT 0")
+    if "backup_codes" not in columns:
+        statements.append("ALTER TABLE users ADD COLUMN backup_codes TEXT")
+    for statement in statements:
+        db.session.execute(text(statement))
+    if statements:
+        db.session.commit()

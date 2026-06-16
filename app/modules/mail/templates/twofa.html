@@ -1,0 +1,39 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="max-w-md mx-auto bg-white/90 border border-slate-200/80 rounded-2xl p-6 shadow-sm">
+  <h1 class="text-xl font-semibold mb-1 text-slate-900">Two-Factor Authentication</h1>
+  <p class="text-sm text-slate-500 mb-4">Enter your verification code</p>
+  {% if error %}
+  <div class="mb-3 text-sm text-red-600">{{ error }}</div>
+  {% endif %}
+  <form method="post" action="{{ url_for('mail.twofa_verify') }}" class="space-y-3">
+    {% if backup_mode %}
+    <div>
+      <label class="block text-sm font-medium">Backup code</label>
+      <input name="code" type="text" autocomplete="one-time-code" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" required autofocus />
+    </div>
+    <input type="hidden" name="backup_mode" value="1" />
+    {% else %}
+    <div>
+      <label class="block text-sm font-medium">6-digit code</label>
+      <input name="code" type="text" inputmode="numeric" pattern="[0-9 ]*" maxlength="6" autocomplete="one-time-code" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200 tracking-widest text-center text-lg" required autofocus />
+    </div>
+    {% endif %}
+    <label class="flex items-center gap-2 text-sm text-slate-600">
+      <input name="remember_device" type="checkbox" value="1" class="h-4 w-4 rounded border-slate-300 text-slate-900" />
+      Remember this device for 30 days
+    </label>
+    <button class="w-full bg-slate-900 text-white rounded-lg py-2 text-sm">Verify</button>
+  </form>
+  <div class="mt-4 text-center text-sm">
+    {% if backup_mode %}
+    <a href="{{ url_for('mail.twofa_verify') }}" class="text-slate-600 hover:text-slate-900">Use authenticator app instead</a>
+    {% else %}
+    <a href="{{ url_for('mail.twofa_verify', mode='backup') }}" class="text-slate-600 hover:text-slate-900">Use a backup code instead</a>
+    {% endif %}
+  </div>
+  <div class="mt-4 text-center">
+    <a href="{{ url_for('mail.login') }}" class="text-xs text-slate-400 hover:text-slate-600">Back to login</a>
+  </div>
+</div>
+{% endblock %}

@@ -64,6 +64,11 @@
     <a href="{{ url_for('mail.api_settings') }}" class="inline-block mt-3 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Manage API Access</a>
   </div>
   <div class="mt-6 border-t border-slate-200/80 pt-5">
+    <div class="text-sm font-semibold text-slate-900">Security</div>
+    <p class="mt-1 text-sm text-slate-500">Enable two-factor authentication and manage trusted devices.</p>
+    <a href="{{ url_for('mail.twofa_settings') }}" class="inline-block mt-3 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Manage Security</a>
+  </div>
+  <div class="mt-6 border-t border-slate-200/80 pt-5">
     <div class="text-sm font-semibold text-slate-900">Reset Cache</div>
     <p class="mt-1 text-sm text-slate-500">Clears the local cached mail for your active account. IMAP is untouched.</p>
     <form method="post" action="{{ url_for('mail.settings_reset_cache') }}" class="mt-3">

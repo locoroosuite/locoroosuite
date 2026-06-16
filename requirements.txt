@@ -16,3 +16,6 @@ mcp
 uvicorn
 authlib
 PyJWT
+pyotp
+qrcode
+Pillow

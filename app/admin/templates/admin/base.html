@@ -32,6 +32,10 @@
          class="block px-2 py-1 rounded {{ 'bg-slate-100 text-slate-900' if active_page == 'imports' else 'text-slate-600 hover:bg-slate-100' }}">
         Imports
       </a>
+      <a href="{{ url_for('admin.twofa_settings') }}"
+         class="block px-2 py-1 rounded {{ 'bg-slate-100 text-slate-900' if active_page == 'security' else 'text-slate-600 hover:bg-slate-100' }}">
+        Security
+      </a>
     </nav>
     <div class="mt-4 text-xs text-slate-500">
       Privacy note: admin tools never expose customer email contents.

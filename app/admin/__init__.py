@@ -9,6 +9,7 @@ def register(app):
     from .controllers import manager as manager_ctrl
     from .controllers import imports as imports_ctrl
     from .controllers import auth as auth_ctrl
+    from .controllers import twofa_settings as twofa_ctrl
     app.register_blueprint(auth_ctrl.auth_bp)
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(manager_bp, url_prefix="/admin/manager")

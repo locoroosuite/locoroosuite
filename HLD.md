@@ -80,7 +80,7 @@ N5 - The same email address may be used for customer IMAP login even if it also 
 # Use Case U1 – Administration (General)
 
 U1.1 - The admins are created using the cli tool and authenticate via local accounts in the app. 
-U1.1a - No password policy or 2FA required for MVP.
+U1.1a - No password policy required for MVP. Optional per-user 2FA (TOTP) is supported per U22.
 U1.1b - Admin password resets are CLI-only.
 U1.2 - Admins can create managers and customers; managers can create customers. Managers authenticate via local accounts in the app. 
 U1.3 - The admins configure domains that will manage emails. This includes IMAPS/SMTP host, port, TLS/SSL requirements (STARTTLS or SMTPS), and allowed authentication methods. SMTP is domain-configured (no per-user override). CalDAV/CardDAV server URL and authentication are also configured per-domain (typically Radicale serving both protocols on the same base URL). 
@@ -1530,3 +1530,140 @@ user@domain.com:{SHA256-CRYPT}hash::::::userdb_quota_rule=*:bytes=5368709120
 ```
 
 U21.6 - When no quota extra field is present, Dovecot falls back to the default `quota_rule = *:storage=0` (no limit). This preserves backward compatibility with existing users created before quota support.
+
+# Use Case U22 – Two-Factor Authentication (2FA)
+
+## Overview
+
+U22.1 - 2FA is an optional, per-user security enhancement. All roles (admin, manager, customer) can individually opt in from their own settings page. There is no admin-mandated or platform-wide enforcement for MVP.
+
+U22.2 - 2FA method: TOTP (RFC 6238) via authenticator apps (Google Authenticator, Authy, 1Password, etc.) plus single-use backup/recovery codes. No SMS, no WebAuthn for MVP.
+
+U22.3 - 2FA scope is per-person (per User row), not per-CustomerAccount. A customer with multiple mailboxes verifies 2FA once at login; all accounts are then accessible.
+
+## Data Model
+
+U22.4 - User table additions (main app.db):
+  - totp_secret (VARCHAR(64), nullable) — base32-encoded TOTP shared secret
+  - totp_enabled (BOOLEAN, default false, not null) — whether 2FA is active for this user
+  - backup_codes (TEXT, nullable) — JSON array of SHA-256 hashed single-use recovery codes
+
+U22.5 - A user with totp_enabled=false has no 2FA requirement and logs in as before.
+
+U22.6 - TrustedDevice table (main app.db):
+  - id (PK, auto-increment)
+  - user_id (FK to users.id, indexed)
+  - token_hash (VARCHAR(64), unique — SHA-256 of raw device cookie token)
+  - user_agent (VARCHAR(255), nullable — for display only)
+  - ip_address (VARCHAR(64), nullable — last known IP at creation)
+  - created_at (UTC datetime, not null)
+  - last_used_at (UTC datetime, nullable — updated on each login using this device)
+  - expires_at (UTC datetime, not null — 30 days from creation)
+  - revoked_at (UTC datetime, nullable)
+
+## Dependencies
+
+U22.7 - New dependencies: pyotp (TOTP generation/verification), qrcode (QR code PNG generation for enrollment). Both are pure-Python with no external service requirements.
+
+## Login Flow — Two-Phase
+
+U22.8 - All login flows (admin/manager at /admin/login, customer at /app/login) become two-phase when 2FA is enabled for the authenticating user:
+
+  Phase 1 (credential verification):
+    - Admin/Manager: verify password hash as today. If valid and totp_enabled is true, store session["_pending_2fa_user_id"] = user.id and render the TOTP entry page. Session role is NOT set.
+    - Customer: validate IMAP credentials, derive cache key, set_user_key(), find/create user and account, encrypt/store credential as today. If totp_enabled is true, store session["_pending_2fa_user_id"] = customer.id and render the TOTP entry page. Session role is NOT set, sync is NOT enqueued, active_account_id is NOT set.
+
+  Phase 2 (TOTP verification):
+    - User submits a 6-digit TOTP code (or a backup code).
+    - Valid TOTP: clear pending flag, set session role and remaining session vars, enqueue sync (customer only), redirect to role landing page.
+    - Valid backup code: mark that backup code as used (removed from backup_codes array), proceed as valid TOTP.
+    - Invalid: re-render TOTP page with error. Rate-limited per M10 pattern (5 failures, then temporary lockout). After lockout, clear_user_key() (customer) and clear session.
+
+U22.9 - During Phase 1 pending state, no routes are accessible:
+    - session["role"] is not set, so require_role / require_customer decorators redirect away.
+    - For customers, the derived key sits in _user_keys but no sync is enqueued and no account is active. If the user abandons (navigates away, session expires), the key persists in _user_keys but is inaccessible without the session. clear_user_key() is called on any failed/abandoned 2FA attempt and on logout.
+
+U22.10 - TOTP verification window: ±1 time step (30 seconds each, so the previous, current, and next codes are accepted). This matches standard authenticator app behavior and accommodates minor clock drift.
+
+U22.11 - The TOTP entry page includes a "Use a backup code" link that switches the input to accept an 8-character alphanumeric backup code instead of a 6-digit TOTP code.
+
+## Trusted Devices (Remember This Device)
+
+U22.12 - After successfully completing 2FA verification (Phase 2), the TOTP entry page offers a "Remember this device for 30 days" checkbox. If checked, the server issues a trusted-device cookie so subsequent logins from the same browser skip the 2FA step.
+
+U22.13 - Trusted-device token: a cryptographically random 32-byte value (base64url encoded), issued once and stored as an HTTP-only, Secure, SameSite=Lax cookie named "lr_trusted_device" with a 30-day max-age. The cookie is scoped to path="/" so it applies to both /admin/login and /app/login.
+
+U22.14 - On the server side, only the SHA-256 hash of the token is stored (never the raw token). The raw token lives only in the user's browser cookie.
+
+U22.15 - Phase 1 device check: after credential validation, if the user has totp_enabled=true, the server checks for the lr_trusted_device cookie BEFORE rendering the TOTP page:
+    1. Read cookie value, compute SHA-256 hash.
+    2. Query TrustedDevice by token_hash + user_id where revoked_at IS NULL and expires_at > now.
+    3. If found and valid: skip Phase 2 entirely. Complete login (set role, enqueue sync for customers, etc.). Update last_used_at on the TrustedDevice row.
+    4. If not found, expired, or revoked: clear the invalid cookie and proceed to Phase 2 (TOTP entry page) as normal.
+
+U22.16 - Trusted devices are per-user (per User row). A trusted device for an admin account does not bypass 2FA for a customer login on a different User row, even if the same email address is used (per N5).
+
+U22.17 - The 30-day trust window is measured from the cookie issuance time, not extended on each login. After 30 days, the cookie expires and the user must complete 2FA again. A new trusted-device cookie can be issued at that point if the checkbox is checked again.
+
+U22.18 - Trusted-device management UI: the Security section (U22.22) shows a list of trusted devices with: device description (parsed from user agent), created date, last used date, and a "Revoke" button per device. A "Revoke all trusted devices" button revokes every device for the user in one action.
+
+U22.19 - Revocation sets revoked_at on the TrustedDevice row. The cookie remains in the user's browser but is rejected on next login (cleared at that point).
+
+U22.20 - Disabling 2FA (U22.23) automatically revokes all trusted devices for that user.
+
+U22.21 - Changing the account password does NOT automatically revoke trusted devices for MVP. Users can manually revoke from the security settings.
+
+## Enrollment / Management
+
+U22.22 - 2FA enrollment is available from:
+    - Admin/Manager: a "Security" section in the admin settings area (/admin/settings/security).
+    - Customer: the existing customer Settings page (U9), under a new "Security" section.
+
+U22.23 - Enrollment flow (enable 2FA):
+    1. User clicks "Enable 2FA".
+    2. Server generates a random TOTP secret (pyotp.random_base32()), stores it temporarily in session (NOT yet saved to User row — totp_enabled stays false).
+    3. Server renders a QR code (otpauth:// URI per RFC 6238) and the secret as text.
+    4. User scans QR with their authenticator app, enters the current 6-digit code to confirm.
+    5. On valid code: save totp_secret + totp_enabled=true to User row, generate 10 backup codes, display them once with a clear warning, prompt user to confirm they saved them.
+    6. 2FA is now active.
+
+U22.24 - Disabling 2FA requires the user to enter a valid TOTP code (or backup code). On success: clear totp_secret, set totp_enabled=false, clear backup_codes, revoke all trusted devices.
+
+U22.25 - Regenerating backup codes requires a valid TOTP code. Old codes are invalidated. New codes are displayed once.
+
+U22.26 - The 2FA management UI shows the current status (enabled/disabled), a link to view remaining backup code count (codes themselves are never re-displayed), and enable/disable/regenerate-backup-codes actions.
+
+## Backup Codes
+
+U22.27 - 10 single-use alphanumeric codes (8 characters, base32 alphabet) generated at enrollment. Stored as SHA-256 hashes in the backup_codes JSON array on the User row.
+
+U22.28 - Each backup code can be used exactly once. On use, it is removed from the array and the User row is updated.
+
+U22.29 - Backup codes are displayed exactly once at enrollment (and once on regeneration). They are never re-displayed or recoverable. If all codes are lost and the user loses their authenticator device, an admin can disable 2FA for the account via CLI.
+
+## Admin / CLI Reset
+
+U22.30 - Admin password resets remain CLI-only (per U1.1b). The CLI gains a command to disable 2FA for a specific user (e.g., `flask twofa-disable <email>`). This clears totp_secret, totp_enabled, and backup_codes for that user.
+
+U22.31 - Admins cannot see or manage 2FA for customers from the web UI (privacy per M4). Customer 2FA is entirely self-managed.
+
+## Security
+
+U22.32 - TOTP secrets are stored in plaintext in the main app.db (not the encrypted per-user cache). Rationale: the TOTP secret must be readable by the app during login verification, and the main app.db already stores admin password hashes (as werkzeug hashes). The main app.db is plaintext for MVP (M9b).
+
+U22.33 - Rate limiting on the TOTP verification endpoint follows the same M10 pattern as login: 5 failed attempts per 10 minutes, then temporary lockout.
+
+U22.34 - The TOTP entry page does not reveal which credential was incorrect. Failed Phase 1 (password/IMAP) errors are identical whether or not 2FA is enabled, preventing enumeration of which accounts have 2FA active.
+
+## Relationship to Existing Auth
+
+U22.35 - 2FA is orthogonal to API access (U14) and OAuth (U18). API tokens and OAuth JWTs authenticate via bearer tokens that bypass the web login flow entirely. 2FA only applies to interactive web sessions (/admin/login, /app/login).
+
+U22.36 - Enabling/disabling 2FA does not affect existing sessions, API tokens, or cache encryption keys. It only gates future logins.
+
+## Out of Scope for MVP
+
+U22.50 - No WebAuthn / passkey / hardware key support.
+U22.51 - No SMS-based 2FA.
+U22.52 - No admin-mandated / forced 2FA for roles or domains.
+U22.54 - No 2FA for API or OAuth token flows (U14/U18 remain bearer-token only).

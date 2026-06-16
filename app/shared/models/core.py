@@ -15,6 +15,9 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=_utcnow, nullable=False)
+    totp_secret = db.Column(db.String(64), nullable=True)
+    totp_enabled = db.Column(db.Boolean, default=False, nullable=False)
+    backup_codes = db.Column(db.Text, nullable=True)
 
 
 class Domain(db.Model):
@@ -176,3 +179,16 @@ class DocShare(db.Model):
     doc_size = db.Column(db.Integer, default=0, nullable=False)
     doc_updated_at = db.Column(db.String(32), nullable=True)
     created_at = db.Column(db.DateTime, default=_utcnow, nullable=False)
+
+
+class TrustedDevice(db.Model):
+    __tablename__ = "trusted_devices"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    token_hash = db.Column(db.String(64), nullable=False, unique=True)
+    user_agent = db.Column(db.String(255), nullable=True)
+    ip_address = db.Column(db.String(64), nullable=True)
+    created_at = db.Column(db.DateTime, default=_utcnow, nullable=False)
+    last_used_at = db.Column(db.DateTime, nullable=True)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    revoked_at = db.Column(db.DateTime, nullable=True)

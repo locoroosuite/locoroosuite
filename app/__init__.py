@@ -18,6 +18,7 @@ from app.shared.db_migrations import (
     ensure_customer_signup_columns,
     ensure_domain_mail_api_columns,
     ensure_domain_dns_config_columns,
+    ensure_user_totp_columns,
 )
 
 import logging
@@ -197,11 +198,15 @@ def create_app():
         ensure_customer_signup_columns()
         ensure_domain_mail_api_columns()
         ensure_domain_dns_config_columns()
+        ensure_user_totp_columns()
 
     from app.workers.manager import WorkerManager
     worker = WorkerManager(app)
     if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         worker.start()
     app.sync_manager = worker
+
+    from app.shared.cli import register_cli
+    register_cli(app)
 
     return app

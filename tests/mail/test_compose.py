@@ -848,7 +848,6 @@ class TestAutoSaveDraft:
         with patch("app.modules.mail.controllers.compose.decrypt_with_key"), \
              patch("app.modules.mail.controllers.compose._imap_for_account") as mock_imap, \
              patch("app.modules.mail.controllers.compose.ensure_folder_and_append", side_effect=Exception("IMAP down")), \
-             patch("app.modules.mail.controllers.compose.create_folder"), \
              patch("app.modules.mail.controllers.compose.safe_logout"):
             mock_imap.return_value = (mock_imap_client, MagicMock())
             resp = client.post("/app/mail/draft/auto-save", data={

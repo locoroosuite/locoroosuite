@@ -73,8 +73,11 @@
       </div>
     </div>
     <div>
-      <label class="block text-sm font-medium">Attachments</label>
-      <input type="file" name="attachments" multiple class="mt-1 w-full text-sm" tabindex="6" />
+      <div class="flex items-center justify-between">
+        <label class="block text-sm font-medium">Attachments</label>
+        <span class="text-xs text-slate-400" data-attachments-total-label></span>
+      </div>
+      <div data-attachments-mount class="mt-1"></div>
     </div>
     <div class="flex items-center gap-2">
       <input type="checkbox" name="read_receipt" class="h-4 w-4 rounded border-slate-300 text-slate-900" tabindex="7" {% if prefill and prefill.request_receipt %}checked{% endif %} />
@@ -99,6 +102,7 @@
   </form>
 
 <script src="{{ url_for('static', filename='js/recipient-chips.js') }}"></script>
+<script src="{{ url_for('static', filename='js/compose-attachments.js') }}"></script>
 <script>
 (function () {
   var SEARCH_URL = "{{ url_for('contacts.api_search') }}";
@@ -107,6 +111,18 @@
   var toChips = new RecipientChips('to', { searchUrl: SEARCH_URL });
   var ccChips = new RecipientChips('cc', { searchUrl: SEARCH_URL });
   var bccChips = new RecipientChips('bcc', { searchUrl: SEARCH_URL });
+
+  var attachmentsMount = document.querySelector('[data-attachments-mount]');
+  var composeAttachments = attachmentsMount ? new ComposeAttachments(attachmentsMount, {
+    stageUrl: "{{ url_for('mail.stage_attachment') }}",
+    deleteUrlBase: "{{ url_for('mail.list_attachments') }}",
+    docsListUrl: "{{ url_for('docs.api_list') }}",
+    docsDownloadUrl: "{{ url_for('docs.download', doc_id='__DOCID__') }}",
+    accountId: {{ account_id }},
+    maxFileBytes: {{ config.MAIL_ATTACHMENT_MAX_FILE_BYTES }},
+    maxTotalBytes: {{ config.MAIL_ATTACHMENT_MAX_TOTAL_BYTES }},
+    totalLabel: document.querySelector('[data-attachments-total-label]'),
+  }) : null;
 
   var form = document.getElementById('compose-form');
   var editor = document.getElementById('compose-editor');
@@ -272,33 +288,51 @@
     selection.addRange(range);
   };
 
-  document.querySelectorAll('[data-format]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var format = btn.getAttribute('data-format');
-      if (!format) return;
-      editor.focus();
-      ensureEditorSelection();
-      document.execCommand(format, false, null);
-    });
-  });
+  var runFormat = function (btn) {
+    var format = btn.getAttribute('data-format');
+    if (!format) return;
+    editor.focus();
+    ensureEditorSelection();
+    document.execCommand(format, false, null);
+  };
 
-  document.querySelectorAll('[data-command]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var command = btn.getAttribute('data-command');
-      if (!command) return;
-      editor.focus();
-      ensureEditorSelection();
-      if (command === 'createLink') {
-        var url = window.prompt('Enter link URL');
-        if (!url) return;
-        document.execCommand('createLink', false, url);
-      } else if (command === 'insertUnorderedList' || command === 'insertOrderedList') {
-        var before = editor.innerHTML;
-        document.execCommand(command, false, null);
-        if (before === editor.innerHTML) insertListFallback(command === 'insertOrderedList');
-      } else {
-        document.execCommand(command, false, null);
-      }
+  var runCommand = function (btn) {
+    var command = btn.getAttribute('data-command');
+    if (!command) return;
+    editor.focus();
+    ensureEditorSelection();
+    if (command === 'createLink') {
+      var url = window.prompt('Enter link URL');
+      if (!url) return;
+      document.execCommand('createLink', false, url);
+    } else if (command === 'insertUnorderedList' || command === 'insertOrderedList') {
+      var before = editor.innerHTML;
+      document.execCommand(command, false, null);
+      if (before === editor.innerHTML) insertListFallback(command === 'insertOrderedList');
+    } else {
+      document.execCommand(command, false, null);
+    }
+  };
+
+  // Bind on mousedown + preventDefault so the editor never loses selection/focus
+  // (the canonical fix for flaky execCommand list insertion). A flag prevents the
+  // action from running twice for mouse users while still allowing keyboard
+  // activation (which fires click, not mousedown).
+  var _toolbarMouseDown = false;
+  document.querySelectorAll('[data-format],[data-command]').forEach(function (btn) {
+    var handler = function () {
+      if (btn.hasAttribute('data-format')) runFormat(btn);
+      else runCommand(btn);
+    };
+    btn.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+      _toolbarMouseDown = true;
+      handler();
+    });
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (_toolbarMouseDown) { _toolbarMouseDown = false; return; }
+      handler();
     });
   });
 

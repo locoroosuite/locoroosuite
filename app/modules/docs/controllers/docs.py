@@ -11,7 +11,7 @@ from app.shared.pandoc_formats import target_odf_type
 from app.modules.docs.controllers.helpers import docs_bp, _get_account, _open_cache_for_account
 from app.modules.docs.services import cache_db, storage, wopi_token, collabora, sharing
 from app.modules.docs.services import doc_meta, resync as resync_svc
-from app.modules.docs.services.templates import empty_odt, empty_ods, empty_odp, TYPE_NAMES, DOC_TYPES, MIME_TYPES
+from app.modules.docs.services.templates import empty_odt, empty_ods, empty_odp, TYPE_NAMES, MIME_TYPES
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,55 @@ def index():
         account=account,
         section=section,
     )
+
+
+def _resolve_account_id():
+    """Resolve account_id from query param (?account_id=) falling back to session.
+
+    Allows other modules' UIs (e.g. mail compose "attach from docs") to target a
+    specific account without relying on the docs sidebar's active account.
+    """
+    raw = request.args.get("account_id") or ""
+    if raw.isdigit():
+        return int(raw)
+    return session.get("active_account_id")
+
+
+@docs_bp.route("/docs/api/list")
+@require_customer
+def api_list():
+    user_id = session.get("user_id")
+    account_id = _resolve_account_id()
+    if not account_id:
+        return jsonify({"error": {"code": "no_account", "message": "No account selected."}}), 400
+
+    account = _get_account(account_id, user_id)
+    conn = _open_cache_for_account(account)
+    if not conn:
+        return jsonify({"error": {"code": "no_cache", "message": "Unable to open document store."}}), 503
+
+    try:
+        documents = cache_db.list_documents(conn, account_id)
+    finally:
+        conn.close()
+
+    q = (request.args.get("q") or "").strip().lower()
+    items = []
+    for doc in documents:
+        name = doc.get("name", "")
+        if q and q not in (name or "").lower():
+            continue
+        ext = doc.get("original_format") or doc.get("doc_type") or "odt"
+        items.append({
+            "id": doc.get("id"),
+            "name": name,
+            "doc_type": doc.get("doc_type"),
+            "original_format": doc.get("original_format"),
+            "ext": ext,
+            "file_size": doc.get("file_size", 0),
+            "updated_at": doc.get("updated_at"),
+        })
+    return jsonify({"documents": items, "account_id": account_id})
 
 
 @docs_bp.route("/docs/new", methods=["POST"])
@@ -253,7 +302,7 @@ def restore(doc_id):
 @require_customer
 def download(doc_id):
     user_id = session.get("user_id")
-    account_id = session.get("active_account_id")
+    account_id = _resolve_account_id()
     if not account_id:
         return redirect(url_for("docs.index"))
 

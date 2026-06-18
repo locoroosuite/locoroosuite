@@ -10,8 +10,6 @@ from app.shared.models.core import CustomerAccount, Domain
 from app.shared.keys import get_user_key
 from app.modules.mail.services.secrets import decrypt_with_key
 from app.modules.mail.services.imap_client import (
-    append_message,
-    create_folder,
     delete_message_by_uid,
     ensure_folder_and_append,
     fetch_message,
@@ -20,7 +18,7 @@ from app.modules.mail.services.imap_client import (
     select_folder,
 )
 from app.modules.mail.utils.sanitize import html_to_text_lines
-from app.modules.mail.services.cache_db import open_cache, get_message, delete_messages_by_uids
+from app.modules.mail.services.cache_db import open_cache, delete_messages_by_uids
 from app.shared.auth import require_customer
 
 from email.mime.multipart import MIMEMultipart
@@ -41,8 +39,8 @@ from app.modules.mail.controllers.helpers import (
     _imap_for_account,
     _build_reply_forward_prefill,
     _extract_message_bodies,
-    _parse_flags,
 )
+from app.modules.mail.services import attachments as _staging
 
 
 logger = logging.getLogger(__name__)
@@ -56,6 +54,57 @@ def _has_text_content(html):
         return False
     text = _ENTITY_RE.sub(" ", _TAG_RE.sub("", html))
     return len(text.strip()) > 0
+
+
+_DEFAULT_MAX_TOTAL = 50 * 1024 * 1024
+
+
+def _collect_staged_attachments(user_id):
+    """Collect staged attachment bytes for this send/draft.
+
+    Returns (files, over_limit) where files is a list of
+    {"name", "mime", "data"} dicts. Reads only the IDs the client submitted
+    in attachment_ids, validating each belongs to the user's staging tree.
+    """
+    compose_session_id = (request.form.get("compose_session_id") or "").strip()
+    raw_ids = request.form.get("attachment_ids") or ""
+    attachment_ids = [aid.strip() for aid in raw_ids.split(",") if aid.strip()]
+    if not compose_session_id or not attachment_ids:
+        return [], False
+    if not _staging.is_valid_id(compose_session_id):
+        return [], False
+    try:
+        max_total = int(current_app.config.get("MAIL_ATTACHMENT_MAX_TOTAL_BYTES", _DEFAULT_MAX_TOTAL))
+    except (TypeError, ValueError):
+        max_total = _DEFAULT_MAX_TOTAL
+    collected = []
+    total = 0
+    for aid in attachment_ids:
+        if not _staging.is_valid_id(aid):
+            continue
+        meta = _staging.read_meta(user_id, compose_session_id, aid)
+        data = _staging.read_bytes(user_id, compose_session_id, aid)
+        if meta is None or data is None:
+            logger.warning(
+                "staged attachment missing user_id=%s sid=%s id=%s",
+                user_id, compose_session_id, aid,
+            )
+            continue
+        total += len(data)
+        if total > max_total:
+            return collected, True
+        collected.append({
+            "name": meta.get("name", aid),
+            "mime": meta.get("mime", "application/octet-stream"),
+            "data": data,
+        })
+    return collected, False
+
+
+def _delete_staging_session(user_id):
+    sid = (request.form.get("compose_session_id") or "").strip()
+    if _staging.is_valid_id(sid):
+        _staging.delete_session(user_id, sid)
 
 
 def _load_draft_prefill(account, draft_uid):
@@ -208,7 +257,7 @@ def send_status(send_token):
 @require_customer
 def send_mail():
     user_id = session.get("user_id")
-    account_id = int(request.form.get("account_id"))
+    account_id = int(request.form.get("account_id") or 0)
     account = CustomerAccount.query.filter_by(id=account_id, customer_id=user_id).first_or_404()
     domain = db.session.get(Domain, account.domain_id)
     if not domain or not domain.is_active:
@@ -257,16 +306,27 @@ def send_mail():
         alt.attach(MIMEText(body_html, "html"))
     msg_root.attach(alt)
 
-    attachments = request.files.getlist("attachments")
-    attachments_count = 0
-    for file in attachments:
-        if not file or not file.filename:
-            continue
-        attachments_count += 1
+    staged_files, over_limit = _collect_staged_attachments(user_id)
+    if over_limit:
+        return render_template(
+            "compose.html",
+            account_id=account_id,
+            error="Total attachment size exceeds the limit. Remove some files and try again.",
+            prefill={
+                "to_addrs": to_addrs,
+                "cc_addrs": cc_addrs,
+                "bcc_addrs": bcc_addrs,
+                "subject": subject,
+                "body_html": body_html,
+                "request_receipt": request_receipt,
+            },
+        )
+    attachments_count = len(staged_files)
+    for f in staged_files:
         part = MIMEBase("application", "octet-stream")
-        part.set_payload(file.read())
+        part.set_payload(f["data"])
         encoders.encode_base64(part)
-        part.add_header("Content-Disposition", f"attachment; filename={file.filename}")
+        part.add_header("Content-Disposition", "attachment", filename=f["name"])
         msg_root.attach(part)
 
     msg = msg_root.as_bytes()
@@ -284,14 +344,11 @@ def send_mail():
         if request_receipt:
             sent_root["Disposition-Notification-To"] = from_addr
         sent_root.attach(alt)
-        for file in attachments:
-            if not file or not file.filename:
-                continue
-            file.seek(0)
+        for f in staged_files:
             part = MIMEBase("application", "octet-stream")
-            part.set_payload(file.read())
+            part.set_payload(f["data"])
             encoders.encode_base64(part)
-            part.add_header("Content-Disposition", f"attachment; filename={file.filename}")
+            part.add_header("Content-Disposition", "attachment", filename=f["name"])
             sent_root.attach(part)
         sent_msg = sent_root.as_bytes()
     send_token = uuid.uuid4().hex
@@ -323,6 +380,7 @@ def send_mail():
         }
     _cleanup_pending_sends(now_ts=now_ts)
     _start_send_worker(send_token, delay_seconds=_UNDO_SECONDS)
+    _delete_staging_session(user_id)
     session["active_send"] = {"token": send_token, "subject": subject}
     return redirect(url_for("mail.mailbox"))
 
@@ -482,7 +540,7 @@ def auto_save_draft():
 @require_customer
 def save_draft():
     user_id = session.get("user_id")
-    account_id = int(request.form.get("account_id"))
+    account_id = int(request.form.get("account_id") or 0)
     account = CustomerAccount.query.filter_by(id=account_id, customer_id=user_id).first_or_404()
     key = get_user_key(user_id)
     if not key:
@@ -516,14 +574,26 @@ def save_draft():
         alt.attach(MIMEText(body_html, "html"))
     msg_root.attach(alt)
 
-    attachments = request.files.getlist("attachments")
-    for file in attachments:
-        if not file or not file.filename:
-            continue
+    staged_files, over_limit = _collect_staged_attachments(user_id)
+    if over_limit:
+        return render_template(
+            "compose.html",
+            account_id=account_id,
+            error="Total attachment size exceeds the limit. Remove some files and try again.",
+            prefill={
+                "to_addrs": to_addrs,
+                "cc_addrs": cc_addrs,
+                "bcc_addrs": bcc_addrs,
+                "subject": subject,
+                "body_html": body_html,
+                "request_receipt": request.form.get("read_receipt") == "on",
+            },
+        )
+    for f in staged_files:
         part = MIMEBase("application", "octet-stream")
-        part.set_payload(file.read())
+        part.set_payload(f["data"])
         encoders.encode_base64(part)
-        part.add_header("Content-Disposition", f"attachment; filename={file.filename}")
+        part.add_header("Content-Disposition", "attachment", filename=f["name"])
         msg_root.attach(part)
 
     client = None
@@ -561,4 +631,5 @@ def save_draft():
     finally:
         if client:
             safe_logout(client)
+    _delete_staging_session(user_id)
     return redirect(url_for("mail.mailbox"))

@@ -64,3 +64,7 @@ class AppConfig:
     APP_URL = os.environ.get("APP_URL", "http://localhost:5001")
     DOCS_DIR = os.environ.get("DOCS_DIR", str(DATA_DIR / "docs"))
     PROVISIONING_API_KEY = os.environ.get("PROVISIONING_API_KEY", "")
+    MAIL_ATTACHMENTS_DIR = os.environ.get("MAIL_ATTACHMENTS_DIR", str(DATA_DIR / "mail_attachments"))
+    MAIL_ATTACHMENT_MAX_FILE_BYTES = int(os.environ.get("MAIL_ATTACHMENT_MAX_FILE_BYTES", str(25 * 1024 * 1024)))
+    MAIL_ATTACHMENT_MAX_TOTAL_BYTES = int(os.environ.get("MAIL_ATTACHMENT_MAX_TOTAL_BYTES", str(50 * 1024 * 1024)))
+    MAIL_ATTACHMENT_STAGING_TTL_HOURS = int(os.environ.get("MAIL_ATTACHMENT_STAGING_TTL_HOURS", "24"))

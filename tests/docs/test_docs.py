@@ -108,6 +108,40 @@ def test_docs_editor_page(authed_client, app):
         os.unlink(paths["cache"])
 
 
+def test_docs_editor_page_for_pdf_shows_convert(authed_client, app):
+    # Regression guard for the dead "Convert" button in the editor: for an
+    # original-format doc (PDF), rename-btn is intentionally NOT rendered, so
+    # the editor JS must null-guard its handler attachment. Previously it did
+    # not, the IIFE threw at the rename-btn line, and the convert handler lower
+    # in the script was never attached -> clicking "Convert" did nothing.
+    client, user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+    try:
+        fake_pdf = b"%PDF-1.4 fake pdf content"
+        resp = client.post(
+            "/app/docs/upload",
+            data={"file": (io.BytesIO(fake_pdf), "contract.pdf")},
+            content_type="multipart/form-data",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert resp.status_code == 200
+        doc_id = json.loads(resp.data)["doc_id"]
+
+        resp = client.get(f"/app/docs/{doc_id}/edit")
+        assert resp.status_code == 200
+        # Convert button present + read-only badge for an original-format doc.
+        assert b"id=\"convert-btn\"" in resp.data
+        assert b"Convert to editable document" in resp.data
+        assert b"Read only" in resp.data
+        # rename-btn is NOT rendered for originals...
+        assert b'id="rename-btn"' not in resp.data
+        # ...so its handler lookup MUST be null-guarded (the regression).
+        assert b"if (renameBtn)" in resp.data
+        assert b"if (shareBtnEl)" in resp.data
+    finally:
+        os.unlink(paths["cache"])
+
+
 def test_docs_rename(authed_client, app):
     client, user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)

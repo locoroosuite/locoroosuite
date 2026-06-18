@@ -223,12 +223,15 @@
     renameError.style.display = 'none';
   }
 
-  document.getElementById('rename-btn').addEventListener('click', () => {
-    renameInput.value = docName.textContent.trim();
-    renameModal.classList.add('open');
-    renameInput.focus();
-    renameInput.select();
-  });
+  const renameBtn = document.getElementById('rename-btn');
+  if (renameBtn) {
+    renameBtn.addEventListener('click', () => {
+      renameInput.value = docName.textContent.trim();
+      renameModal.classList.add('open');
+      renameInput.focus();
+      renameInput.select();
+    });
+  }
 
   document.getElementById('rename-modal').querySelector('.modal-overlay').addEventListener('click', closeRename);
   document.getElementById('rename-cancel').addEventListener('click', closeRename);
@@ -331,7 +334,8 @@
     shareModal.classList.remove('open');
   }
 
-  document.getElementById('share-btn').addEventListener('click', openShareModal);
+  const shareBtnEl = document.getElementById('share-btn');
+  if (shareBtnEl) shareBtnEl.addEventListener('click', openShareModal);
   document.getElementById('share-overlay').addEventListener('click', closeShareModal);
   document.getElementById('share-modal-close').addEventListener('click', closeShareModal);
 

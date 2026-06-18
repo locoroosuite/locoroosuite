@@ -31,7 +31,7 @@ PANDOC_EXTENSIONS: dict[str, dict[str, Any]] = {
     "ppt":   {"pandoc_reader": None,    "target_type": "odp", "view": False},
     "ods":   {"pandoc_reader": None,    "target_type": "ods", "view": False},
     "odp":   {"pandoc_reader": None,    "target_type": "odp", "view": False},
-    "pdf":   {"pandoc_reader": None,    "target_type": "odt", "view": True, "native_view": True},
+    "pdf":   {"pandoc_reader": None,    "target_type": "odg", "view": True, "native_view": True},
     "jpg":   {"pandoc_reader": None,    "target_type": None,  "view": True, "native_view": True},
     "jpeg":  {"pandoc_reader": None,    "target_type": None,  "view": True, "native_view": True},
     "png":   {"pandoc_reader": None,    "target_type": None,  "view": True, "native_view": True},
@@ -57,6 +57,24 @@ def get_attachment_actions(filename: str) -> dict[str, Any]:
         "pandoc_reader": info["pandoc_reader"],
         "native_view": info.get("native_view", False),
     }
+
+
+def target_odf_type(ext: str) -> str | None:
+    """Canonical mapping from a source file extension to its editable ODF doc_type.
+
+    Single source of truth for upload + convert flows. A PDF imports into
+    LibreOffice/Collabora as a Draw document (vector), so it must target ``odg``
+    rather than ``odt``; requesting ``odt`` makes Collabora fail the save
+    (HTTP 401 with ``X-ERROR-KIND: savefailed``). Returns ``None`` for formats
+    that have no ODF target (e.g. images).
+    """
+    if not ext:
+        return None
+    ext = ext.lower()
+    info = PANDOC_EXTENSIONS.get(ext)
+    if info and info.get("target_type"):
+        return info["target_type"]
+    return None
 
 
 def convert_to_html(data: bytes, pandoc_reader: str, timeout: int = 30) -> str | None:

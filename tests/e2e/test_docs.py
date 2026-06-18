@@ -1,9 +1,12 @@
 import re
 import uuid
+from pathlib import Path
 
 import pytest
 
 from tests.e2e.conftest import skip_if_no_services
+
+_PDF_FIXTURE = Path(__file__).parent / "fixtures" / "sample.pdf"
 
 
 @skip_if_no_services
@@ -67,3 +70,46 @@ class TestDocsCRUD:
         r = user_session.get(f"{app_url}/app/docs/", allow_redirects=True)
         assert r.status_code == 200
         assert new_name not in r.text
+
+
+@skip_if_no_services
+class TestDocsPdfConvert:
+    """End-to-end PDF -> editable ODF conversion through the real Collabora.
+
+    Regression guard for the bug where PDFs were converted to ``odt`` and
+    Collabora rejected the save (HTTP 401 / X-ERROR-KIND: savefailed) because
+    LibreOffice imports PDFs as Draw documents. The only valid ODF target for a
+    PDF source is ``odg``.
+    """
+
+    def test_upload_pdf_then_convert_to_editable(self, app_url, user_session):
+        with open(_PDF_FIXTURE, "rb") as f:
+            up = user_session.post(
+                f"{app_url}/app/docs/upload",
+                files={"file": ("e2e_sample.pdf", f, "application/pdf")},
+                headers={"X-Requested-With": "XMLHttpRequest"},
+            )
+        assert up.status_code == 200, up.text
+        up_body = up.json()
+        assert "doc_id" in up_body
+        original_id = up_body["doc_id"]
+
+        conv = user_session.post(
+            f"{app_url}/app/docs/{original_id}/convert",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert conv.status_code == 200, conv.text
+        conv_body = conv.json()
+        assert "doc_id" in conv_body
+        new_id = conv_body["doc_id"]
+        assert new_id != original_id
+
+        # The converted document must open in the Collabora editor.
+        edit = user_session.get(f"{app_url}/app/docs/{new_id}/edit", allow_redirects=True)
+        assert edit.status_code == 200
+        assert "iframe" in edit.text.lower() or "collabora" in edit.text.lower()
+
+        # And appear in the docs list as an editable (non-original) drawing.
+        lst = user_session.get(f"{app_url}/app/docs/", allow_redirects=True)
+        assert lst.status_code == 200
+        assert new_id in lst.text

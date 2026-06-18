@@ -508,7 +508,7 @@ def test_docs_upload_pdf_original_stored(authed_client, app):
         assert sidecar is not None
         assert sidecar["name"] == "contract"
         assert sidecar["original_format"] == "pdf"
-        assert sidecar["doc_type"] == "odt"
+        assert sidecar["doc_type"] == "odg"
     finally:
         os.unlink(paths["cache"])
 
@@ -581,7 +581,7 @@ class TestConvertDocument:
         try:
             from app.modules.docs.services import storage, cache_db
             from app.modules.docs.services.cache import get_cache_path
-            from app.modules.docs.services.templates import empty_odt
+            from app.modules.docs.services.templates import empty_odg
             from app.shared.keys import get_user_key
 
             fake_pdf = b"%PDF-1.4 fake content"
@@ -593,6 +593,8 @@ class TestConvertDocument:
                 conn = cache_db.open_cache(get_cache_path(account), key)
                 try:
                     doc_id = "pdfdoc001"
+                    # Seed as a *legacy* PDF stored with doc_type="odt" to prove
+                    # the convert route corrects the target via target_odf_type.
                     cache_db.create_document(conn, doc_id, "Contract", "odt", account_id, file_size=0, original_format="pdf")
                     storage.write_file(user_id, account_id, doc_id, fake_pdf)
                     storage.write_sidecar(user_id, account_id, doc_id, {
@@ -603,11 +605,11 @@ class TestConvertDocument:
                 finally:
                     conn.close()
 
-            converted_odt = empty_odt().read()
+            converted_odg = empty_odg().read()
             with patch(
                 "app.modules.docs.controllers.docs.collabora.convert_upload",
-                return_value=io.BytesIO(converted_odt),
-            ):
+                return_value=io.BytesIO(converted_odg),
+            ) as mock_convert:
                 resp = client.post(
                     f"/app/docs/{doc_id}/convert",
                     headers={"X-Requested-With": "XMLHttpRequest"},
@@ -620,6 +622,12 @@ class TestConvertDocument:
             new_doc_id = body["doc_id"]
             assert new_doc_id != doc_id
 
+            # Regression guard: convert_upload MUST be asked for target "odg"
+            # (the old code passed "odt" -> Collabora savefailed). Positional
+            # call signature: convert_upload(stream, filename, target_type).
+            mock_convert.assert_called_once()
+            assert mock_convert.call_args.args[2] == "odg"
+
             with app.app_context():
                 conn = cache_db.open_cache(get_cache_path(account), key)
                 try:
@@ -630,6 +638,7 @@ class TestConvertDocument:
                     assert new_doc is not None
                     assert new_doc["name"] == "Contract"
                     assert new_doc["original_format"] is None
+                    assert new_doc["doc_type"] == "odg"
                 finally:
                     conn.close()
 

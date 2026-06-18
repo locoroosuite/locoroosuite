@@ -126,7 +126,7 @@ def _guess_name(doc_id, file_bytes):
 
 def _guess_type_and_format(file_bytes):
     if file_bytes[:4] == b"%PDF":
-        return "odt", "pdf"
+        return "odg", "pdf"
     if file_bytes[:2] == b"PK":
         format_guess = _guess_office_format_from_zip(file_bytes)
         if format_guess:

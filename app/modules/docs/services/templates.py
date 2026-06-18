@@ -15,28 +15,40 @@ def empty_odp():
     return _build_odf("presentation")
 
 
+def empty_odg():
+    return _build_odf("drawing")
+
+
 DOC_TYPES = {
     "odt": "text",
     "ods": "spreadsheet",
     "odp": "presentation",
+    "odg": "drawing",
 }
 
 TYPE_NAMES = {
     "odt": "Untitled Document",
     "ods": "Untitled Spreadsheet",
     "odp": "Untitled Presentation",
+    "odg": "Untitled Drawing",
 }
 
 MIME_TYPES = {
     "odt": "application/vnd.oasis.opendocument.text",
     "ods": "application/vnd.oasis.opendocument.spreadsheet",
     "odp": "application/vnd.oasis.opendocument.presentation",
+    "odg": "application/vnd.oasis.opendocument.graphics",
+    "pdf": "application/pdf",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
 
 EXTENSIONS = {
     "text": "odt",
     "spreadsheet": "ods",
     "presentation": "odp",
+    "drawing": "odg",
 }
 
 
@@ -75,6 +87,14 @@ def _build_odf(kind):
             f"<office:presentation>"
             f'<draw:page xmlns:draw="{draw_ns}" draw:name="page1"/>'
             f"</office:presentation>"
+            f"</office:body>"
+        )
+    elif kind == "drawing":
+        body = (
+            f"<office:body>"
+            f"<office:drawing>"
+            f'<draw:page xmlns:draw="{draw_ns}" draw:name="page1"/>'
+            f"</office:drawing>"
             f"</office:body>"
         )
     else:

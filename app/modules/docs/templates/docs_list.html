@@ -56,6 +56,7 @@
                       {% if s.doc_type == 'odt' %}bg-blue-50 text-blue-600
                       {% elif s.doc_type == 'ods' %}bg-green-50 text-green-600
                       {% elif s.doc_type == 'odp' %}bg-orange-50 text-orange-600
+                      {% elif s.doc_type == 'odg' %}bg-purple-50 text-purple-600
                       {% else %}bg-slate-50 text-slate-600{% endif %}">
                       <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
                     </span>
@@ -180,6 +181,7 @@
                     {% elif doc.doc_type == 'odt' %}bg-blue-50 text-blue-600
                     {% elif doc.doc_type == 'ods' %}bg-green-50 text-green-600
                     {% elif doc.doc_type == 'odp' %}bg-orange-50 text-orange-600
+                    {% elif doc.doc_type == 'odg' %}bg-purple-50 text-purple-600
                     {% else %}bg-slate-50 text-slate-600{% endif %}">
                     {% if doc.original_format == 'pdf' %}
                     <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
@@ -189,6 +191,8 @@
                     <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h10v3H5V5zm0 5h4v4H5v-4zm6 4v-4h4v4h-4z"/></svg>
                     {% elif doc.doc_type == 'odp' and not doc.original_format %}
                     <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 000 2v10a2 2 0 002 2h10a2 2 0 002-2V5a1 1 0 100-2H3zm2 2v10h10V5H5z" clip-rule="evenodd"/><circle cx="8" cy="9" r="2"/><path d="M13 8H8V7h5v1zm0 2H8V9h5v1zm0 2H8v-1h5v1z"/></svg>
+                    {% elif doc.doc_type == 'odg' and not doc.original_format %}
+                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h7l-2-2H4V7h3l2-2V4H4zm9.3 2.3a1 1 0 011.4 0l1 1a1 1 0 010 1.4l-7 7a1 1 0 01-1.4 0l-1-1a1 1 0 010-1.4l7-7z" clip-rule="evenodd"/><circle cx="6.5" cy="9.5" r="1"/></svg>
                     {% else %}
                     <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
                     {% endif %}

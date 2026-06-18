@@ -6,6 +6,7 @@ from app.shared.pandoc_formats import (
     get_attachment_actions,
     convert_to_html,
     convert_to_odf,
+    target_odf_type,
     PANDOC_EXTENSIONS,
     PANDOC_UPLOAD_EXTENSIONS,
 )
@@ -76,7 +77,9 @@ class TestGetAttachmentActions:
         assert actions["view"] is True
         assert actions["open_in_docs"] is True
         assert actions.get("native_view") is True
-        assert actions["target_type"] == "odt"
+        # PDF imports into LibreOffice/Collabora as a Draw document, so the
+        # only valid editable ODF target is odg (not odt).
+        assert actions["target_type"] == "odg"
 
     def test_image_jpg_native_view_only(self):
         actions = get_attachment_actions("photo.jpg")
@@ -140,6 +143,45 @@ class TestGetAttachmentActions:
         actions = get_attachment_actions("doc.rst")
         assert actions["view"] is True
         assert actions["pandoc_reader"] == "rst"
+
+
+class TestTargetOdfType:
+    def test_pdf_targets_odg(self):
+        # Regression guard: PDF must convert to odg (Draw), not odt.
+        # Collabora imports PDFs as vector drawings; requesting odt makes the
+        # save fail (HTTP 401 / X-ERROR-KIND: savefailed).
+        assert target_odf_type("pdf") == "odg"
+
+    def test_office_formats(self):
+        assert target_odf_type("docx") == "odt"
+        assert target_odf_type("xlsx") == "ods"
+        assert target_odf_type("pptx") == "odp"
+        assert target_odf_type("xls") == "ods"
+        assert target_odf_type("ppt") == "odp"
+
+    def test_native_odf_identity(self):
+        # Native ODF sources map to themselves. (odg is not a source format —
+        # it is only ever produced as a conversion target, e.g. from PDF.)
+        assert target_odf_type("odt") == "odt"
+        assert target_odf_type("ods") == "ods"
+        assert target_odf_type("odp") == "odp"
+        assert target_odf_type("odg") is None
+
+    def test_pandoc_text_formats_target_odt(self):
+        for ext in ("rtf", "html", "txt", "md", "csv", "epub"):
+            assert target_odf_type(ext) == "odt"
+
+    def test_images_have_no_odf_target(self):
+        for ext in ("jpg", "png", "gif", "svg", "webp"):
+            assert target_odf_type(ext) is None
+
+    def test_case_insensitive(self):
+        assert target_odf_type("PDF") == "odg"
+        assert target_odf_type("Docx") == "odt"
+
+    def test_empty_or_unknown_returns_none(self):
+        assert target_odf_type("") is None
+        assert target_odf_type("zip") is None
 
 
 class TestConvertToHtml:

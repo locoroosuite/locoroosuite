@@ -654,7 +654,8 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
             file_data = read_file(account.customer_id, aid, document_id)
             if not file_data:
                 return err("NOT_FOUND", "Document file not found")
-            doc_type = d.get("doc_type", "odt")
+            from app.shared.pandoc_formats import target_odf_type
+            doc_type = target_odf_type(original_format) or d.get("doc_type", "odt")
             try:
                 from app.modules.docs.services.collabora import convert_upload
                 converted = convert_upload(io.BytesIO(file_data), f"doc.{original_format}", doc_type)

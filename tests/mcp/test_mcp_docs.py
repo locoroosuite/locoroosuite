@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 from unittest.mock import patch, MagicMock
 
@@ -292,6 +293,74 @@ class TestDocsMutationTools:
         result = asyncio.run(tools["docs_upload_document"].fn())
         data = json.loads(result)
         assert data["error"]["code"] == "NOT_SUPPORTED"
+
+
+class TestDocsConvertTool:
+    def test_convert_pdf_targets_odg(self, mcp_docs):
+        tools = mcp_docs["tools"]
+        # Source PDF stored with legacy doc_type="odt"; the tool must correct the
+        # target to odg via target_odf_type (old code passed odt -> savefailed).
+        source_row = _mock_doc_row("src-pdf-1", "Contract", doc_type="odt", original_format="pdf")
+        new_row = _mock_doc_row("new-odg-1", "Contract", doc_type="odg", original_format=None)
+        fake_odg = b"PK\x03\x04odg-body"
+
+        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
+            with patch(f"{DOCS_CACHE_DB}.get_active_document", side_effect=[source_row, new_row]):
+                with patch(f"{DOCS_STORAGE}.read_file", return_value=b"%PDF-1.4 data"):
+                    with patch(
+                        "app.modules.docs.services.collabora.convert_upload",
+                        return_value=io.BytesIO(fake_odg),
+                    ) as mock_convert:
+                        with patch(f"{DOCS_STORAGE}.write_file"):
+                            with patch(f"{DOCS_CACHE_DB}.create_document"):
+                                with patch(f"{DOCS_CACHE_DB}.update_file_size"):
+                                    with patch(f"{UI_EVENTS}.push_ui_event"):
+                                        result = asyncio.run(
+                                            tools["docs_convert_document"].fn(document_id="src-pdf-1")
+                                        )
+
+        data = json.loads(result)["data"]
+        assert data["type"] == "odg"
+        # Regression guard: convert_upload MUST be asked for target "odg".
+        assert mock_convert.call_args.args[2] == "odg"
+
+    def test_convert_already_editable_returns_error(self, mcp_docs):
+        tools = mcp_docs["tools"]
+        native_row = _mock_doc_row("src-1", "Native", doc_type="odt", original_format=None)
+        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
+            with patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=native_row):
+                result = asyncio.run(
+                    tools["docs_convert_document"].fn(document_id="src-1")
+                )
+        data = json.loads(result)
+        assert data["error"]["code"] == "VALIDATION_ERROR"
+
+    def test_convert_not_found(self, mcp_docs):
+        tools = mcp_docs["tools"]
+        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
+            with patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=None):
+                result = asyncio.run(
+                    tools["docs_convert_document"].fn(document_id="missing")
+                )
+        data = json.loads(result)
+        assert data["error"]["code"] == "NOT_FOUND"
+
+    def test_convert_failure_returns_conversion_error(self, mcp_docs):
+        from app.modules.docs.services.collabora import ConversionError
+        tools = mcp_docs["tools"]
+        source_row = _mock_doc_row("src-pdf-2", "Contract", doc_type="odt", original_format="pdf")
+        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
+            with patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=source_row):
+                with patch(f"{DOCS_STORAGE}.read_file", return_value=b"%PDF-1.4 data"):
+                    with patch(
+                        "app.modules.docs.services.collabora.convert_upload",
+                        side_effect=ConversionError("savefailed"),
+                    ):
+                        result = asyncio.run(
+                            tools["docs_convert_document"].fn(document_id="src-pdf-2")
+                        )
+        data = json.loads(result)
+        assert data["error"]["code"] == "CONVERSION_ERROR"
 
 
 class TestDocsResponseShape:

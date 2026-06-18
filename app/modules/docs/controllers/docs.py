@@ -7,6 +7,7 @@ from flask import request, redirect, url_for, session, render_template, send_fil
 
 from app.shared.auth import require_customer
 from app.shared.models.core import CustomerAccount
+from app.shared.pandoc_formats import target_odf_type
 from app.modules.docs.controllers.helpers import docs_bp, _get_account, _open_cache_for_account
 from app.modules.docs.services import cache_db, storage, wopi_token, collabora, sharing
 from app.modules.docs.services import doc_meta, resync as resync_svc
@@ -289,11 +290,7 @@ def _is_ajax():
 
 
 def _target_doc_type(ext):
-    if ext in ("xlsx", "xls"):
-        return "ods"
-    if ext in ("pptx", "ppt"):
-        return "odp"
-    return "odt"
+    return target_odf_type(ext) or "odt"
 
 
 def _get_user_emails(user_id):
@@ -445,7 +442,7 @@ def convert(doc_id):
         if raw_data is None:
             return jsonify({"error": "file not found"}), 404
 
-        target_type = doc["doc_type"]
+        target_type = target_odf_type(original_format) or doc["doc_type"]
 
         if original_format in PANDOC_UPLOAD_EXTENSIONS:
             from app.shared.pandoc_formats import convert_to_odf as pandoc_convert, PANDOC_EXTENSIONS

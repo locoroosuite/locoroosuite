@@ -15,7 +15,7 @@ def get_edit_url(doc_type, collabora_url=None):
     url = collabora_url or _default_url()
     if not url:
         return None
-    ext_map = {"odt": "odt", "ods": "ods", "odp": "odp"}
+    ext_map = {"odt": "odt", "ods": "ods", "odp": "odp", "odg": "odg"}
     ext = ext_map.get(doc_type, "odt")
     action = "edit"
     try:
@@ -127,12 +127,22 @@ def _mime_for_ext(ext):
         "odt": "application/vnd.oasis.opendocument.text",
         "ods": "application/vnd.oasis.opendocument.spreadsheet",
         "odp": "application/vnd.oasis.opendocument.presentation",
+        "odg": "application/vnd.oasis.opendocument.graphics",
         "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         "doc": "application/msword",
         "xls": "application/vnd.ms-excel",
         "ppt": "application/vnd.ms-powerpoint",
+        "pdf": "application/pdf",
         "html": "text/html",
+        "htm": "text/html",
+        "rtf": "application/rtf",
+        "epub": "application/epub+zip",
+        "txt": "text/plain",
+        "md": "text/markdown",
+        "markdown": "text/markdown",
+        "csv": "text/csv",
+        "tsv": "text/tab-separated-values",
     }
     return mimes.get(ext, "application/octet-stream")

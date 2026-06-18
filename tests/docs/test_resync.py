@@ -178,6 +178,21 @@ class TestResyncDocs:
         doc = cache_db.get_document(conn, doc_id)
         assert doc["doc_type"] == "ods"
 
+    def test_resync_guesses_pdf_as_drawing(self, cache_conn):
+        # A bare PDF (no metadata/sidecar) must recover as an editable drawing
+        # (odg), mirroring the convert target. Guessing odt would make the later
+        # "Convert" action request an impossible pdf->odt conversion.
+        conn, user_id, account_id = cache_conn
+        doc_id = "guess_pdf01"
+        storage.write_file(user_id, account_id, doc_id, b"%PDF-1.4 fake pdf body")
+
+        resync_svc.resync_docs(conn, user_id, account_id)
+
+        doc = cache_db.get_document(conn, doc_id)
+        assert doc is not None
+        assert doc["doc_type"] == "odg"
+        assert doc["original_format"] == "pdf"
+
     def test_resync_skips_dirs_without_content(self, cache_conn):
         conn, user_id, account_id = cache_conn
         doc_dir = storage.get_docs_dir() / str(user_id) / str(account_id) / "emptydoc00"

@@ -20,6 +20,7 @@ from app.api.controllers.helpers import (
     get_api_account_id, ApiError,
 )
 from app.shared.models.core import CustomerAccount
+from app.shared.pandoc_formats import target_odf_type
 from app.modules.docs.services.cache import get_cache_path
 from app.modules.docs.services.cache_db import (
     open_cache, create_document, get_active_document, list_documents,
@@ -583,8 +584,8 @@ def api_convert_document(path: DocPath):
     if raw_data is None:
         return api_error("NOT_FOUND", "File not found", 404)
 
-    target_type = doc["doc_type"]
     original_format = doc["original_format"]
+    target_type = target_odf_type(original_format) or doc["doc_type"]
     pandoc_exts = {"rtf", "epub", "html", "htm", "tex", "latex", "md", "markdown", "txt", "org", "rst", "docbook", "opml"}
 
     if original_format in pandoc_exts:

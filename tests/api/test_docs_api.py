@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import tempfile
+from unittest.mock import patch
 
 import pytest
 
@@ -596,6 +597,96 @@ class TestDrafts:
         resp = client.post(
             "/api/v1/docs/documents/nonexistent/drafts",
             json={"content": "text"},
+            headers=_auth_header(token),
+        )
+        assert resp.status_code == 404
+
+
+class TestConvertDocument:
+    def test_convert_pdf_targets_odg(self, app, docs_api):
+        client, token, account_id, cache_path = docs_api
+        try:
+            from app.modules.docs.services import cache_db, storage
+            from app.modules.docs.services.cache import get_cache_path
+            from app.modules.docs.services.templates import empty_odg
+
+            fake_pdf = b"%PDF-1.4 fake content"
+            dek_hex = "a" * 64
+            doc_id = "apidoc-pdf1"
+            with app.app_context():
+                from app.shared.db import db
+                from app.shared.models.core import CustomerAccount
+                account = db.session.get(CustomerAccount, account_id)
+                conn = cache_db.open_cache(get_cache_path(account), dek_hex)
+                try:
+                    # Seed as a legacy PDF stored with doc_type="odt" to prove the
+                    # API convert route corrects the target via target_odf_type.
+                    cache_db.create_document(
+                        conn, doc_id, "Contract", "odt", account_id,
+                        file_size=0, original_format="pdf",
+                    )
+                    storage.write_file(account.customer_id, account_id, doc_id, fake_pdf)
+                    cache_db.update_file_size(conn, doc_id, len(fake_pdf))
+                finally:
+                    conn.close()
+
+            converted_odg = empty_odg().read()
+            with patch(
+                "app.modules.docs.services.collabora.convert_upload",
+                return_value=io.BytesIO(converted_odg),
+            ) as mock_convert:
+                resp = client.post(
+                    f"/api/v1/docs/documents/{doc_id}/convert",
+                    headers=_auth_header(token),
+                )
+
+            assert resp.status_code == 201
+            data = json.loads(resp.data)["data"]
+            assert data["type"] == "odg"
+            # Regression guard: must request odg (old code passed odt -> savefailed).
+            assert mock_convert.call_args.args[2] == "odg"
+
+            with app.app_context():
+                from app.shared.db import db
+                from app.shared.models.core import CustomerAccount
+                account = db.session.get(CustomerAccount, account_id)
+                conn = cache_db.open_cache(get_cache_path(account), dek_hex)
+                try:
+                    original = cache_db.get_document(conn, doc_id)
+                    assert original["original_format"] == "pdf"  # preserved
+                    new_doc = cache_db.get_document(conn, data["id"])
+                    assert new_doc["doc_type"] == "odg"
+                    assert new_doc["original_format"] is None
+                finally:
+                    conn.close()
+        finally:
+            pass
+
+    def test_convert_already_editable_returns_400(self, app, docs_api):
+        client, token, account_id, cache_path = docs_api
+        from app.modules.docs.services import cache_db
+        from app.modules.docs.services.cache import get_cache_path
+        dek_hex = "a" * 64
+        doc_id = "apidoc-native1"
+        with app.app_context():
+            from app.shared.db import db
+            from app.shared.models.core import CustomerAccount
+            account = db.session.get(CustomerAccount, account_id)
+            conn = cache_db.open_cache(get_cache_path(account), dek_hex)
+            try:
+                cache_db.create_document(conn, doc_id, "Native", "odt", account_id, file_size=0)
+            finally:
+                conn.close()
+        resp = client.post(
+            f"/api/v1/docs/documents/{doc_id}/convert",
+            headers=_auth_header(token),
+        )
+        assert resp.status_code == 400
+
+    def test_convert_not_found(self, app, docs_api):
+        client, token, account_id, _ = docs_api
+        resp = client.post(
+            "/api/v1/docs/documents/does-not-exist/convert",
             headers=_auth_header(token),
         )
         assert resp.status_code == 404

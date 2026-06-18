@@ -104,6 +104,14 @@ def test_docs_editor_page(authed_client, app):
         assert resp.status_code == 200
         assert b"collabora" in resp.data.lower() or b"iframe" in resp.data.lower()
         assert b"Untitled Document" in resp.data
+        # The app top bar must not overlap Collabora's toolbar: it is always
+        # visible (no hover-to-reveal machinery) and the iframe is laid out
+        # below it via flex/box sizing rather than a full-viewport overlay.
+        assert b'id="hover-trigger"' not in resp.data
+        assert b"auto-hidden" not in resp.data
+        assert b"scheduleHide" not in resp.data
+        assert b"#editor-frame { width: 100%; flex: 1 1 auto" in resp.data
+        assert b"display: flex; flex-direction: column" in resp.data
     finally:
         os.unlink(paths["cache"])
 

@@ -9,26 +9,21 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body, html { height: 100%; overflow: hidden; font-family: 'Manrope', ui-sans-serif, system-ui; }
-    #editor-frame { width: 100%; height: 100%; border: none; display: block; }
+    html { height: 100%; }
+    body {
+      height: 100%; overflow: hidden;
+      font-family: 'Manrope', ui-sans-serif, system-ui;
+      display: flex; flex-direction: column;
+    }
+    #editor-frame { width: 100%; flex: 1 1 auto; min-height: 0; border: none; display: block; }
 
     #floating-bar {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      flex: 0 0 auto;
       display: flex; align-items: center; justify-content: space-between;
       padding: 6px 12px;
       background: rgba(255,255,255,0.92); backdrop-filter: blur(8px);
       border-bottom: 1px solid rgba(226,232,240,0.6);
-      opacity: 1; transition: opacity 0.4s ease;
     }
-    #floating-bar.auto-hidden { opacity: 0; pointer-events: none; }
-    #floating-bar:hover,
-    #floating-bar.reveal { opacity: 1; pointer-events: auto; }
-
-    #hover-trigger {
-      position: fixed; top: 0; left: 0; right: 0; height: 6px;
-      z-index: 60; pointer-events: auto;
-    }
-    #floating-bar:not(.auto-hidden) ~ #hover-trigger { pointer-events: none; }
 
     #floating-bar .left { display: flex; align-items: center; gap: 8px; }
     #floating-bar .right { display: flex; align-items: center; gap: 6px; }
@@ -124,7 +119,6 @@
 </div>
 
 <iframe id="editor-frame" src="{{ collabora_src }}" allow="clipboard-read; clipboard-write"></iframe>
-<div id="hover-trigger"></div>
 
 <div id="rename-modal" class="modal-backdrop">
   <div class="modal-overlay"></div>
@@ -183,31 +177,7 @@
 
 <script>
 (() => {
-  const bar = document.getElementById('floating-bar');
   const docName = document.getElementById('doc-name');
-  let hideTimer;
-
-  function scheduleHide() {
-    clearTimeout(hideTimer);
-    hideTimer = setTimeout(() => {
-      bar.classList.add('auto-hidden');
-    }, 2500);
-  }
-
-  function reveal() {
-    bar.classList.remove('auto-hidden', 'reveal');
-    scheduleHide();
-  }
-
-  bar.addEventListener('mouseenter', () => {
-    clearTimeout(hideTimer);
-    bar.classList.remove('auto-hidden');
-  });
-  bar.addEventListener('mouseleave', scheduleHide);
-
-  document.getElementById('hover-trigger').addEventListener('mouseenter', reveal);
-
-  scheduleHide();
 
   document.getElementById('back-btn').addEventListener('click', () => {
     window.close();

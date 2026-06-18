@@ -32,9 +32,6 @@ class TestDocsEditorConvert:
         page.wait_for_url("**/edit", timeout=30000)
         page.wait_for_load_state("networkidle")
 
-        # The floating toolbar auto-hides; reveal it so the button is clickable.
-        page.evaluate("document.getElementById('floating-bar').classList.remove('auto-hidden');")
-
         page.wait_for_selector("#convert-btn", state="visible", timeout=10000)
         page.click("#convert-btn")
 

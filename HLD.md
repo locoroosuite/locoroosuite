@@ -440,7 +440,7 @@ U13.19 - The document name defaults to "Untitled Document" / "Untitled Spreadshe
 ## Open / Edit
 
 U13.20 - Clicking a document in the list opens the editor view: a full-page iframe embedding Collabora with the WOPI src URL and access token.
-U13.21 - The editor view shows a minimal top bar with: back-to-list link, document name (editable inline), and a dropdown with Download, Rename, and Delete actions.
+U13.21 - The editor view shows a minimal top bar with: back-to-list link, document name (editable inline), and a dropdown with Download, Rename, and Delete actions. The top bar is always visible (not hover-to-reveal) and the Collabora iframe is sized to fit below it so the app bar never overlaps Collabora's own toolbar.
 U13.22 - Collabora auto-saves via WOPI putFile. The docs module updates `updated_at` on every putFile callback.
 U13.23 - WOPI CheckFileInfo returns: document name, size, owner user ID, read-only flag (false for owner), user display name (email local-part), and last modified timestamp. For non-ODF originals (`original_format` non-NULL), `ReadOnly` is always `true` and `BaseFileName` includes the original extension so Collabora opens the correct viewer.
 U13.24 - If the WOPI token is expired or invalid, Collabora shows an error and the user is prompted to reopen the document from the list.

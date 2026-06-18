@@ -28,8 +28,8 @@ def bulk_action():
         message = get_message(conn, int(message_id))
         if not message:
             continue
-        uid = message[1]
-        folder = message[2]
+        uid = message["uid"]
+        folder = message["folder"]
         select_folder(client, folder)
         if action == "mark_read":
             set_flag(client, uid, "\\Seen", add=True)

@@ -53,13 +53,13 @@ def message_view(account_id, message_id):
     key = get_user_key(session.get("user_id"))
     conn = open_cache(account.cache_db_path, key)
     cached_folders = list_cached_folders(conn)
-    move_folders = [f[0] for f in cached_folders if f[0] != message[2]] if cached_folders else []
-    thread_id = message[11] if len(message) > 11 else None
-    is_draft = message[2].lower() == "drafts" if message[2] else False
+    move_folders = [f[0] for f in cached_folders if f[0] != message["folder"]] if cached_folders else []
+    thread_id = message["thread_id"]
+    is_draft = message["folder"].lower() == "drafts" if message["folder"] else False
     if not is_draft:
         is_draft = "\\Draft" in flags
     thread_messages = _load_thread_for_detail(
-        conn, thread_id, message_id, message[3],
+        conn, thread_id, message_id, message["subject"],
         account_email=account.email_address,
         timezone_name=settings.timezone,
     )
@@ -80,7 +80,7 @@ def message_view(account_id, message_id):
         attachment_actions=attachment_actions,
         flags=flags,
         spam_action_enabled=_spam_action_enabled(settings, account.id),
-        current_folder=message[2],
+        current_folder=message["folder"],
         move_folders=move_folders,
         thread_messages=thread_messages,
         ics_attachments=ics_attachments,
@@ -150,9 +150,9 @@ def mark_message(account_id, message_id):
     message = get_message(conn, message_id)
     if not message:
         return redirect(url_for("mail.mailbox"))
-    uid = message[1]
-    folder = message[2]
-    flags = _parse_flags(message[7])
+    uid = message["uid"]
+    folder = message["folder"]
+    flags = _parse_flags(message["flags"])
     was_unread = "\\Seen" not in flags
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)
@@ -182,9 +182,9 @@ def flag_message(account_id, message_id):
     message = get_message(conn, message_id)
     if not message:
         return redirect(url_for("mail.mailbox"))
-    uid = message[1]
-    folder = message[2]
-    flags = _parse_flags(message[7])
+    uid = message["uid"]
+    folder = message["folder"]
+    flags = _parse_flags(message["flags"])
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)
     select_folder(client, folder)
@@ -216,8 +216,8 @@ def move_message_route(account_id, message_id):
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return jsonify({"error": "Message not found."}), 404
         return redirect(url_for("mail.mailbox"))
-    uid = message[1]
-    folder = message[2]
+    uid = message["uid"]
+    folder = message["folder"]
     if folder.lower() == destination.lower():
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return jsonify({"error": "Message is already in that folder."}), 400
@@ -241,11 +241,11 @@ def delete_message(account_id, message_id):
     message = get_message(open_cache(account.cache_db_path, key), message_id)
     if not message:
         return redirect(url_for("mail.mailbox"))
-    uid = message[1]
-    folder = message[2]
-    flags = _parse_flags(message[7])
+    uid = message["uid"]
+    folder = message["folder"]
+    flags = _parse_flags(message["flags"])
     was_unread = "\\Seen" not in flags
-    message_id_header = message[12]
+    message_id_header = message["message_id"]
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)
     select_folder(client, folder)
@@ -283,11 +283,11 @@ def archive_message(account_id, message_id):
     message = get_message(open_cache(account.cache_db_path, key), message_id)
     if not message:
         return redirect(url_for("mail.mailbox"))
-    uid = message[1]
-    folder = message[2]
-    flags = _parse_flags(message[7])
+    uid = message["uid"]
+    folder = message["folder"]
+    flags = _parse_flags(message["flags"])
     was_unread = "\\Seen" not in flags
-    message_id_header = message[12]
+    message_id_header = message["message_id"]
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)
     create_folder(client, "Archive")
@@ -332,12 +332,12 @@ def junk_message(account_id, message_id):
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return jsonify({"status": "error", "error": error_message})
         session["undo_error"] = error_message
-        return redirect(url_for("mail.folder_view", account_id=account.id, folder=message[2]))
-    uid = message[1]
-    folder = message[2]
-    flags = _parse_flags(message[7])
+        return redirect(url_for("mail.folder_view", account_id=account.id, folder=message["folder"]))
+    uid = message["uid"]
+    folder = message["folder"]
+    flags = _parse_flags(message["flags"])
     was_unread = "\\Seen" not in flags
-    message_id_header = message[10]
+    message_id_header = message["message_id"]
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)
     select_folder(client, folder)
@@ -397,8 +397,8 @@ def download_message(account_id, message_id):
     message = get_message(open_cache(account.cache_db_path, key), message_id)
     if not message:
         return redirect(url_for("mail.mailbox"))
-    uid = message[1]
-    folder = message[2]
+    uid = message["uid"]
+    folder = message["folder"]
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)
     select_folder(client, folder)
@@ -415,7 +415,7 @@ def print_message(account_id, message_id):
     message = get_message(open_cache(account.cache_db_path, key), message_id)
     if not message:
         return redirect(url_for("mail.mailbox"))
-    cc_display = message[14] if len(message) > 14 and message[14] else ""
+    cc_display = message["cc"] if message["cc"] else ""
     return render_template("print.html", message=message, cc_display=cc_display)
 
 
@@ -427,8 +427,8 @@ def download_attachment(account_id, message_id, index):
     message = get_message(open_cache(account.cache_db_path, key), message_id)
     if not message:
         return redirect(url_for("mail.mailbox"))
-    uid = message[1]
-    folder = message[2]
+    uid = message["uid"]
+    folder = message["folder"]
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)
     select_folder(client, folder)

@@ -279,3 +279,62 @@ def test_upsert_event_preserves_timezone_on_sync():
     finally:
         conn.close()
         os.unlink(path)
+
+
+def test_search_events_api_shape():
+    conn, path, key = _make_cache()
+    try:
+        from app.modules.calendar.services import cache_db
+        cid = cache_db.upsert_calendar(conn, "c1", "/c1/", "Work", "#4285f4")
+
+        ical = (
+            "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:evt-sapi\r\nSUMMARY:Search Meeting\r\n"
+            "LOCATION:Conf Room\r\nDTSTART:20250115T100000Z\r\nDTEND:20250115T110000Z\r\n"
+            "END:VEVENT\r\nEND:VCALENDAR"
+        )
+        cache_db.upsert_event(conn, "evt-sapi", "/c1/s.ics", "e", cid, ical)
+
+        results = cache_db.search_events_api(conn, "Search")
+        assert len(results) == 1
+        row = results[0]
+        assert set(row.keys()) == {"uid", "summary", "dtstart", "dtend", "all_day", "location", "calendar_color"}
+        assert row["uid"] == "evt-sapi"
+        assert row["summary"] == "Search Meeting"
+        assert row["location"] == "Conf Room"
+        assert row["all_day"] is False
+        assert row["calendar_color"] == "#4285f4"
+        assert row["dtstart"]
+        assert row["dtend"]
+    finally:
+        conn.close()
+        os.unlink(path)
+
+
+def test_get_conflicting_events_shape():
+    conn, path, key = _make_cache()
+    try:
+        from app.modules.calendar.services import cache_db
+        cid = cache_db.upsert_calendar(conn, "c1", "/c1/", "Work", "#4285f4")
+
+        ical = (
+            "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:evt-conf\r\nSUMMARY:Busy Block\r\n"
+            "DTSTART:20250115T100000Z\r\nDTEND:20250115T110000Z\r\n"
+            "END:VEVENT\r\nEND:VCALENDAR"
+        )
+        cache_db.upsert_event(conn, "evt-conf", "/c1/conf.ics", "e", cid, ical)
+
+        conflicts = cache_db.get_conflicting_events(conn, "2025-01-15T09:00:00", "2025-01-15T10:30:00")
+        assert len(conflicts) == 1
+        row = conflicts[0]
+        assert set(row.keys()) == {"id", "summary", "dtstart", "dtend", "all_day", "calendar_id"}
+        assert row["summary"] == "Busy Block"
+        assert row["all_day"] is False
+        assert row["calendar_id"] == cid
+
+        excluded = cache_db.get_conflicting_events(
+            conn, "2025-01-15T09:00:00", "2025-01-15T10:30:00", exclude_event_id=row["id"]
+        )
+        assert excluded == []
+    finally:
+        conn.close()
+        os.unlink(path)

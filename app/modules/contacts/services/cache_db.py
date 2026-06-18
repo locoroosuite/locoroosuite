@@ -201,11 +201,11 @@ def search_contacts_api(conn, query, limit=10):
     results = []
     for row in rows:
         emails = []
-        if row[2]:
-            emails.append({"email": row[2], "type": "work"})
-        if row[3]:
-            emails.append({"email": row[3], "type": "home"})
-        results.append({"uid": row[0], "fn": row[1], "emails": emails})
+        if row["email_work"]:
+            emails.append({"email": row["email_work"], "type": "work"})
+        if row["email_home"]:
+            emails.append({"email": row["email_home"], "type": "home"})
+        results.append({"uid": row["uid"], "fn": row["fn"], "emails": emails})
     return results
 
 
@@ -235,7 +235,7 @@ def get_sync_state(conn, href):
     ).fetchone()
     if not row:
         return None
-    return {"sync_token": row[0], "last_sync_at": row[1]}
+    return {"sync_token": row["sync_token"], "last_sync_at": row["last_sync_at"]}
 
 
 def set_sync_state(conn, href, sync_token=None):

@@ -219,8 +219,8 @@ def _fetch_attachment_bytes(account, message_id, index):
     message = get_message(conn, message_id)
     if not message:
         return None, None, None
-    uid = message[1]
-    folder = message[2]
+    uid = message["uid"]
+    folder = message["folder"]
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)
     select_folder(client, folder)
@@ -293,21 +293,21 @@ def _message_date_ts(date_value):
 
 
 def _decorate_message_row(row, timezone_name=None, is_sent=False):
-    flags = _parse_flags(row[5] if len(row) > 5 else None)
-    subject = normalize_header_text(row[1]) or "(no subject)"
-    sender_full = decode_address_header(row[2])
+    flags = _parse_flags(row["flags"])
+    subject = normalize_header_text(row["subject"]) or "(no subject)"
+    sender_full = decode_address_header(row["sender"])
     sender_display, sender_tooltip = _format_sender(sender_full)
-    body = row[6] if len(row) > 6 else None
-    snippet = normalize_preview_text(row[3], limit=500, fallback=body)
-    date_ts = _message_date_ts(row[4])
-    sort_ts = row[10] if len(row) > 10 else date_ts
-    folder = row[7] if len(row) > 7 else None
-    thread_id = row[8] if len(row) > 8 else None
-    recipients_raw = row[9] if len(row) > 9 else None
-    is_bounce = bool(row[11]) if len(row) > 11 else False
-    bounce_reason = row[12] if len(row) > 12 else None
-    original_subject = normalize_header_text(row[13]) if len(row) > 13 and row[13] else None
-    has_attachments = bool(row[14]) if len(row) > 14 else False
+    body = row["body"]
+    snippet = normalize_preview_text(row["snippet"], limit=500, fallback=body)
+    date_ts = _message_date_ts(row["date"])
+    sort_ts = row["sort_ts"] if row["sort_ts"] is not None else date_ts
+    folder = row["folder"]
+    thread_id = row["thread_id"]
+    recipients_raw = row["recipients"]
+    is_bounce = bool(row["is_bounce"])
+    bounce_reason = row["bounce_reason"]
+    original_subject = normalize_header_text(row["original_subject"]) if row["original_subject"] else None
+    has_attachments = bool(row["has_attachments"])
     is_draft = "\\Draft" in flags or (folder and folder.lower() == "drafts")
     recipients_display = ""
     if recipients_raw:
@@ -316,16 +316,16 @@ def _decorate_message_row(row, timezone_name=None, is_sent=False):
         recipients_display = ", ".join(name or addr for name, addr in addrs[:2])
     display_subject = original_subject or subject
     return {
-        "id": row[0],
+        "id": row["id"],
         "subject": display_subject,
         "sender": sender_full,
         "sender_display": sender_display or sender_full,
         "sender_tooltip": sender_tooltip or sender_full,
         "snippet": snippet,
-        "date": row[4],
+        "date": row["date"],
         "date_ts": date_ts,
         "sort_ts": sort_ts,
-        "date_display": _format_short_date(row[4], timezone_name),
+        "date_display": _format_short_date(row["date"], timezone_name),
         "flags": flags,
         "is_unread": "\\Seen" not in flags,
         "is_flagged": "\\Flagged" in flags,
@@ -797,14 +797,14 @@ def _load_message_detail(account, message_id, allow_images=False, mark_seen=True
     message = get_message(conn, message_id)
     if not message:
         return None, None, None, None, None, None, ""
-    message = list(message)
-    message[3] = normalize_header_text(message[3]) or "(no subject)"
-    message[4] = decode_address_header(message[4])
-    message[5] = decode_address_header(message[5])
-    cached_cc = decode_address_header(message[14]) if len(message) > 14 and message[14] else ""
-    uid = message[1]
-    folder = message[2]
-    flags = _parse_flags(message[7])
+    message = dict(message)
+    message["subject"] = normalize_header_text(message["subject"]) or "(no subject)"
+    message["sender"] = decode_address_header(message["sender"])
+    message["recipients"] = decode_address_header(message["recipients"])
+    cached_cc = decode_address_header(message["cc"]) if message["cc"] else ""
+    uid = message["uid"]
+    folder = message["folder"]
+    flags = _parse_flags(message["flags"])
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)
     select_folder(client, folder)
@@ -874,8 +874,8 @@ def _load_message_detail(account, message_id, allow_images=False, mark_seen=True
         unique_ics.append(ics)
     ics_attachments = unique_ics
     client.logout()
-    cached_body = message[8] or ""
-    subject = message[3]
+    cached_body = message["snippet"] or ""
+    subject = message["subject"]
     text_plain, text_html = _extract_message_bodies(raw_msg)
     if text_html:
         sanitized_body = sanitize_html(text_html, allow_images=allow_images)
@@ -1009,12 +1009,12 @@ def _build_reply_forward_prefill(account, message_id, reply_all=False, forward=F
     msg = get_message(conn, message_id)
     if not msg:
         return None
-    uid = msg[1]
-    folder = msg[2]
-    subject = msg[3] or ""
-    sender = msg[4] or ""
-    recipients = msg[5] or ""
-    date_str = msg[6] or ""
+    uid = msg["uid"]
+    folder = msg["folder"]
+    subject = msg["subject"] or ""
+    sender = msg["sender"] or ""
+    recipients = msg["recipients"] or ""
+    date_str = msg["date"] or ""
     text_plain = ""
     text_html = ""
     cc_header = ""
@@ -1030,7 +1030,7 @@ def _build_reply_forward_prefill(account, message_id, reply_all=False, forward=F
     except Exception:
         logger.warning("reply/forward prefill IMAP failed account_id=%s message_id=%s", account.id, message_id, exc_info=True)
     if not text_plain and not text_html:
-        text_plain = msg[8] or ""
+        text_plain = msg["snippet"] or ""
     cc_display = decode_address_header(cc_header) if cc_header else ""
     my_email = account.email_address.lower()
     if forward:

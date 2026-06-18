@@ -12,8 +12,8 @@
     </span>
     <span class="text-xs text-amber-700">This message has not been sent yet.</span>
     <div class="flex items-center gap-1.5 ml-auto">
-      <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message[1]) }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">Edit draft</a>
-      <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=message[1]) }}" class="message-action" data-action="discard-draft">
+      <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message["uid"]) }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">Edit draft</a>
+      <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=message["uid"]) }}" class="message-action" data-action="discard-draft">
         <button class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
       </form>
     </div>
@@ -26,54 +26,54 @@
           <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 0 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10z" clip-rule="evenodd"/></svg>
         </a>
         <div class="min-w-0 pt-0.5">
-          <h1 class="text-lg font-semibold text-slate-900 truncate">{{ message[3] }}</h1>
+          <h1 class="text-lg font-semibold text-slate-900 truncate">{{ message["subject"] }}</h1>
           {% if thread_count > 1 %}
           <div class="text-xs text-slate-500 mt-0.5">{{ thread_count }} messages in this conversation</div>
           {% else %}
-          <div class="text-xs text-slate-500 mt-0.5 truncate">From {{ message[4] }} &middot; To {{ message[5] }}{% if cc_display %} &middot; Cc {{ cc_display }}{% endif %}</div>
+          <div class="text-xs text-slate-500 mt-0.5 truncate">From {{ message["sender"] }} &middot; To {{ message["recipients"] }}{% if cc_display %} &middot; Cc {{ cc_display }}{% endif %}</div>
           {% endif %}
         </div>
       </div>
 
       <div class="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
         {% if is_draft %}
-        <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message[1]) }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">Edit draft</a>
-        <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=message[1]) }}" class="message-action" data-action="discard-draft">
+        <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message["uid"]) }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">Edit draft</a>
+        <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=message["uid"]) }}" class="message-action" data-action="discard-draft">
           <button class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
         </form>
         {% else %}
-        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message[0]) }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Reply</a>
-        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message[0], reply_all='1') }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Reply All</a>
-        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message[0], forward='1') }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Forward</a>
+        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"]) }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Reply</a>
+        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], reply_all='1') }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Reply All</a>
+        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], forward='1') }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Forward</a>
         <span class="h-4 w-px bg-slate-200 mx-0.5"></span>
-        <a id="create-event-btn" href="{{ url_for('calendar.event_new', subject=message[3], description=(message[8] or '')[:2000], attendee=message[4]) }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition hidden">Create event</a>
+        <a id="create-event-btn" href="{{ url_for('calendar.event_new', subject=message["subject"], description=(message["snippet"] or '')[:2000], attendee=message["sender"]) }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition hidden">Create event</a>
         {% endif %}
-        <form method="post" action="{{ url_for('mail.archive_message', account_id=account.id, message_id=message[0]) }}" class="message-action" data-action="archive">
+        <form method="post" action="{{ url_for('mail.archive_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="archive">
           <button class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Archive</button>
         </form>
-        <form method="post" action="{{ url_for('mail.delete_message', account_id=account.id, message_id=message[0]) }}" class="message-action" data-action="delete">
+        <form method="post" action="{{ url_for('mail.delete_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="delete">
           <button class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Delete</button>
         </form>
         <div class="relative">
           <button type="button" class="text-[11px] px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition" data-overflow-toggle aria-label="More actions" aria-haspopup="menu" aria-expanded="false">&#8943;</button>
           <div class="absolute right-0 mt-1 py-1 min-w-[170px] rounded-lg border border-slate-200 bg-white shadow-lg hidden z-50" data-overflow-menu role="menu">
-            <form method="post" action="{{ url_for('mail.flag_message', account_id=account.id, message_id=message[0]) }}" class="message-action" data-action="flag">
+            <form method="post" action="{{ url_for('mail.flag_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="flag">
               <input type="hidden" name="action" value="{{ 'remove' if is_flagged else 'add' }}" />
               <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ 'Unstar' if is_flagged else 'Star' }}</button>
             </form>
-            <form method="post" action="{{ url_for('mail.mark_message', account_id=account.id, message_id=message[0]) }}" class="message-action" data-action="mark">
+            <form method="post" action="{{ url_for('mail.mark_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="mark">
               <input type="hidden" name="action" value="{{ 'read' if is_unread else 'unread' }}" />
               <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ 'Mark as read' if is_unread else 'Mark as unread' }}</button>
             </form>
             <button type="button" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-to-folder role="menuitem">Move to folder</button>
             {% if spam_action_enabled %}
-            <form method="post" action="{{ url_for('mail.junk_message', account_id=account.id, message_id=message[0]) }}" class="message-action" data-action="junk">
+            <form method="post" action="{{ url_for('mail.junk_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="junk">
               <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">Report spam</button>
             </form>
             {% endif %}
             <div class="border-t border-slate-100 my-1"></div>
-            <a class="block text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.download_message', account_id=account.id, message_id=message[0]) }}" role="menuitem">Download .eml</a>
-            <a class="block text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.print_message', account_id=account.id, message_id=message[0]) }}" target="_blank" role="menuitem">Print</a>
+            <a class="block text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.download_message', account_id=account.id, message_id=message["id"]) }}" role="menuitem">Download .eml</a>
+            <a class="block text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.print_message', account_id=account.id, message_id=message["id"]) }}" target="_blank" role="menuitem">Print</a>
           </div>
         </div>
       </div>
@@ -167,7 +167,7 @@
           {% endif %}
           {% if tm.is_current and not allow_images %}
           <div class="text-xs text-slate-500 mb-3">
-            External images blocked. <a class="text-slate-900 underline decoration-slate-300" href="{{ url_for('mail.message_view', account_id=account.id, message_id=message[0], show_images=1) }}">Show external images</a>
+            External images blocked. <a class="text-slate-900 underline decoration-slate-300" href="{{ url_for('mail.message_view', account_id=account.id, message_id=message["id"], show_images=1) }}">Show external images</a>
           </div>
           {% endif %}
           {% if tm.is_current and ics_attachments %}
@@ -218,15 +218,15 @@
                 <div class="flex items-center gap-1 flex-shrink-0">
                   {% set att_actions = attachment_actions.get(attachment.filename, {}) %}
                   {% if att_actions.get("view") %}
-                  <a href="{{ url_for('mail.view_attachment', account_id=account.id, message_id=message[0], index=attachment.index) }}" target="_blank" title="View" class="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition" data-no-row-nav>
+                  <a href="{{ url_for('mail.view_attachment', account_id=account.id, message_id=message["id"], index=attachment.index) }}" target="_blank" title="View" class="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition" data-no-row-nav>
                     <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/><path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/></svg>
                   </a>
                   {% endif %}
-                  <a href="{{ url_for('mail.download_attachment', account_id=account.id, message_id=message[0], index=attachment.index) }}" title="Download" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition" data-no-row-nav>
+                  <a href="{{ url_for('mail.download_attachment', account_id=account.id, message_id=message["id"], index=attachment.index) }}" title="Download" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition" data-no-row-nav>
                     <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"/><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"/></svg>
                   </a>
                   {% if att_actions.get("open_in_docs") %}
-                  <button type="button" title="Open in Docs" class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition" data-open-in-docs data-account-id="{{ account.id }}" data-message-id="{{ message[0] }}" data-attachment-index="{{ attachment.index }}" data-filename="{{ attachment.filename }}" data-no-row-nav>
+                  <button type="button" title="Open in Docs" class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition" data-open-in-docs data-account-id="{{ account.id }}" data-message-id="{{ message["id"] }}" data-attachment-index="{{ attachment.index }}" data-filename="{{ attachment.filename }}" data-no-row-nav>
                     <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M3.5 2A1.5 1.5 0 002 3.5V5c0 1.1.9 2 2 2h12a2 2 0 002-2V3.5A1.5 1.5 0 0016.5 2h-13zM4 8.5a.5.5 0 01.5-.5h11a.5.5 0 01.5.5v8a.5.5 0 01-.5.5h-11a.5.5 0 01-.5-.5v-8z"/></svg>
                   </button>
                   {% endif %}
@@ -419,7 +419,7 @@
       var folder = btn.getAttribute("data-folder-name");
       var form = document.createElement("form");
       form.method = "post";
-      form.action = "{{ url_for('mail.move_message_route', account_id=account.id, message_id=message[0]) }}";
+      form.action = "{{ url_for('mail.move_message_route', account_id=account.id, message_id=message["id"]) }}";
       var inp = document.createElement("input");
       inp.type = "hidden";
       inp.name = "dest";
@@ -647,7 +647,7 @@
                   body: JSON.stringify({
                     ical_text: icalText,
                     calendar_id: parseInt(calId),
-                    source_email_message_id: {{ message[0] }},
+                    source_email_message_id: {{ message["id"] }},
                     source_email_account_id: {{ account.id }},
                   }),
                 }).then(function (r) { return r.json(); }).then(function (d) {
@@ -676,7 +676,7 @@
                   ical_text: icalText,
                   calendar_id: parseInt(calId),
                   partstat: partstat,
-                  source_email_message_id: {{ message[0] }},
+                  source_email_message_id: {{ message["id"] }},
                   source_email_account_id: {{ account.id }},
                 }),
               }).then(function (r) { return r.json(); }).then(function (d) {

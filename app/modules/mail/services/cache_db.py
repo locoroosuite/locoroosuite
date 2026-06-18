@@ -546,7 +546,9 @@ def list_unread(conn, limit=100):
     placeholders = ",".join("?" for _ in excluded)
     cursor = conn.execute(
         f"""
-        SELECT id, subject, sender, snippet, date, flags, body
+        SELECT id, subject, sender, snippet, date, flags, body, folder, thread_id, recipients,
+               COALESCE(internal_date_ts, date_ts) AS sort_ts, is_bounce, bounce_reason,
+               original_subject, has_attachments
         FROM messages
         WHERE flags NOT LIKE '%Seen%'
           AND UPPER(folder) NOT IN ({placeholders})
@@ -561,7 +563,9 @@ def list_unread(conn, limit=100):
 def list_flagged(conn, limit=100):
     cursor = conn.execute(
         """
-        SELECT id, subject, sender, snippet, date, flags, body
+        SELECT id, subject, sender, snippet, date, flags, body, folder, thread_id, recipients,
+               COALESCE(internal_date_ts, date_ts) AS sort_ts, is_bounce, bounce_reason,
+               original_subject, has_attachments
         FROM messages
         WHERE flags IS NOT NULL AND flags != ''
         ORDER BY COALESCE(internal_date_ts, date_ts, 0) DESC, id DESC
@@ -573,7 +577,7 @@ def list_flagged(conn, limit=100):
     flagged = []
     for row in rows:
         try:
-            flags = json.loads(row[5]) if row[5] else []
+            flags = json.loads(row["flags"]) if row["flags"] else []
         except (TypeError, ValueError):
             flags = []
         if "\\Flagged" in flags:
@@ -586,7 +590,9 @@ def list_flagged(conn, limit=100):
 def list_with_attachments(conn, limit=100):
     cursor = conn.execute(
         """
-        SELECT id, subject, sender, snippet, date, flags, body
+        SELECT id, subject, sender, snippet, date, flags, body, folder, thread_id, recipients,
+               COALESCE(internal_date_ts, date_ts) AS sort_ts, is_bounce, bounce_reason,
+               original_subject, has_attachments
         FROM messages
         WHERE has_attachments = 1
         ORDER BY COALESCE(internal_date_ts, date_ts, 0) DESC, id DESC
@@ -684,7 +690,10 @@ def tag_message(conn, message_id, tag_id):
 def list_messages_by_tag(conn, tag_id, limit=100):
     cursor = conn.execute(
         """
-        SELECT messages.id, messages.subject, messages.sender, messages.snippet, messages.date, messages.flags, messages.body
+        SELECT messages.id, messages.subject, messages.sender, messages.snippet, messages.date,
+               messages.flags, messages.body, messages.folder, messages.thread_id, messages.recipients,
+               COALESCE(messages.internal_date_ts, messages.date_ts) AS sort_ts,
+               messages.is_bounce, messages.bounce_reason, messages.original_subject, messages.has_attachments
         FROM message_tags
         JOIN messages ON messages.id = message_tags.message_id
         WHERE message_tags.tag_id = ?

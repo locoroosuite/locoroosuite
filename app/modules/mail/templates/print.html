@@ -5,8 +5,8 @@
   <title>Print</title>
 </head>
 <body>
-  <h1>{{ message[3] }}</h1>
-  <p>From {{ message[4] }} &middot; To {{ message[5] }}{% if cc_display %} &middot; Cc {{ cc_display }}{% endif %}</p>
-  <pre>{{ message[8] }}</pre>
+  <h1>{{ message["subject"] }}</h1>
+  <p>From {{ message["sender"] }} &middot; To {{ message["recipients"] }}{% if cc_display %} &middot; Cc {{ cc_display }}{% endif %}</p>
+  <pre>{{ message["snippet"] }}</pre>
 </body>
 </html>

@@ -45,14 +45,14 @@ def search():
     timezone_name = settings.timezone
     readable_results = []
     for row in results:
-        flags = row[7] or ""
+        flags = row["flags"] or ""
         readable_results.append({
-            "id": row[0],
-            "subject": normalize_header_text(row[3]) or "(no subject)",
-            "sender": decode_address_header(row[4]),
-            "snippet": normalize_preview_text(row[12], limit=500, fallback=row[8] if len(row) > 8 else None),
-            "date_display": _format_short_date(row[6], timezone_name),
-            "folder": row[2] if len(row) > 2 else "",
+            "id": row["id"],
+            "subject": normalize_header_text(row["subject"]) or "(no subject)",
+            "sender": decode_address_header(row["sender"]),
+            "snippet": normalize_preview_text(row["snippet"], limit=500, fallback=row["body"]),
+            "date_display": _format_short_date(row["date"], timezone_name),
+            "folder": row["folder"],
             "is_unread": "\\Seen" not in flags,
             "is_flagged": "\\Flagged" in flags,
         })
@@ -130,7 +130,7 @@ def full_search():
             (uid_val, folder_name),
         ).fetchone()
         if row:
-            cache_lookup[idx] = {"id": row[0], "flags": row[1] or ""}
+            cache_lookup[idx] = {"id": row["id"], "flags": row["flags"] or ""}
 
     for idx, item in enumerate(results_remote):
         cached = cache_lookup.get(idx)

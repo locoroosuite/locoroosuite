@@ -134,11 +134,16 @@ def test_search_contacts_api():
     conn, path, key = _make_cache()
     try:
         upsert_contact(conn, "uid-api", "/api.vcf", "e1",
-                       "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid-api\r\nFN:Api User\r\nEMAIL;TYPE=WORK:api@example.com\r\nEND:VCARD")
+                       "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid-api\r\nFN:Api User\r\n"
+                       "EMAIL;TYPE=WORK:api@example.com\r\n"
+                       "EMAIL;TYPE=HOME:home@example.com\r\n"
+                       "END:VCARD")
         results = search_contacts_api(conn, "api")
         assert len(results) == 1
         assert results[0]["fn"] == "Api User"
-        assert results[0]["emails"][0]["email"] == "api@example.com"
+        emails = results[0]["emails"]
+        assert [e["email"] for e in emails] == ["api@example.com", "home@example.com"]
+        assert [e["type"] for e in emails] == ["work", "home"]
     finally:
         _cleanup(conn, path)
 

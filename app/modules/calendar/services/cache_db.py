@@ -252,7 +252,7 @@ def upsert_event(conn, uid, href, etag, calendar_id, ical_text):
         categories_str = json.dumps(cats)
 
     row = conn.execute("SELECT id, timezone FROM calendar_events WHERE uid = ? AND calendar_id = ?", (uid, calendar_id)).fetchone()
-    existing_tz = row[1] if row else None
+    existing_tz = row["timezone"] if row else None
     fields = {
         "uid": uid,
         "href": href,
@@ -461,13 +461,13 @@ def search_events_api(conn, query, limit=10):
     results = []
     for row in rows:
         results.append({
-            "uid": row[0],
-            "summary": row[1],
-            "dtstart": row[2],
-            "dtend": row[3],
-            "all_day": bool(row[4]),
-            "location": row[5],
-            "calendar_color": row[6],
+            "uid": row["uid"],
+            "summary": row["summary"],
+            "dtstart": row["dtstart"],
+            "dtend": row["dtend"],
+            "all_day": bool(row["all_day"]),
+            "location": row["location"],
+            "calendar_color": row["calendar_color"],
         })
     return results
 
@@ -479,7 +479,7 @@ def get_sync_state(conn, calendar_href):
     ).fetchone()
     if not row:
         return None
-    return {"sync_token": row[0], "ctag": row[1], "last_sync_at": row[2]}
+    return {"sync_token": row["sync_token"], "ctag": row["ctag"], "last_sync_at": row["last_sync_at"]}
 
 
 def set_sync_state(conn, calendar_href, sync_token=None, ctag=None):
@@ -543,14 +543,14 @@ def get_conflicting_events(conn, start, end, exclude_event_id=None, calendar_ids
         ).fetchall()
     results = []
     for row in rows:
-        if exclude_event_id and row[0] == exclude_event_id:
+        if exclude_event_id and row["id"] == exclude_event_id:
             continue
         results.append({
-            "id": row[0],
-            "summary": row[1],
-            "dtstart": row[2],
-            "dtend": row[3],
-            "all_day": bool(row[4]),
-            "calendar_id": row[5],
+            "id": row["id"],
+            "summary": row["summary"],
+            "dtstart": row["dtstart"],
+            "dtend": row["dtend"],
+            "all_day": bool(row["all_day"]),
+            "calendar_id": row["calendar_id"],
         })
     return results

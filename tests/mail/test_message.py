@@ -10,11 +10,13 @@ import pytest
 
 MOVE_URL = "/app/mail/message/{account_id}/{message_id}/move"
 
-MOCK_MSG = (
-    1, "100", "INBOX", "Test Subject", "sender@test.com", "recip@test.com",
-    "date", '["\\\\Seen"]', "body text", "", "<p>html body</p>", 0,
-    "<msg-id@test.com>", "thread-123", "",
-)
+MOCK_MSG = {
+    "id": 1, "uid": "100", "folder": "INBOX", "subject": "Test Subject",
+    "sender": "sender@test.com", "recipients": "recip@test.com", "date": "date",
+    "flags": '["\\\\Seen"]', "snippet": "body text", "body": "",
+    "body_html": "<p>html body</p>", "has_attachments": 0,
+    "message_id": "<msg-id@test.com>", "thread_id": "thread-123", "cc": "",
+}
 
 
 def _make_message_with_attachment(filename="report.docx", content=b"fake-docx-data", content_type="application/octet-stream"):
@@ -79,9 +81,12 @@ class TestMoveMessageValidation:
         client, user_id, account_id = authed_client
         with patch("app.modules.mail.controllers.message.open_cache") as mock_cache:
             mock_conn = MagicMock()
-            mock_conn.execute.return_value.fetchone.return_value = (
-                1, 100, "INBOX", "subject", "sender", "recip", "date", "[]", "body", "", None, 0, "msgid", None, ""
-            )
+            mock_conn.execute.return_value.fetchone.return_value = {
+                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
+                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
+                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
+                "message_id": "msgid", "thread_id": None, "cc": "",
+            }
             mock_cache.return_value = mock_conn
             resp = client.post(
                 MOVE_URL.format(account_id=account_id, message_id=1),
@@ -105,9 +110,12 @@ class TestMoveMessageValidation:
         with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
              patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap:
             mock_conn = MagicMock()
-            mock_conn.execute.return_value.fetchone.return_value = (
-                1, 100, "INBOX", "subject", "sender", "recip", "date", "[]", "body", "", None, 0, "msgid", None, ""
-            )
+            mock_conn.execute.return_value.fetchone.return_value = {
+                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
+                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
+                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
+                "message_id": "msgid", "thread_id": None, "cc": "",
+            }
             mock_cache.return_value = mock_conn
             mock_client = MagicMock()
             mock_client.select.return_value = ("OK", [b"1"])
@@ -128,9 +136,12 @@ class TestMoveMessageValidation:
         with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
              patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap:
             mock_conn = MagicMock()
-            mock_conn.execute.return_value.fetchone.return_value = (
-                1, 100, "INBOX", "subject", "sender", "recip", "date", "[]", "body", "", None, 0, "msgid", None, ""
-            )
+            mock_conn.execute.return_value.fetchone.return_value = {
+                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
+                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
+                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
+                "message_id": "msgid", "thread_id": None, "cc": "",
+            }
             mock_cache.return_value = mock_conn
             mock_client = MagicMock()
             mock_client.select.return_value = ("OK", [b"1"])
@@ -148,9 +159,12 @@ class TestMoveMessageValidation:
         with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
              patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap:
             mock_conn = MagicMock()
-            mock_conn.execute.return_value.fetchone.return_value = (
-                1, 100, "INBOX", "subject", "sender", "recip", "date", "[]", "body", "", None, 0, "msgid", None, ""
-            )
+            mock_conn.execute.return_value.fetchone.return_value = {
+                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
+                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
+                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
+                "message_id": "msgid", "thread_id": None, "cc": "",
+            }
             mock_cache.return_value = mock_conn
             mock_imap.side_effect = Exception("IMAP connection failed")
             resp = client.post(
@@ -349,11 +363,13 @@ class TestMessageView:
     def test_print_message_shows_cc(self, app, authed_client):
         client, user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/print"
-        msg_with_cc = (
-            1, "100", "INBOX", "Test Subject", "sender@test.com", "recip@test.com",
-            "date", '["\\\\Seen"]', "body text", "", None, 0,
-            "<msg-id@test.com>", "thread-123", "cc-person@test.com",
-        )
+        msg_with_cc = {
+            "id": 1, "uid": "100", "folder": "INBOX", "subject": "Test Subject",
+            "sender": "sender@test.com", "recipients": "recip@test.com", "date": "date",
+            "flags": '["\\\\Seen"]', "snippet": "body text", "body": "", "body_html": None,
+            "has_attachments": 0, "message_id": "<msg-id@test.com>", "thread_id": "thread-123",
+            "cc": "cc-person@test.com",
+        }
         mock_conn = MagicMock()
         with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
              patch("app.modules.mail.controllers.message.get_message") as mock_get:
@@ -379,11 +395,13 @@ class TestMessageView:
 
 
 class TestMessageViewDraft:
-    MOCK_DRAFT_MSG = (
-        1, "100", "Drafts", "Test Subject", "sender@test.com", "recip@test.com",
-        "date", '["\\\\Draft"]', "body text", "", None, 0,
-        "<msg-id@test.com>", "thread-123", "",
-    )
+    MOCK_DRAFT_MSG = {
+        "id": 1, "uid": "100", "folder": "Drafts", "subject": "Test Subject",
+        "sender": "sender@test.com", "recipients": "recip@test.com", "date": "date",
+        "flags": '["\\\\Draft"]', "snippet": "body text", "body": "",
+        "body_html": None, "has_attachments": 0,
+        "message_id": "<msg-id@test.com>", "thread_id": "thread-123", "cc": "",
+    }
 
     def test_draft_message_shows_draft_banner(self, app, authed_client):
         client, user_id, account_id = authed_client
@@ -690,9 +708,12 @@ class TestDownloadAttachmentInline:
              patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap, \
              patch("app.modules.mail.controllers.message.fetch_message", return_value=msg):
             mock_conn = MagicMock()
-            mock_conn.execute.return_value.fetchone.return_value = (
-                1, 100, "INBOX", "subject", "sender", "recip", "date", "[]", "body", "", None, 0, "msgid", None, ""
-            )
+            mock_conn.execute.return_value.fetchone.return_value = {
+                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
+                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
+                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
+                "message_id": "msgid", "thread_id": None, "cc": "",
+            }
             mock_cache.return_value = mock_conn
             mock_client = MagicMock()
             mock_client.select.return_value = ("OK", [b"1"])
@@ -710,9 +731,12 @@ class TestDownloadAttachmentInline:
              patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap, \
              patch("app.modules.mail.controllers.message.fetch_message", return_value=msg):
             mock_conn = MagicMock()
-            mock_conn.execute.return_value.fetchone.return_value = (
-                1, 100, "INBOX", "subject", "sender", "recip", "date", "[]", "body", "", None, 0, "msgid", None, ""
-            )
+            mock_conn.execute.return_value.fetchone.return_value = {
+                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
+                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
+                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
+                "message_id": "msgid", "thread_id": None, "cc": "",
+            }
             mock_cache.return_value = mock_conn
             mock_client = MagicMock()
             mock_client.select.return_value = ("OK", [b"1"])

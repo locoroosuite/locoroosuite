@@ -242,10 +242,12 @@ class TestThreadConversationView:
     def test_thread_messages_rendered(self, app, authed_client):
         client, user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1"
-        mock_msg = (
-            1, "100", "INBOX", "Test Subject", "sender@test.com", "recip@test.com",
-            "date", '["\\\\Seen"]', "body text", "", None, 0, "<msg-id@test.com>", "thread-123", "",
-        )
+        mock_msg = {
+            "id": 1, "uid": "100", "folder": "INBOX", "subject": "Test Subject",
+            "sender": "sender@test.com", "recipients": "recip@test.com", "date": "date",
+            "flags": '["\\\\Seen"]', "snippet": "body text", "body": "", "body_html": None,
+            "has_attachments": 0, "message_id": "<msg-id@test.com>", "thread_id": "thread-123", "cc": "",
+        }
         thread_data = [
             {
                 "id": 2, "uid": "99", "folder": "INBOX",
@@ -296,10 +298,12 @@ class TestThreadConversationView:
     def test_single_message_no_thread_label(self, app, authed_client):
         client, user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1"
-        mock_msg = (
-            1, "100", "INBOX", "Test Subject", "sender@test.com", "recip@test.com",
-            "date", '["\\\\Seen"]', "body text", "", None, 0, "<msg-id@test.com>", None, "",
-        )
+        mock_msg = {
+            "id": 1, "uid": "100", "folder": "INBOX", "subject": "Test Subject",
+            "sender": "sender@test.com", "recipients": "recip@test.com", "date": "date",
+            "flags": '["\\\\Seen"]', "snippet": "body text", "body": "", "body_html": None,
+            "has_attachments": 0, "message_id": "<msg-id@test.com>", "thread_id": None, "cc": "",
+        }
         single_thread = [
             {
                 "id": 1, "uid": "100", "folder": "INBOX",
@@ -335,10 +339,12 @@ class TestThreadConversationView:
     def test_sent_message_indigo_styling(self, app, authed_client):
         client, user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1"
-        mock_msg = (
-            1, "100", "INBOX", "Test", "s@test.com", "r@test.com",
-            "date", '["\\\\Seen"]', "body", "", None, 0, "<msg@test.com>", "t1", "",
-        )
+        mock_msg = {
+            "id": 1, "uid": "100", "folder": "INBOX", "subject": "Test",
+            "sender": "s@test.com", "recipients": "r@test.com", "date": "date",
+            "flags": '["\\\\Seen"]', "snippet": "body", "body": "", "body_html": None,
+            "has_attachments": 0, "message_id": "<msg@test.com>", "thread_id": "t1", "cc": "",
+        }
         thread_data = [
             {
                 "id": 2, "uid": "99", "folder": "Sent",
@@ -386,10 +392,12 @@ class TestThreadConversationView:
     def test_sent_message_shows_cc(self, app, authed_client):
         client, user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1"
-        mock_msg = (
-            1, "100", "INBOX", "Test", "s@test.com", "r@test.com",
-            "date", '["\\\\Seen"]', "body", "", None, 0, "<msg@test.com>", "t1", "",
-        )
+        mock_msg = {
+            "id": 1, "uid": "100", "folder": "INBOX", "subject": "Test",
+            "sender": "s@test.com", "recipients": "r@test.com", "date": "date",
+            "flags": '["\\\\Seen"]', "snippet": "body", "body": "", "body_html": None,
+            "has_attachments": 0, "message_id": "<msg@test.com>", "thread_id": "t1", "cc": "",
+        }
         thread_data = [
             {
                 "id": 2, "uid": "99", "folder": "Sent",
@@ -437,10 +445,12 @@ class TestThreadConversationView:
     def test_draft_message_shows_cc(self, app, authed_client):
         client, user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1"
-        mock_msg = (
-            1, "100", "INBOX", "Test", "s@test.com", "r@test.com",
-            "date", '["\\\\Seen"]', "body", "", None, 0, "<msg@test.com>", "t1", "",
-        )
+        mock_msg = {
+            "id": 1, "uid": "100", "folder": "INBOX", "subject": "Test",
+            "sender": "s@test.com", "recipients": "r@test.com", "date": "date",
+            "flags": '["\\\\Seen"]', "snippet": "body", "body": "", "body_html": None,
+            "has_attachments": 0, "message_id": "<msg@test.com>", "thread_id": "t1", "cc": "",
+        }
         thread_data = [
             {
                 "id": 2, "uid": "99", "folder": "Drafts",

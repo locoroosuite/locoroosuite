@@ -51,9 +51,12 @@ class TestMoveMessageValidation:
         client, user_id, account_id = authed_client
         with patch("app.modules.mail.controllers.message.open_cache") as mock_cache:
             mock_conn = MagicMock()
-            mock_conn.execute.return_value.fetchone.return_value = (
-                1, 100, "INBOX", "subject", "sender", "recip", "date", "[]", "body", "", None, 0, "msgid", None, ""
-            )
+            mock_conn.execute.return_value.fetchone.return_value = {
+                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
+                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
+                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
+                "message_id": "msgid", "thread_id": None, "cc": "",
+            }
             mock_cache.return_value = mock_conn
             resp = client.post(
                 MOVE_URL.format(account_id=account_id, message_id=1),
@@ -77,9 +80,12 @@ class TestMoveMessageValidation:
         with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
              patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap:
             mock_conn = MagicMock()
-            mock_conn.execute.return_value.fetchone.return_value = (
-                1, 100, "INBOX", "subject", "sender", "recip", "date", "[]", "body", "", None, 0, "msgid", None, ""
-            )
+            mock_conn.execute.return_value.fetchone.return_value = {
+                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
+                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
+                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
+                "message_id": "msgid", "thread_id": None, "cc": "",
+            }
             mock_cache.return_value = mock_conn
             mock_client = MagicMock()
             mock_client.select.return_value = ("OK", [b"1"])
@@ -100,9 +106,12 @@ class TestMoveMessageValidation:
         with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
              patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap:
             mock_conn = MagicMock()
-            mock_conn.execute.return_value.fetchone.return_value = (
-                1, 100, "INBOX", "subject", "sender", "recip", "date", "[]", "body", "", None, 0, "msgid", None, ""
-            )
+            mock_conn.execute.return_value.fetchone.return_value = {
+                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
+                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
+                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
+                "message_id": "msgid", "thread_id": None, "cc": "",
+            }
             mock_cache.return_value = mock_conn
             mock_client = MagicMock()
             mock_client.select.return_value = ("OK", [b"1"])
@@ -120,9 +129,12 @@ class TestMoveMessageValidation:
         with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
              patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap:
             mock_conn = MagicMock()
-            mock_conn.execute.return_value.fetchone.return_value = (
-                1, 100, "INBOX", "subject", "sender", "recip", "date", "[]", "body", "", None, 0, "msgid", None, ""
-            )
+            mock_conn.execute.return_value.fetchone.return_value = {
+                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
+                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
+                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
+                "message_id": "msgid", "thread_id": None, "cc": "",
+            }
             mock_cache.return_value = mock_conn
             mock_imap.side_effect = Exception("IMAP connection failed")
             resp = client.post(

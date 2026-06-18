@@ -30,7 +30,7 @@ def test_search_with_results(authed_client):
 
 def test_search_renders_clickable_rows(authed_client):
     client, user_id, account_id = authed_client
-    fake_row = [42, 1001, "INBOX", "Hello", "alice@example.com", "bob@example.com", "2025-01-01", "\\Seen", "<p>body</p>", 0, "<msg123@example.com>", "thread-1", "body text"]
+    fake_row = {"id": 42, "uid": 1001, "folder": "INBOX", "subject": "Hello", "sender": "alice@example.com", "recipients": "bob@example.com", "date": "2025-01-01", "flags": "\\Seen", "body": "<p>body</p>", "has_attachments": 0, "message_id": "<msg123@example.com>", "thread_id": "thread-1", "snippet": "body text"}
     with (
         patch("app.modules.mail.controllers.search.open_cache", return_value=MagicMock()),
         patch("app.modules.mail.controllers.search.search_local", return_value=[fake_row]),

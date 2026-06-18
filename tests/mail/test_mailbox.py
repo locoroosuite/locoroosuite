@@ -128,7 +128,14 @@ def test_smart_folder_unread_with_messages_passes_correct_encryption_key(authed_
     client, user_id, account_id = authed_client
     from app.shared.keys import get_user_key
     expected_key = get_user_key(user_id)
-    mock_row = (1, "Test Subject", "sender@example.com", "snippet", "2025-01-01", '["\\Seen"]', "body text")
+    mock_row = {
+        "id": 1, "subject": "Test Subject", "sender": "sender@example.com",
+        "snippet": "snippet", "date": "2025-01-01", "flags": '["\\Seen"]',
+        "body": "body text", "folder": "INBOX", "thread_id": "thread-1",
+        "recipients": "dest@example.com", "sort_ts": 1735689600,
+        "is_bounce": 0, "bounce_reason": None, "original_subject": None,
+        "has_attachments": 0,
+    }
     with (
         patch("app.modules.mail.controllers.mailbox.open_cache", return_value=MagicMock()),
         patch("app.modules.mail.controllers.mailbox._get_or_create_settings", return_value=MagicMock()),

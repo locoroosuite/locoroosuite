@@ -1062,7 +1062,7 @@ class TestComposeDraftResume:
         msg.attach(alt)
 
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.fetchone.return_value = ("42", "Drafts", '["\\\\Draft"]')
+        mock_conn.execute.return_value.fetchone.return_value = {"uid": "42", "folder": "Drafts", "flags": '["\\\\Draft"]'}
 
         with patch("app.modules.mail.controllers.compose.open_cache", return_value=mock_conn), \
              patch("app.modules.mail.controllers.compose.get_user_key"), \

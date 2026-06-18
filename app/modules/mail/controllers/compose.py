@@ -116,8 +116,8 @@ def _load_draft_prefill(account, draft_uid):
     ).fetchone()
     if not row:
         return None
-    uid = row[0]
-    folder = row[1]
+    uid = row["uid"]
+    folder = row["folder"]
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client = None
     try:

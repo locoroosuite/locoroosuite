@@ -403,6 +403,9 @@ You can ask your AI things like "do I have any unread emails from Sarah?", "repl
 | Tool | What it does |
 |------|-------------|
 | `mail_list_folders` | List email folders with unread counts |
+| `mail_create_folder` | Create a new mail folder (idempotent; optional parent) |
+| `mail_rename_folder` | Rename a mail folder (system folders protected) |
+| `mail_delete_folder` | Delete a mail folder (system/protected folders refused) |
 | `mail_list_messages` | List messages in a folder (paginated, filterable) |
 | `mail_get_message` | Read a full message including body and attachments |
 | `mail_get_raw_message` | Get the raw RFC 822 source (base64 encoded) |
@@ -412,7 +415,7 @@ You can ask your AI things like "do I have any unread emails from Sarah?", "repl
 | `mail_delete_draft` | Delete a draft |
 | `mail_move_message` | Move a message to another folder |
 | `mail_delete_message` | Move a message to Trash |
-| `mail_update_flags` | Toggle read/flagged status |
+| `mail_update_flags` | Toggle read / flagged / locked status |
 | `mail_get_thread` | Get all messages in a conversation thread |
 | `mail_get_attachment` | Download an attachment |
 | `mail_view_attachment` | Convert an attachment to HTML for viewing |

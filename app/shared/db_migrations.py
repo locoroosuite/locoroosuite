@@ -38,6 +38,24 @@ def ensure_customer_settings_spam_action_column():
     db.session.commit()
 
 
+def ensure_customer_settings_protection_columns():
+    inspector = inspect(db.engine)
+    if "customer_settings" not in inspector.get_table_names():
+        return
+    columns = {col["name"] for col in inspector.get_columns("customer_settings")}
+    statements = []
+    if "protected_folders" not in columns:
+        statements.append("ALTER TABLE customer_settings ADD COLUMN protected_folders TEXT")
+    if "protect_starred" not in columns:
+        statements.append("ALTER TABLE customer_settings ADD COLUMN protect_starred BOOLEAN NOT NULL DEFAULT 1")
+    if "locked_keyword_prefs" not in columns:
+        statements.append("ALTER TABLE customer_settings ADD COLUMN locked_keyword_prefs TEXT")
+    for statement in statements:
+        db.session.execute(text(statement))
+    if statements:
+        db.session.commit()
+
+
 def ensure_import_request_takeout_columns():
     inspector = inspect(db.engine)
     if "import_requests" not in inspector.get_table_names():

@@ -15,13 +15,14 @@ from app.api.controllers.helpers import (
 )
 from app.api.schemas.common import ErrorResponse, BulkResponse
 from app.api.schemas.mail import (
-    FolderListResponse, MessageListResponse, MessageDetailResponse,
+    FolderListResponse, FolderMutationResponse, MessageListResponse, MessageDetailResponse,
     FolderPath, MessagePath, ThreadPath, DraftPath, AttachmentPath,
     SearchQuery, ListMessagesQuery, GetMessageQuery,
     UpdateFlagsBody, MoveMessageBody, SendMessageBody, CreateDraftBody,
     BulkFlagBody, BulkMoveBody, BulkDeleteBody,
+    CreateFolderBody, RenameFolderBody,
 )
-from app.shared.models.core import CustomerAccount, Domain
+from app.shared.models.core import CustomerAccount, Domain, CustomerSettings
 from app.modules.mail.services.secrets import decrypt_with_key
 from app.modules.mail.services.cache import build_cache_path
 from app.modules.mail.services.cache_db import (
@@ -29,6 +30,10 @@ from app.modules.mail.services.cache_db import (
     get_message_by_uid_and_folder,
     list_thread_messages, search_local, update_flags, list_messages_with_threading,
     delete_message_by_id, upsert_message,
+    upsert_folder, rename_folder_in_cache, delete_folder_in_cache,
+)
+from app.modules.mail.services.protection import (
+    LOCKED_KEYWORD, message_is_protected, folder_is_protected, is_system_folder,
 )
 from app.shared.ui_events import push_ui_event
 
@@ -142,6 +147,141 @@ def api_list_folders():
         return api_response(items)
     finally:
         conn.close()
+
+
+@bp.post(
+    "/mail/folders",
+    summary="Create mail folder",
+    description="Creates a new mail folder (IMAP CREATE). Idempotent: creating an existing mailbox returns success with created=false. An optional `parent` nests the folder using the server hierarchy delimiter. Requires `mail:write` scope.",
+    responses={"200": FolderMutationResponse, "401": ErrorResponse, "400": ErrorResponse},
+)
+@require_api_token(scopes=["mail:write"])
+@require_scope("mail", "write")
+def api_create_folder(body: CreateFolderBody):
+    import imaplib as _imaplib
+    from app.modules.mail.services.imap_client import (
+        create_folder as imap_create_folder, list_folders, get_folder_delimiter,
+        encode_mailbox_name, safe_logout,
+    )
+    account_id = get_api_account_id()
+    dek = g.api_context["dek"]
+    name = (body.name or "").strip()
+    if not name:
+        return api_error("VALIDATION_ERROR", "'name' is required", 400)
+    parent = (body.parent or "").strip() or None
+    account, domain, secret = _get_account_and_secret(account_id, dek)
+    client = _imap_connect(account, domain, secret)
+    full_name = name
+    try:
+        existing = [f.lower() for f in list_folders(client)]
+        if parent:
+            delim = get_folder_delimiter(client)
+            full_name = f"{parent}{delim}{name}"
+        created = False
+        if full_name.lower() not in existing:
+            try:
+                status, _ = imap_create_folder(client, encode_mailbox_name(full_name))
+                created = status == "OK"
+            except _imaplib.IMAP4.error as exc:
+                return api_error("IMAP_ERROR", f"Failed to create folder: {exc}", 400)
+    finally:
+        safe_logout(client)
+    conn = _get_cache_conn(account_id, dek)
+    try:
+        upsert_folder(conn, full_name, 0)
+    finally:
+        conn.close()
+    try:
+        current_app.sync_manager.enqueue_sync(account_id, folder=full_name, reason="folder_created", priority=5)
+    except Exception:
+        pass
+    push_ui_event(g.api_context["customer_id"], "mail", "folder_created", {"account_id": account_id, "folder": full_name})
+    return api_response({"id": full_name, "name": full_name, "created": created})
+
+
+@bp.post(
+    "/mail/folders/<path:folder>/rename",
+    summary="Rename mail folder",
+    description="Renames a mail folder (IMAP RENAME). System folders (INBOX, Sent, Drafts, Trash, Junk, Bookings) cannot be renamed. Requires `mail:write` scope.",
+    responses={"200": FolderMutationResponse, "401": ErrorResponse, "400": ErrorResponse, "409": ErrorResponse},
+)
+@require_api_token(scopes=["mail:write"])
+@require_scope("mail", "write")
+def api_rename_folder(path: FolderPath, body: RenameFolderBody):
+    import imaplib as _imaplib
+    from app.modules.mail.services.imap_client import (
+        rename_folder as imap_rename_folder, encode_mailbox_name, safe_logout,
+    )
+    old_name = path.folder
+    new_name = (body.name or "").strip()
+    if not new_name:
+        return api_error("VALIDATION_ERROR", "'name' is required", 400)
+    if is_system_folder(old_name):
+        return api_error("PROTECTED", "System folders cannot be renamed.", 409)
+    account_id = get_api_account_id()
+    dek = g.api_context["dek"]
+    account, domain, secret = _get_account_and_secret(account_id, dek)
+    client = _imap_connect(account, domain, secret)
+    try:
+        try:
+            status, _ = imap_rename_folder(client, encode_mailbox_name(old_name), encode_mailbox_name(new_name))
+            if status != "OK":
+                return api_error("IMAP_ERROR", "Failed to rename folder", 400)
+        except _imaplib.IMAP4.error as exc:
+            return api_error("IMAP_ERROR", f"Failed to rename folder: {exc}", 400)
+    finally:
+        safe_logout(client)
+    conn = _get_cache_conn(account_id, dek)
+    try:
+        rename_folder_in_cache(conn, old_name, new_name)
+    finally:
+        conn.close()
+    try:
+        current_app.sync_manager.enqueue_sync(account_id, folder=new_name, reason="folder_renamed", priority=5)
+    except Exception:
+        pass
+    push_ui_event(g.api_context["customer_id"], "mail", "folder_renamed", {"account_id": account_id, "old_folder": old_name, "new_folder": new_name})
+    return api_response({"id": new_name, "name": new_name})
+
+
+@bp.delete(
+    "/mail/folders/<path:folder>",
+    summary="Delete mail folder",
+    description="Deletes a mail folder (IMAP DELETE). System folders and folders the customer has marked protected cannot be deleted. Requires `mail:write` scope.",
+    responses={"200": FolderMutationResponse, "401": ErrorResponse, "400": ErrorResponse, "409": ErrorResponse},
+)
+@require_api_token(scopes=["mail:write"])
+@require_scope("mail", "write")
+def api_delete_folder(path: FolderPath):
+    import imaplib as _imaplib
+    from app.modules.mail.services.imap_client import (
+        delete_folder as imap_delete_folder, encode_mailbox_name, safe_logout,
+    )
+    folder = path.folder
+    account_id = get_api_account_id()
+    dek = g.api_context["dek"]
+    customer_id = g.api_context["customer_id"]
+    settings = CustomerSettings.query.filter_by(customer_id=customer_id).first()
+    if folder_is_protected(settings, folder):
+        return api_error("PROTECTED", "This folder is protected and cannot be deleted.", 409)
+    account, domain, secret = _get_account_and_secret(account_id, dek)
+    client = _imap_connect(account, domain, secret)
+    try:
+        try:
+            status, _ = imap_delete_folder(client, encode_mailbox_name(folder))
+            if status != "OK":
+                return api_error("IMAP_ERROR", "Failed to delete folder", 400)
+        except _imaplib.IMAP4.error as exc:
+            return api_error("IMAP_ERROR", f"Failed to delete folder: {exc}", 400)
+    finally:
+        safe_logout(client)
+    conn = _get_cache_conn(account_id, dek)
+    try:
+        delete_folder_in_cache(conn, folder)
+    finally:
+        conn.close()
+    push_ui_event(customer_id, "mail", "folder_deleted", {"account_id": account_id, "folder": folder})
+    return api_response({"id": folder, "deleted": True})
 
 
 @bp.get(
@@ -315,6 +455,12 @@ def api_update_flags(path: MessagePath, body: UpdateFlagsBody):
         elif flags_data.get("flagged") is False and "\\Flagged" in flag_list:
             flag_list = _merge_flag(flag_list, "\\Flagged", False)
             changed_flags.append(("\\Flagged", False))
+        if flags_data.get("locked") is True and LOCKED_KEYWORD not in flag_list:
+            flag_list = _merge_flag(flag_list, LOCKED_KEYWORD, True)
+            changed_flags.append((LOCKED_KEYWORD, True))
+        elif flags_data.get("locked") is False and LOCKED_KEYWORD in flag_list:
+            flag_list = _merge_flag(flag_list, LOCKED_KEYWORD, False)
+            changed_flags.append((LOCKED_KEYWORD, False))
         update_flags(conn, message_id, flag_list)
     finally:
         conn.close()
@@ -374,6 +520,10 @@ def api_bulk_flag(body: BulkFlagBody):
                 flag_list = _merge_flag(flag_list, "\\Flagged", True)
             elif flags.get("flagged") is False and "\\Flagged" in flag_list:
                 flag_list = _merge_flag(flag_list, "\\Flagged", False)
+            if flags.get("locked") is True and LOCKED_KEYWORD not in flag_list:
+                flag_list = _merge_flag(flag_list, LOCKED_KEYWORD, True)
+            elif flags.get("locked") is False and LOCKED_KEYWORD in flag_list:
+                flag_list = _merge_flag(flag_list, LOCKED_KEYWORD, False)
             update_flags(conn, mid, flag_list)
             succeeded.append({"message_id": mid})
         push_ui_event(g.api_context["customer_id"], "mail", "flags_updated", {"account_id": account_id})
@@ -404,6 +554,8 @@ def api_bulk_move(body: BulkMoveBody):
     succeeded = []
     failed = []
     to_move = []
+    trash_move = (dest_folder or "").strip().lower() == "trash"
+    settings = CustomerSettings.query.filter_by(customer_id=g.api_context["customer_id"]).first()
     try:
         for i, item in enumerate(items):
             mid = item.get("message_id")
@@ -415,6 +567,9 @@ def api_bulk_move(body: BulkMoveBody):
                 failed.append({"index": i, "error": {"code": "NOT_FOUND"}})
                 continue
             d = _row_to_dict(row)
+            if trash_move and message_is_protected(_parse_flags_list(d.get("flags", "")), settings):
+                failed.append({"message_id": mid, "error": {"code": "PROTECTED", "message": "Message is protected from deletion"}})
+                continue
             to_move.append({"message_id": mid, "uid": d.get("uid"), "folder": d.get("folder", "INBOX")})
     finally:
         conn.close()
@@ -462,6 +617,7 @@ def api_bulk_delete(body: BulkDeleteBody):
     succeeded = []
     failed = []
     to_delete = []
+    settings = CustomerSettings.query.filter_by(customer_id=g.api_context["customer_id"]).first()
     try:
         for i, item in enumerate(items):
             mid = item.get("message_id")
@@ -473,6 +629,9 @@ def api_bulk_delete(body: BulkDeleteBody):
                 failed.append({"index": i, "error": {"code": "NOT_FOUND"}})
                 continue
             d = _row_to_dict(row)
+            if message_is_protected(_parse_flags_list(d.get("flags", "")), settings):
+                failed.append({"message_id": mid, "error": {"code": "PROTECTED", "message": "Message is protected from deletion"}})
+                continue
             to_delete.append({"message_id": mid, "uid": d.get("uid"), "folder": d.get("folder", "INBOX")})
     finally:
         conn.close()
@@ -549,17 +708,21 @@ def api_move_message(path: MessagePath, body: MoveMessageBody):
     dest_folder = body.folder_id or body.destination
     if not dest_folder:
         return api_error("VALIDATION_ERROR", "'folder_id' or 'destination' is required", 400)
-    account, domain, secret = _get_account_and_secret(account_id, dek)
     conn = _get_cache_conn(account_id, dek)
     try:
         row = get_message(conn, message_id)
         if not row:
             return api_error("NOT_FOUND", "Message not found", 404)
         d = _row_to_dict(row)
+        if (dest_folder or "").strip().lower() == "trash":
+            settings = CustomerSettings.query.filter_by(customer_id=g.api_context["customer_id"]).first()
+            if message_is_protected(_parse_flags_list(d.get("flags", "")), settings):
+                return api_error("PROTECTED", "This message is protected from deletion. Unstar it or remove its lock first.", 409)
         folder = d.get("folder", "INBOX")
         uid = d.get("uid")
     finally:
         conn.close()
+    account, domain, secret = _get_account_and_secret(account_id, dek)
     from app.modules.mail.services.imap_client import select_folder, move_message, safe_logout
     client = _imap_connect(account, domain, secret)
     try:
@@ -590,6 +753,9 @@ def api_delete_message(path: MessagePath):
         if not row:
             return api_error("NOT_FOUND", "Message not found", 404)
         d = _row_to_dict(row)
+        settings = CustomerSettings.query.filter_by(customer_id=g.api_context["customer_id"]).first()
+        if message_is_protected(_parse_flags_list(d.get("flags", "")), settings):
+            return api_error("PROTECTED", "This message is protected from deletion. Unstar it or remove its lock first.", 409)
         folder = d.get("folder", "INBOX")
         uid = d.get("uid")
     finally:

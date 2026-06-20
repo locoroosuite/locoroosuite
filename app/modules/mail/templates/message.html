@@ -71,6 +71,12 @@
               <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">Report spam</button>
             </form>
             {% endif %}
+            {% if lock_action_enabled %}
+            <form method="post" action="{{ url_for('mail.lock_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="lock">
+              <input type="hidden" name="action" value="{{ 'remove' if '$Locked' in (flags or []) else 'add' }}" />
+              <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ 'Unlock' if '$Locked' in (flags or []) else 'Lock (protect from delete)' }}</button>
+            </form>
+            {% endif %}
             <div class="border-t border-slate-100 my-1"></div>
             <a class="block text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.download_message', account_id=account.id, message_id=message["id"]) }}" role="menuitem">Download .eml</a>
             <a class="block text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.print_message', account_id=account.id, message_id=message["id"]) }}" target="_blank" role="menuitem">Print</a>
@@ -490,6 +496,11 @@
                 btn.textContent = data.is_unread ? "Mark as read" : "Mark as unread";
                 var hidden = form.querySelector('input[name="action"]');
                 if (hidden) hidden.value = data.is_unread ? "read" : "unread";
+              } else if (action === "lock") {
+                btn.textContent = data.is_locked ? "Unlock" : "Lock (protect from delete)";
+                var hidden = form.querySelector('input[name="action"]');
+                if (hidden) hidden.value = data.is_locked ? "remove" : "add";
+                window.LR.notifySuccess(data.is_locked ? "Message locked" : "Message unlocked");
               }
             }
             if (btn) window.LR.clearButtonLoading(btn);

@@ -10,6 +10,7 @@ from app.shared.keys import get_user_key
 from app.shared.db_migrations import (
     ensure_domain_status_column,
     ensure_customer_settings_spam_action_column,
+    ensure_customer_settings_protection_columns,
     ensure_import_request_takeout_columns,
     ensure_domain_carddav_columns,
     ensure_domain_caldav_columns,
@@ -190,6 +191,7 @@ def create_app():
         db.create_all()
         ensure_domain_status_column()
         ensure_customer_settings_spam_action_column()
+        ensure_customer_settings_protection_columns()
         ensure_import_request_takeout_columns()
         ensure_domain_carddav_columns()
         ensure_domain_caldav_columns()

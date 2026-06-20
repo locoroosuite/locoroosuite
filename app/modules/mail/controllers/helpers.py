@@ -41,7 +41,11 @@ logger = logging.getLogger(__name__)
 @mail_bp.context_processor
 def _inject_unread_excluded_folders():
     from app.modules.mail.services.folder_sort import UNREAD_EXCLUDED_FOLDERS
-    return {"unread_excluded_folders": [f.lower() for f in sorted(UNREAD_EXCLUDED_FOLDERS)]}
+    from app.modules.mail.services.protection import SYSTEM_FOLDERS
+    return {
+        "unread_excluded_folders": [f.lower() for f in sorted(UNREAD_EXCLUDED_FOLDERS)],
+        "system_folder_keys": sorted(SYSTEM_FOLDERS.keys()),
+    }
 
 _pending_sends = {}
 _pending_sends_lock = threading.RLock()

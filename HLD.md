@@ -179,6 +179,8 @@ U5.1 - The customer can open individual emails.
 U5.2 - An email that has been seen will be marked as read; user can also mark it as unread.
 U5.3 - Support message flagging (star/important) via IMAP flags.
 U5.4 - Can create folders (IMAP server-side).
+U5.4a - Folder management is exposed beyond the web UI: customers can create, rename, and delete mail folders. Create maps to IMAP CREATE, rename to IMAP RENAME, delete to IMAP DELETE. Creation is idempotent (creating an existing mailbox returns success without error). When `parent` is supplied, the new mailbox is nested using the server hierarchy delimiter from IMAP LIST (e.g. `parent<delim>name`). Non-ASCII mailbox names are encoded with modified UTF-7 (RFC 3501 §5.1.3). `list_folders` reflects create/rename/delete immediately via the per-user cache.
+U5.4b - System folders are protected from destructive management: `INBOX`, `Sent`, `Drafts`, `Trash`, `Junk` (alias `Spam`), and `Bookings` can never be renamed or deleted through the application (REST API, MCP, or web UI); these are refused with a structured error. Folder management is exposed via the REST API (`/api/v1/mail/folders`) and MCP, alongside the existing web UI.
 U5.5 - Can move emails to folders.
 U5.6 - (Removed for now) Bulk actions are out of scope for MVP.
 U5.7 - Support "mark all as read" per folder.
@@ -192,6 +194,13 @@ U5.12 - Spam/Junk: display the IMAP Junk/Spam folder if present and allow moving
 U5.13 - "Report spam/phishing": move to Junk/Spam and set IMAP \\Junk flag only when supported and enabled in customer settings. If the server rejects the \\Junk flag, disable the Spam action in settings and show: "Server doesn’t support Spam flags, the option is disabled in your account”.
 U5.13a - Report spam banner behavior matches Archive/Delete: no countdown or auto-dismiss; banner stays visible until the user navigates away; Undo is available only while the banner is visible; Undo restores to the original folder; banner includes actions: Undo and "View Junk"/"View Spam" depending on which system folder exists (links to that folder).
 U5.14 - No snooze functionality in MVP.
+U5.15 - Delete protection (lock). Customers can protect messages and folders from accidental deletion.
+  - U5.15a - Per-message lock stored as the IMAP keyword `$Locked`, cached locally the same way `\Seen`/`\Flagged` are (it round-trips through IMAP FETCH/STORE and the cache `flags` JSON list). Toggling the lock uses the same flag-sync path as read/starred. Because the lock lives on the IMAP message, it survives cache resets and is consistent across devices.
+  - U5.15b - "Starred emails are protected from delete" is a policy: any message carrying `\Flagged` refuses delete / move-to-Trash until it is un-starred. This is on by default and can be toggled in customer settings (`protect_starred`). An explicit `$Locked` flag protects a message regardless of this setting.
+  - U5.15c - Per-folder lock is stored in `CustomerSettings.protected_folders` (a JSON list, same pattern as `pinned_folders`). A locked folder refuses delete. System folders (U5.4b) are always protected and cannot be unprotected. Renaming a user folder is allowed; rename is blocked only for the system set.
+  - U5.15d - Protection blocks delete, move-to-Trash, bulk-delete, and empty-Trash. Reorganizing (move to a real folder), archive, mark read, and star/unstar remain allowed. Bulk delete skips protected messages and reports them in the `failed` list with code `PROTECTED`.
+  - U5.15e - Per-account keyword capability fallback: if the IMAP server rejects the `$Locked` keyword (custom keywords not permitted), the lock action is auto-disabled for that account (mirroring the `\Junk` behaviour in U5.13/U9.5), stored in `CustomerSettings.locked_keyword_prefs` (JSON dict keyed by account id). The web UI hides the lock control for that account; the API/MCP return a structured error.
+  - U5.15f - Exposure: lock/unlock and the protected state are available via the REST API (the existing flags endpoints accept a `locked` boolean) and MCP, with the same `{data: ...}` envelope.
 
 # Use Case U6 – Compose, Drafts & Sending
 U6.1 - The user can send emails, including attachments. Compose is full-featured: new/reply/forward, CC/BCC, and HTML + auto-generated plain text.

@@ -164,4 +164,48 @@ describe.skipIf(!(await isServerAvailable()))("MCP Client → API: Mail", () => 
       assertSuccess(patchRes, "patch_with_body_account_id");
     });
   });
+
+  describe("folder management", () => {
+    const unique = () => `MCP-Test-${Date.now()}`;
+
+    it("creates a folder idempotently and it appears in list_folders", async () => {
+      const name = unique();
+      const createRes = await client.post("/api/v1/mail/folders", { name });
+      const created = assertSuccess<{ id: string; name: string; created: boolean }>(createRes, "create_folder");
+      expect(created.data!.name).toBe(name);
+      expect(created.data!.created).toBe(true);
+
+      const againRes = await client.post("/api/v1/mail/folders", { name });
+      const again = assertSuccess<{ created: boolean }>(againRes, "create_folder_idempotent");
+      expect(again.data!.created).toBe(false);
+
+      const listRes = await client.get("/api/v1/mail/folders");
+      const list = assertSuccess<Array<{ name: string }>>(listRes, "list_after_create");
+      expect(list.data!.map((f) => f.name)).toContain(name);
+
+      const delRes = await client.delete(`/api/v1/mail/folders/${encodeURIComponent(name)}`);
+      const deleted = assertSuccess<{ id: string; deleted: boolean }>(delRes, "delete_folder");
+      expect(deleted.data!.deleted).toBe(true);
+    });
+
+    it("refuses to delete a system folder", async () => {
+      try {
+        await client.delete("/api/v1/mail/folders/INBOX");
+        expect.unreachable("Should have thrown");
+      } catch (e) {
+        expect(e).toBeInstanceOf(ApiError);
+        expect((e as ApiError).code).toBe("PROTECTED");
+      }
+    });
+
+    it("refuses to rename a system folder", async () => {
+      try {
+        await client.post("/api/v1/mail/folders/INBOX/rename", { name: "Other" });
+        expect.unreachable("Should have thrown");
+      } catch (e) {
+        expect(e).toBeInstanceOf(ApiError);
+        expect((e as ApiError).code).toBe("PROTECTED");
+      }
+    });
+  });
 });

@@ -56,6 +56,31 @@
         {% endif %}
       </div>
     </div>
+    <div>
+      <label class="block text-sm font-medium">Protect starred emails from delete</label>
+      <p class="mt-1 text-xs text-slate-500">When on, starred (flagged) emails refuse delete/move-to-Trash until un-starred. Individual messages can also be locked explicitly.</p>
+      <label class="mt-2 flex items-center gap-2 text-sm text-slate-700">
+        <input name="protect_starred" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-slate-900" {% if settings.protect_starred %}checked{% endif %} />
+        Protect starred emails by default
+      </label>
+    </div>
+    <div>
+      <label class="block text-sm font-medium">Message lock (per account)</label>
+      <p class="mt-1 text-xs text-slate-500">Enable the per-message delete-protection lock for an account. Auto-disables if your mail server doesn't support custom flags.</p>
+      <div class="mt-2 space-y-2">
+        {% if accounts %}
+          {% for account in accounts %}
+          {% set lock_enabled = locked_keyword_prefs.get(account.id ~ '', True) %}
+          <label class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+            <span class="text-slate-700">{{ account.email_address }}</span>
+            <input name="locked_keyword_{{ account.id }}" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-slate-900" {% if lock_enabled %}checked{% endif %} />
+          </label>
+          {% endfor %}
+        {% else %}
+          <div class="text-xs text-slate-500">No active accounts yet.</div>
+        {% endif %}
+      </div>
+    </div>
     <button class="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm">Save</button>
   </form>
   <div class="mt-6 border-t border-slate-200/80 pt-5">

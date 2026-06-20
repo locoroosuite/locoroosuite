@@ -70,6 +70,7 @@ def message_view(account_id, message_id):
         _format_ics_dates(ics_attachments, settings.timezone)
     from app.shared.pandoc_formats import get_attachment_actions
     attachment_actions = {a["filename"]: get_attachment_actions(a["filename"]) for a in attachments}
+    from app.modules.mail.services.protection import locked_keyword_enabled
     return render_template(
         "message.html",
         message=message,
@@ -80,6 +81,7 @@ def message_view(account_id, message_id):
         attachment_actions=attachment_actions,
         flags=flags,
         spam_action_enabled=_spam_action_enabled(settings, account.id),
+        lock_action_enabled=locked_keyword_enabled(settings, account.id),
         current_folder=message["folder"],
         move_folders=move_folders,
         thread_messages=thread_messages,
@@ -201,6 +203,50 @@ def flag_message(account_id, message_id):
     return redirect(url_for("mail.message_view", account_id=account_id, message_id=message_id))
 
 
+@mail_bp.route("/mail/message/<int:account_id>/<int:message_id>/lock", methods=["POST"])
+@require_customer
+def lock_message(account_id, message_id):
+    from app.modules.mail.services.protection import LOCKED_KEYWORD
+    action = request.form.get("action", "add")
+    account = CustomerAccount.query.filter_by(id=account_id, customer_id=session.get("user_id")).first_or_404()
+    key = get_user_key(session.get("user_id"))
+    conn = open_cache(account.cache_db_path, key)
+    message = get_message(conn, message_id)
+    if not message:
+        return redirect(url_for("mail.mailbox"))
+    uid = message["uid"]
+    folder = message["folder"]
+    flags = _parse_flags(message["flags"])
+    secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
+    client, _domain = _imap_for_account(account, secret)
+    try:
+        select_folder(client, folder)
+        try:
+            set_flag(client, uid, LOCKED_KEYWORD, add=(action != "remove"))
+        except imaplib.IMAP4.error:
+            safe_logout(client)
+            settings = _get_or_create_settings(session.get("user_id"))
+            from app.modules.mail.services.protection import set_locked_keyword_enabled
+            set_locked_keyword_enabled(settings, account.id, False)
+            db.session.commit()
+            error_message = "Server doesn't support message lock flags, the option is disabled in your account"
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({"status": "error", "error": error_message})
+            session["undo_error"] = error_message
+            return redirect(url_for("mail.message_view", account_id=account_id, message_id=message_id))
+    finally:
+        safe_logout(client)
+    if action == "remove":
+        flags = [flag for flag in flags if flag != LOCKED_KEYWORD]
+    else:
+        if LOCKED_KEYWORD not in flags:
+            flags.append(LOCKED_KEYWORD)
+    update_flags(conn, message_id, flags)
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"status": "ok", "is_locked": action != "remove"})
+    return redirect(url_for("mail.message_view", account_id=account_id, message_id=message_id))
+
+
 @mail_bp.route("/mail/message/<int:account_id>/<int:message_id>/move", methods=["POST"])
 @require_customer
 def move_message_route(account_id, message_id):
@@ -222,6 +268,15 @@ def move_message_route(account_id, message_id):
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return jsonify({"error": "Message is already in that folder."}), 400
         return redirect(url_for("mail.folder_view", account_id=account_id, folder=destination))
+    if destination.strip().lower() == "trash":
+        from app.modules.mail.services.protection import message_is_protected
+        settings = _get_or_create_settings(session.get("user_id"))
+        if message_is_protected(_parse_flags(message["flags"]), settings):
+            error_message = "This message is protected from deletion. Unstar it or remove its lock first."
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({"error": error_message}), 409
+            session["undo_error"] = error_message
+            return redirect(url_for("mail.message_view", account_id=account_id, message_id=message_id))
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)
     select_folder(client, folder)
@@ -244,6 +299,14 @@ def delete_message(account_id, message_id):
     uid = message["uid"]
     folder = message["folder"]
     flags = _parse_flags(message["flags"])
+    settings = _get_or_create_settings(session.get("user_id"))
+    from app.modules.mail.services.protection import message_is_protected
+    if message_is_protected(flags, settings):
+        error_message = "This message is protected from deletion. Unstar it or remove its lock first."
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"status": "error", "error": error_message}), 409
+        session["undo_error"] = error_message
+        return redirect(url_for("mail.message_view", account_id=account_id, message_id=message_id))
     was_unread = "\\Seen" not in flags
     message_id_header = message["message_id"]
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None

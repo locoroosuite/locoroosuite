@@ -172,6 +172,64 @@ def create_folder(client, folder):
     return client.create(folder)
 
 
+def rename_folder(client, old_name, new_name):
+    return client.rename(old_name, new_name)
+
+
+def delete_folder(client, folder):
+    return client.delete(folder)
+
+
+def get_folder_delimiter(client):
+    status, data = client.list()
+    if status != "OK" or not data:
+        return "/"
+    for line in data:
+        if not line:
+            continue
+        try:
+            decoded = line.decode() if isinstance(line, (bytes, bytearray)) else str(line)
+        except Exception:
+            decoded = str(line)
+        match = _LIST_RE.match(decoded)
+        if match and match.group("delim"):
+            return match.group("delim")
+    return "/"
+
+
+def encode_mailbox_name(name):
+    """Encode a mailbox name using modified UTF-7 (RFC 3501 Section 5.1.3).
+
+    ASCII printable names pass through unchanged (the literal ``&`` becomes
+    ``&-``); non-ASCII segments are encoded in modified BASE64 of UTF-16BE,
+    wrapped in ``&...-`` with ``/`` replaced by ``,`` and padding stripped.
+    Returns the wire-format string.
+    """
+    if name is None:
+        return name
+    out = []
+    buf = []
+    for ch in name:
+        code = ord(ch)
+        if 0x20 <= code <= 0x7E:
+            if buf:
+                out.append(_modified_utf7_encode("".join(buf)))
+                buf = []
+            out.append("&-" if ch == "&" else ch)
+        else:
+            buf.append(ch)
+    if buf:
+        out.append(_modified_utf7_encode("".join(buf)))
+    return "".join(out)
+
+
+def _modified_utf7_encode(text):
+    import base64
+    data = text.encode("utf-16-be")
+    encoded = base64.b64encode(data).decode("ascii")
+    return "&" + encoded.rstrip("=").replace("/", ",") + "-"
+
+
 def ensure_folder_and_append(client, folder, raw_bytes, flags=None, date_time=None):
     try:
         return append_message(client, folder, raw_bytes, flags=flags, date_time=date_time)

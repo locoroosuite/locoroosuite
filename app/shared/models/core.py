@@ -84,6 +84,9 @@ class CustomerSettings(db.Model):
     theme = db.Column(db.String(16), default="light", nullable=False)
     pinned_folders = db.Column(db.Text, nullable=True)
     spam_action_prefs = db.Column(db.Text, nullable=True)
+    protected_folders = db.Column(db.Text, nullable=True)
+    protect_starred = db.Column(db.Boolean, default=True, nullable=False)
+    locked_keyword_prefs = db.Column(db.Text, nullable=True)
 
 
 class AuditLog(db.Model):

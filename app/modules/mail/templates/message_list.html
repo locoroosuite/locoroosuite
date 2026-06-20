@@ -162,6 +162,12 @@
           <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">Report spam</button>
         </form>
         {% endif %}
+        {% if lock_action_enabled and not msg.is_draft %}
+        <form method="post" action="{{ url_for('mail.lock_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="lock" data-no-row-nav>
+          <input type="hidden" name="action" value="{{ 'remove' if '$Locked' in (msg.flags or []) else 'add' }}" />
+          <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">{{ 'Unlock' if '$Locked' in (msg.flags or []) else 'Lock' }}</button>
+        </form>
+        {% endif %}
         <button type="button" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-to-folder data-no-row-nav>Move to folder</button>
       </div>
     </div>

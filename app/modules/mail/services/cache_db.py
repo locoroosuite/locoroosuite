@@ -472,6 +472,20 @@ def delete_messages_by_folder(conn, folder):
     conn.commit()
 
 
+def rename_folder_in_cache(conn, old_name, new_name):
+    conn.execute("UPDATE OR ABORT folders SET name = ? WHERE name = ?", (new_name, old_name))
+    conn.execute("UPDATE messages SET folder = ? WHERE folder = ?", (new_name, old_name))
+    conn.execute("UPDATE folder_state SET folder = ? WHERE folder = ?", (new_name, old_name))
+    conn.commit()
+
+
+def delete_folder_in_cache(conn, folder):
+    conn.execute("DELETE FROM folders WHERE name = ?", (folder,))
+    conn.execute("DELETE FROM messages WHERE folder = ?", (folder,))
+    conn.execute("DELETE FROM folder_state WHERE folder = ?", (folder,))
+    conn.commit()
+
+
 def delete_folder_state(conn, folder):
     conn.execute("DELETE FROM folder_state WHERE folder = ?", (folder,))
     conn.commit()

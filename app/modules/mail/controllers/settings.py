@@ -31,14 +31,21 @@ def settings():
         elif tz_val in COMMON_TIMEZONES:
             settings.timezone = tz_val
         settings.theme = request.form.get("theme", settings.theme)
+        settings.protect_starred = request.form.get("protect_starred") == "on"
         from app.modules.mail.controllers.helpers import _set_spam_action_enabled
         for account in accounts:
             enabled = request.form.get(f"spam_action_{account.id}") == "on"
             _set_spam_action_enabled(settings, account.id, enabled)
+        from app.modules.mail.services.protection import set_locked_keyword_enabled
+        for account in accounts:
+            lock_enabled = request.form.get(f"locked_keyword_{account.id}") == "on"
+            set_locked_keyword_enabled(settings, account.id, lock_enabled)
         db.session.commit()
         return redirect(url_for("mail.settings"))
     spam_action_prefs = _load_spam_action_prefs(settings)
-    return render_template("settings.html", settings=settings, accounts=accounts, spam_action_prefs=spam_action_prefs, timezone_options=COMMON_TIMEZONES)
+    from app.modules.mail.services.protection import load_locked_keyword_prefs
+    locked_keyword_prefs = load_locked_keyword_prefs(settings)
+    return render_template("settings.html", settings=settings, accounts=accounts, spam_action_prefs=spam_action_prefs, locked_keyword_prefs=locked_keyword_prefs, timezone_options=COMMON_TIMEZONES)
 
 
 @mail_bp.route("/mail/settings/reset-cache", methods=["POST"])

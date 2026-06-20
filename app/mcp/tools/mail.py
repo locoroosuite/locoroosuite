@@ -321,7 +321,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
     @mcp.tool(
         name="mail_delete_message",
         title="Delete Message",
-        description="Delete a message by moving it to the Trash folder.",
+        description="Delete a message by moving it to the Trash folder. Refuses if the message is protected (locked or starred when protect-starred is on).",
         annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True),
     )
     @resilient_tool
@@ -338,6 +338,11 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
                 if not row:
                     return err("NOT_FOUND", "Message not found")
                 d = _row_to_dict(row)
+                from app.shared.models.core import CustomerSettings
+                from app.modules.mail.services.protection import message_is_protected
+                settings = CustomerSettings.query.filter_by(customer_id=ctx["customer_id"]).first()
+                if message_is_protected(_parse_flags(d.get("flags")), settings):
+                    return err("PROTECTED", "This message is protected from deletion. Unstar it or remove its lock first.")
             finally:
                 conn.close()
             account, domain, secret = _get_account_and_secret(aid, dek, flask_app)
@@ -364,7 +369,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
     @mcp.tool(
         name="mail_update_flags",
         title="Update Message Flags",
-        description="Update read or flagged status on a message.",
+        description="Update read, flagged, or locked status on a message.",
         annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
     )
     @resilient_tool
@@ -372,9 +377,11 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         message_id: Annotated[int, Field(description="ID of the message to update")],
         read: Annotated[bool | None, Field(description="Set read status (true = read, false = unread)")] = None,
         flagged: Annotated[bool | None, Field(description="Set flagged/starred status")] = None,
+        locked: Annotated[bool | None, Field(description="Set delete-protection lock ($Locked) on the message")] = None,
         account_id: _AccId = None,
     ) -> str:
         ctx, aid, dek = resolve_write(flask_app, "mail", account_id)
+        from app.modules.mail.services.protection import LOCKED_KEYWORD
         with flask_app.app_context():
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
@@ -388,6 +395,8 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
                     flags = _merge_flag(flags, "\\Seen", read)
                 if flagged is not None:
                     flags = _merge_flag(flags, "\\Flagged", flagged)
+                if locked is not None:
+                    flags = _merge_flag(flags, LOCKED_KEYWORD, locked)
                 update_flags(conn, message_id, flags)
             finally:
                 conn.close()
@@ -400,6 +409,8 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
                     set_flag(client, d.get("uid"), "\\Seen", add=read)
                 if flagged is not None:
                     set_flag(client, d.get("uid"), "\\Flagged", add=flagged)
+                if locked is not None:
+                    set_flag(client, d.get("uid"), LOCKED_KEYWORD, add=locked)
             except Exception:
                 _mail_logger.warning("IMAP flag sync failed for message_id=%s uid=%s", message_id, d.get("uid"), exc_info=True)
             finally:
@@ -607,12 +618,18 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
             try:
                 from app.modules.mail.services.cache_db import get_message
                 del_items = []
+                from app.shared.models.core import CustomerSettings
+                from app.modules.mail.services.protection import message_is_protected
+                settings = CustomerSettings.query.filter_by(customer_id=ctx["customer_id"]).first()
                 for i, v in enumerate(items):
                     row = get_message(conn, v.message_id)
                     if not row:
                         failed.append({"index": i, "error": {"code": "NOT_FOUND"}})
                         continue
                     d = _row_to_dict(row)
+                    if message_is_protected(_parse_flags(d.get("flags")), settings):
+                        failed.append({"message_id": v.message_id, "error": {"code": "PROTECTED", "message": "Message is protected from deletion"}})
+                        continue
                     del_items.append({"index": i, "uid": d.get("uid"), "folder": d.get("folder", "INBOX"), "message_id": v.message_id})
             finally:
                 conn.close()
@@ -682,9 +699,13 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
                         continue
                     d = _row_to_dict(row)
                     flags = _parse_flags(d.get("flags"))
+                    from app.modules.mail.services.protection import LOCKED_KEYWORD
                     for flag_name, add in v.flags.items():
-                        imap_flag = f"\\{flag_name.capitalize()}"
-                        flags = _merge_flag(flags, imap_flag, add)
+                        if flag_name.lower() == "locked":
+                            flags = _merge_flag(flags, LOCKED_KEYWORD, add)
+                        else:
+                            imap_flag = f"\\{flag_name.capitalize()}"
+                            flags = _merge_flag(flags, imap_flag, add)
                     update_flags(conn, v.message_id, flags)
                     succeeded.append({"message_id": v.message_id})
             finally:
@@ -834,3 +855,139 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
             return err("NOT_FOUND", "Raw message not available")
         text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else raw
         return ok({"mime_type": "message/rfc822", "data": text, "filename": "message.eml"})
+
+    @mcp.tool(
+        name="mail_create_folder",
+        title="Create Mail Folder",
+        description="Create a new mail folder (IMAP CREATE). Idempotent: creating an existing mailbox returns success with created=false. An optional parent nests the folder using the server hierarchy delimiter.",
+        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False, idempotentHint=True),
+    )
+    @resilient_tool
+    async def mail_create_folder(
+        name: Annotated[str, Field(description="Mailbox/folder name to create")],
+        parent: Annotated[str | None, Field(description="Optional parent folder for nesting")] = None,
+        account_id: _AccId = None,
+    ) -> str:
+        folder_name = (name or "").strip()
+        if not folder_name:
+            return err("VALIDATION_ERROR", "'name' is required")
+        parent_name = (parent or "").strip() or None
+        ctx, aid, dek = resolve_write(flask_app, "mail", account_id)
+        import imaplib as _imaplib
+        with flask_app.app_context():
+            account, domain, secret = _get_account_and_secret(aid, dek, flask_app)
+            from app.modules.mail.services.imap_client import (
+                create_folder as imap_create_folder, list_folders, get_folder_delimiter,
+                encode_mailbox_name, safe_logout,
+            )
+            from app.modules.mail.services.cache_db import upsert_folder
+            client = _imap_connect(account, domain, secret)
+            full_name = folder_name
+            try:
+                existing = [f.lower() for f in list_folders(client)]
+                if parent_name:
+                    delim = get_folder_delimiter(client)
+                    full_name = f"{parent_name}{delim}{folder_name}"
+                created = False
+                if full_name.lower() not in existing:
+                    try:
+                        status, _ = imap_create_folder(client, encode_mailbox_name(full_name))
+                        created = status == "OK"
+                    except _imaplib.IMAP4.error as exc:
+                        return err("IMAP_ERROR", f"Failed to create folder: {exc}")
+            finally:
+                safe_logout(client)
+            conn = _get_cache_conn(aid, dek, flask_app)
+            try:
+                upsert_folder(conn, full_name, 0)
+            finally:
+                conn.close()
+        from app.shared.ui_events import push_ui_event
+        push_ui_event(ctx["customer_id"], "mail", "folder_created", {"account_id": aid, "folder": full_name})
+        return ok({"id": full_name, "name": full_name, "created": created})
+
+    @mcp.tool(
+        name="mail_rename_folder",
+        title="Rename Mail Folder",
+        description="Rename a mail folder (IMAP RENAME). System folders (INBOX, Sent, Drafts, Trash, Junk, Bookings) cannot be renamed.",
+        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+    )
+    @resilient_tool
+    async def mail_rename_folder(
+        folder_id: Annotated[str, Field(description="Current folder name")],
+        name: Annotated[str, Field(description="New folder name")],
+        account_id: _AccId = None,
+    ) -> str:
+        old_name = (folder_id or "").strip()
+        new_name = (name or "").strip()
+        if not new_name:
+            return err("VALIDATION_ERROR", "'name' is required")
+        from app.modules.mail.services.protection import is_system_folder
+        if is_system_folder(old_name):
+            return err("PROTECTED", "System folders cannot be renamed.")
+        ctx, aid, dek = resolve_write(flask_app, "mail", account_id)
+        import imaplib as _imaplib
+        with flask_app.app_context():
+            account, domain, secret = _get_account_and_secret(aid, dek, flask_app)
+            from app.modules.mail.services.imap_client import rename_folder as imap_rename_folder, encode_mailbox_name, safe_logout
+            from app.modules.mail.services.cache_db import rename_folder_in_cache
+            client = _imap_connect(account, domain, secret)
+            try:
+                try:
+                    status, _ = imap_rename_folder(client, encode_mailbox_name(old_name), encode_mailbox_name(new_name))
+                    if status != "OK":
+                        return err("IMAP_ERROR", "Failed to rename folder")
+                except _imaplib.IMAP4.error as exc:
+                    return err("IMAP_ERROR", f"Failed to rename folder: {exc}")
+            finally:
+                safe_logout(client)
+            conn = _get_cache_conn(aid, dek, flask_app)
+            try:
+                rename_folder_in_cache(conn, old_name, new_name)
+            finally:
+                conn.close()
+        from app.shared.ui_events import push_ui_event
+        push_ui_event(ctx["customer_id"], "mail", "folder_renamed", {"account_id": aid, "old_folder": old_name, "new_folder": new_name})
+        return ok({"id": new_name, "name": new_name})
+
+    @mcp.tool(
+        name="mail_delete_folder",
+        title="Delete Mail Folder",
+        description="Delete a mail folder (IMAP DELETE). System folders and folders marked protected cannot be deleted.",
+        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True),
+    )
+    @resilient_tool
+    async def mail_delete_folder(
+        folder_id: Annotated[str, Field(description="Folder name to delete")],
+        account_id: _AccId = None,
+    ) -> str:
+        folder = (folder_id or "").strip()
+        ctx, aid, dek = resolve_write(flask_app, "mail", account_id)
+        import imaplib as _imaplib
+        with flask_app.app_context():
+            from app.shared.models.core import CustomerSettings
+            from app.modules.mail.services.protection import folder_is_protected
+            settings = CustomerSettings.query.filter_by(customer_id=ctx["customer_id"]).first()
+            if folder_is_protected(settings, folder):
+                return err("PROTECTED", "This folder is protected and cannot be deleted.")
+            account, domain, secret = _get_account_and_secret(aid, dek, flask_app)
+            from app.modules.mail.services.imap_client import delete_folder as imap_delete_folder, encode_mailbox_name, safe_logout
+            from app.modules.mail.services.cache_db import delete_folder_in_cache
+            client = _imap_connect(account, domain, secret)
+            try:
+                try:
+                    status, _ = imap_delete_folder(client, encode_mailbox_name(folder))
+                    if status != "OK":
+                        return err("IMAP_ERROR", "Failed to delete folder")
+                except _imaplib.IMAP4.error as exc:
+                    return err("IMAP_ERROR", f"Failed to delete folder: {exc}")
+            finally:
+                safe_logout(client)
+            conn = _get_cache_conn(aid, dek, flask_app)
+            try:
+                delete_folder_in_cache(conn, folder)
+            finally:
+                conn.close()
+        from app.shared.ui_events import push_ui_event
+        push_ui_event(ctx["customer_id"], "mail", "folder_deleted", {"account_id": aid, "folder": folder})
+        return ok({"id": folder, "deleted": True})

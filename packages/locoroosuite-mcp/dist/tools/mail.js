@@ -9,6 +9,33 @@ export function registerMailTools(server, client) {
         const data = await client.get("/api/v1/mail/folders", client.accountId(account_id));
         return json(data);
     });
+    server.tool("mail_create_folder", "Create a new mail folder. Idempotent: creating an existing mailbox returns success with created=false. Optional parent nests the folder using the server hierarchy delimiter.", {
+        account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
+        name: z.string().describe("Mailbox/folder name to create"),
+        parent: z.string().optional().describe("Optional parent folder for nesting (e.g. parent<delim>name)"),
+    }, async ({ account_id, name, parent }) => {
+        const data = await client.post("/api/v1/mail/folders", {
+            ...client.accountId(account_id),
+            name,
+            parent,
+        });
+        return json(data);
+    });
+    server.tool("mail_rename_folder", "Rename a mail folder. System folders (INBOX, Sent, Drafts, Trash, Junk, Bookings) cannot be renamed.", {
+        account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
+        folder_id: z.string().describe("Current folder name"),
+        name: z.string().describe("New folder name"),
+    }, async ({ account_id, folder_id, name }) => {
+        const data = await client.post(`/api/v1/mail/folders/${encodeURIComponent(folder_id)}/rename`, { ...client.accountId(account_id), name });
+        return json(data);
+    });
+    server.tool("mail_delete_folder", "Delete a mail folder. System folders and folders marked protected cannot be deleted.", {
+        account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
+        folder_id: z.string().describe("Folder name to delete"),
+    }, async ({ account_id, folder_id }) => {
+        const data = await client.delete(`/api/v1/mail/folders/${encodeURIComponent(folder_id)}`, client.accountId(account_id));
+        return json(data);
+    });
     server.tool("mail_list_messages", "List messages in a folder with pagination and optional filters", {
         account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
         folder_id: z.string().describe("Folder ID to list messages from"),
@@ -89,17 +116,20 @@ export function registerMailTools(server, client) {
         const data = await client.delete(`/api/v1/mail/messages/${encodeURIComponent(message_id)}`, client.accountId(account_id));
         return json(data);
     });
-    server.tool("mail_update_flags", "Update read/flagged status of a message", {
+    server.tool("mail_update_flags", "Update read/flagged/locked status of a message", {
         account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
         message_id: z.string().describe("Message ID"),
         read: z.boolean().optional().describe("Mark as read/unread"),
         flagged: z.boolean().optional().describe("Mark as flagged/unflagged"),
-    }, async ({ account_id, message_id, read, flagged }) => {
+        locked: z.boolean().optional().describe("Toggle delete-protection lock ($Locked) on the message"),
+    }, async ({ account_id, message_id, read, flagged, locked }) => {
         const flags = {};
         if (read !== undefined)
             flags.read = read;
         if (flagged !== undefined)
             flags.flagged = flagged;
+        if (locked !== undefined)
+            flags.locked = locked;
         const data = await client.patch(`/api/v1/mail/messages/${encodeURIComponent(message_id)}`, { ...client.accountId(account_id), flags });
         return json(data);
     });
@@ -159,6 +189,7 @@ export function registerMailTools(server, client) {
             flags: z.object({
                 read: z.boolean().optional(),
                 flagged: z.boolean().optional(),
+                locked: z.boolean().optional(),
             }).describe("Flags to set"),
         })).describe("Array of message-flag updates").max(100),
     }, async ({ account_id, items }) => {

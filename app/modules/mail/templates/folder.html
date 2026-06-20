@@ -21,6 +21,7 @@
 
     <div class="space-y-4 text-sm">
       {% set pinned_keys = pinned_lookup or {} %}
+      {% set protected_keys = protected_lookup or {} %}
       {% for section in folder_sections %}
       {% set is_folders_section = section.title|lower == 'folders' %}
       <div class="{{ 'group/folders' if is_folders_section else '' }}">
@@ -70,12 +71,26 @@
                     <circle cx="16" cy="10" r="1.5"></circle>
                   </svg>
                 </button>
-                <div class="folder-actions-menu hidden absolute right-0 mt-1 w-40 rounded-xl border border-slate-200 bg-white py-1 text-xs shadow-lg" data-folder-actions-menu="{{ f }}" role="menu">
+                <div class="folder-actions-menu hidden absolute right-0 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 text-xs shadow-lg" data-folder-actions-menu="{{ f }}" role="menu">
                   <form method="post" action="{{ url_for('mail.toggle_pin_folder', account_id=account.id, folder=f) }}">
                     <button class="w-full px-3 py-1.5 text-left text-slate-600 hover:text-slate-900 hover:bg-slate-50">
                       {{ 'Unpin' if pinned_keys.get(f|lower) else 'Pin' }}
                     </button>
                   </form>
+                  {% set is_system_folder = f|lower in system_folder_keys %}
+                  <form method="post" action="{{ url_for('mail.toggle_protect_folder', account_id=account.id, folder=f) }}">
+                    <button class="w-full px-3 py-1.5 text-left {{ 'text-slate-300' if is_system_folder else 'text-slate-600 hover:text-slate-900 hover:bg-slate-50' }}" {{ 'disabled' if is_system_folder else '' }}>
+                      {{ 'Protected' if is_system_folder else ('Unprotect' if protected_keys.get(f|lower) else 'Protect from delete') }}
+                    </button>
+                  </form>
+                  {% if not is_system_folder %}
+                  <form method="post" action="{{ url_for('mail.rename_folder_route', account_id=account.id, folder=f) }}" data-folder-rename-form="{{ f }}">
+                    <button type="button" class="w-full px-3 py-1.5 text-left text-slate-600 hover:text-slate-900 hover:bg-slate-50" data-folder-rename-trigger="{{ f }}">Rename</button>
+                  </form>
+                  <form method="post" action="{{ url_for('mail.delete_folder_route', account_id=account.id, folder=f) }}" onsubmit="return confirm('Delete folder &quot;{{ f }}&quot; and all its messages?');" data-folder-delete-form="{{ f }}">
+                    <button type="submit" class="w-full px-3 py-1.5 text-left text-red-600 hover:text-red-700 hover:bg-red-50">Delete folder</button>
+                  </form>
+                  {% endif %}
                   <form method="post" action="{{ url_for('mail.mark_all_read', account_id=account.id, folder=f) }}" class="{{ '' if cached_folders.get(f) else 'hidden' }}" data-folder-mark-read="{{ f }}">
                     <button class="w-full px-3 py-1.5 text-left text-slate-600 hover:text-slate-900 hover:bg-slate-50">
                       Mark all read
@@ -791,7 +806,7 @@
       method: 'POST',
       headers: { 'X-Requested-With': 'XMLHttpRequest' },
       body: formData
-    }).then(resp => resp.ok ? resp.json() : null)
+    }).then(resp => resp.json().catch(() => null))
       .then(data => {
         if (!data || !row) {
           if (window.LR) {
@@ -799,9 +814,9 @@
           }
           return;
         }
-        if (data.error) {
+        if (data.error || data.status === 'error') {
           if (window.LR) {
-            window.LR.notifyError(`Action failed: ${data.error}`);
+            window.LR.notifyError(`Action failed: ${data.error || 'Unknown error'}`);
           }
           return;
         }
@@ -832,6 +847,14 @@
           }
           const starBtn = form.querySelector('[data-star-toggle]');
           if (starBtn) starBtn.blur();
+          return;
+        }
+        if (action === 'lock') {
+          const overflowMenu = row.querySelector('[data-overflow-menu]');
+          if (overflowMenu) overflowMenu.classList.add('hidden');
+          if (window.LR) {
+            window.LR.notifySuccess(data.is_locked ? 'Message locked' : 'Message unlocked');
+          }
           return;
         }
         if (action === 'archive' || action === 'delete' || action === 'junk') {

@@ -24,6 +24,10 @@ class FolderListResponse(BaseModel):
     data: list[FolderItem] = Field(..., description="List of folders")
 
 
+class FolderMutationResponse(BaseModel):
+    data: dict = Field(..., description="Result of the folder operation")
+
+
 class MessageItem(BaseModel):
     id: int = Field(..., description="Unique message ID")
     folder: str | None = Field(None, description="Folder containing the message")
@@ -59,6 +63,17 @@ class FolderPath(BaseModel):
     folder: str = Field(..., description="Folder name")
 
 
+class CreateFolderBody(BaseModel):
+    name: str = Field(..., description="Mailbox/folder name to create")
+    parent: str | None = Field(default=None, description="Optional parent folder for nesting")
+    account_id: int | None = Field(default=None, description="Mail account ID (defaults to primary account)")
+
+
+class RenameFolderBody(BaseModel):
+    name: str = Field(..., description="New folder name")
+    account_id: int | None = Field(default=None, description="Mail account ID (defaults to primary account)")
+
+
 class MessagePath(BaseModel):
     message_id: int = Field(..., description="Message ID")
 
@@ -68,7 +83,7 @@ class ThreadPath(BaseModel):
 
 
 class UpdateFlagsBody(BaseModel):
-    flags: dict[str, bool] = Field(..., description="Flags to update, e.g. {\"read\": true, \"flagged\": false}")
+    flags: dict[str, bool] = Field(..., description="Flags to update, e.g. {\"read\": true, \"flagged\": false, \"locked\": true}")
 
 
 class MoveMessageBody(BaseModel):

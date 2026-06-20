@@ -1,7 +1,7 @@
 {
   "name": "locoroosuite-mcp",
-  "version": "0.1.1",
-  "description": "MCP server for LocoRooSuite — translates MCP tool calls into REST API requests",
+  "version": "0.1.2",
+  "description": "MCP server for LocoRooSuite — lets any AI agent (coding assistants, personal assistants, local LLM UIs, automation tools) access your mail, contacts, calendar, and documents via the Model Context Protocol.",
   "type": "module",
   "keywords": [
     "mcp",
@@ -11,7 +11,13 @@
     "imap",
     "carddav",
     "caldav",
+    "calendar",
+    "contacts",
     "ai",
+    "agent",
+    "assistant",
+    "personal-assistant",
+    "automation",
     "locoroosuite",
     "self-hosted"
   ],

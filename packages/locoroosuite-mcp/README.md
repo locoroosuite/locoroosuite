@@ -2,7 +2,7 @@
 
 MCP server for [LocoRooSuite](https://locoroo.net) — the self-hosted email, contacts, calendar, and documents platform built around data sovereignty.
 
-This package lets your AI assistant talk directly to your LocoRooSuite instance. It connects over the Model Context Protocol (MCP) and exposes your mail, contacts, calendar, and documents as tools the AI can use. Read email, send replies, check your calendar, look up a contact, edit a document — all from within your AI client.
+This package lets your AI ag6ent talk directly to your LocoRooSuite instance. It connects over the Model Context Protocol (MCP) and exposes your mail, contacts, calendar, and documents as tools the agent can use. Read email, send replies, check your calendar, look up a contact, edit a document — all from within your agent of choice: a coding assistant (Cursor, Claude Code, opencode), a personal assistant (Goose, Hermes), a local LLM UI (LM Studio, AnythingLLM), or an automation tool (n8n).
 
 A managed hosted version is available at [locoroo.net/suite](https://locoroo.net/suite/) if you don't want to run your own instance. The open-source project is at [codeberg.org/locoroo/locoroosuite](https://codeberg.org/locoroo/locoroosuite).
 
@@ -21,6 +21,25 @@ locoroosuite-mcp --api-url=https://your-instance.locoroo.net --token=lr_your_api
 
 ## Setup guides
 
+`locoroosuite-mcp` works with any agent that can launch a local stdio MCP server. Pick your client:
+
+**General & personal assistants**
+- [Claude Desktop](#claude-desktop) · [Goose](#goose) · [Hermes](#hermes)
+
+**IDEs & code editors**
+- [Cursor](#cursor) · [Windsurf](#windsurf-formerly-codeium) · [Cline](#cline-vs-code-extension) · [Continue](#continue) · [VS Code + GitHub Copilot](#vs-code--github-copilot) · [Zed](#zed) · [Augment Code](#augment-code) · [Roo Code](#roo-code-formerly-roo-cline) · [Kilo Code](#kilo-code) · [JetBrains AI Assistant / Junie](#jetbrains-ai-assistant--junie)
+
+**Terminal & CLI agents**
+- [Claude Code](#claude-code-cli) · [GitHub Copilot CLI](#github-copilot-cli) · [Codex](#codex-openai-cli) · [Gemini CLI](#gemini-cli) · [opencode](#opencode) · [Amazon Q CLI](#amazon-q-cli)
+
+**Local LLM & chat UIs**
+- [LM Studio](#lm-studio) · [AnythingLLM](#anythingllm) · [Cherry Studio](#cherry-studio) · [LibreChat](#librechat)
+
+**Automation**
+- [n8n](#n8n)
+
+Using a cloud/remote-only client (ChatGPT, v0, Replit, OpenClaw)? See [Remote-only clients](#remote-only-clients).
+
 ### Claude Desktop
 
 Open your `claude_desktop_config.json` file (macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`, Windows: `%APPDATA%\Claude\claude_desktop_config.json`) and add:
@@ -37,6 +56,36 @@ Open your `claude_desktop_config.json` file (macOS: `~/Library/Application Suppo
 ```
 
 Restart Claude Desktop after saving. You should see an MCP server indicator (the hammer icon) in the bottom-right of the input box. Click it to verify the tools are loaded.
+
+### Goose
+
+Goose is a general-purpose local agent by Block. The easiest way to add an MCP server is the interactive configurator, which writes the correct entry to `~/.config/goose/config.yaml` for you:
+
+```bash
+goose configure
+```
+
+Choose **Add extension**, then enter:
+
+- Type: **stdio**
+- Name: `locoroosuite`
+- Command: `npx`
+- Args: `-y locoroosuite-mcp --api-url=https://your-instance.locoroo.net --token=lr_your_api_token`
+
+Restart Goose (or run `/extensions reload` in a session) and ask: "use the locoroosuite tool to list my unread emails".
+
+### Hermes
+
+[Hermes Agent](https://hermes-agent.nousresearch.com/) is Nous Research's personal AI assistant (Telegram/Discord/Slack/email/CLI). MCP support ships in the standard install. Edit `~/.hermes/config.yaml` and add the server under `mcp_servers`:
+
+```yaml
+mcp_servers:
+  locoroosuite:
+    command: "npx"
+    args: ["-y", "locoroosuite-mcp", "--api-url=https://your-instance.locoroo.net", "--token=lr_your_api_token"]
+```
+
+Hermes supports `${VAR}` substitution in `args`, so you can keep the token out of the file with `"--token=${LOCOROO_API_TOKEN}"` (set in `~/.hermes/.env`). Run `hermes chat` and Hermes discovers the tools at startup. Reload after a config change with `/reload-mcp`.
 
 ### Cursor
 
@@ -93,6 +142,41 @@ Alternatively, add it directly to your project's `.cursor/mcp.json`:
 }
 ```
 
+### Continue
+
+Continue is an open-source coding agent for VS Code and JetBrains. Add the server to `~/.continue/config.yaml` (create it if missing) under `mcpServers`:
+
+```yaml
+mcpServers:
+  locoroosuite:
+    command: npx
+    args:
+      - "-y"
+      - "locoroosuite-mcp"
+      - "--api-url=https://your-instance.locoroo.net"
+      - "--token=lr_your_api_token"
+```
+
+Reload the VS Code window (or run the **Continue: Reload** command) to pick up the new server.
+
+### VS Code + GitHub Copilot
+
+VS Code's agent mode reads MCP servers from a workspace `.vscode/mcp.json` file. Note the key is **`servers`**, not `mcpServers`:
+
+```json
+{
+  "servers": {
+    "locoroosuite": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "locoroosuite-mcp", "--api-url=https://your-instance.locoroo.net", "--token=lr_your_api_token"]
+    }
+  }
+}
+```
+
+Open Chat in agent mode, select the **locoroosuite** server in the tools menu, and ask Copilot to read or send mail.
+
 ### Zed
 
 Add this to your Zed settings JSON (`~/.config/zed/settings.json` on Linux/macOS):
@@ -119,6 +203,25 @@ Add this to your Zed settings JSON (`~/.config/zed/settings.json` on Linux/macOS
 1. Open Roo Code settings in VS Code
 2. Go to the **MCP Servers** section
 3. Click **Edit MCP Settings** and add the `locoroosuite` entry with the same npx command and args
+
+### Kilo Code
+
+Kilo Code is a VS Code extension (a Cline/Roo Code fork) with the same MCP settings shape.
+
+1. Open Kilo Code settings in VS Code
+2. Go to the **MCP Servers** section
+3. Click **Edit MCP Settings** and add the `locoroosuite` entry using the standard `mcpServers` block:
+
+```json
+{
+  "mcpServers": {
+    "locoroosuite": {
+      "command": "npx",
+      "args": ["-y", "locoroosuite-mcp", "--api-url=https://your-instance.locoroo.net", "--token=lr_your_api_token"]
+    }
+  }
+}
+```
 
 ### JetBrains AI Assistant / Junie
 
@@ -149,22 +252,17 @@ Run `/mcp` in Copilot CLI and add the server, or configure it in your `.github/c
 
 ### Codex (OpenAI CLI)
 
-Add to your Codex MCP configuration:
+Add to your Codex MCP configuration (`~/.codex/config.toml`):
 
-```json
-{
-  "mcpServers": {
-    "locoroosuite": {
-      "command": "npx",
-      "args": ["-y", "locoroosuite-mcp", "--api-url=https://your-instance.locoroo.net", "--token=lr_your_api_token"]
-    }
-  }
-}
+```toml
+[mcp_servers.locoroosuite]
+command = "npx"
+args = ["-y", "locoroosuite-mcp", "--api-url=https://your-instance.locoroo.net", "--token=lr_your_api_token"]
 ```
 
 ### Gemini CLI
 
-Add to your Gemini CLI MCP settings:
+Add to your Gemini CLI MCP settings (`~/.gemini/settings.json`):
 
 ```json
 {
@@ -176,6 +274,107 @@ Add to your Gemini CLI MCP settings:
   }
 }
 ```
+
+### opencode
+
+[opencode](https://opencode.ai) uses a single config file (`opencode.json` or `opencode.jsonc`) instead of a per-client `mcp.json`. Add the server under the top-level `mcp` key. Global config lives at `~/.config/opencode/opencode.json`; project-level at `.opencode/opencode.json`.
+
+opencode supports inline `{env:VAR}` interpolation, so prefer this form to keep your token out of the file:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "locoroosuite": {
+      "type": "local",
+      "command": ["npx", "-y", "locoroosuite-mcp", "--api-url=https://your-instance.locoroo.net", "--token={env:LOCOROO_API_TOKEN}"]
+    }
+  }
+}
+```
+
+(Export `LOCOROO_API_TOKEN` in your shell, or paste the literal `lr_...` token if you prefer.) After saving, run `opencode mcp list` to confirm the server connected, then prompt with "use the locoroosuite tool to …".
+
+### Amazon Q CLI
+
+Amazon Q CLI (AWS) reads MCP servers from `~/.aws/amazonq/mcp-config.json`:
+
+```json
+{
+  "mcpServers": {
+    "locoroosuite": {
+      "command": "npx",
+      "args": ["-y", "locoroosuite-mcp", "--api-url=https://your-instance.locoroo.net", "--token=lr_your_api_token"]
+    }
+  }
+}
+```
+
+Restart any running Q session, then `/tools` to confirm the locoroosuite tools loaded.
+
+### LM Studio
+
+LM Studio is a local-model runner with built-in MCP support.
+
+1. Open **Developer** → **Tools** → **MCP Servers**
+2. Click **Add Server**, set transport to **stdio**, name it `locoroosuite`
+3. Command: `npx`
+4. Args: `-y locoroosuite-mcp --api-url=https://your-instance.locoroo.net --token=lr_your_api_token`
+5. Start the server, then in a chat with any loaded model, ask it to use the locoroosuite tools
+
+LM Studio persists the entry in its own bundled `mcp.json`; you only configure it through the UI.
+
+### AnythingLLM
+
+AnythingLLM is a self-hosted "chat with anything" UI.
+
+1. Open **Settings** → **Agent Skills** → **MCP Server**
+2. Add a new **stdio** server named `locoroosuite`
+3. Command: `npx`
+4. Args: `-y locoroosuite-mcp --api-url=https://your-instance.locoroo.net --token=lr_your_api_token`
+5. Save, set an agent to use the @locoroosuite skill, and start chatting
+
+### Cherry Studio
+
+Cherry Studio is a cross-platform desktop chat client that supports stdio MCP.
+
+1. Open **Settings** → **MCP Servers** → **Add**
+2. Transport: **stdio**, name: `locoroosuite`
+3. Command: `npx`
+4. Args: `-y locoroosuite-mcp --api-url=https://your-instance.locoroo.net --token=lr_your_api_token`
+5. Enable the server, then enable it per-model in the chat settings
+
+### LibreChat
+
+LibreChat is a self-hosted ChatGPT-style UI. It launches MCP servers server-side from `librechat.yaml`:
+
+```yaml
+mcpServers:
+  locoroosuite:
+    command: npx
+    args: ["-y", "locoroosuite-mcp", "--api-url=https://your-instance.locoroo.net", "--token=lr_your_api_token"]
+```
+
+Restart LibreChat after saving. The locoroosuite tools appear as available actions for agents that have MCP enabled.
+
+### n8n
+
+n8n is an automation/workflow platform with an **MCP Client** node that can launch stdio servers.
+
+1. Add an **MCP Client** node to a workflow
+2. Set **Transport** to **Command (STDIO)**
+3. Command: `npx`
+4. Arguments: `-y locoroosuite-mcp --api-url=https://your-instance.locoroo.net --token=lr_your_api_token`
+5. The node enumerates the locoroosuite tools as outputs — wire them into the rest of your workflow (e.g. a daily "triage my inbox" flow on a Schedule Trigger)
+
+### Remote-only clients
+
+The following clients support MCP but only over **remote** HTTP/SSE transport — they cannot launch a local `npx` process, so they can't use this package directly. Point them at the **LocoRooSuite Python MCP server** (HTTP/SSE with OAuth 2.1, documented separately) instead, using your instance's `/mcp` URL:
+
+- **ChatGPT** (OpenAI) — remote Connectors / developer mode only; no local stdio.
+- **v0, Replit, Microsoft Copilot Studio, MCPJam** — cloud-hosted, remote MCP only.
+
+> **OpenClaw** is a popular personal AI assistant, but it acts as an MCP **server**, not a client — other agents connect *to* it. It cannot consume `locoroosuite-mcp` as a tool provider, so it isn't listed above.
 
 ## Configuration
 
@@ -188,6 +387,8 @@ All options can be passed as CLI flags or set as environment variables:
 | `--account-id` | `LOCOROO_ACCOUNT_ID` | No | Default account ID if you have multiple email accounts |
 
 You can mix and match — pass `--api-url` as a flag and set the token via an environment variable, or the other way around.
+
+**Keeping the token out of config files.** Several clients support inline environment-variable substitution so you don't paste the secret into a JSON/YAML file: opencode uses `{env:LOCOROO_API_TOKEN}`, Hermes uses `${LOCOROO_API_TOKEN}`, and Codex/JetBrains read from your shell environment automatically. Prefer one of these where available.
 
 ## What it can do
 

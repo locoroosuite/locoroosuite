@@ -820,7 +820,7 @@ U15.53 - No API access for admin/manager roles (customer API tokens only).
 
 U16.1 - `locoroosuite-mcp` is a standalone npm package distributed via npm. It implements an MCP server (Model Context Protocol) that translates MCP tool calls into LocoRoomail REST API (`/api/v1/`) requests. The package is a thin adapter — no business logic.
 
-U16.2 - Transport: stdio (standard MCP stdio transport). The package is run as a local process by the user's AI client (Claude Desktop, Cursor, etc.).
+U16.2 - Transport: stdio (standard MCP stdio transport). The package is run as a local process by any MCP-capable agent — coding assistants (Claude Desktop, Cursor, Claude Code, opencode), personal assistants (Goose, Hermes), local LLM UIs (LM Studio, AnythingLLM), or automation tools (n8n). Per-client setup is documented in the package README; agents that only speak remote HTTP/SSE MCP (ChatGPT, v0, Replit) cannot use this package and are served by the Python MCP server (U17) instead.
 
 U16.3 - The package is published as `locoroosuite-mcp` on npm. Users install and configure it in their AI client settings (e.g., Claude Desktop `claude_desktop_config.json`):
 ```json

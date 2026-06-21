@@ -10,7 +10,7 @@ REMOTE_LC_USER ?=
 REMOTE_LC_PATH ?=
 
 .PHONY: start stop restart rebuild ssh deploy dev-up dev-down dev-build logs mail-api-shell \
-        prod-up prod-down prod-build prod-restart prod-logs dev-setup npm-publish migrate-status \
+        prod-up prod-down prod-build prod-restart prod-logs dev-setup npm-publish migrate-status push \
         lint format typecheck typecheck-mcp typecheck-ratchet check
 
 # --- Development environment ---
@@ -111,6 +111,24 @@ npm-publish:
 	@echo "==> Publishing to npm"
 	cd packages/locoroosuite-mcp && npm publish
 	@echo "==> Done"
+
+# --- Push ---
+
+# push: Push the current branch and all tags to origin, codeberg, and github.
+# Remotes that are not configured on the local clone are skipped (useful for forks).
+# Push order: origin (self-hosted primary) first, then the public mirrors.
+PUSH_REMOTES ?= origin codeberg github
+
+push:
+	@for remote in $(PUSH_REMOTES); do \
+		if git remote get-url $$remote >/dev/null 2>&1; then \
+			echo "==> $$remote: branch + tags"; \
+			git push $$remote && git push $$remote --tags; \
+		else \
+			echo "--> $$remote: not configured, skipping"; \
+		fi; \
+	done
+	@echo "==> Push complete"
 
 # --- Static checks (scoped to files touched vs BASE_REF, default: master) ---
 # See AGENTS.md -> "Static Checks (last step)" for the policy these enforce.

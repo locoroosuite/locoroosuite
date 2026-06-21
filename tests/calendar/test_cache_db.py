@@ -1,6 +1,5 @@
 import tempfile
 import os
-import json
 
 from app.modules.calendar.services.cache_db import open_cache
 

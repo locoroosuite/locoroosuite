@@ -1,7 +1,6 @@
 from unittest.mock import patch, MagicMock
 import json
 
-import pytest
 
 
 MOVE_URL = "/app/mail/message/{account_id}/{message_id}/move"

@@ -1,4 +1,3 @@
-import pytest
 
 from app.modules.mail.utils.sanitize import sanitize_html, wrap_email_html
 from app.modules.mail.controllers.helpers import _rewrite_cid_urls

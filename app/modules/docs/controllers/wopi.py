@@ -1,8 +1,7 @@
-import logging
 import os
 import time
 
-from flask import request, jsonify, Response, current_app
+from flask import request, jsonify, Response
 
 from app.modules.docs.controllers.helpers import docs_bp, logger
 from app.modules.docs.services import wopi_token, cache_db, storage, resync as resync_svc

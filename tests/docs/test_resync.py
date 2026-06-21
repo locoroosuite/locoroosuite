@@ -1,5 +1,3 @@
-import io
-import json
 import os
 import shutil
 import tempfile
@@ -11,6 +9,12 @@ from app.modules.docs.services.templates import empty_odt, empty_ods
 from app.modules.docs.services import storage
 
 _seq = 0
+
+
+def _get_doc(conn, doc_id):
+    row = cache_db.get_document(conn, doc_id)
+    assert row is not None, f"document {doc_id} not recovered"
+    return row
 
 
 def _next_ids():
@@ -66,7 +70,7 @@ class TestResyncDocs:
         count = resync_svc.resync_docs(conn, user_id, account_id)
         assert count == 1
 
-        doc = cache_db.get_document(conn, doc_id)
+        doc = _get_doc(conn, doc_id)
         assert doc is not None
         assert doc["name"] == "Report"
         assert doc["doc_type"] == "odt"
@@ -84,7 +88,7 @@ class TestResyncDocs:
         count = resync_svc.resync_docs(conn, user_id, account_id)
         assert count == 1
 
-        doc = cache_db.get_document(conn, doc_id)
+        doc = _get_doc(conn, doc_id)
         assert doc is not None
         assert doc["deleted_at"] is not None
 
@@ -99,7 +103,7 @@ class TestResyncDocs:
         count = resync_svc.resync_docs(conn, user_id, account_id)
         assert count == 0
 
-        doc = cache_db.get_document(conn, doc_id)
+        doc = _get_doc(conn, doc_id)
         assert doc["name"] == "Old Name"
 
     def test_resync_handles_no_metadata(self, cache_conn):
@@ -111,7 +115,7 @@ class TestResyncDocs:
         count = resync_svc.resync_docs(conn, user_id, account_id)
         assert count == 1
 
-        doc = cache_db.get_document(conn, doc_id)
+        doc = _get_doc(conn, doc_id)
         assert doc is not None
         assert doc["name"] == doc_id[:8]
         assert doc["doc_type"] == "odt"
@@ -147,7 +151,7 @@ class TestResyncDocs:
 
         resync_svc.resync_docs(conn, user_id, account_id)
 
-        doc = cache_db.get_document(conn, doc_id)
+        doc = _get_doc(conn, doc_id)
         assert doc["file_size"] == len(file_data)
 
     def test_resync_preserves_created_at(self, cache_conn):
@@ -163,7 +167,7 @@ class TestResyncDocs:
 
         resync_svc.resync_docs(conn, user_id, account_id)
 
-        doc = cache_db.get_document(conn, doc_id)
+        doc = _get_doc(conn, doc_id)
         assert doc["created_at"] == "2026-01-10 09:00:00"
         assert doc["updated_at"] == "2026-02-15 14:30:00"
 
@@ -175,7 +179,7 @@ class TestResyncDocs:
 
         resync_svc.resync_docs(conn, user_id, account_id)
 
-        doc = cache_db.get_document(conn, doc_id)
+        doc = _get_doc(conn, doc_id)
         assert doc["doc_type"] == "ods"
 
     def test_resync_guesses_pdf_as_drawing(self, cache_conn):
@@ -188,7 +192,7 @@ class TestResyncDocs:
 
         resync_svc.resync_docs(conn, user_id, account_id)
 
-        doc = cache_db.get_document(conn, doc_id)
+        doc = _get_doc(conn, doc_id)
         assert doc is not None
         assert doc["doc_type"] == "odg"
         assert doc["original_format"] == "pdf"
@@ -200,6 +204,79 @@ class TestResyncDocs:
 
         count = resync_svc.resync_docs(conn, user_id, account_id)
         assert count == 0
+
+    def test_resync_preserves_folder_and_tags_odf(self, cache_conn):
+        # A cache wipe must not lose folder/tag organization: the embedded
+        # metadata blob carries folder_path + tags, and resync rebuilds both.
+        from app.modules.docs.services import folders as folders_svc
+        conn, user_id, account_id = cache_conn
+        doc_id = "foldersurv01"
+        template = empty_odt().read()
+        metadata = resync_svc.build_doc_metadata(
+            doc_id, "Report", "odt", account_id, folder_path="Work/Reports", tags=["urgent"],
+        )
+        storage.write_file(user_id, account_id, doc_id, doc_meta.inject_metadata(template, metadata))
+
+        # Simulate a full cache reset.
+        conn.execute("DELETE FROM documents")
+        conn.execute("DELETE FROM folders")
+        conn.commit()
+
+        count = resync_svc.resync_docs(conn, user_id, account_id)
+        assert count == 1
+
+        doc = _get_doc(conn, doc_id)
+        assert doc["folder_path"] == "Work/Reports"
+        assert cache_db.parse_tags(doc["tags"]) == ["urgent"]
+
+        # Folders table is reconstructed from document paths (empty folders lost).
+        paths = sorted(f["path"] for f in folders_svc.list_flat(conn, account_id))
+        assert paths == ["Work", "Work/Reports"]
+
+    def test_resync_preserves_folder_and_tags_sidecar(self, cache_conn):
+        # Non-ODF originals keep folder_path + tags in the meta.json sidecar.
+        conn, user_id, account_id = cache_conn
+        doc_id = "sidecarsv01"
+        metadata = resync_svc.build_doc_metadata(
+            doc_id, "Scan", "odg", account_id, original_format="pdf",
+            folder_path="Inbox", tags=["a", "b"],
+        )
+        storage.write_file(user_id, account_id, doc_id, b"%PDF-1.4 fake pdf body")
+        storage.write_sidecar(user_id, account_id, doc_id, metadata)
+
+        conn.execute("DELETE FROM documents")
+        conn.execute("DELETE FROM folders")
+        conn.commit()
+
+        resync_svc.resync_docs(conn, user_id, account_id)
+
+        doc = _get_doc(conn, doc_id)
+        assert doc["folder_path"] == "Inbox"
+        assert cache_db.parse_tags(doc["tags"]) == ["a", "b"]
+
+    def test_resync_preserves_empty_folders(self, cache_conn):
+        # A manual Sync must NOT wipe the user's empty folders — only a true
+        # cache reset (fresh DB) loses them (U13.90c).
+        from app.modules.docs.services import folders as folders_svc
+        conn, user_id, account_id = cache_conn
+        folders_svc.ensure_folder_path(conn, account_id, "Kept")
+
+        resync_svc.resync_docs(conn, user_id, account_id)
+        paths = [f["path"] for f in folders_svc.list_flat(conn, account_id)]
+        assert "Kept" in paths
+
+    def test_resync_loses_empty_folders_after_reset(self, cache_conn):
+        # After a real cache reset (folders table empty), resync can only
+        # rebuild folders that have documents; empty folders stay gone.
+        from app.modules.docs.services import folders as folders_svc
+        conn, user_id, account_id = cache_conn
+        folders_svc.ensure_folder_path(conn, account_id, "Empty")
+
+        conn.execute("DELETE FROM folders")
+        conn.commit()
+
+        resync_svc.resync_docs(conn, user_id, account_id)
+        assert folders_svc.list_flat(conn, account_id) == []
 
 
 class TestBuildDocMetadata:
@@ -214,6 +291,8 @@ class TestBuildDocMetadata:
             "deleted_at": None,
             "created_at": None,
             "updated_at": None,
+            "folder_path": "",
+            "tags": [],
         }
 
     def test_with_all_fields(self):
@@ -223,6 +302,8 @@ class TestBuildDocMetadata:
             deleted_at="2024-01-01",
             created_at="2024-01-02",
             updated_at="2024-01-03",
+            folder_path="Work/Reports",
+            tags=["urgent", "finance"],
         )
         assert m == {
             "id": "id2",
@@ -233,6 +314,8 @@ class TestBuildDocMetadata:
             "deleted_at": "2024-01-01",
             "created_at": "2024-01-02",
             "updated_at": "2024-01-03",
+            "folder_path": "Work/Reports",
+            "tags": ["urgent", "finance"],
         }
 
 
@@ -252,5 +335,6 @@ class TestInjectMetadataFromDocRow:
 
         file_bytes = storage.read_file(user_id, account_id, doc_id)
         extracted = doc_meta.extract_metadata(file_bytes)
+        assert extracted is not None
         assert extracted["name"] == "Row Doc"
         assert extracted["id"] == doc_id

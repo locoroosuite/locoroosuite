@@ -4,15 +4,12 @@ import base64
 import hashlib
 import json
 import secrets
-import time
 
 import jwt as pyjwt
 import pytest
 from cryptography.hazmat.primitives import serialization
-from flask import url_for
 
-from app.shared.db import db as _db
-from app.shared.models.oauth import OAuthAuthorizationCode, OAuthClient
+from app.shared.models.oauth import OAuthClient
 from app.shared.oauth import get_public_key, _get_issuer
 
 
@@ -568,7 +565,7 @@ class TestOAuthJWKSVerification:
         assert jwks_resp.status_code == 200
         jwks = json.loads(jwks_resp.data)
 
-        from jwt import PyJWKClient, PyJWK
+        from jwt import PyJWK
         jwk_data = jwks["keys"][0]
         jwk_obj = PyJWK(jwk_data)
 

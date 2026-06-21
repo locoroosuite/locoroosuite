@@ -153,7 +153,7 @@ def _find_customer_id(html, email):
     email_pos = html.find(email)
     if email_pos == -1:
         return None
-    before = html[:email_pos]
+    html[:email_pos]
     after = html[email_pos:]
     matches = re.findall(r"/admin/customers/(\d+)/toggle", after)
     if matches:

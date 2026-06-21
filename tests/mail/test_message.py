@@ -5,7 +5,6 @@ from email.mime.multipart import MIMEMultipart
 from email import encoders
 import json
 
-import pytest
 
 
 MOVE_URL = "/app/mail/message/{account_id}/{message_id}/move"
@@ -277,7 +276,6 @@ class TestMessageView:
         mock_conn = MagicMock()
         with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
              patch("app.modules.mail.controllers.message.get_message") as mock_get, \
-             patch("app.modules.mail.controllers.message._parse_flags") as mock_parse, \
              patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt, \
              patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap, \
              patch("app.modules.mail.controllers.message.select_folder"), \
@@ -286,7 +284,6 @@ class TestMessageView:
              patch("app.modules.mail.controllers.message._current_undo_action") as mock_current:
             mock_cache.return_value = mock_conn
             mock_get.return_value = MOCK_MSG
-            mock_parse.return_value = []
             mock_decrypt.return_value = "secret"
             mock_imap.return_value = (mock_client, MagicMock())
             mock_undo.return_value = "token"
@@ -392,6 +389,148 @@ class TestMessageView:
         assert resp.status_code == 200
         html = resp.data.decode()
         assert "Cc" not in html
+
+
+class TestDeleteProtection:
+    """Message-level delete protection (HLD U5.15a/b). Covers the previously
+    untested Flask web refusal paths in delete_message and move_message_route,
+    the specific actionable error wording (U5.15g), and the unlock flow."""
+
+    def _msg_with_flags(self, flags):
+        msg = dict(MOCK_MSG)
+        msg["flags"] = json.dumps(flags)
+        return msg
+
+    def _protect_starred_settings(self, protect_starred=True):
+        s = MagicMock()
+        s.protect_starred = protect_starred
+        s.protected_folders = None
+        s.locked_keyword_prefs = None
+        return s
+
+    def test_delete_starred_message_refused(self, app, authed_client):
+        client, user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1/delete"
+        with patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()), \
+             patch("app.modules.mail.controllers.message.get_message", return_value=self._msg_with_flags(["\\Flagged"])), \
+             patch("app.modules.mail.controllers.message._get_or_create_settings", return_value=self._protect_starred_settings()):
+            resp = client.post(url, headers={"X-Requested-With": "XMLHttpRequest"})
+        assert resp.status_code == 409
+        data = json.loads(resp.data)
+        assert data["status"] == "error"
+        assert data["code"] == "PROTECTED"
+        assert "starred" in data["error"].lower()
+        assert "unstar" in data["error"].lower()
+
+    def test_delete_locked_message_refused(self, app, authed_client):
+        client, user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1/delete"
+        with patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()), \
+             patch("app.modules.mail.controllers.message.get_message", return_value=self._msg_with_flags(["$Locked"])), \
+             patch("app.modules.mail.controllers.message._get_or_create_settings", return_value=self._protect_starred_settings()):
+            resp = client.post(url, headers={"X-Requested-With": "XMLHttpRequest"})
+        assert resp.status_code == 409
+        data = json.loads(resp.data)
+        assert data["code"] == "PROTECTED"
+        assert "locked" in data["error"].lower()
+        assert "unlock" in data["error"].lower()
+
+    def test_delete_starred_and_locked_message_refused(self, app, authed_client):
+        client, user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1/delete"
+        with patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()), \
+             patch("app.modules.mail.controllers.message.get_message", return_value=self._msg_with_flags(["\\Flagged", "$Locked"])), \
+             patch("app.modules.mail.controllers.message._get_or_create_settings", return_value=self._protect_starred_settings()):
+            resp = client.post(url, headers={"X-Requested-With": "XMLHttpRequest"})
+        assert resp.status_code == 409
+        data = json.loads(resp.data)
+        assert data["code"] == "PROTECTED"
+        assert "starred" in data["error"].lower()
+        assert "locked" in data["error"].lower()
+
+    def test_delete_refused_message_omits_retry_guidance(self, app, authed_client):
+        # HLD U5.15g: protection errors must not suggest a retry.
+        client, user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1/delete"
+        with patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()), \
+             patch("app.modules.mail.controllers.message.get_message", return_value=self._msg_with_flags(["\\Flagged"])), \
+             patch("app.modules.mail.controllers.message._get_or_create_settings", return_value=self._protect_starred_settings()):
+            resp = client.post(url, headers={"X-Requested-With": "XMLHttpRequest"})
+        data = json.loads(resp.data)
+        assert "retry" not in data["error"].lower()
+
+    def test_starred_not_protected_when_policy_disabled(self, app, authed_client):
+        client, user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1/delete"
+        with patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()), \
+             patch("app.modules.mail.controllers.message.get_message", return_value=self._msg_with_flags(["\\Flagged"])), \
+             patch("app.modules.mail.controllers.message._get_or_create_settings", return_value=self._protect_starred_settings(protect_starred=False)), \
+             patch("app.modules.mail.controllers.message.decrypt_with_key", return_value="secret"), \
+             patch("app.modules.mail.controllers.message._imap_for_account", return_value=(MagicMock(), MagicMock())), \
+             patch("app.modules.mail.controllers.message.select_folder"), \
+             patch("app.modules.mail.controllers.message.move_message"), \
+             patch("app.modules.mail.controllers.message._set_undo_action", return_value="token"), \
+             patch("app.modules.mail.controllers.message._current_undo_action", return_value=None):
+            resp = client.post(url, headers={"X-Requested-With": "XMLHttpRequest"})
+        assert resp.status_code == 200
+        assert json.loads(resp.data)["status"] == "ok"
+
+    def test_move_to_trash_starred_refused(self, app, authed_client):
+        client, user_id, account_id = authed_client
+        url = MOVE_URL.format(account_id=account_id, message_id=1)
+        with patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()), \
+             patch("app.modules.mail.controllers.message.get_message", return_value=self._msg_with_flags(["\\Flagged"])), \
+             patch("app.modules.mail.controllers.message._get_or_create_settings", return_value=self._protect_starred_settings()):
+            resp = client.post(url, data={"destination": "Trash"}, headers={"X-Requested-With": "XMLHttpRequest"})
+        assert resp.status_code == 409
+        data = json.loads(resp.data)
+        assert data["code"] == "PROTECTED"
+        assert "unstar" in data["error"].lower()
+
+    def test_move_to_real_folder_allowed_when_starred(self, app, authed_client):
+        # U5.15d: reorganizing (move to a non-Trash folder) stays allowed.
+        client, user_id, account_id = authed_client
+        url = MOVE_URL.format(account_id=account_id, message_id=1)
+        mock_client = MagicMock()
+        mock_client.select.return_value = ("OK", [b"1"])
+        mock_client._quote = lambda x: x
+        with patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()), \
+             patch("app.modules.mail.controllers.message.get_message", return_value=self._msg_with_flags(["\\Flagged"])), \
+             patch("app.modules.mail.controllers.message._get_or_create_settings", return_value=self._protect_starred_settings()), \
+             patch("app.modules.mail.controllers.message.decrypt_with_key", return_value="secret"), \
+             patch("app.modules.mail.controllers.message._imap_for_account", return_value=(mock_client, MagicMock())), \
+             patch("app.modules.mail.controllers.message.select_folder"), \
+             patch("app.modules.mail.controllers.message.move_message"):
+            resp = client.post(url, data={"destination": "Projects"}, headers={"X-Requested-With": "XMLHttpRequest"})
+        assert resp.status_code == 200
+        assert json.loads(resp.data)["destination"] == "Projects"
+
+
+class TestLockUnlock:
+    def test_lock_unlock_removes_locked_keyword(self, app, authed_client):
+        # The previously-untested unlock half of the /lock endpoint.
+        client, user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1/lock"
+        msg = dict(MOCK_MSG)
+        msg["flags"] = json.dumps(["\\Seen", "$Locked"])
+        with patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()), \
+             patch("app.modules.mail.controllers.message.get_message", return_value=msg), \
+             patch("app.modules.mail.controllers.message.decrypt_with_key", return_value="secret"), \
+             patch("app.modules.mail.controllers.message._imap_for_account", return_value=(MagicMock(), MagicMock())), \
+             patch("app.modules.mail.controllers.message.select_folder"), \
+             patch("app.modules.mail.controllers.message.set_flag") as mock_set, \
+             patch("app.modules.mail.controllers.message.update_flags") as mock_update:
+            resp = client.post(url, data={"action": "remove"}, headers={"X-Requested-With": "XMLHttpRequest"})
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data["status"] == "ok"
+        assert data["is_locked"] is False
+        # set_flag must have been asked to REMOVE $Locked
+        assert mock_set.call_args.kwargs.get("add") is False
+        assert "$Locked" in mock_set.call_args.args
+        # cache must reflect the removal
+        updated_flags = mock_update.call_args.args[2]
+        assert "$Locked" not in updated_flags
 
 
 class TestMessageViewDraft:

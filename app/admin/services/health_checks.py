@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import socket
 from typing import Any
-from urllib.parse import urlparse
 
 import requests
 from flask import current_app

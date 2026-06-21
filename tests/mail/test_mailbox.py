@@ -1,7 +1,6 @@
 import json
 from unittest.mock import patch, MagicMock
 
-import pytest
 
 
 def test_mailbox_redirects_to_inbox(authed_client):
@@ -93,6 +92,84 @@ def test_toggle_pin_folder(authed_client):
     client, user_id, account_id = authed_client
     resp = client.post(f"/app/mail/folder/{account_id}/INBOX/pin")
     assert resp.status_code == 302
+
+
+def test_delete_system_folder_refused_as_json(authed_client):
+    # System folders are always protected; the XHR path must return a structured
+    # 409 instead of a full-page redirect so the sidebar indicator is not stranded.
+    client, user_id, account_id = authed_client
+    resp = client.post(
+        f"/app/mail/folder/{account_id}/INBOX/delete",
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    assert resp.status_code == 409
+    data = json.loads(resp.data)
+    assert data["status"] == "error"
+    assert "protected" in data["error"].lower()
+
+
+def test_delete_system_folder_redirects_when_not_xhr(authed_client):
+    client, user_id, account_id = authed_client
+    resp = client.post(f"/app/mail/folder/{account_id}/INBOX/delete")
+    assert resp.status_code == 302
+
+
+def test_delete_user_protected_folder_refused_as_json(authed_client):
+    client, user_id, account_id = authed_client
+    mock_settings = MagicMock()
+    mock_settings.protected_folders = json.dumps(["Projects"])
+    with patch("app.modules.mail.controllers.mailbox._get_or_create_settings", return_value=mock_settings):
+        resp = client.post(
+            f"/app/mail/folder/{account_id}/Projects/delete",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+    assert resp.status_code == 409
+    data = json.loads(resp.data)
+    assert data["status"] == "error"
+    assert "protected" in data["error"].lower()
+
+
+def test_delete_folder_success_returns_redirect_json(authed_client):
+    client, user_id, account_id = authed_client
+    mock_client = MagicMock()
+    with (
+        patch("app.modules.mail.controllers.mailbox.decrypt_with_key", return_value="secret"),
+        patch("app.modules.mail.controllers.mailbox._imap_for_account", return_value=(mock_client, MagicMock())),
+        patch("app.modules.mail.controllers.mailbox.imap_delete_folder"),
+        patch("app.modules.mail.controllers.mailbox.open_cache", return_value=MagicMock()),
+        patch("app.modules.mail.services.cache_db.delete_folder_in_cache"),
+    ):
+        resp = client.post(
+            f"/app/mail/folder/{account_id}/Projects/delete",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert data["status"] == "ok"
+    assert "INBOX" in data["redirect"]
+
+
+def test_toggle_protect_system_folder_refused_as_json(authed_client):
+    client, user_id, account_id = authed_client
+    resp = client.post(
+        f"/app/mail/folder/{account_id}/INBOX/protect",
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    assert resp.status_code == 409
+    data = json.loads(resp.data)
+    assert data["status"] == "error"
+
+
+def test_toggle_protect_user_folder_returns_state(authed_client):
+    client, user_id, account_id = authed_client
+    resp = client.post(
+        f"/app/mail/folder/{account_id}/Projects/protect",
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert data["status"] == "ok"
+    assert data["protected"] is True
 
 
 def test_remove_account(authed_client):
@@ -264,3 +341,82 @@ def test_reset_cache_no_file_still_redirects(authed_client, app):
     resp = client.post(f"/app/mail/reset-cache/{account_id}")
     assert resp.status_code == 302
     assert "INBOX" in resp.headers["Location"]
+
+
+def _badge_row(flagged=True, locked=False):
+    return {
+        "id": 1, "subject": "Hello", "sender": "s@example.com",
+        "sender_display": "s", "sender_tooltip": "s@example.com",
+        "snippet": "snippet", "date": "2025-01-01", "date_ts": 0, "sort_ts": 0,
+        "date_display": "Jan 1", "flags": (["\\Flagged"] if flagged else []) + (["$Locked"] if locked else []),
+        "is_unread": False, "is_flagged": flagged, "folder": "INBOX",
+        "thread_id": "t1", "is_sent": False, "is_draft": False,
+        "recipients_display": "", "is_bounce": False, "bounce_reason": None,
+        "has_attachments": False,
+    }
+
+
+class TestProtectedBadgeRendering:
+    """HLD U5.15h: the message list shows a Protected badge so the protection
+    state is visible before a delete is attempted."""
+
+    def test_badge_shown_for_starred_when_protect_starred_on(self, app, authed_client):
+        client, user_id, account_id = authed_client
+        with app.test_request_context():
+            from flask import render_template
+            html = render_template(
+                "message_list.html",
+                account=MagicMock(id=account_id, email_address="t@example.com"),
+                threads={"Hello": [_badge_row(flagged=True)]},
+                spam_action_enabled=False,
+                lock_action_enabled=True,
+                protect_starred=True,
+                snippet_debug=False,
+            )
+        assert "data-protected-badge" in html
+        assert "Protected" in html
+
+    def test_badge_omitted_for_starred_when_protect_starred_off(self, app, authed_client):
+        client, user_id, account_id = authed_client
+        with app.test_request_context():
+            from flask import render_template
+            html = render_template(
+                "message_list.html",
+                account=MagicMock(id=account_id, email_address="t@example.com"),
+                threads={"Hello": [_badge_row(flagged=True)]},
+                spam_action_enabled=False,
+                lock_action_enabled=True,
+                protect_starred=False,
+                snippet_debug=False,
+            )
+        assert "data-protected-badge" not in html
+
+    def test_badge_shown_for_locked_regardless_of_policy(self, app, authed_client):
+        client, user_id, account_id = authed_client
+        with app.test_request_context():
+            from flask import render_template
+            html = render_template(
+                "message_list.html",
+                account=MagicMock(id=account_id, email_address="t@example.com"),
+                threads={"Hello": [_badge_row(flagged=False, locked=True)]},
+                spam_action_enabled=False,
+                lock_action_enabled=True,
+                protect_starred=False,
+                snippet_debug=False,
+            )
+        assert "data-protected-badge" in html
+
+    def test_badge_omitted_for_plain_message(self, app, authed_client):
+        client, user_id, account_id = authed_client
+        with app.test_request_context():
+            from flask import render_template
+            html = render_template(
+                "message_list.html",
+                account=MagicMock(id=account_id, email_address="t@example.com"),
+                threads={"Hello": [_badge_row(flagged=False, locked=False)]},
+                spam_action_enabled=False,
+                lock_action_enabled=True,
+                protect_starred=True,
+                snippet_debug=False,
+            )
+        assert "data-protected-badge" not in html

@@ -46,7 +46,7 @@ def _get_instructions(record_type: str, status: str, details: str = "", *, domai
         dns_name = f"{dkim_selector}._domainkey.{domain_name}" if dkim_selector and domain_name else "&lt;selector&gt;._domainkey.&lt;your-domain&gt;"
         if status == STATUS_NOT_CONFIGURED:
             if "No DKIM public key" in details:
-                return f'No DKIM signing key exists yet. Generate one in the <a href="#dkim-settings" class="underline font-medium">DKIM signing key</a> section above, then add the resulting TXT record to your DNS.'
+                return 'No DKIM signing key exists yet. Generate one in the <a href="#dkim-settings" class="underline font-medium">DKIM signing key</a> section above, then add the resulting TXT record to your DNS.'
             return f'Add a TXT record at <code class="bg-slate-100 px-1 rounded">{dns_name}</code> with the value from the <a href="#dkim-settings" class="underline font-medium">DKIM signing key</a> section above. This signs outgoing mail and improves deliverability.'
         if status == STATUS_MISMATCH:
             return f'A DKIM TXT record exists but the public key does not match. Copy the correct value from the <a href="#dkim-settings" class="underline font-medium">DKIM signing key</a> section above and update the record at <code class="bg-slate-100 px-1 rounded">{dns_name}</code>.'

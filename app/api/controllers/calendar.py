@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 import uuid as _uuid
-from typing import Any
 
 from flask import g
 
 from app.api.openapi import create_api_blueprint
 from app.api.schemas.common import ErrorResponse, AccountIdQuery
 from app.api.schemas.calendar import (
-    CalendarItem, CalendarListResponse, CalendarPath,
+    CalendarListResponse, CalendarPath,
     DeleteCalendarBody, CreateCalendarBody, UpdateCalendarBody,
-    EventItem, EventListResponse, EventDetailResponse, EventPath,
+    EventListResponse, EventDetailResponse, EventPath,
     ListEventsQuery, SearchEventsQuery, CreateEventBody, UpdateEventBody,
-    FreeBusyBody, BusyEntry, FreeBusyResponse,
+    FreeBusyBody, FreeBusyResponse,
 )
 from app.api.controllers.helpers import (
     api_response, api_paginated, api_error, require_api_token, require_scope,
@@ -23,8 +22,7 @@ from app.modules.calendar.services.cache import get_cache_path
 from app.modules.calendar.services.cache_db import (
     open_cache, get_all_calendars, get_calendar,
     delete_calendar_by_id, get_event, get_events_range,
-    search_events as db_search_events, count_events,
-    get_conflicting_events,
+    search_events as db_search_events, get_conflicting_events,
 )
 from app.shared.icalendar import parse_icalendar, generate_icalendar, extract_uid
 from app.shared.ui_events import push_ui_event

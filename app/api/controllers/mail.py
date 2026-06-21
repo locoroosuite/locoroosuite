@@ -33,7 +33,8 @@ from app.modules.mail.services.cache_db import (
     upsert_folder, rename_folder_in_cache, delete_folder_in_cache,
 )
 from app.modules.mail.services.protection import (
-    LOCKED_KEYWORD, message_is_protected, folder_is_protected, is_system_folder,
+    LOCKED_KEYWORD, folder_is_protected, is_system_folder,
+    protection_reason, protected_delete_message,
 )
 from app.shared.ui_events import push_ui_event
 
@@ -567,9 +568,11 @@ def api_bulk_move(body: BulkMoveBody):
                 failed.append({"index": i, "error": {"code": "NOT_FOUND"}})
                 continue
             d = _row_to_dict(row)
-            if trash_move and message_is_protected(_parse_flags_list(d.get("flags", "")), settings):
-                failed.append({"message_id": mid, "error": {"code": "PROTECTED", "message": "Message is protected from deletion"}})
-                continue
+            if trash_move:
+                reason = protection_reason(_parse_flags_list(d.get("flags", "")), settings)
+                if reason:
+                    failed.append({"message_id": mid, "error": {"code": "PROTECTED", "message": protected_delete_message(reason)}})
+                    continue
             to_move.append({"message_id": mid, "uid": d.get("uid"), "folder": d.get("folder", "INBOX")})
     finally:
         conn.close()
@@ -629,8 +632,9 @@ def api_bulk_delete(body: BulkDeleteBody):
                 failed.append({"index": i, "error": {"code": "NOT_FOUND"}})
                 continue
             d = _row_to_dict(row)
-            if message_is_protected(_parse_flags_list(d.get("flags", "")), settings):
-                failed.append({"message_id": mid, "error": {"code": "PROTECTED", "message": "Message is protected from deletion"}})
+            reason = protection_reason(_parse_flags_list(d.get("flags", "")), settings)
+            if reason:
+                failed.append({"message_id": mid, "error": {"code": "PROTECTED", "message": protected_delete_message(reason)}})
                 continue
             to_delete.append({"message_id": mid, "uid": d.get("uid"), "folder": d.get("folder", "INBOX")})
     finally:
@@ -716,8 +720,9 @@ def api_move_message(path: MessagePath, body: MoveMessageBody):
         d = _row_to_dict(row)
         if (dest_folder or "").strip().lower() == "trash":
             settings = CustomerSettings.query.filter_by(customer_id=g.api_context["customer_id"]).first()
-            if message_is_protected(_parse_flags_list(d.get("flags", "")), settings):
-                return api_error("PROTECTED", "This message is protected from deletion. Unstar it or remove its lock first.", 409)
+            reason = protection_reason(_parse_flags_list(d.get("flags", "")), settings)
+            if reason:
+                return api_error("PROTECTED", protected_delete_message(reason), 409)
         folder = d.get("folder", "INBOX")
         uid = d.get("uid")
     finally:
@@ -754,8 +759,9 @@ def api_delete_message(path: MessagePath):
             return api_error("NOT_FOUND", "Message not found", 404)
         d = _row_to_dict(row)
         settings = CustomerSettings.query.filter_by(customer_id=g.api_context["customer_id"]).first()
-        if message_is_protected(_parse_flags_list(d.get("flags", "")), settings):
-            return api_error("PROTECTED", "This message is protected from deletion. Unstar it or remove its lock first.", 409)
+        reason = protection_reason(_parse_flags_list(d.get("flags", "")), settings)
+        if reason:
+            return api_error("PROTECTED", protected_delete_message(reason), 409)
         folder = d.get("folder", "INBOX")
         uid = d.get("uid")
     finally:

@@ -121,8 +121,7 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data || data.error) {
-          window.LR.notifyError(data && data.error ? data.error : 'Action failed. Please try again.');
-          return;
+          window.LR.notifyError(data && data.error ? data.error : 'Action failed. Please try again.', { suffix: !data || data.code !== 'PROTECTED' });
         }
         if (action === 'flag') {
           updateFlagUI(row, data.is_flagged);

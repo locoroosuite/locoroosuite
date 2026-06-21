@@ -218,3 +218,42 @@ class TestMcpMailMutationTools:
         result = asyncio.run(tools["mail_bulk_delete"].fn(items=[]))
         data = json.loads(result)
         assert data["error"]["code"] == "VALIDATION_ERROR"
+
+    def test_delete_message_refuses_starred(self, mcp_mail):
+        # Previously untested MCP protection path (mail_delete_message).
+        tools = mcp_mail["tools"]
+        # JSON-encoded flags: the literal text must be ["\\Flagged"] so json.loads
+        # yields the list ["\Flagged"] (the real IMAP flag).
+        starred_row = _mock_message_row(1, "Starred", flags='["\\\\Flagged"]')
+        with patch(f"{MAIL}._get_cache_conn", return_value=_mock_conn()):
+            with patch(f"{CACHE_DB}.get_message", return_value=starred_row):
+                result = asyncio.run(tools["mail_delete_message"].fn(message_id=1))
+        data = json.loads(result)
+        assert data["error"]["code"] == "PROTECTED"
+        assert "starred" in data["error"]["message"].lower()
+        assert "unstar" in data["error"]["message"].lower()
+
+    def test_delete_message_refuses_locked(self, mcp_mail):
+        tools = mcp_mail["tools"]
+        locked_row = _mock_message_row(1, "Locked", flags='["$Locked"]')
+        with patch(f"{MAIL}._get_cache_conn", return_value=_mock_conn()):
+            with patch(f"{CACHE_DB}.get_message", return_value=locked_row):
+                result = asyncio.run(tools["mail_delete_message"].fn(message_id=1))
+        data = json.loads(result)
+        assert data["error"]["code"] == "PROTECTED"
+        assert "locked" in data["error"]["message"].lower()
+        assert "unlock" in data["error"]["message"].lower()
+
+    def test_bulk_delete_skips_protected(self, mcp_mail):
+        # Previously untested MCP bulk protection path (mail_bulk_delete).
+        tools = mcp_mail["tools"]
+        starred_row = _mock_message_row(1, "Starred", flags='["\\\\Flagged"]')
+        with patch(f"{MAIL}._get_cache_conn", return_value=_mock_conn()):
+            with patch(f"{CACHE_DB}.get_message", return_value=starred_row):
+                result = asyncio.run(
+                    tools["mail_bulk_delete"].fn(items=[{"message_id": 1}])
+                )
+        data = json.loads(result)["data"]
+        codes = [f["error"]["code"] for f in data["failed"]]
+        assert "PROTECTED" in codes
+        assert data["succeeded"] == []

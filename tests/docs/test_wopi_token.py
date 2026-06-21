@@ -1,7 +1,6 @@
 import json
 import time
 
-import pytest
 
 
 def test_generate_and_validate_token(app):
@@ -38,7 +37,7 @@ def test_validate_token_expired(app):
         payload = validate_token(token)
         assert payload is not None
         payload["exp"] = int(time.time()) - 100
-        header_b64 = token.split(".", 1)[0]
+        token.split(".", 1)[0]
         from app.modules.docs.services.wopi_token import _b64url_encode, _sign
         new_header = _b64url_encode(json.dumps(payload, sort_keys=True).encode())
         new_sig = _sign(new_header, app.config["WOPI_JWT_SECRET"])

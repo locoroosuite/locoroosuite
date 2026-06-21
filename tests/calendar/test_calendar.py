@@ -407,7 +407,7 @@ def test_auto_create_default_calendar(authed_client, app):
             key = get_user_key(user_id)
             conn = open_cache(paths["cache"], key)
 
-            from app.modules.calendar.controllers.views import _sync_calendars_and_events, _get_caldav_config, _get_credentials
+            from app.modules.calendar.controllers.views import _sync_calendars_and_events, _get_caldav_config
             from unittest.mock import patch, MagicMock
 
             from app.shared.models.core import CustomerAccount

@@ -3,24 +3,12 @@ from flask import Flask, session, url_for, redirect, render_template, request
 from app.config import AppConfig
 from app.shared.db import db
 from app.shared.models import core
-from app.shared.models import imports as import_models
-from app.shared.models import oauth as oauth_models
+from app.shared.models import imports as import_models  # noqa: F401 (side-effect: registers models)
+from app.shared.models import oauth as oauth_models  # noqa: F401 (side-effect: registers models)
 from app.shared.logging import configure_logging
 from app.shared.keys import get_user_key
-from app.shared.db_migrations import (
-    ensure_domain_status_column,
-    ensure_customer_settings_spam_action_column,
-    ensure_customer_settings_protection_columns,
-    ensure_import_request_takeout_columns,
-    ensure_domain_carddav_columns,
-    ensure_domain_caldav_columns,
-    ensure_api_columns,
-    ensure_oauth_token_dek,
-    ensure_customer_signup_columns,
-    ensure_domain_mail_api_columns,
-    ensure_domain_dns_config_columns,
-    ensure_user_totp_columns,
-)
+from app.shared.app_migrations import APP_DB_MIGRATIONS
+from app.shared.migrations import run_migrations
 
 import logging
 import os
@@ -184,29 +172,24 @@ def create_app():
                 "error.html",
                 title="Something went wrong",
                 message="An unexpected error occurred. Please try again or refresh the page.",
+                show_cache_reset="active_account_id" in session,
+                account_id=session.get("active_account_id"),
             ), 500
         return {"error": {"code": "INTERNAL_ERROR", "message": "An internal error occurred. Please retry or contact support."}}, 500
 
     with app.app_context():
         db.create_all()
-        ensure_domain_status_column()
-        ensure_customer_settings_spam_action_column()
-        ensure_customer_settings_protection_columns()
-        ensure_import_request_takeout_columns()
-        ensure_domain_carddav_columns()
-        ensure_domain_caldav_columns()
-        ensure_api_columns()
-        ensure_oauth_token_dek()
-        ensure_customer_signup_columns()
-        ensure_domain_mail_api_columns()
-        ensure_domain_dns_config_columns()
-        ensure_user_totp_columns()
+        conn = db.engine.raw_connection()
+        try:
+            run_migrations(conn, APP_DB_MIGRATIONS)
+        finally:
+            conn.close()
 
     from app.workers.manager import WorkerManager
     worker = WorkerManager(app)
     if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         worker.start()
-    app.sync_manager = worker
+    setattr(app, "sync_manager", worker)
 
     from app.shared.cli import register_cli
     register_cli(app)

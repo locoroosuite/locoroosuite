@@ -835,7 +835,7 @@ def save_dav_config(domain_id):
 @admin_bp.route("/domains/<int:domain_id>/accounts", methods=["GET"])
 @require_role("admin")
 def domain_accounts(domain_id):
-    domain = db.get_or_404(Domain, domain_id)
+    db.get_or_404(Domain, domain_id)
     accounts = (
         CustomerAccount.query
         .filter_by(domain_id=domain_id)
@@ -1043,7 +1043,7 @@ def account_reset_password(domain_id, account_id):
 @admin_bp.route("/domains/<int:domain_id>/accounts/<int:account_id>/login-link", methods=["POST"])
 @require_role("admin")
 def account_login_link(domain_id, account_id):
-    domain = db.get_or_404(Domain, domain_id)
+    db.get_or_404(Domain, domain_id)
     account = db.get_or_404(CustomerAccount, account_id)
     if account.domain_id != domain_id:
         return jsonify({"ok": False, "error": "Account does not belong to this domain."}), 400

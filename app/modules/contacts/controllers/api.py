@@ -1,5 +1,4 @@
 import logging
-import uuid
 
 from flask import jsonify, session, request
 

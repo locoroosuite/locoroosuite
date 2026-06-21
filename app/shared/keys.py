@@ -1,4 +1,3 @@
-from collections import defaultdict
 
 
 _user_keys = {}

@@ -2,11 +2,11 @@ import logging
 import json
 from datetime import datetime, timezone as dt_timezone
 
-from flask import render_template, redirect, url_for, session, request, jsonify
+from flask import render_template, redirect, url_for, session, request
 
 from app.shared.auth import require_customer
 from app.shared.db import db
-from app.shared.models.core import CustomerSettings, Domain
+from app.shared.models.core import CustomerSettings
 from app.shared.timezone import COMMON_TIMEZONES, resolve_user_timezone
 from app.modules.calendar.controllers.helpers import (
     calendar_bp,

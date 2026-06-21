@@ -4,8 +4,6 @@ import pytest
 
 from tests.e2e.conftest import skip_if_no_services
 from tests.e2e.services import (
-    admin_session,
-    login_session,
     mailapi_user_exists,
     wait_for,
     E2E_DEFAULT_PASSWORD,

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import json
 
 import pyotp
 
 from app.shared.db import db
-from app.shared.models.core import User, TrustedDevice
+from app.shared.models.core import User
 from app.shared import totp as totp_mod
 
 
@@ -20,7 +19,7 @@ def _make_user(app, email="user@example.com", role="customer"):
 
 
 def test_generate_secret(app):
-    uid = _make_user(app)
+    _make_user(app)
     with app.app_context():
         secret = totp_mod.generate_secret()
         assert isinstance(secret, str)
@@ -30,7 +29,7 @@ def test_generate_secret(app):
 
 
 def test_verify_code_valid(app):
-    uid = _make_user(app)
+    _make_user(app)
     with app.app_context():
         secret = totp_mod.generate_secret()
         code = pyotp.TOTP(secret).now()
@@ -38,7 +37,7 @@ def test_verify_code_valid(app):
 
 
 def test_verify_code_invalid(app):
-    uid = _make_user(app)
+    _make_user(app)
     with app.app_context():
         secret = totp_mod.generate_secret()
         assert totp_mod.verify_code(secret, "000000") is False
@@ -51,7 +50,7 @@ def test_verify_code_empty(app):
 
 
 def test_verify_code_with_spaces(app):
-    uid = _make_user(app)
+    _make_user(app)
     with app.app_context():
         secret = totp_mod.generate_secret()
         code = pyotp.TOTP(secret).now()
@@ -87,7 +86,7 @@ def test_enable_and_disable_2fa(app):
     with app.app_context():
         user = db.session.get(User, uid)
         secret = totp_mod.generate_secret()
-        codes = totp_mod.enable_2fa(user, secret)
+        totp_mod.enable_2fa(user, secret)
 
         assert user.totp_enabled is True
         assert user.totp_secret == secret

@@ -816,7 +816,7 @@
         }
         if (data.error || data.status === 'error') {
           if (window.LR) {
-            window.LR.notifyError(`Action failed: ${data.error || 'Unknown error'}`);
+            window.LR.notifyError(`Action failed: ${data.error || 'Unknown error'}`, { suffix: data.code !== 'PROTECTED' });
           }
           return;
         }
@@ -1257,6 +1257,63 @@
     if (e.key === 'Escape') {
       closeAllFolderMenus();
     }
+  });
+
+  // Folder protect/delete are submitted inline via fetch so failures (e.g.
+  // deleting a protected folder) surface as a non-blocking toast instead of a
+  // full reload that strands the sync indicator on "Syncing...". Rename/pin/
+  // mark-read keep their native form POST behaviour.
+  sidebar.addEventListener('submit', (e) => {
+    if (e.defaultPrevented) {
+      return; // e.g. the delete confirm dialog was cancelled
+    }
+    const form = e.target.closest('form[action$="/protect"], form[data-folder-delete-form]');
+    if (!form) {
+      return;
+    }
+    e.preventDefault();
+    const isDelete = form.hasAttribute('data-folder-delete-form');
+    const button = form.querySelector('button');
+    const actionUrl = form.getAttribute('action') || '';
+    if (button && window.LR) {
+      window.LR.setButtonLoading(button);
+    }
+    fetch(actionUrl, {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      body: new FormData(form),
+    })
+      .then((resp) => resp.json().then((data) => ({ ok: resp.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok || !data || data.status === 'error' || data.error) {
+          const msg = (data && (data.error || data.message)) || 'Action failed.';
+          if (window.LR) {
+            window.LR.notifyError(msg);
+          }
+          return;
+        }
+        if (isDelete) {
+          window.location.href = data.redirect || actionUrl;
+          return;
+        }
+        if (button && typeof data.protected === 'boolean') {
+          button.textContent = data.protected ? 'Unprotect' : 'Protect from delete';
+        }
+        closeAllFolderMenus();
+        if (window.LR) {
+          window.LR.notifySuccess(data.protected ? 'Folder protected from delete' : 'Delete protection removed');
+        }
+      })
+      .catch(() => {
+        if (window.LR) {
+          window.LR.notifyError();
+        }
+      })
+      .finally(() => {
+        if (button && window.LR) {
+          window.LR.clearButtonLoading(button);
+        }
+      });
   });
 
   const renderSpinner = (el, title) => {

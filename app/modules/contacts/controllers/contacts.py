@@ -4,7 +4,6 @@ from math import ceil
 from flask import render_template, redirect, url_for, session, request
 
 from app.shared.auth import require_customer
-from app.shared.models.core import CustomerAccount
 from app.modules.contacts.controllers.helpers import (
     contacts_bp,
     _get_account,

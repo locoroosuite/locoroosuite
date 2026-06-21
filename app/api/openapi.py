@@ -103,11 +103,12 @@ def register_api_app(main_app: Flask) -> None:
         api_app.register_api(contacts.bp)
         api_app.register_api(calendar.bp)
         api_app.register_api(docs.bp)
-        api_app._api_registered = True
+        setattr(api_app, "_api_registered", True)
 
     @main_app.before_request
     def _propagate_sync_manager():
-        if hasattr(main_app, 'sync_manager'):
-            api_app.sync_manager = main_app.sync_manager
+        sync_mgr = getattr(main_app, "sync_manager", None)
+        if sync_mgr is not None:
+            setattr(api_app, "sync_manager", sync_mgr)
 
     main_app.wsgi_app = _ApiMiddleware(main_app.wsgi_app, api_app.wsgi_app)

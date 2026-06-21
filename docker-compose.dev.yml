@@ -72,6 +72,7 @@ services:
     volumes:
       - dovecot-users:/var/lib/dovecot-users
       - maildata:/var/mail/vhosts
+      - dovecot-sieve:/var/lib/dovecot-sieve
       - postfix-spool:/var/spool/postfix
     networks:
       - locoroomail-dev
@@ -135,6 +136,7 @@ services:
 
 volumes:
   dovecot-users:
+  dovecot-sieve:
   postfix-config:
   postfix-spool:
   maildata:

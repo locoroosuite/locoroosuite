@@ -1,4 +1,3 @@
-import re
 import uuid
 
 import pytest
@@ -6,7 +5,6 @@ import requests
 
 from tests.e2e.conftest import skip_if_no_services
 from tests.e2e.services import (
-    APP_URL,
     E2E_DEFAULT_PASSWORD,
     login_session,
     admin_session,

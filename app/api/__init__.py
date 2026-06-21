@@ -1,4 +1,4 @@
-from app.api.openapi import api_app, register_api_app, create_api_blueprint
+from app.api.openapi import register_api_app
 
 
 def register(app):

@@ -2,7 +2,6 @@ import json
 import re
 from unittest.mock import patch, MagicMock
 
-import pytest
 
 from app.modules.mail.utils.sanitize import add_quoted_collapse, wrap_email_html
 from app.modules.mail.services.cache_db import list_thread_messages
@@ -69,7 +68,7 @@ class TestAddQuotedCollapse:
 
 class TestListThreadMessages:
     def test_returns_matching_thread(self, tmp_path):
-        from app.modules.mail.services.cache_db import open_cache, upsert_message, init_cache_schema
+        from app.modules.mail.services.cache_db import upsert_message, init_cache_schema
         import sqlcipher3
 
         db_path = str(tmp_path / "test.db")
@@ -94,7 +93,7 @@ class TestListThreadMessages:
         assert rows[1][6] is not None
 
     def test_empty_result_for_unknown_thread(self, tmp_path):
-        from app.modules.mail.services.cache_db import open_cache, init_cache_schema
+        from app.modules.mail.services.cache_db import init_cache_schema
         import sqlcipher3
 
         db_path = str(tmp_path / "test.db")
@@ -107,7 +106,7 @@ class TestListThreadMessages:
         assert len(rows) == 0
 
     def test_cross_folder_thread(self, tmp_path):
-        from app.modules.mail.services.cache_db import open_cache, upsert_message, init_cache_schema
+        from app.modules.mail.services.cache_db import upsert_message, init_cache_schema
         import sqlcipher3
 
         db_path = str(tmp_path / "test.db")
@@ -132,7 +131,7 @@ class TestListThreadMessages:
 
 class TestLoadThreadForDetail:
     def test_returns_thread_messages_sorted_by_date(self, tmp_path):
-        from app.modules.mail.services.cache_db import open_cache, upsert_message, init_cache_schema
+        from app.modules.mail.services.cache_db import upsert_message, init_cache_schema
         from app.modules.mail.controllers.helpers import _load_thread_for_detail
         import sqlcipher3
 
@@ -156,7 +155,7 @@ class TestLoadThreadForDetail:
         assert result[0]["date_ts"] >= result[1]["date_ts"]
 
     def test_subject_fallback(self, tmp_path):
-        from app.modules.mail.services.cache_db import open_cache, upsert_message, init_cache_schema
+        from app.modules.mail.services.cache_db import upsert_message, init_cache_schema
         from app.modules.mail.controllers.helpers import _load_thread_for_detail
         import sqlcipher3
 
@@ -177,7 +176,7 @@ class TestLoadThreadForDetail:
         assert len(result) == 2
 
     def test_sent_message_identified(self, tmp_path):
-        from app.modules.mail.services.cache_db import open_cache, upsert_message, init_cache_schema
+        from app.modules.mail.services.cache_db import upsert_message, init_cache_schema
         from app.modules.mail.controllers.helpers import _load_thread_for_detail
         import sqlcipher3
 
@@ -201,7 +200,7 @@ class TestLoadThreadForDetail:
         assert sent_msgs[0]["folder"] == "Sent"
 
     def test_deduplicates(self, tmp_path):
-        from app.modules.mail.services.cache_db import open_cache, upsert_message, init_cache_schema
+        from app.modules.mail.services.cache_db import upsert_message, init_cache_schema
         from app.modules.mail.controllers.helpers import _load_thread_for_detail
         import sqlcipher3
 
@@ -219,7 +218,7 @@ class TestLoadThreadForDetail:
         assert len(result) == 1
 
     def test_no_thread_returns_single_message(self, tmp_path):
-        from app.modules.mail.services.cache_db import open_cache, upsert_message, init_cache_schema
+        from app.modules.mail.services.cache_db import upsert_message, init_cache_schema
         from app.modules.mail.controllers.helpers import _load_thread_for_detail
         import sqlcipher3
 
@@ -668,7 +667,7 @@ class TestBuildThreads:
 class TestFolderThreadCollapse:
     def _make_msg(self, idx, is_sent=False):
         return {
-            "id": idx, "subject": f"Re: Thread test",
+            "id": idx, "subject": "Re: Thread test",
             "sender": "sender@test.com",
             "sender_display": "Sender",
             "sender_tooltip": "sender@test.com",
@@ -688,7 +687,7 @@ class TestFolderThreadCollapse:
 
     def test_five_messages_shows_collapse_bar(self, app, authed_client):
         client, user_id, account_id = authed_client
-        msgs = {f"Re: Thread test": [self._make_msg(i) for i in range(1, 6)]}
+        msgs = {"Re: Thread test": [self._make_msg(i) for i in range(1, 6)]}
         with (
             patch("app.modules.mail.controllers.mailbox.open_cache", return_value=MagicMock()),
             patch("app.modules.mail.controllers.mailbox._build_threads", return_value=(msgs, {"total_threads": 1, "total_messages": 5, "current_page": 1, "total_pages": 1, "per_page": 50})),
@@ -706,7 +705,7 @@ class TestFolderThreadCollapse:
 
     def test_four_messages_no_collapse_bar(self, app, authed_client):
         client, user_id, account_id = authed_client
-        msgs = {f"Re: Thread test": [self._make_msg(i) for i in range(1, 5)]}
+        msgs = {"Re: Thread test": [self._make_msg(i) for i in range(1, 5)]}
         with (
             patch("app.modules.mail.controllers.mailbox.open_cache", return_value=MagicMock()),
             patch("app.modules.mail.controllers.mailbox._build_threads", return_value=(msgs, {"total_threads": 1, "total_messages": 4, "current_page": 1, "total_pages": 1, "per_page": 50})),
@@ -723,7 +722,7 @@ class TestFolderThreadCollapse:
 
     def test_eleven_messages_collapse_bar_count(self, app, authed_client):
         client, user_id, account_id = authed_client
-        msgs = {f"Re: Thread test": [self._make_msg(i) for i in range(1, 12)]}
+        msgs = {"Re: Thread test": [self._make_msg(i) for i in range(1, 12)]}
         with (
             patch("app.modules.mail.controllers.mailbox.open_cache", return_value=MagicMock()),
             patch("app.modules.mail.controllers.mailbox._build_threads", return_value=(msgs, {"total_threads": 1, "total_messages": 11, "current_page": 1, "total_pages": 1, "per_page": 50})),

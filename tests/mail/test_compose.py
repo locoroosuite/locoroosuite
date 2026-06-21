@@ -1,6 +1,5 @@
 from unittest.mock import patch, MagicMock
 
-import pytest
 
 from app.shared.models.core import CustomerAccount, Domain
 from app.modules.mail.controllers.helpers import _pending_sends, _pending_sends_lock
@@ -40,7 +39,7 @@ class TestCompose:
         captured_msg = None
         try:
             with patch("app.modules.mail.controllers.compose.decrypt_with_key"), \
-                 patch("app.modules.mail.controllers.compose._start_send_worker") as mock_worker, \
+                 patch("app.modules.mail.controllers.compose._start_send_worker"), \
                  patch("app.modules.mail.controllers.compose._cleanup_pending_sends"):
                 resp = client.post("/app/mail/send", data={
                     "account_id": account_id,
@@ -955,7 +954,7 @@ class TestSendDeletesDraft:
                      patch("app.modules.mail.controllers.helpers._imap_for_account", return_value=(mock_imap, MagicMock())), \
                      patch("app.modules.mail.controllers.helpers.select_folder"), \
                      patch("app.modules.mail.controllers.helpers.delete_message_by_uid") as mock_delete, \
-                     patch("app.modules.mail.controllers.helpers.open_cache", return_value=MagicMock()) as mock_open_cache, \
+                     patch("app.modules.mail.controllers.helpers.open_cache", return_value=MagicMock()), \
                      patch("app.modules.mail.controllers.helpers.delete_messages_by_uids") as mock_cache_delete, \
                      patch("app.modules.mail.controllers.helpers.get_user_key", return_value="key"), \
                      patch("app.modules.mail.controllers.helpers.db.session.get", side_effect=side_effect):
@@ -998,7 +997,6 @@ class TestDraftFlag:
         assert captured_flags == ["\\Draft"]
 
     def test_manual_save_sets_draft_flag(self, app, authed_client):
-        from email import message_from_bytes
 
         client, user_id, account_id = authed_client
         mock_imap_client = MagicMock()

@@ -1,5 +1,5 @@
 import imaplib
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -7,7 +7,6 @@ from app.modules.mail.services.imap_client import select_folder, append_message,
 from app.modules.mail.services.folder_aliases import (
     resolve_folder_name,
     canonical_folder_key,
-    FOLDER_ALIASES,
 )
 from app.modules.mail.services.imap_sync import _resolve_folders
 from app.modules.mail.services.folder_sort import build_folder_sections

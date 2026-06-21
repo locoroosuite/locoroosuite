@@ -38,7 +38,6 @@ def _setup_caldav_domain(app):
 def _create_temp_cache(app, user_id, account_id):
     from app.shared.keys import get_user_key
     from app.modules.calendar.services.cache_db import open_cache
-    from app.modules.calendar.services import cache_db
 
     with app.app_context():
         account = db.session.get(CustomerAccount, account_id)
@@ -275,7 +274,6 @@ class TestRsvpReplySending:
         _setup_caldav_domain(app)
         client, user_id, account_id = authed_client
         from app.modules.calendar.services import cache_db
-        from app.modules.calendar.services.cache_db import open_cache
 
         conn, path, key = _create_temp_cache(app, user_id, account_id)
         cal_id = cache_db.upsert_calendar(conn, "cal-uid-1", "http://localhost:5232/user/cal1/", displayname="Test Cal")

@@ -6,3 +6,22 @@ filterwarnings = [
     "ignore:Exception ignored in:pytest.PytestUnraisableExceptionWarning",
     "ignore:'crypt' is deprecated:DeprecationWarning:passlib",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["venv", "data", "stubs", "packages", "mail-api/venv"]
+
+[tool.ruff.lint]
+# Lint layers complementary to pyright (which handles types).
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "C4", "PIE", "RUF"]
+ignore = [
+    "E501",  # line length is enforced by the formatter
+    "B008",  # function calls in defaults — Flask route/decorator pattern
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402"]  # late imports are common in test setup
+
+[tool.ruff.format]
+quote-style = "double"

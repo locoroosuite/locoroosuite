@@ -85,7 +85,7 @@ tests/                 # Per-module test directories
 2. Create a branch from `main`
 3. Make your changes
 4. Add tests (see testing expectations below)
-5. Run the full test suite and verify zero failures
+5. Run the full test suite and `make check`, verify zero failures and a clean ratchet
 6. Open a PR with a clear description of what changed and why
 
 ### Testing expectations
@@ -102,7 +102,9 @@ For bug fixes: describe which existing tests cover the broken path, whether they
 
 ### Code style
 
-- Python: follow PEP 8, use type hints, run `pyright` on any file you modify (zero errors)
+- Python: follow PEP 8, use type hints. Static checks are mandatory as the last step of any change:
+  - `ruff` (lint + format) must be **clean** on touched files — run `./venv/bin/ruff check --fix <file>` then `./venv/bin/ruff format <file>`, then re-check for 0 issues.
+  - `pyright` (types) must get **strictly cleaner** — the touched file's error+warning count after your change must be less than its state on `master` (or remain 0 if already 0). See `AGENTS.md → Static Checks (last step)` for the full ratchet and the escape hatch for pre-existing errors that would require a large refactor.
 - No bare `except` blocks — every exception handler must re-raise, log with context, or return a structured error
 - Use modern APIs: `db.session.get(Model, id)` not `Model.query.get`, `datetime.now(timezone.utc)` not `datetime.utcnow()`
 - No comments unless the code genuinely needs explanation

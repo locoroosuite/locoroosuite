@@ -4,7 +4,6 @@ import click
 from flask import Flask
 from flask.cli import AppGroup
 
-from app.shared.db import db
 from app.shared.models.core import User
 from app.shared import totp as totp_mod
 

@@ -79,7 +79,60 @@ def message_is_protected(flags: Iterable[str] | None, settings: Any) -> bool:
     A message is protected when it carries the explicit ``$Locked`` keyword, or
     when "protect starred" is enabled and the message is flagged (``\\Flagged``).
     """
+    return protection_reason(flags, settings) is not None
+
+
+def protection_reason(flags: Iterable[str] | None, settings: Any) -> str | None:
+    """Return the active protection reason, or ``None`` if not protected.
+
+    The result is a stable token callers can branch on:
+
+    * ``"locked"``        - the message carries ``$Locked``
+    * ``"starred"``       - the message is ``\\Flagged`` and protect-starred is on
+    * ``"starred+locked"``- both conditions hold
+    * ``None``            - the message is not protected
+
+    ``message_is_protected`` is a thin predicate over this helper so the two
+    answers can never drift apart.
+    """
     flagset = set(flags or [])
-    if LOCKED_KEYWORD in flagset:
-        return True
-    return protect_starred_enabled(settings) and "\\Flagged" in flagset
+    locked = LOCKED_KEYWORD in flagset
+    starred = protect_starred_enabled(settings) and "\\Flagged" in flagset
+    if locked and starred:
+        return "starred+locked"
+    if locked:
+        return "locked"
+    if starred:
+        return "starred"
+    return None
+
+
+def protected_delete_message(reason: str) -> str:
+    """Build a specific, actionable user-facing message (HLD U5.15g).
+
+    The wording points the user at the ⋯ menu control that resolves the
+    protection, and deliberately omits any "retry" guidance since there is
+    nothing to retry.
+    """
+    if reason == "locked":
+        return (
+            "This message is locked. Click Unlock in the \u22ef menu to allow deletion."
+        )
+    if reason == "starred":
+        return (
+            "This message is starred. Click Unstar in the \u22ef menu to allow deletion."
+        )
+    # starred+locked (or any unexpected value) - resolve both.
+    return (
+        "This message is starred and locked. Unstar and Unlock it in the \u22ef menu "
+        "to allow deletion."
+    )
+
+
+def protected_badge_label(reason: str) -> str:
+    """Short label for the Protected badge tooltip / aria-label (HLD U5.15h)."""
+    if reason == "locked":
+        return "Protected: locked"
+    if reason == "starred":
+        return "Protected: starred"
+    return "Protected: starred and locked"

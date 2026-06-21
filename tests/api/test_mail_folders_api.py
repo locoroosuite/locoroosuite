@@ -246,6 +246,33 @@ class TestLockFlag:
         stored = json.loads(json.loads(client.get(f"/api/v1/mail/messages/{msg_id}", headers=auth_header(token)).data)["data"]["flags"])
         assert "$Locked" in stored
 
+    def test_update_flags_unlock_removes_locked_keyword(self, app, mail_api):
+        # The previously-untested unlock half: locked=False must call
+        # set_flag with add=False and drop $Locked from the cache.
+        client, token, account_id, cache_path = mail_api
+        _set_account_secret(app, account_id)
+        _seed(cache_path)
+        msg_id = json.loads(client.get("/api/v1/mail/folders/INBOX/messages", headers=auth_header(token)).data)["data"][0]["id"]
+        # first lock it so there is something to remove
+        client.patch(f"/api/v1/mail/messages/{msg_id}", json={"flags": {"locked": True}}, headers=auth_header(token))
+        with (
+            patch("app.api.controllers.mail._imap_connect", return_value=MagicMock()),
+            patch("app.modules.mail.services.imap_client.select_folder"),
+            patch("app.modules.mail.services.imap_client.set_flag") as mock_set,
+            patch("app.modules.mail.services.imap_client.safe_logout"),
+        ):
+            resp = client.patch(
+                f"/api/v1/mail/messages/{msg_id}",
+                json={"flags": {"locked": False}},
+                headers=auth_header(token),
+            )
+        assert resp.status_code == 200
+        stored = json.loads(json.loads(resp.data)["data"]["flags"])
+        assert "$Locked" not in stored
+        locked_calls = [c for c in mock_set.call_args_list if c.args[2] == "$Locked"]
+        assert len(locked_calls) == 1
+        assert locked_calls[0].kwargs.get("add") is False
+
 
 class TestDeleteProtection:
     def test_starred_message_refuses_delete(self, app, mail_api):
@@ -255,7 +282,11 @@ class TestDeleteProtection:
         starred_id = next(m["id"] for m in msgs if m["flagged"])
         resp = client.delete(f"/api/v1/mail/messages/{starred_id}", headers=auth_header(token))
         assert resp.status_code == 409
-        assert json.loads(resp.data)["error"]["code"] == "PROTECTED"
+        body = json.loads(resp.data)
+        assert body["error"]["code"] == "PROTECTED"
+        # HLD U5.15g: message must be specific and actionable (mention the active reason)
+        assert "starred" in body["error"]["message"].lower()
+        assert "unstar" in body["error"]["message"].lower()
 
     def test_locked_message_refuses_delete(self, app, mail_api):
         client, token, account_id, cache_path = mail_api
@@ -265,6 +296,10 @@ class TestDeleteProtection:
         client.patch(f"/api/v1/mail/messages/{plain_id}", json={"flags": {"locked": True}}, headers=auth_header(token))
         resp = client.delete(f"/api/v1/mail/messages/{plain_id}", headers=auth_header(token))
         assert resp.status_code == 409
+        body = json.loads(resp.data)
+        assert body["error"]["code"] == "PROTECTED"
+        assert "locked" in body["error"]["message"].lower()
+        assert "unlock" in body["error"]["message"].lower()
 
     def test_bulk_delete_skips_protected(self, app, mail_api):
         client, token, account_id, cache_path = mail_api

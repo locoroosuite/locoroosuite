@@ -2,7 +2,7 @@ from flask import session, request, redirect, url_for, render_template
 
 from app.shared.models.core import CustomerAccount
 from app.shared.keys import get_user_key
-from app.modules.mail.services.cache_db import open_cache, get_message
+from app.modules.mail.services.cache_db import open_cache
 from app.shared.auth import require_customer
 
 from app.modules.mail.controllers.helpers import (

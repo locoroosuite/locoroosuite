@@ -5,7 +5,6 @@ from app.shared.models.core import CustomerAccount
 from app.shared.keys import get_user_key
 from app.shared.timezone import COMMON_TIMEZONES
 from app.modules.mail.services.cache import build_cache_path, purge_cache
-from app.modules.mail.services.cache_db import open_cache
 from app.shared.auth import require_customer
 
 from app.modules.mail.controllers.helpers import (

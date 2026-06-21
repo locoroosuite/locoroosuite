@@ -70,7 +70,11 @@ def message_view(account_id, message_id):
         _format_ics_dates(ics_attachments, settings.timezone)
     from app.shared.pandoc_formats import get_attachment_actions
     attachment_actions = {a["filename"]: get_attachment_actions(a["filename"]) for a in attachments}
-    from app.modules.mail.services.protection import locked_keyword_enabled
+    from app.modules.mail.services.protection import (
+        locked_keyword_enabled,
+        protection_reason,
+    )
+    protected_reason = protection_reason(flags, settings)
     return render_template(
         "message.html",
         message=message,
@@ -82,6 +86,7 @@ def message_view(account_id, message_id):
         flags=flags,
         spam_action_enabled=_spam_action_enabled(settings, account.id),
         lock_action_enabled=locked_keyword_enabled(settings, account.id),
+        protected_reason=protected_reason,
         current_folder=message["folder"],
         move_folders=move_folders,
         thread_messages=thread_messages,
@@ -269,12 +274,13 @@ def move_message_route(account_id, message_id):
             return jsonify({"error": "Message is already in that folder."}), 400
         return redirect(url_for("mail.folder_view", account_id=account_id, folder=destination))
     if destination.strip().lower() == "trash":
-        from app.modules.mail.services.protection import message_is_protected
+        from app.modules.mail.services.protection import protection_reason, protected_delete_message
         settings = _get_or_create_settings(session.get("user_id"))
-        if message_is_protected(_parse_flags(message["flags"]), settings):
-            error_message = "This message is protected from deletion. Unstar it or remove its lock first."
+        reason = protection_reason(_parse_flags(message["flags"]), settings)
+        if reason:
+            error_message = protected_delete_message(reason)
             if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return jsonify({"error": error_message}), 409
+                return jsonify({"error": error_message, "code": "PROTECTED"}), 409
             session["undo_error"] = error_message
             return redirect(url_for("mail.message_view", account_id=account_id, message_id=message_id))
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
@@ -300,11 +306,12 @@ def delete_message(account_id, message_id):
     folder = message["folder"]
     flags = _parse_flags(message["flags"])
     settings = _get_or_create_settings(session.get("user_id"))
-    from app.modules.mail.services.protection import message_is_protected
-    if message_is_protected(flags, settings):
-        error_message = "This message is protected from deletion. Unstar it or remove its lock first."
+    from app.modules.mail.services.protection import protection_reason, protected_delete_message
+    reason = protection_reason(flags, settings)
+    if reason:
+        error_message = protected_delete_message(reason)
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"status": "error", "error": error_message}), 409
+            return jsonify({"status": "error", "error": error_message, "code": "PROTECTED"}), 409
         session["undo_error"] = error_message
         return redirect(url_for("mail.message_view", account_id=account_id, message_id=message_id))
     was_unread = "\\Seen" not in flags

@@ -13,6 +13,7 @@ from pydantic import Field
 from app.mcp.auth import McpAuthError
 from app.mcp.errors import resilient_tool
 from app.mcp.helpers import binary_response, err, ok, ok_paginated, resolve_read, resolve_write
+from app.modules.docs.services.cache_db import parse_tags
 
 _AccId = Annotated[int | None, Field(description="Account ID (uses default account if omitted)")]
 
@@ -42,6 +43,8 @@ def _doc_to_dict(row):
         "size": d.get("file_size", 0),
         "created_at": d.get("created_at", ""),
         "updated_at": d.get("updated_at", ""),
+        "folder_path": d.get("folder_path", ""),
+        "tags": parse_tags(d.get("tags")),
     }
 
 
@@ -123,6 +126,8 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
     async def docs_list_documents(
         type: Annotated[Literal["odt", "ods", "odp"] | None, Field(description="Filter by document type: 'odt', 'ods', or 'odp'")] = None,
         search: Annotated[str | None, Field(description="Search by document name")] = None,
+        folder: Annotated[str | None, Field(description="Filter to documents directly in this folder path (exact match, empty string = root)")] = None,
+        tag: Annotated[str | None, Field(description="Filter to documents carrying this tag")] = None,
         max_results: Annotated[int | None, Field(description="Maximum number of documents to return (1–200, default 50)", ge=1, le=200)] = None,
         account_id: _AccId = None,
     ) -> str:
@@ -131,7 +136,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
                 from app.modules.docs.services.cache_db import list_documents
-                rows = list_documents(conn, account_id=aid)
+                folder_filter = folder if folder is not None else None
+                tag_filter = tag if tag is not None else None
+                rows = list_documents(conn, account_id=aid, folder=folder_filter, tag=tag_filter)
                 items = [_doc_to_dict(r) for r in rows]
                 if type:
                     items = [d for d in items if d["type"] == type]
@@ -178,11 +185,21 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
     async def docs_create_document(
         name: Annotated[str, Field(description="Document name")],
         type: Annotated[Literal["odt", "ods", "odp"], Field(description="Document type: 'odt', 'ods', or 'odp'")],
+        folder: Annotated[str | None, Field(description="Folder path to create the document in (empty/omitted = root)")] = None,
         account_id: _AccId = None,
     ) -> str:
         if type not in ("odt", "ods", "odp"):
             return err("VALIDATION_ERROR", "type must be 'odt', 'ods', or 'odp'")
         ctx, aid, dek = resolve_write(flask_app, "docs", account_id)
+        folder_path = (folder or "").strip().strip("/")
+        if folder_path:
+            from app.modules.docs.services import folders as folders_svc
+            try:
+                for seg in folder_path.split("/"):
+                    folders_svc.validate_folder_name(seg)
+                folders_svc.assert_depth(folder_path)
+            except folders_svc.FolderError as exc:
+                return err("VALIDATION_ERROR", str(exc))
         doc_id = str(uuid.uuid4())
         with flask_app.app_context():
             from app.shared.models.core import CustomerAccount
@@ -190,17 +207,21 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
             account = db.session.get(CustomerAccount, aid)
             if not account:
                 return err("NOT_FOUND", "Account not found")
+            from app.modules.docs.services import folders as folders_svc, doc_meta, resync as resync_svc
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
                 from app.modules.docs.services.cache_db import create_document
-                create_document(conn, doc_id, name, type, account_id=aid)
+                if folder_path:
+                    folders_svc.ensure_folder_path(conn, aid, folder_path)
+                create_document(conn, doc_id, name, type, account_id=aid, folder_path=folder_path)
             finally:
                 conn.close()
             from app.modules.docs.services.templates import empty_odt, empty_ods, empty_odp
             from app.modules.docs.services.storage import write_file
             template_fn = {"odt": empty_odt, "ods": empty_ods, "odp": empty_odp}
-            buf = template_fn[type]()
-            data = buf.read()
+            data = template_fn[type]().read()
+            metadata = resync_svc.build_doc_metadata(doc_id, name, type, aid, folder_path=folder_path)
+            data = doc_meta.inject_metadata(data, metadata)
             write_file(account.customer_id, aid, doc_id, data)
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
@@ -216,7 +237,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
                 conn.close()
         from app.shared.ui_events import push_ui_event
         push_ui_event(ctx["customer_id"], "docs", "document_created", {"account_id": aid, "doc_id": doc_id})
-        return ok(_doc_to_dict(row) if row else {"id": doc_id, "name": name, "type": type, "size": len(data)})
+        return ok(_doc_to_dict(row) if row else {"id": doc_id, "name": name, "type": type, "size": len(data), "folder_path": folder_path})
 
     @mcp.tool(
         name="docs_rename_document",
@@ -676,3 +697,222 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         from app.shared.ui_events import push_ui_event
         push_ui_event(ctx["customer_id"], "docs", "document_converted", {"account_id": aid, "doc_id": new_id})
         return ok(_doc_to_dict(row) if row else {"id": new_id})
+
+    # ------------------------------------------------------------------
+    # Folders
+    # ------------------------------------------------------------------
+
+    @mcp.tool(
+        name="docs_list_folders",
+        title="List Document Folders",
+        description="List all folders for the account (explicit rows plus paths inferred from documents). Read-only.",
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+    )
+    @resilient_tool
+    async def docs_list_folders(
+        account_id: _AccId = None,
+    ) -> str:
+        ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
+        with flask_app.app_context():
+            from app.modules.docs.services import folders as folders_svc
+            conn = _get_cache_conn(aid, dek, flask_app)
+            try:
+                items = folders_svc.list_flat(conn, aid)
+            finally:
+                conn.close()
+        return ok(items)
+
+    @mcp.tool(
+        name="docs_create_folder",
+        title="Create Document Folder",
+        description="Create a folder (and any missing ancestors). Idempotent: creating an existing path succeeds.",
+        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+    )
+    @resilient_tool
+    async def docs_create_folder(
+        name: Annotated[str, Field(description="Folder name (leaf segment)")],
+        parent: Annotated[str | None, Field(description="Parent folder path (empty/omitted = top-level)")] = None,
+        account_id: _AccId = None,
+    ) -> str:
+        ctx, aid, dek = resolve_write(flask_app, "docs", account_id)
+        from app.modules.docs.services import folders as folders_svc
+        try:
+            path = folders_svc.normalize_path((parent or "").strip().strip("/"), name)
+            folders_svc.assert_depth(path)
+        except folders_svc.FolderError as exc:
+            return err("VALIDATION_ERROR", str(exc))
+        with flask_app.app_context():
+            conn = _get_cache_conn(aid, dek, flask_app)
+            try:
+                folders_svc.ensure_folder_path(conn, aid, path)
+            finally:
+                conn.close()
+        return ok({"path": path, "name": folders_svc.leaf_name(path), "parent": (parent or "").strip().strip("/")})
+
+    @mcp.tool(
+        name="docs_rename_folder",
+        title="Rename Document Folder",
+        description="Rename a folder and its entire subtree. Document folder paths are rewritten accordingly.",
+        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+    )
+    @resilient_tool
+    async def docs_rename_folder(
+        path: Annotated[str, Field(description="Existing folder path to rename")],
+        name: Annotated[str, Field(description="New leaf folder name")],
+        account_id: _AccId = None,
+    ) -> str:
+        ctx, aid, dek = resolve_write(flask_app, "docs", account_id)
+        from app.modules.docs.services import folders as folders_svc, resync as resync_svc
+        old_path = (path or "").strip().strip("/")
+        if not old_path:
+            return err("VALIDATION_ERROR", "path is required")
+        try:
+            new_name = folders_svc.validate_folder_name(name)
+        except folders_svc.FolderError as exc:
+            return err("VALIDATION_ERROR", str(exc))
+        new_path = folders_svc.normalize_path(folders_svc.parent_path(old_path), new_name)
+        with flask_app.app_context():
+            conn = _get_cache_conn(aid, dek, flask_app)
+            try:
+                from app.modules.docs.services.cache_db import rename_folder_subtree, subtree_documents
+                rename_folder_subtree(conn, aid, old_path, new_path)
+                for d in subtree_documents(conn, aid, new_path):
+                    if not d.get("deleted_at"):
+                        resync_svc.inject_metadata_from_doc_row(ctx["customer_id"], aid, d)
+            finally:
+                conn.close()
+        return ok({"path": new_path, "name": new_name})
+
+    @mcp.tool(
+        name="docs_delete_folder",
+        title="Delete Document Folder",
+        description="Delete a folder subtree. Contained documents are moved to the deleted folder's parent.",
+        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True),
+    )
+    @resilient_tool
+    async def docs_delete_folder(
+        path: Annotated[str, Field(description="Folder path to delete")],
+        account_id: _AccId = None,
+    ) -> str:
+        ctx, aid, dek = resolve_write(flask_app, "docs", account_id)
+        from app.modules.docs.services import folders as folders_svc, resync as resync_svc
+        target = (path or "").strip().strip("/")
+        if not target:
+            return err("VALIDATION_ERROR", "path is required")
+        parent = folders_svc.parent_path(target)
+        with flask_app.app_context():
+            conn = _get_cache_conn(aid, dek, flask_app)
+            try:
+                from app.modules.docs.services.cache_db import (
+                    subtree_documents, move_subtree_docs_to_parent,
+                    delete_folder_subtree_rows, get_document,
+                )
+                moved = [d for d in subtree_documents(conn, aid, target) if not d.get("deleted_at")]
+                move_subtree_docs_to_parent(conn, aid, target, parent)
+                delete_folder_subtree_rows(conn, aid, target)
+                for d in moved:
+                    doc = get_document(conn, d["id"])
+                    if doc and not doc.get("deleted_at"):
+                        resync_svc.inject_metadata_from_doc_row(ctx["customer_id"], aid, doc)
+            finally:
+                conn.close()
+        return ok({"path": target, "moved_to": parent})
+
+    @mcp.tool(
+        name="docs_move_document",
+        title="Move Document",
+        description="Move a document to a folder (empty/omitted folder = root).",
+        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+    )
+    @resilient_tool
+    async def docs_move_document(
+        document_id: Annotated[str, Field(description="ID of the document to move")],
+        folder: Annotated[str | None, Field(description="Target folder path (empty/omitted = root)")] = None,
+        account_id: _AccId = None,
+    ) -> str:
+        ctx, aid, dek = resolve_write(flask_app, "docs", account_id)
+        from app.modules.docs.services import folders as folders_svc, resync as resync_svc
+        target = (folder or "").strip().strip("/")
+        if target:
+            try:
+                for seg in target.split("/"):
+                    folders_svc.validate_folder_name(seg)
+                folders_svc.assert_depth(target)
+            except folders_svc.FolderError as exc:
+                return err("VALIDATION_ERROR", str(exc))
+        with flask_app.app_context():
+            conn = _get_cache_conn(aid, dek, flask_app)
+            try:
+                from app.modules.docs.services.cache_db import get_document, set_document_folder
+                row = get_document(conn, document_id)
+                if not row or row.get("deleted_at"):
+                    return err("NOT_FOUND", "Document not found")
+                if target:
+                    folders_svc.ensure_folder_path(conn, aid, target)
+                set_document_folder(conn, document_id, target)
+                resync_svc.inject_metadata_from_doc_row(ctx["customer_id"], aid, get_document(conn, document_id))
+                row = get_document(conn, document_id)
+            finally:
+                conn.close()
+        from app.shared.ui_events import push_ui_event
+        push_ui_event(ctx["customer_id"], "docs", "document_moved", {"account_id": aid, "doc_id": document_id, "folder": target})
+        return ok(_doc_to_dict(row) if row else {"id": document_id, "folder_path": target})
+
+    # ------------------------------------------------------------------
+    # Tags
+    # ------------------------------------------------------------------
+
+    @mcp.tool(
+        name="docs_get_tags",
+        title="Get Document Tags",
+        description="Get the tags applied to a document. Read-only.",
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+    )
+    @resilient_tool
+    async def docs_get_tags(
+        document_id: Annotated[str, Field(description="ID of the document")],
+        account_id: _AccId = None,
+    ) -> str:
+        ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
+        with flask_app.app_context():
+            conn = _get_cache_conn(aid, dek, flask_app)
+            try:
+                from app.modules.docs.services.cache_db import get_document, get_document_tags
+                row = get_document(conn, document_id)
+                if not row:
+                    return err("NOT_FOUND", "Document not found")
+                tags = get_document_tags(conn, document_id)
+            finally:
+                conn.close()
+        return ok({"tags": tags})
+
+    @mcp.tool(
+        name="docs_update_tags",
+        title="Update Document Tags",
+        description="Add and/or remove tags on a document. Each tag is max 50 chars.",
+        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+    )
+    @resilient_tool
+    async def docs_update_tags(
+        document_id: Annotated[str, Field(description="ID of the document to tag")],
+        add: Annotated[list[str] | None, Field(description="Tags to add")] = None,
+        remove: Annotated[list[str] | None, Field(description="Tags to remove")] = None,
+        account_id: _AccId = None,
+    ) -> str:
+        ctx, aid, dek = resolve_write(flask_app, "docs", account_id)
+        with flask_app.app_context():
+            from app.modules.docs.services import resync as resync_svc
+            conn = _get_cache_conn(aid, dek, flask_app)
+            try:
+                from app.modules.docs.services.cache_db import get_document, update_document_tags, get_document_tags
+                row = get_document(conn, document_id)
+                if not row or row.get("deleted_at"):
+                    return err("NOT_FOUND", "Document not found")
+                update_document_tags(conn, document_id, add=add or [], remove=remove or [])
+                resync_svc.inject_metadata_from_doc_row(ctx["customer_id"], aid, get_document(conn, document_id))
+                tags = get_document_tags(conn, document_id)
+            finally:
+                conn.close()
+        from app.shared.ui_events import push_ui_event
+        push_ui_event(ctx["customer_id"], "docs", "document_tagged", {"account_id": aid, "doc_id": document_id})
+        return ok({"tags": tags})

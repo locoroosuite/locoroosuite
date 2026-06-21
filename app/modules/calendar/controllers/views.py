@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 from flask import render_template, redirect, url_for, session, request, jsonify
 

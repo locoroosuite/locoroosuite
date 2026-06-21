@@ -1,13 +1,12 @@
 import json
 
-from flask import request, session, g
+from flask import request, g
 
 from app.api.openapi import create_api_blueprint
 from app.api.controllers.helpers import api_response, api_error, require_api_token
 from app.api.schemas.common import ErrorResponse
 from app.api.schemas.accounts import TokenListResponse, TokenPath
-from app.shared.db import db
-from app.shared.models.core import CustomerAccount, ApiToken
+from app.shared.models.core import ApiToken
 from app.shared.audit import log_audit
 
 bp = create_api_blueprint("tokens", "API token management")

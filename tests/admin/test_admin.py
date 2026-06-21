@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import patch, MagicMock
 
 from werkzeug.security import generate_password_hash
@@ -1148,12 +1147,10 @@ def test_admin_toggle_customer_external_no_account(mock_audit, admin_client, app
 
 def test_admin_customers_page_shows_no_account_badge(admin_client, app):
     client, _ = admin_client
-    cust_id = None
     with app.app_context():
         cust = User(email="nobadge@noacc.com", role="customer", is_active=True)
         db.session.add(cust)
         db.session.flush()
-        cust_id = cust.id
         db.session.commit()
 
     resp = client.get("/admin/customers")

@@ -10,7 +10,8 @@ REMOTE_LC_USER ?=
 REMOTE_LC_PATH ?=
 
 .PHONY: start stop restart rebuild ssh deploy dev-up dev-down dev-build logs mail-api-shell \
-        prod-up prod-down prod-build prod-restart prod-logs dev-setup npm-publish
+        prod-up prod-down prod-build prod-restart prod-logs dev-setup npm-publish migrate-status \
+        lint format typecheck typecheck-mcp typecheck-ratchet check
 
 # --- Development environment ---
 
@@ -52,6 +53,17 @@ logs-app:
 
 logs-mail:
 	$(COMPOSE) logs -f dovecot postfix mail-api
+
+# Show applied migrations for the main app DB (inside the app container).
+# Cache DB migrations are per-account and run automatically on open_cache.
+migrate-status:
+	$(COMPOSE) exec app python -c "\
+from app import create_app; from app.shared.db import db; \
+app = create_app(); \
+app.app_context().push(); \
+rows = db.engine.raw_connection().execute('SELECT name, applied_at FROM _schema_migrations ORDER BY name').fetchall(); \
+print('Applied main-DB migrations (%d):' % len(rows)); \
+[print('  %s  %s' % (r[0], r[1])) for r in rows]"
 
 # --- Production targets (docker-compose.prod.yml) ---
 
@@ -99,3 +111,43 @@ npm-publish:
 	@echo "==> Publishing to npm"
 	cd packages/locoroosuite-mcp && npm publish
 	@echo "==> Done"
+
+# --- Static checks (scoped to files touched vs BASE_REF, default: master) ---
+# See AGENTS.md -> "Static Checks (last step)" for the policy these enforce.
+BASE_REF ?= master
+RF := ./venv/bin/ruff
+PYRIGHT := ./venv/bin/pyright
+TOUCHED_PY := $(shell { git diff --name-only --diff-filter=AM $(BASE_REF) -- '*.py' 2>/dev/null; \
+                       git ls-files --others --exclude-standard -- '*.py' 2>/dev/null; } | sort -u)
+
+lint:
+	@if [ -z "$(TOUCHED_PY)" ]; then \
+		echo "lint: no touched .py files vs $(BASE_REF)"; \
+	else \
+		$(RF) check $(TOUCHED_PY); \
+	fi
+
+format:
+	@if [ -z "$(TOUCHED_PY)" ]; then \
+		echo "format: no touched .py files vs $(BASE_REF)"; \
+	else \
+		$(RF) check --fix $(TOUCHED_PY); \
+		$(RF) format $(TOUCHED_PY); \
+	fi
+
+typecheck:
+	@if [ -z "$(TOUCHED_PY)" ]; then \
+		echo "typecheck: no touched .py files vs $(BASE_REF)"; \
+	else \
+		$(PYRIGHT) $(TOUCHED_PY); \
+	fi
+
+typecheck-mcp:
+	npm run build --prefix packages/locoroosuite-mcp
+
+# Enforce the "strictly cleaner" pyright ratchet on touched files.
+typecheck-ratchet:
+	./scripts/typecheck_ratchet.sh $(BASE_REF)
+
+# Convenience: lint + typecheck on touched files.
+check: lint typecheck

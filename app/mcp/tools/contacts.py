@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import uuid
 from typing import Annotated, Any
 
 from flask import Flask

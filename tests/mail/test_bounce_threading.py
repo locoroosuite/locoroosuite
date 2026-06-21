@@ -1,9 +1,7 @@
-import email
 from email.message import Message
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-import pytest
 
 from app.modules.mail.services.imap_sync import _extract_bounce_info, _prepare_message_args
 
@@ -361,7 +359,6 @@ class TestBounceThreadDetail:
 
 class TestBounceSchema:
     def test_bounce_columns_exist(self, tmp_path):
-        from app.modules.mail.services.cache_db import open_cache
         import sqlcipher3
 
         db_path = str(tmp_path / "test.db")
@@ -376,7 +373,7 @@ class TestBounceSchema:
         assert "original_subject" in columns
 
     def test_upsert_and_retrieve_bounce(self, tmp_path):
-        from app.modules.mail.services.cache_db import upsert_message, get_message
+        from app.modules.mail.services.cache_db import upsert_message
         import sqlcipher3
 
         db_path = str(tmp_path / "test.db")

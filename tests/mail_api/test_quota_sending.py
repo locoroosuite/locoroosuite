@@ -17,7 +17,7 @@ InMemoryDovecotManager = _mod.InMemoryDovecotManager
 InMemoryPostfixManager = _mod.InMemoryPostfixManager
 del _spec, _mod
 
-from unittest.mock import patch
+from unittest.mock import patch  # noqa: E402 (must come after dynamic module loading above)
 
 
 @pytest.fixture()

@@ -3,8 +3,6 @@ import os
 import tempfile
 from unittest.mock import patch, MagicMock
 
-from app.shared.models.core import Domain, CustomerAccount
-from app.shared.db import db
 
 
 SAMPLE_ICS_REPLY_ACCEPTED = (
@@ -57,7 +55,7 @@ SAMPLE_ICS_REQUEST = (
 
 def _create_temp_cache():
     from app.modules.calendar.services.cache_db import open_cache
-    import tempfile, os
+    import os
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     key_hex = "0" * 64
@@ -211,7 +209,7 @@ class TestProcessIncomingReply:
             assert attendees[1]["partstat"] == "NEEDS-ACTION"
 
             assert "ACCEPTED" in event["raw_ical"]
-            charlie_line = [l for l in event["raw_ical"].splitlines() if "charlie@example.com" in l][0]
+            charlie_line = [line for line in event["raw_ical"].splitlines() if "charlie@example.com" in line][0]
             assert "NEEDS-ACTION" in charlie_line
         finally:
             conn.close()
@@ -372,7 +370,7 @@ class TestPatchRawIcalAttendee:
         )
         result = _patch_raw_ical_attendee(raw, "bob@example.com", "ACCEPTED")
         assert "PARTSTAT=ACCEPTED" in result
-        charlie_line = [l for l in result.splitlines() if "charlie" in l][0]
+        charlie_line = [line for line in result.splitlines() if "charlie" in line][0]
         assert "NEEDS-ACTION" in charlie_line
 
     def test_patch_empty_ical(self):

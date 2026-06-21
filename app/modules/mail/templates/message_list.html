@@ -1,4 +1,11 @@
-{% macro message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled) %}
+{% macro _protected_pill(reason) %}
+<svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" role="img" aria-label="Protected" title="Protected from deletion ({{ reason }}). Use the &#8943; menu to {{ 'unlock' if reason == 'locked' else ('unstar' if reason == 'starred' else 'unstar and unlock') }} it." data-protected-badge><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V8H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
+{% endmacro %}
+
+{% macro message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred=False) %}
+{% set row_locked = '$Locked' in (msg.flags or []) %}
+{% set row_protected = row_locked or (protect_starred and msg.is_flagged) %}
+{% set row_protected_reason = 'starred and locked' if (row_locked and msg.is_flagged) else ('locked' if row_locked else 'starred') %}
 {% if snippet_debug %}
 {% set preview_url = url_for('mail.message_preview', account_id=account.id, message_id=msg.id, snippet_debug=1) %}
 {% else %}
@@ -17,6 +24,7 @@
         <div class="flex items-center gap-2 min-w-0">
           <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">Delivery failed</span>
           <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
+          {% if row_protected %}{{ _protected_pill(row_protected_reason) }}{% endif %}
           {% if loop.first and msgs|length > 1 %}
           <span class="thread-count text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ msgs|length }}</span>
           {% endif %}
@@ -51,6 +59,7 @@
         <div class="flex items-center gap-2 min-w-0">
           <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Draft</span>
           <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
+          {% if row_protected %}{{ _protected_pill(row_protected_reason) }}{% endif %}
           {% if loop.first and msgs|length > 1 %}
           <span class="thread-count text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ msgs|length }}</span>
           {% endif %}
@@ -88,6 +97,7 @@
       <div class="flex items-center justify-between gap-3 text-[13px]">
         <div class="flex items-center gap-2 min-w-0">
           <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
+          {% if row_protected %}{{ _protected_pill(row_protected_reason) }}{% endif %}
           {% if loop.first and msgs|length > 1 %}
           <span class="thread-count text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ msgs|length }}</span>
           {% endif %}
@@ -126,6 +136,7 @@
       <div class="flex items-center justify-between gap-3 text-[13px]">
         <div class="flex items-center gap-2 min-w-0">
           <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
+          {% if row_protected %}{{ _protected_pill(row_protected_reason) }}{% endif %}
           {% if loop.first and msgs|length > 1 %}
           <span class="thread-count text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ msgs|length }}</span>
           {% endif %}
@@ -189,7 +200,7 @@
       {% set older_count = older_msgs|length %}
 
       {% for msg in msgs[:visible_count] %}
-        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled) }}
+        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred) }}
       {% endfor %}
 
       <div class="border-l-2 border-slate-200">
@@ -202,13 +213,13 @@
 
         <div class="thread-collapse-content bg-slate-50/40 overflow-hidden" data-thread-collapse-content style="max-height: 0; opacity: 0; transition: max-height 0.3s ease-out, opacity 0.2s ease-out;">
           {% for msg in older_msgs %}
-            {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled) }}
+            {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred) }}
           {% endfor %}
         </div>
       </div>
     {% else %}
       {% for msg in msgs %}
-        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled) }}
+        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred) }}
       {% endfor %}
     {% endif %}
   </div>

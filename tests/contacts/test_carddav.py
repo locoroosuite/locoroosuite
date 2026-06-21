@@ -1,6 +1,5 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 
 
 def _make_xml_response(href, etag, vcard_text):

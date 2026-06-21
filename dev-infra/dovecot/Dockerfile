@@ -13,8 +13,8 @@ RUN chmod +x /entrypoint.sh
 
 RUN groupmod -g 5000 vmail || true && \
     usermod -u 5000 -g 5000 -d /var/mail/vhosts -s /usr/sbin/nologin vmail || true && \
-    mkdir -p /var/mail/vhosts /etc/dovecot/users.d && \
-    chown -R vmail:vmail /var/mail/vhosts
+    mkdir -p /var/mail/vhosts /var/lib/dovecot-sieve /etc/dovecot/users.d && \
+    chown -R vmail:vmail /var/mail/vhosts /var/lib/dovecot-sieve
 
 EXPOSE 143 993 110 995 24 2000
 

@@ -75,7 +75,7 @@ def folder_view(account_id, folder):
         pagination["total_messages"],
     )
     from app.modules.mail.services.cache_db import has_completed_sync
-    from app.modules.mail.services.protection import load_protected_folders, locked_keyword_enabled
+    from app.modules.mail.services.protection import load_protected_folders, locked_keyword_enabled, protect_starred_enabled
     accounts, folder_sections, cached_folders, pinned, starred_count, sidebar_warning = _folder_sidebar_context(
         user_id, account, key, conn
     )
@@ -94,6 +94,7 @@ def folder_view(account_id, folder):
         pinned_lookup={name.lower(): True for name in (pinned or [])},
         protected_lookup={name.lower(): True for name in load_protected_folders(settings)},
         lock_action_enabled=locked_keyword_enabled(settings, account.id),
+        protect_starred=protect_starred_enabled(settings),
         is_smart_view=False,
         initial_syncing=initial_syncing,
         has_completed_sync=has_completed_sync(conn),
@@ -113,6 +114,8 @@ def reset_cache(account_id):
     user_id = session.get("user_id")
     account = CustomerAccount.query.filter_by(id=account_id, customer_id=user_id).first_or_404()
     if account.cache_db_path:
+        from app.modules.mail.services.cache_db import clear_cache_schema_memo
+        clear_cache_schema_memo(account.cache_db_path)
         cache_path = Path(account.cache_db_path)
         if cache_path.exists():
             cache_path.unlink()
@@ -136,13 +139,14 @@ def folder_messages(account_id, folder):
     page = request.args.get("page", 1, type=int)
     threads, pagination = _build_threads(conn, folder, timezone_name=settings.timezone, account_email=account.email_address, page=page)
     snippet_debug_enabled = _snippet_debug_enabled()
-    from app.modules.mail.services.protection import locked_keyword_enabled
+    from app.modules.mail.services.protection import locked_keyword_enabled, protect_starred_enabled
     html = render_template(
         "message_list.html",
         account=account,
         threads=threads,
         spam_action_enabled=_spam_action_enabled(settings, account.id),
         lock_action_enabled=locked_keyword_enabled(settings, account.id),
+        protect_starred=protect_starred_enabled(settings),
         snippet_debug=snippet_debug_enabled,
     )
     return jsonify({
@@ -205,14 +209,20 @@ def toggle_pin_folder(account_id, folder):
 @require_customer
 def toggle_protect_folder(account_id, folder):
     from app.modules.mail.services.protection import is_system_folder, load_protected_folders, set_folder_protected
+    is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     if is_system_folder(folder):
-        session["undo_error"] = "System folders are always protected and cannot be changed."
+        msg = "System folders are always protected and cannot be changed."
+        if is_xhr:
+            return jsonify({"status": "error", "error": msg}), 409
+        session["undo_error"] = msg
         return redirect(url_for("mail.folder_view", account_id=account_id, folder=folder))
     settings = _get_or_create_settings(session.get("user_id"))
     protected = load_protected_folders(settings)
     currently_protected = any(p.lower() == folder.lower() for p in protected)
     set_folder_protected(settings, folder, not currently_protected)
     db.session.commit()
+    if is_xhr:
+        return jsonify({"status": "ok", "protected": not currently_protected})
     return redirect(url_for("mail.folder_view", account_id=account_id, folder=folder))
 
 
@@ -254,9 +264,13 @@ def rename_folder_route(account_id, folder):
 @require_customer
 def delete_folder_route(account_id, folder):
     from app.modules.mail.services.protection import folder_is_protected
+    is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     settings = _get_or_create_settings(session.get("user_id"))
     if folder_is_protected(settings, folder):
-        session["undo_error"] = "This folder is protected and cannot be deleted."
+        msg = "This folder is protected and cannot be deleted."
+        if is_xhr:
+            return jsonify({"status": "error", "error": msg}), 409
+        session["undo_error"] = msg
         return redirect(url_for("mail.folder_view", account_id=account_id, folder=folder))
     account = CustomerAccount.query.filter_by(id=account_id, customer_id=session.get("user_id")).first_or_404()
     secret = decrypt_with_key(account.encrypted_secret, get_user_key(session.get("user_id"))) if account.encrypted_secret else None
@@ -266,7 +280,10 @@ def delete_folder_route(account_id, folder):
         imap_delete_folder(client, encode_mailbox_name(folder))
     except Exception:
         logger.exception("folder delete failed account_id=%s folder=%s", account_id, folder)
-        session["undo_error"] = "Folder could not be deleted. Retry or check your connection."
+        msg = "Folder could not be deleted. Retry or check your connection."
+        if is_xhr:
+            return jsonify({"status": "error", "error": msg}), 502
+        session["undo_error"] = msg
         return redirect(url_for("mail.folder_view", account_id=account_id, folder=folder))
     finally:
         safe_logout(client)
@@ -275,6 +292,8 @@ def delete_folder_route(account_id, folder):
         delete_folder_in_cache(conn, folder)
     finally:
         conn.close()
+    if is_xhr:
+        return jsonify({"status": "ok", "redirect": url_for("mail.folder_view", account_id=account_id, folder="INBOX")})
     return redirect(url_for("mail.folder_view", account_id=account_id, folder="INBOX"))
 
 
@@ -334,7 +353,7 @@ def smart_folder(account_id, view):
         user_id, account, key, conn
     )
     send_failure = _consume_send_failure_notice(user_id)
-    from app.modules.mail.services.protection import load_protected_folders, locked_keyword_enabled
+    from app.modules.mail.services.protection import load_protected_folders, locked_keyword_enabled, protect_starred_enabled
     return render_template(
         "folder.html",
         account=account,
@@ -348,6 +367,7 @@ def smart_folder(account_id, view):
         pinned_lookup={name.lower(): True for name in (pinned or [])},
         protected_lookup={name.lower(): True for name in load_protected_folders(settings)},
         lock_action_enabled=locked_keyword_enabled(settings, account.id),
+        protect_starred=protect_starred_enabled(settings),
         is_smart_view=True,
         has_completed_sync=has_completed_sync(conn),
         undo_action=_current_undo_action(),

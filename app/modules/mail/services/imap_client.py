@@ -31,24 +31,33 @@ _UID_RE = re.compile(r"UID (?P<uid>\d+)")
 _INTERNALDATE_RE = re.compile(r'INTERNALDATE\s+"(?P<date>[^"]+)"')
 
 
-def _parse_list_line(line):
+def _parse_list_entry(line):
+    """Parse an IMAP LIST response line into ``(flags, name)``.
+
+    ``flags`` is a set of lower-cased IMAP mailbox flags (e.g.
+    ``{'\\noselect', '\\haschildren'}``); empty when the server's response does
+    not conform to the standard shape. ``name`` is the decoded mailbox name, or
+    ``None`` if nothing could be extracted.
+    """
     try:
         decoded = line.decode()
     except Exception:
         decoded = str(line)
     match = _LIST_RE.match(decoded)
     if match:
+        flags = {f.strip().lower() for f in match.group("flags").split() if f.strip()}
         name = match.group("name").strip()
         if name.startswith('"') and name.endswith('"'):
-            return name[1:-1]
-        return name
+            name = name[1:-1]
+        return flags, name
+    # Fallback parsing for non-conforming servers: flags unknown, best-effort name.
     if ' "' in decoded:
-        parts = decoded.split(' "')
-        name = parts[-1].strip()
-        return name.strip('"')
-    if ")" in decoded:
-        return decoded.split(")", 1)[1].strip().strip('"')
-    return decoded.strip().strip('"')
+        name = decoded.split(' "')[-1].strip().strip('"')
+    elif ")" in decoded:
+        name = decoded.split(")", 1)[1].strip().strip('"')
+    else:
+        name = decoded.strip().strip('"')
+    return set(), (name or None)
 
 
 def list_folders(client):
@@ -59,9 +68,16 @@ def list_folders(client):
     for line in data:
         if not line:
             continue
-        folder = _parse_list_line(line)
-        if folder:
-            folders.append(folder)
+        flags, folder = _parse_list_entry(line)
+        if not folder:
+            continue
+        # Hide virtual/non-selectable mailboxes (e.g. synthesized parents like
+        # Dovecot's "dovecot" produced when the Sieve active-script symlink lands
+        # inside the maildir). Such mailboxes cannot be SELECTed and would only
+        # cause perpetual sync errors.
+        if "\\noselect" in flags or "\\nonexistent" in flags:
+            continue
+        folders.append(folder)
     return folders
 
 

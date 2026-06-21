@@ -25,8 +25,29 @@
         <a href="{{ url_for('mail.folder_view', account_id=account.id, folder=current_folder) }}" class="mt-0.5 flex-shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition" title="Back to {{ current_folder }}" data-back-link>
           <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 0 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10z" clip-rule="evenodd"/></svg>
         </a>
+        {% set is_locked = '$Locked' in (flags or []) %}
+        <form method="post" action="{{ url_for('mail.flag_message', account_id=account.id, message_id=message["id"]) }}" class="message-action mt-0.5 flex-shrink-0" data-action="flag" data-detail-flag data-no-row-nav>
+          <input type="hidden" name="action" value="{{ 'remove' if is_flagged else 'add' }}" />
+          <button type="submit" class="p-1.5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 transition" data-star-toggle aria-label="{{ 'Unstar' if is_flagged else 'Star' }}" title="{{ 'Unstar' if is_flagged else 'Star' }}">
+            <svg class="w-5 h-5 transition-colors {{ 'text-amber-400' if is_flagged else 'text-slate-300 hover:text-amber-400' }}" data-star-icon viewBox="0 0 24 24" fill="{{ 'currentColor' if is_flagged else 'none' }}" stroke="currentColor" stroke-width="{{ '1' if is_flagged else '1.5' }}">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </button>
+        </form>
+        {% if lock_action_enabled %}
+        <form method="post" action="{{ url_for('mail.lock_message', account_id=account.id, message_id=message["id"]) }}" class="message-action mt-0.5 flex-shrink-0" data-action="lock" data-detail-lock data-no-row-nav>
+          <input type="hidden" name="action" value="{{ 'remove' if is_locked else 'add' }}" />
+          <button type="submit" class="p-1.5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 transition" data-lock-toggle aria-label="{{ 'Unlock' if is_locked else 'Lock (protect from delete)' }}" title="{{ 'Unlock' if is_locked else 'Lock (protect from delete)' }}">
+            <svg class="w-5 h-5 transition-colors {{ 'text-slate-600' if is_locked else 'text-slate-300 hover:text-slate-500' }}" data-lock-icon viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V8H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/>
+            </svg>
+          </button>
+        </form>
+        {% endif %}
         <div class="min-w-0 pt-0.5">
-          <h1 class="text-lg font-semibold text-slate-900 truncate">{{ message["subject"] }}</h1>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-lg font-semibold text-slate-900 truncate min-w-0">{{ message["subject"] }}</h1>
+          </div>
           {% if thread_count > 1 %}
           <div class="text-xs text-slate-500 mt-0.5">{{ thread_count }} messages in this conversation</div>
           {% else %}
@@ -49,18 +70,14 @@
         <a id="create-event-btn" href="{{ url_for('calendar.event_new', subject=message["subject"], description=(message["snippet"] or '')[:2000], attendee=message["sender"]) }}" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition hidden">Create event</a>
         {% endif %}
         <form method="post" action="{{ url_for('mail.archive_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="archive">
-          <button class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Archive</button>
+          <button type="submit" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Archive</button>
         </form>
         <form method="post" action="{{ url_for('mail.delete_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="delete">
-          <button class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Delete</button>
+          <button type="submit" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Delete</button>
         </form>
         <div class="relative">
           <button type="button" class="text-[11px] px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition" data-overflow-toggle aria-label="More actions" aria-haspopup="menu" aria-expanded="false">&#8943;</button>
           <div class="absolute right-0 mt-1 py-1 min-w-[170px] rounded-lg border border-slate-200 bg-white shadow-lg hidden z-50" data-overflow-menu role="menu">
-            <form method="post" action="{{ url_for('mail.flag_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="flag">
-              <input type="hidden" name="action" value="{{ 'remove' if is_flagged else 'add' }}" />
-              <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ 'Unstar' if is_flagged else 'Star' }}</button>
-            </form>
             <form method="post" action="{{ url_for('mail.mark_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="mark">
               <input type="hidden" name="action" value="{{ 'read' if is_unread else 'unread' }}" />
               <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ 'Mark as read' if is_unread else 'Mark as unread' }}</button>
@@ -69,12 +86,6 @@
             {% if spam_action_enabled %}
             <form method="post" action="{{ url_for('mail.junk_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="junk">
               <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">Report spam</button>
-            </form>
-            {% endif %}
-            {% if lock_action_enabled %}
-            <form method="post" action="{{ url_for('mail.lock_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="lock">
-              <input type="hidden" name="action" value="{{ 'remove' if '$Locked' in (flags or []) else 'add' }}" />
-              <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ 'Unlock' if '$Locked' in (flags or []) else 'Lock (protect from delete)' }}</button>
             </form>
             {% endif %}
             <div class="border-t border-slate-100 my-1"></div>
@@ -443,7 +454,7 @@
             var sep = url.indexOf("?") >= 0 ? "&" : "?";
             window.location.href = url + sep + "undo_token=" + (data.undo_token || "");
           } else {
-            window.LR.notifyError(data.error || "Move failed. Please try again.");
+            window.LR.notifyError(data.error || "Move failed. Please try again.", { suffix: data.code !== "PROTECTED" });
             window.LR.clearButtonLoading(btnEl);
             closePicker();
           }
@@ -460,7 +471,7 @@
   document.querySelectorAll(".message-action").forEach(function (form) {
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-      var btn = form.querySelector('button[type="submit"]');
+      var btn = form.querySelector('button[type="submit"]') || form.querySelector('button');
       if (btn) window.LR.setButtonLoading(btn);
       var fd = new FormData(form);
       fetch(form.getAttribute("action"), { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" } })
@@ -468,7 +479,7 @@
         .then(function (data) {
           var ok = data.ok || data.status === "ok";
           if (!ok) {
-            window.LR.notifyError(data.error || "Action failed. Please try again.");
+            window.LR.notifyError(data.error || "Action failed. Please try again.", { suffix: data.code !== "PROTECTED" });
             if (btn) window.LR.clearButtonLoading(btn);
             return;
           }
@@ -489,7 +500,14 @@
             if (overflowMenu) overflowMenu.classList.add("hidden");
             if (btn) {
               if (action === "flag") {
-                btn.textContent = data.is_flagged ? "Unstar" : "Star";
+                var starIcon = form.querySelector('[data-star-icon]');
+                if (starIcon) {
+                  starIcon.className = 'w-5 h-5 transition-colors ' + (data.is_flagged ? 'text-amber-400' : 'text-slate-300 hover:text-amber-400');
+                  starIcon.setAttribute('fill', data.is_flagged ? 'currentColor' : 'none');
+                  starIcon.setAttribute('stroke-width', data.is_flagged ? '1' : '1.5');
+                }
+                btn.setAttribute('aria-label', data.is_flagged ? 'Unstar' : 'Star');
+                btn.setAttribute('title', data.is_flagged ? 'Unstar' : 'Star');
                 var hidden = form.querySelector('input[name="action"]');
                 if (hidden) hidden.value = data.is_flagged ? "remove" : "add";
               } else if (action === "mark") {
@@ -497,7 +515,12 @@
                 var hidden = form.querySelector('input[name="action"]');
                 if (hidden) hidden.value = data.is_unread ? "read" : "unread";
               } else if (action === "lock") {
-                btn.textContent = data.is_locked ? "Unlock" : "Lock (protect from delete)";
+                var lockIcon = form.querySelector('[data-lock-icon]');
+                if (lockIcon) {
+                  lockIcon.className = 'w-5 h-5 transition-colors ' + (data.is_locked ? 'text-slate-600' : 'text-slate-300 hover:text-slate-500');
+                }
+                btn.setAttribute('aria-label', data.is_locked ? 'Unlock' : 'Lock (protect from delete)');
+                btn.setAttribute('title', data.is_locked ? 'Unlock' : 'Lock (protect from delete)');
                 var hidden = form.querySelector('input[name="action"]');
                 if (hidden) hidden.value = data.is_locked ? "remove" : "add";
                 window.LR.notifySuccess(data.is_locked ? "Message locked" : "Message unlocked");

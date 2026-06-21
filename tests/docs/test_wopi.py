@@ -2,7 +2,6 @@ import json
 import os
 import tempfile
 
-import pytest
 
 
 def _setup_test_env(app, account_id):

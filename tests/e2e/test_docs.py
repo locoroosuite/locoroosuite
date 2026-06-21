@@ -2,7 +2,6 @@ import re
 import uuid
 from pathlib import Path
 
-import pytest
 
 from tests.e2e.conftest import skip_if_no_services
 

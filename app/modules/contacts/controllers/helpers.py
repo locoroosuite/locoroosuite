@@ -1,7 +1,7 @@
 import logging
 import base64
 
-from flask import Blueprint, session, url_for, current_app
+from flask import Blueprint, session
 
 from cryptography.fernet import Fernet
 

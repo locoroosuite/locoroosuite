@@ -1,6 +1,4 @@
 import json
-import os
-import tempfile
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -401,7 +399,7 @@ class TestCreateUpdateGetDeleteRegression:
                 headers=auth_header(token),
             )
             assert resp.status_code == 201
-            uid = json.loads(resp.data)["data"]["uid"]
+            json.loads(resp.data)["data"]["uid"]
 
             list_resp = client.get("/api/v1/contacts", headers=auth_header(token))
             contacts = json.loads(list_resp.data)["data"]

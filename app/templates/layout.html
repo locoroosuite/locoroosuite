@@ -121,12 +121,13 @@
       const spinner = button.querySelector('.lr-spinner');
       if (spinner) spinner.remove();
     };
-    window.LR.notifyError = (message) => {
+    window.LR.notifyError = (message, opts) => {
       const toast = document.getElementById('action-toast');
       const label = document.getElementById('action-toast-label');
       if (!toast || !label) return;
       let text = message || 'Action failed.';
-      if (!text.includes('retry')) {
+      const suppressSuffix = (opts && opts.suffix === false) || text.includes('retry');
+      if (!suppressSuffix) {
         text = `${text} Please retry. If it keeps happening, check your connection or refresh.`;
       }
       label.textContent = text;

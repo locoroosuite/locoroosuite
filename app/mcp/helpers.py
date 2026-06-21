@@ -7,7 +7,6 @@ from typing import Any
 from flask import Flask
 
 from app.mcp.auth import (
-    McpAuthError,
     get_account_id,
     get_current_token,
     get_dek,

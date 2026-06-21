@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 
-import pytest
 import sqlcipher3
 
 from app.modules.mail.services.cache_db import (

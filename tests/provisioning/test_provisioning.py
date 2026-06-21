@@ -126,7 +126,6 @@ def test_create_domain(mock_get, app, client, provision_headers, mock_mail_clien
     data = resp.get_json()
     assert data["created"] is True
     from app.shared.models.core import Domain
-    from app.shared.db import db
     with app.app_context():
         domain = Domain.query.filter_by(name="example.com").first()
         assert domain is not None
@@ -171,7 +170,6 @@ def test_create_domain_with_platform_config(mock_get, app, client, provision_hea
 @patch("app.provisioning.controllers._get_mail_client")
 def test_create_domain_idempotent(mock_get, app, client, provision_headers, mock_mail_client):
     from app.shared.models.core import Domain
-    from app.shared.db import db
     mock_get.return_value = mock_mail_client
     resp1 = client.post("/api/provision/create-domain", json={"domain": "example.com"}, headers=provision_headers)
     assert resp1.status_code == 201
@@ -184,7 +182,6 @@ def test_create_domain_idempotent(mock_get, app, client, provision_headers, mock
 @patch("app.provisioning.controllers._get_mail_client")
 def test_create_domain_production_no_platform_config(mock_get, app, client, provision_headers, mock_mail_client):
     from app.shared.models.core import Domain
-    from app.shared.db import db
     mock_get.return_value = mock_mail_client
     app.config["APP_ENV"] = "production"
     resp = client.post("/api/provision/create-domain", json={"domain": "noplat.com"}, headers=provision_headers)

@@ -1,6 +1,5 @@
 from unittest.mock import patch, MagicMock
 
-import pytest
 
 from app.shared.pandoc_formats import (
     get_attachment_actions,

@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import patch, MagicMock
 
 from app.shared.db import db
@@ -460,7 +459,6 @@ class TestLoginWithApiEnabled:
     def _setup_account_with_api(self, app, dek_hex="a" * 64, credential_key="0" * 64):
         from app.shared.models.core import CustomerAccount
         from app.api.token_service import wrap_dek_with_credential
-        from app.shared.keys import get_user_key
 
         user_id = None
         account_id = None
@@ -532,7 +530,6 @@ class TestLoginWithApiEnabled:
     def test_login_without_api_enabled_uses_credential_key(self, app, client):
         from app.shared.models.core import CustomerAccount
         user_id = None
-        account_id = None
         credential_key = "0" * 64
         with app.app_context():
             user = User(email="normal@example.com", role="customer", is_active=True)
@@ -566,7 +563,6 @@ class TestLoginWithApiEnabled:
             )
             db.session.add(account)
             db.session.commit()
-            account_id = account.id
 
         from app.shared.keys import get_user_key
         mock_client = MagicMock()

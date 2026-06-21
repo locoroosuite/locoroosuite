@@ -61,7 +61,7 @@ class TestSetupSubmit:
 
     def test_auto_logs_in_admin(self, app, client, _clean_db):
         with patch("app.admin.controllers.auth._sync_setup_domain_to_mail_api"):
-            resp = client.post("/admin/setup", data={
+            client.post("/admin/setup", data={
                 "email": "admin@test.local",
                 "password": "secret123",
                 "password_confirm": "secret123",

@@ -1,7 +1,9 @@
 #!/bin/sh
 set -e
 
-mkdir -p /var/mail/vhosts /var/run/dovecot /var/spool/postfix/private
+mkdir -p /var/mail/vhosts /var/lib/dovecot-sieve /var/run/dovecot /var/spool/postfix/private
+mkdir -p /var/lib/dovecot-sieve 2>/dev/null || true
+chown -R vmail:vmail /var/lib/dovecot-sieve 2>/dev/null || true
 
 if [ ! -f /etc/dovecot/ssl/tls.crt ]; then
   echo "Generating self-signed TLS certificate for Dovecot..."

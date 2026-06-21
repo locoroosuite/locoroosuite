@@ -1,9 +1,7 @@
-import json
 import os
 import tempfile
 
 import pytest
-from unittest.mock import patch, MagicMock
 
 from app.shared.db import db as _db
 from app.shared.models.core import User, Domain, CustomerAccount

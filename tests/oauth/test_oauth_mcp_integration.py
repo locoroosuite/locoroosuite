@@ -371,7 +371,7 @@ class TestOAuthMCPIntegration:
             )
             assert init_resp.status_code == 200
 
-            initialized_resp = mcp_client.post(
+            mcp_client.post(
                 "/mcp",
                 json={
                     "jsonrpc": "2.0",
@@ -480,7 +480,6 @@ class TestOAuthMCPIntegration:
 
     def test_full_oauth_to_mcp_tool_with_real_dek(self, app, client, oauth_user_with_dek):
         """End-to-end: OAuth → JWT → MCP tool call with real DEK unwrapping and real cache DB."""
-        import asyncio
         import tempfile
         import os
         user_id, account_id, expected_dek = oauth_user_with_dek
@@ -493,7 +492,7 @@ class TestOAuthMCPIntegration:
             account.cache_db_path = tmp.name
             _db.session.commit()
 
-            from app.modules.mail.services.cache_db import open_cache, init_cache_schema
+            from app.modules.mail.services.cache_db import open_cache
             conn = open_cache(tmp.name, expected_dek)
             from app.modules.mail.services.cache_db import upsert_folder
             upsert_folder(conn, "INBOX", 0)
@@ -570,7 +569,6 @@ class TestOAuthMCPIntegration:
 
     def test_oauth_to_mcp_after_user_keys_wipe(self, app, client, oauth_user_with_dek):
         """Simulate server restart: _user_keys wiped, session survives, OAuth re-seeds keys."""
-        import asyncio
         import tempfile
         import os
         user_id, account_id, expected_dek = oauth_user_with_dek
@@ -597,15 +595,12 @@ class TestOAuthMCPIntegration:
             clear_user_key(user_id)
 
             from app.mcp import create_asgi_app
-            from app.mcp.auth import set_current_token
 
             with patch("app.workers.manager.WorkerManager") as MockWM:
                 MockWM.return_value = MagicMock()
                 with patch("app.mcp._create_flask_app", return_value=app):
                     asgi_app = create_asgi_app()
 
-            mcp = asgi_app
-            from mcp.server.fastmcp import FastMCP
 
             with TestClient(asgi_app) as mcp_client:
                 mcp_client.post(

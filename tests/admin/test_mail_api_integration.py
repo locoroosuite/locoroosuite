@@ -1,6 +1,5 @@
 from unittest.mock import patch, MagicMock
 
-from werkzeug.security import generate_password_hash
 
 from app.shared.db import db
 from app.shared.models.core import User, Domain, CustomerAccount

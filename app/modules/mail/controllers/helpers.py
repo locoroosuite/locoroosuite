@@ -8,7 +8,7 @@ import re
 import math
 from datetime import datetime, timedelta, timezone
 from email.utils import getaddresses, parsedate_to_datetime
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo
 
 from flask import Blueprint, session, request, url_for, current_app
 
@@ -17,12 +17,11 @@ from app.shared.models.core import Domain, CustomerAccount, CustomerSettings
 from app.modules.mail.services.secrets import decrypt_with_key
 from app.modules.mail.services.imap_client import (
     connect_imap, login_imap, select_folder, fetch_message,
-    set_flag, append_message, list_folders, safe_logout, create_folder,
-    ensure_folder_and_append,
+    set_flag, list_folders, safe_logout, ensure_folder_and_append,
     delete_message_by_uid,
 )
 from app.modules.mail.services.smtp_client import smtp_connect, smtp_login, smtp_send
-from app.modules.mail.services.cache_db import open_cache, list_messages, get_message, update_flags, delete_messages_by_uids
+from app.modules.mail.services.cache_db import open_cache, get_message, update_flags, delete_messages_by_uids
 from app.modules.mail.services.folder_sort import build_folder_sections
 from app.shared.keys import get_user_key
 from app.modules.mail.utils.sanitize import (
@@ -1070,7 +1069,6 @@ def _build_reply_forward_prefill(account, message_id, reply_all=False, forward=F
 
 
 def _thread_sort_ts(row):
-    from app.modules.mail.services.cache_db import _date_to_unix
     sort_ts = row["sort_ts"] if "sort_ts" in row.keys() else None
     if sort_ts and isinstance(sort_ts, (int, float)) and sort_ts > 0:
         return sort_ts

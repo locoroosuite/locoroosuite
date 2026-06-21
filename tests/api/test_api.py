@@ -1,6 +1,4 @@
 import json
-import pytest
-from unittest.mock import patch, MagicMock
 
 
 def _create_token(app, customer_id, dek_hex="a" * 64, name="test-token", scopes=None):

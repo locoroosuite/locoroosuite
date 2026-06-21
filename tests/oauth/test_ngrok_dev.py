@@ -11,7 +11,6 @@ from app.shared.db import db as _db
 from app.shared.models.core import User, Domain, CustomerAccount
 from app.shared.keys import set_user_key, clear_user_key
 from app.shared.oauth import get_public_key
-from app.api.token_service import generate_dek, wrap_dek_with_credential
 
 
 NGROK_HOST = "frostlike-spore-arrange.ngrok-free.dev"
@@ -19,7 +18,9 @@ NGROK_ISSUER = f"https://{NGROK_HOST}"
 
 
 def _generate_pkce():
-    import base64, hashlib, secrets
+    import base64
+    import hashlib
+    import secrets
     verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode()
     challenge = (
         base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest())

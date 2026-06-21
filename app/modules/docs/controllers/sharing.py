@@ -19,7 +19,7 @@ def list_shares(doc_id):
     if not account_id:
         return jsonify({"error": "no account"}), 400
 
-    account = CustomerAccount.query.filter_by(
+    CustomerAccount.query.filter_by(
         id=account_id, customer_id=user_id, is_active=True,
     ).first_or_404()
 

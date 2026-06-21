@@ -1,8 +1,6 @@
 import re
-import time
 import uuid
 
-import pytest
 import requests
 
 from tests.e2e.conftest import skip_if_no_services
@@ -13,8 +11,6 @@ from tests.e2e.services import (
     admin_session,
     get_account_id,
     imap_folder_has_message,
-    login_session,
-    mailapi_create_user,
     mailapi_delete_user,
     mailapi_user_exists,
     wait_for,
@@ -153,6 +149,147 @@ class TestMoveMessage:
             )
 
 
+@skip_if_no_services
+class TestDeleteProtection:
+    """End-to-end delete-protection resolution flows (HLD U5.15a/b/g).
+
+    These reproduce the user-reported scenario: a protected message refuses
+    delete with a specific, actionable error, and deleting succeeds once the
+    protection is removed. Effects are verified at the IMAP service level."""
+
+    def _send_and_find(self, app_url, user_session, user_account_id, label):
+        subject = f"E2E {label} {uuid.uuid4().hex[:8]}"
+        user_session.post(
+            f"{app_url}/app/mail/send",
+            data={
+                "account_id": user_account_id,
+                "to": "e2e-test@test.localhost",
+                "subject": subject,
+                "body_html": f"<p>{subject}</p>",
+            },
+            allow_redirects=True,
+        )
+        assert imap_folder_has_message(
+            "e2e-test@test.localhost",
+            E2E_DEFAULT_PASSWORD,
+            "INBOX",
+            subject_contains=subject,
+            timeout=30,
+        )
+        msg_id = wait_for(
+            lambda: _find_message_id(user_session, app_url, user_account_id, "INBOX", subject),
+            timeout=20,
+        )
+        assert msg_id is not None, f"Message '{subject}' not found in folder listing"
+        return subject, msg_id
+
+    def test_starred_message_refuses_delete_then_unstar_deletes(self, app_url, user_session, user_account_id):
+        subject, msg_id = self._send_and_find(app_url, user_session, user_account_id, "starred")
+
+        # Star the message via the app (round-trips through IMAP + cache).
+        r = user_session.post(
+            f"{app_url}/app/mail/message/{user_account_id}/{msg_id}/flag",
+            data={"action": "add"},
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert r.status_code == 200
+        assert r.json()["is_flagged"] is True
+
+        # Delete must be refused with a specific, actionable PROTECTED error.
+        r = user_session.post(
+            f"{app_url}/app/mail/message/{user_account_id}/{msg_id}/delete",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert r.status_code == 409
+        body = r.json()
+        assert body.get("code") == "PROTECTED"
+        assert "starred" in body["error"].lower()
+        assert "unstar" in body["error"].lower()
+        # Message must still be in INBOX (not moved).
+        assert imap_folder_has_message(
+            "e2e-test@test.localhost", E2E_DEFAULT_PASSWORD, "INBOX",
+            subject_contains=subject, timeout=10,
+        )
+
+        # Unstar, then delete succeeds.
+        user_session.post(
+            f"{app_url}/app/mail/message/{user_account_id}/{msg_id}/flag",
+            data={"action": "remove"},
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        user_session.post(
+            f"{app_url}/app/mail/message/{user_account_id}/{msg_id}/delete",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        self._assert_message_reaches_trash(
+            user_session, app_url, user_account_id, subject, msg_id
+        )
+
+    def test_locked_message_refuses_delete_then_unlock_deletes(self, app_url, user_session, user_account_id):
+        subject, msg_id = self._send_and_find(app_url, user_session, user_account_id, "locked")
+
+        # Lock the message via the app ($Locked keyword).
+        r = user_session.post(
+            f"{app_url}/app/mail/message/{user_account_id}/{msg_id}/lock",
+            data={"action": "add"},
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert r.status_code == 200
+        assert r.json()["is_locked"] is True
+
+        # Delete must be refused with a locked-specific PROTECTED error.
+        r = user_session.post(
+            f"{app_url}/app/mail/message/{user_account_id}/{msg_id}/delete",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert r.status_code == 409
+        body = r.json()
+        assert body.get("code") == "PROTECTED"
+        assert "locked" in body["error"].lower()
+        assert "unlock" in body["error"].lower()
+        assert imap_folder_has_message(
+            "e2e-test@test.localhost", E2E_DEFAULT_PASSWORD, "INBOX",
+            subject_contains=subject, timeout=10,
+        )
+
+        # Unlock, then delete succeeds.
+        user_session.post(
+            f"{app_url}/app/mail/message/{user_account_id}/{msg_id}/lock",
+            data={"action": "remove"},
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        user_session.post(
+            f"{app_url}/app/mail/message/{user_account_id}/{msg_id}/delete",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        self._assert_message_reaches_trash(
+            user_session, app_url, user_account_id, subject, msg_id
+        )
+
+    def _assert_message_reaches_trash(self, user_session, app_url, user_account_id, subject, msg_id):
+        """Move-to-Trash is flaky against the dev Dovecot (the existing
+        TestMoveMessage test handles the same way): if the first move does not
+        land in Trash within 60s, re-find the message and retry once."""
+        try:
+            assert imap_folder_has_message(
+                "e2e-test@test.localhost", E2E_DEFAULT_PASSWORD, "Trash",
+                subject_contains=subject, timeout=60,
+            )
+            return
+        except (TimeoutError, AssertionError):
+            pass
+        msg_id2 = _find_message_id(user_session, app_url, user_account_id, "INBOX", subject)
+        if msg_id2:
+            user_session.post(
+                f"{app_url}/app/mail/message/{user_account_id}/{msg_id2}/delete",
+                headers={"X-Requested-With": "XMLHttpRequest"},
+            )
+        assert imap_folder_has_message(
+            "e2e-test@test.localhost", E2E_DEFAULT_PASSWORD, "Trash",
+            subject_contains=subject, timeout=60,
+        )
+
+
 def _find_message_id(session, app_url, account_id, folder, subject):
     r = session.get(f"{app_url}/app/mail/folder/{account_id}/{folder}")
     if r.status_code != 200:
@@ -270,7 +407,7 @@ class TestSendingLimit:
             )
             assert r.status_code == 200
             token1_match = re.search(r'data-token="([^"]+)"', r.text)
-            assert token1_match, f"Send widget token not found in response"
+            assert token1_match, "Send widget token not found in response"
             token1 = token1_match.group(1)
             result = _poll_send_status(sess, app_url, token1)
             assert result["state"] == "sent", f"First send should succeed: {result}"
@@ -291,7 +428,7 @@ class TestSendingLimit:
             )
             assert r.status_code == 200
             token2_match = re.search(r'data-token="([^"]+)"', r.text)
-            assert token2_match, f"Send widget token not found in response"
+            assert token2_match, "Send widget token not found in response"
             token2 = token2_match.group(1)
             result = _poll_send_status(sess, app_url, token2)
             assert result["state"] == "sent", f"Second send should succeed: {result}"
@@ -312,7 +449,7 @@ class TestSendingLimit:
             )
             assert r.status_code == 200
             token3_match = re.search(r'data-token="([^"]+)"', r.text)
-            assert token3_match, f"Send widget token not found in response"
+            assert token3_match, "Send widget token not found in response"
             token3 = token3_match.group(1)
             result = _poll_send_status(sess, app_url, token3)
             assert result["state"] == "failed", f"Third send should fail: {result}"

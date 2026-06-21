@@ -1,4 +1,5 @@
 import json
+import os
 
 import sqlcipher3
 
@@ -55,6 +56,32 @@ def _seed_message(
         has_attachments, message_id, thread_id=thread_id, cc=cc,
     )
     return get_message(conn, 1)
+
+
+def test_open_cache_reinitializes_after_external_deletion(tmp_path):
+    """Regression: an in-process memo marks cache paths as schema-initialized.
+    If a cache file is deleted externally (cache reset / E2E cleanup) and the
+    path is reused, open_cache must re-run init_cache_schema instead of trusting
+    the stale memo and returning a schema-less connection."""
+    key = "0" * 64
+    db_path = str(tmp_path / "mail.db")
+    conn = open_cache(db_path, key)
+    conn.execute("INSERT INTO folders (name, unread_count) VALUES ('INBOX', 1)")
+    conn.close()
+    assert db_path  # memoized now in _SCHEMA_INITIALIZED
+
+    # External deletion invalidates the memoized path.
+    os.unlink(db_path)
+    assert not os.path.exists(db_path)
+
+    conn = open_cache(db_path, key)
+    # Schema must be present even though the path was already memoized.
+    tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert "messages" in tables
+    assert "folders" in tables
+    # And the previously-inserted row is gone (fresh file).
+    assert conn.execute("SELECT COUNT(*) FROM folders").fetchone()[0] == 0
+    conn.close()
 
 
 def test_get_message_columns(tmp_path):

@@ -1,7 +1,6 @@
 from unittest.mock import patch, MagicMock
 
 from app.admin.services.dns_checks import (
-    _get_authoritative_nameservers,
     _check_mx,
     _check_spf,
     _check_dkim,

@@ -1,18 +1,16 @@
 from __future__ import annotations
 
 import contextvars
-import hashlib
-import json
 import logging
 import time
 from typing import Any
 
 import jwt as pyjwt
-from flask import Flask, g
+from flask import Flask
 from mcp.server.fastmcp import FastMCP
 
 from app.shared.db import db
-from app.shared.models.core import ApiToken, ApiRateLimitConfig, CustomerAccount
+from app.shared.models.core import ApiRateLimitConfig, CustomerAccount
 from app.shared.models.oauth import OAuthAccessToken
 
 _logger = logging.getLogger(__name__)
@@ -148,7 +146,7 @@ def _resolve_jwt(token_str: str, flask_app: Flask) -> dict[str, Any]:
         raise McpAuthError("AUTH_INVALID", f"Invalid OAuth token: {e}")
     except McpAuthError:
         raise
-    except Exception as e:
+    except Exception:
         _logger.exception("unexpected error resolving JWT")
         raise McpAuthError("AUTH_INVALID", "Token verification failed")
 

@@ -15,17 +15,10 @@ def create_admin():
         if existing:
             print("User already exists")
             return
-        admin = User(role="admin", email=email, password_hash=generate_password_hash(password))
+        admin = User(role="admin", email=email, password_hash=generate_password_hash(password))  # type: ignore[call-arg]
         db.session.add(admin)
         db.session.commit()
         print("Admin created")
-
-
-if __name__ == "__main__":
-    if len(__import__("sys").argv) > 1 and __import__("sys").argv[1] == "reset":
-        reset_admin_password()
-    else:
-        create_admin()
 
 
 def reset_admin_password():
@@ -39,3 +32,10 @@ def reset_admin_password():
         admin.password_hash = generate_password_hash(password)
         db.session.commit()
         print("Admin password updated")
+
+
+if __name__ == "__main__":
+    if len(__import__("sys").argv) > 1 and __import__("sys").argv[1] == "reset":
+        reset_admin_password()
+    else:
+        create_admin()

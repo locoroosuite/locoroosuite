@@ -1,13 +1,11 @@
 import logging
-import os
-from pathlib import Path
 
 from app.modules.docs.services import cache_db, doc_meta, storage
 
 logger = logging.getLogger(__name__)
 
 
-def build_doc_metadata(doc_id, name, doc_type, account_id, original_format=None, deleted_at=None, created_at=None, updated_at=None):
+def build_doc_metadata(doc_id, name, doc_type, account_id, original_format=None, deleted_at=None, created_at=None, updated_at=None, folder_path="", tags=None):
     return {
         "id": doc_id,
         "name": name,
@@ -17,6 +15,8 @@ def build_doc_metadata(doc_id, name, doc_type, account_id, original_format=None,
         "deleted_at": deleted_at,
         "created_at": created_at,
         "updated_at": updated_at,
+        "folder_path": folder_path or "",
+        "tags": tags or [],
     }
 
 
@@ -42,6 +42,8 @@ def inject_metadata_from_doc_row(user_id, account_id, doc):
         deleted_at=doc.get("deleted_at"),
         created_at=doc.get("created_at"),
         updated_at=doc.get("updated_at"),
+        folder_path=doc.get("folder_path", ""),
+        tags=doc.get("tags") if isinstance(doc.get("tags"), list) else cache_db.parse_tags(doc.get("tags")),
     )
     if doc.get("original_format"):
         storage.write_sidecar(user_id, account_id, doc["id"], metadata)
@@ -79,6 +81,8 @@ def resync_docs(conn, user_id, account_id):
             created_at = sidecar_meta.get("created_at")
             updated_at = sidecar_meta.get("updated_at")
             meta_account_id = sidecar_meta.get("account_id", account_id)
+            folder_path = sidecar_meta.get("folder_path", "") or ""
+            tags = sidecar_meta.get("tags") or []
         else:
             metadata = doc_meta.extract_metadata(file_bytes)
             if metadata:
@@ -89,6 +93,8 @@ def resync_docs(conn, user_id, account_id):
                 created_at = metadata.get("created_at")
                 updated_at = metadata.get("updated_at")
                 meta_account_id = metadata.get("account_id", account_id)
+                folder_path = metadata.get("folder_path", "") or ""
+                tags = metadata.get("tags") or []
             else:
                 name = _guess_name(doc_id, file_bytes)
                 doc_type, original_format = _guess_type_and_format(file_bytes)
@@ -96,10 +102,15 @@ def resync_docs(conn, user_id, account_id):
                 created_at = None
                 updated_at = None
                 meta_account_id = account_id
+                folder_path = ""
+                tags = []
 
+        if not isinstance(tags, list):
+            tags = []
         cache_db.create_document(
             conn, doc_id, name, doc_type, meta_account_id,
             file_size=file_size, original_format=original_format,
+            folder_path=folder_path, tags=tags,
         )
         if deleted_at:
             cache_db.soft_delete_document(conn, doc_id)
@@ -117,7 +128,27 @@ def resync_docs(conn, user_id, account_id):
         count += 1
         logger.info("resync_docs: recovered doc_id=%s name=%s", doc_id, name)
 
+    _reconstruct_folders(conn, account_id)
     return count
+
+
+def _reconstruct_folders(conn, account_id):
+    """Reconcile the folders table with document folder paths after a resync.
+
+    This MERGES rather than replaces: folder rows inferred from recovered
+    documents are added (with ancestors), but manually-created empty folders
+    are preserved so a manual Sync does not wipe the user's organization. A
+    true cache reset (fresh/empty DB) still loses empty folders, since there is
+    nothing to merge into — matching U13.90c.
+    """
+    from app.modules.docs.services import folders as folders_svc
+    paths = cache_db.distinct_doc_folder_paths(conn, account_id)
+    for p in paths:
+        try:
+            folders_svc.ensure_folder_path(conn, account_id, p)
+        except folders_svc.FolderError:
+            logger.warning("resync: skipping invalid folder path %r", p)
+    conn.commit()
 
 
 def _guess_name(doc_id, file_bytes):

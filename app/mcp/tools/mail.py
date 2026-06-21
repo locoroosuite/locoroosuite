@@ -5,9 +5,8 @@ import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Annotated, Any
-from urllib.parse import quote
 
-from flask import Flask, current_app
+from flask import Flask
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 from pydantic import Field
@@ -339,10 +338,11 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
                     return err("NOT_FOUND", "Message not found")
                 d = _row_to_dict(row)
                 from app.shared.models.core import CustomerSettings
-                from app.modules.mail.services.protection import message_is_protected
+                from app.modules.mail.services.protection import protection_reason, protected_delete_message
                 settings = CustomerSettings.query.filter_by(customer_id=ctx["customer_id"]).first()
-                if message_is_protected(_parse_flags(d.get("flags")), settings):
-                    return err("PROTECTED", "This message is protected from deletion. Unstar it or remove its lock first.")
+                reason = protection_reason(_parse_flags(d.get("flags")), settings)
+                if reason:
+                    return err("PROTECTED", protected_delete_message(reason))
             finally:
                 conn.close()
             account, domain, secret = _get_account_and_secret(aid, dek, flask_app)
@@ -619,7 +619,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
                 from app.modules.mail.services.cache_db import get_message
                 del_items = []
                 from app.shared.models.core import CustomerSettings
-                from app.modules.mail.services.protection import message_is_protected
+                from app.modules.mail.services.protection import protection_reason, protected_delete_message
                 settings = CustomerSettings.query.filter_by(customer_id=ctx["customer_id"]).first()
                 for i, v in enumerate(items):
                     row = get_message(conn, v.message_id)
@@ -627,8 +627,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
                         failed.append({"index": i, "error": {"code": "NOT_FOUND"}})
                         continue
                     d = _row_to_dict(row)
-                    if message_is_protected(_parse_flags(d.get("flags")), settings):
-                        failed.append({"message_id": v.message_id, "error": {"code": "PROTECTED", "message": "Message is protected from deletion"}})
+                    reason = protection_reason(_parse_flags(d.get("flags")), settings)
+                    if reason:
+                        failed.append({"message_id": v.message_id, "error": {"code": "PROTECTED", "message": protected_delete_message(reason)}})
                         continue
                     del_items.append({"index": i, "uid": d.get("uid"), "folder": d.get("folder", "INBOX"), "message_id": v.message_id})
             finally:

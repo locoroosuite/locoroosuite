@@ -151,6 +151,31 @@ describe.skipIf(!(await isServerAvailable()))("MCP Client → API: Mail", () => 
     });
   });
 
+  describe("message delete protection", () => {
+    it("refuses to delete a starred message with a specific PROTECTED error", async () => {
+      // HLD U5.15g: the TS client must surface the server's specific, actionable
+      // PROTECTED error (message mentions "starred" + "unstar"), code stays stable.
+      const listRes = await client.get("/api/v1/mail/folders/Sent/messages", { max_results: "1" });
+      const list = assertSuccess<Array<{ id: number }>>(listRes, "list_for_protected_delete");
+      if (list.data!.length === 0) return;
+      const msgId = list.data![0].id;
+
+      await client.patch(`/api/v1/mail/messages/${msgId}`, { flags: { flagged: true } });
+      try {
+        await client.delete(`/api/v1/mail/messages/${msgId}`);
+        expect.unreachable("Should have thrown PROTECTED");
+      } catch (e) {
+        expect(e).toBeInstanceOf(ApiError);
+        const err = e as ApiError;
+        expect(err.code).toBe("PROTECTED");
+        expect(String(err.message).toLowerCase()).toContain("starred");
+        expect(String(err.message).toLowerCase()).toContain("unstar");
+      } finally {
+        await client.patch(`/api/v1/mail/messages/${msgId}`, { flags: { flagged: false } });
+      }
+    });
+  });
+
   describe("account_id in body for write operations", () => {
     it("account_id in PATCH body is not ignored", async () => {
       const res = await client.get("/api/v1/mail/folders/Sent/messages", { max_results: "1" });

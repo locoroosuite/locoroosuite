@@ -101,7 +101,7 @@ class TestOpenDKIMManager:
 
     def test_key_is_valid_rsa(self, tmp_dirs):
         manager, keys_dir, key_table, signing_table = tmp_dirs
-        result = manager.generate_key("example.com")
+        manager.generate_key("example.com")
         priv_path = os.path.join(keys_dir, "default.example.com.private")
 
         from cryptography.hazmat.primitives import serialization
@@ -159,8 +159,8 @@ class TestOpenDKIMManagerCustomSelector:
         assert "/etc/opendkim/keys/example.com/mail2026.private" not in key_content
         assert "mail2026._domainkey.example.com" in key_content
         assert "example.com:mail2026:" in key_content
-        lines = [l.strip() for l in key_content.strip().splitlines() if l.strip()]
-        matching = [l for l in lines if l.startswith("mail2026._domainkey.example.com ")]
+        lines = [line.strip() for line in key_content.strip().splitlines() if line.strip()]
+        matching = [line for line in lines if line.startswith("mail2026._domainkey.example.com ")]
         assert len(matching) == 1
 
     def test_remove_key_with_custom_selector(self, tmp_dirs):

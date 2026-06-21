@@ -181,7 +181,6 @@ def _get_carddav_session(account):
     domain = Domain.query.filter_by(id=account.domain_id).first()
     config = {}
     if domain.carddav_host:
-        scheme = "https" if domain.carddav_use_tls else "http"
         config = {"host": domain.carddav_host, "port": domain.carddav_port or 5232, "use_tls": domain.carddav_use_tls}
     if not config:
         raise ApiError("NOT_CONFIGURED", "CardDAV is not configured for this domain", 400)

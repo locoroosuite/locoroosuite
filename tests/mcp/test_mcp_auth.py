@@ -4,7 +4,6 @@ import pytest
 
 from app.shared.db import db as _db
 from app.shared.models.core import User, Domain, CustomerAccount
-from app.shared.keys import clear_user_key
 from app.api.token_service import create_api_token, generate_dek
 from app.mcp.auth import (
     McpAuthError,

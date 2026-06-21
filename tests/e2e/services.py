@@ -230,7 +230,7 @@ def _cleanup_e2e_users_via_docker():
         "    db.session.commit()\n"
         "    print(f'Deleted {len(users)} e2e users from DB')\n"
     )
-    result = subprocess.run(
+    subprocess.run(
         ["docker", "compose", "-f", "docker-compose.dev.yml", "exec", "-T", "app",
          "python", "/dev/stdin"],
         input=script,
@@ -244,7 +244,7 @@ def cleanup_e2e_contacts(user: str = "e2e-test@test.localhost", password: str = 
     abooks = carddav_get_addressbooks(user, password)
     if not abooks:
         return
-    abook_url = abooks[0]["href"]
+    abooks[0]["href"]
     hrefs = carddav_report_contacts(user, password)
     for href in hrefs:
         r = requests.delete(
@@ -402,5 +402,5 @@ def get_account_id(app_url: str, session) -> str:
     r = session.get(f"{app_url}/app/mail/", allow_redirects=True)
     assert r.status_code == 200
     match = re.search(r'/mail/folder/(\d+)/', r.text)
-    assert match, f"Could not extract account_id from mail page"
+    assert match, "Could not extract account_id from mail page"
     return match.group(1)

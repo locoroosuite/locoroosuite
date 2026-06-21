@@ -1,7 +1,6 @@
 import re
 import uuid
 
-import pytest
 
 from tests.e2e.conftest import skip_if_no_services
 from tests.e2e.services import carddav_report_contacts, wait_for

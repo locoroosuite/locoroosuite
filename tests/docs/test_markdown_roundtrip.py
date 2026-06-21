@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pytest
 
 from app.modules.docs.services.markdown_to_odt import convert
 from app.api.controllers.docs import _extract_odt_text

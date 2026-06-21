@@ -1,6 +1,5 @@
 from unittest.mock import patch, MagicMock
 
-import pytest
 
 
 def test_search_empty_query(authed_client):

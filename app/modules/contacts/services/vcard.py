@@ -1,5 +1,4 @@
 import uuid
-import re
 
 
 def parse_vcard(text):

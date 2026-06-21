@@ -72,6 +72,14 @@ Run `./venv/bin/pytest` with Flask test client and in-memory SQLite. Tests are o
 - Run the full suite after implementation: `./venv/bin/pytest tests/ --ignore=tests/e2e` and `npm test --prefix packages/locoroosuite-mcp`.
 - During development, single-module tests are fine: `./venv/bin/pytest tests/mail/`
 
+### Schema Migrations
+
+All database layers use the unified migration runner (`app/shared/migrations.py`). See `HLD.md → Schema Migration Architecture` for the full design.
+
+- **Adding a migration**: append `Migration("NNNN_name", fn)` to the relevant registry (`app/shared/app_migrations.py` for the main DB, `app/modules/<mod>/services/cache_migrations.py` for caches). The function must self-guard.
+- **Never call `conn.commit()` inside a migration** — the runner commits after recording.
+- **Bug fixes that require schema changes**: always add a migration + a test that builds the pre-migration schema and verifies the fix.
+
 ### Mock Data Contract
 
 Mock data **must match the actual return shape** — column count, column order, field names. Wrong mock data is worse than no test.
@@ -153,14 +161,36 @@ Every REST API endpoint in `app/api/controllers/` **must** have a corresponding 
 - Mail: pass `timezone_name=settings.timezone` to formatting functions.
 - Server-side timestamps (`created_at`, `updated_at`) are always UTC — **do not convert**.
 
+### Static Checks (last step)
+
+This is a **ratchet**, not a suggestion. The codebase is agent-maintained, and the per-file pyright baseline is currently non-zero (~1956 errors repo-wide). To reverse that rot, every touched file must end **cleaner** than it started — never worse, never flat unless already clean. "Pre-existing" is not an excuse: the base count is measured (`git show master:<file>`), not vibes.
+
+Before declaring any change done, for **every file you created or modified**:
+
+1. **Lint + format — must be clean (not just cleaner).**
+   - Python: `./venv/bin/ruff check --fix <file>` then `./venv/bin/ruff format <file>`, then re-run `./venv/bin/ruff check <file>` — it must report **0 issues**.
+   - TypeScript: `npm run build --prefix packages/locoroosuite-mcp` must succeed.
+2. **Typecheck — must get strictly cleaner (pyright errors + warnings).**
+   Compare the file's count **before** your change (its state on `master`) vs **after**:
+   - `before > 0` → `after` must be **strictly less** than `before`.
+   - `before == 0` → `after` must remain **0**.
+   - New file → `after` must be **0**.
+   - Mechanic: `make typecheck-ratchet` prints per-file `before -> after` and fails on regression/flat. You can also measure by hand: save the working file, `git show master:<file> > <file>`, run `./venv/bin/pyright <file>` (= `before`), restore the working file, run again (= `after`).
+3. **Escape hatch — do NOT silently balloon scope.** If reducing the count requires editing other modules, changing a public signature, a schema migration, or a large/unrelated refactor: **stop and flag it** to the user with the exact error text and `file:line`. Never silently leave it; never silently expand the diff. Wait for the user's decision.
+4. **Report before → after** per touched file in your summary. Reductions are wins — call them out explicitly.
+
+Canonical commands: `make lint`, `make format`, `make typecheck`, `make typecheck-mcp`, `make typecheck-ratchet`, `make check` (lint + typecheck on touched files). All scope to files modified vs `master` (override with `BASE_REF=origin/master make ...`).
+
+Why ruff + pyright together: `ruff` is the linter/formatter (style, unused imports, dead code, common bugs — a fast superset of flake8/isort/black-as-formatter); `pyright` is the type checker (None-handling, argument types, signature mismatches). They are complementary, not redundant. `black` and `mypy` are deprecated as canonical tools here — use `ruff format` and `pyright` instead.
+
 ### Miscellaneous
 
 - Use simple language to communicate changes.
 - Stay within module directory boundaries. Read only the relevant module + shared layer.
 - Files > 600 lines are too large. Prefer multiple small files.
 - **Fail early on misconfiguration** — return a clear error immediately, never silently work around missing config.
-- **Fix problems as you go** — LSP errors, unused imports, dead code, bad error handling. Fix immediately, don't leave messes.
-- Ensure `pyright` reports 0 errors on any file you modify.
+- **Fix problems as you go** — LSP errors, unused imports, dead code, bad error handling. Fix immediately, don't leave messes (see **Static Checks (last step)** above for the mandatory final gate).
+- ~~Ensure `pyright` reports 0 errors on any file you modify.~~ → replaced by **Static Checks (last step)** above: the baseline is non-zero today, so the rule is *strict improvement on each touch*, not instant zero.
 - **Never deploy to production.** Ask the user to deploy.
 - **Production infra is managed separately.** Provide prompts for ops agents, don't SSH into production.
 - **Breaking changes require confirmation.** Default to clean break unless user requests backward compatibility.

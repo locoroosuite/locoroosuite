@@ -2,7 +2,6 @@ import json
 import os
 import tempfile
 from datetime import datetime, timezone
-from unittest.mock import patch, MagicMock
 
 import pytest
 

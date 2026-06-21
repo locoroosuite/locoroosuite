@@ -1,26 +1,105 @@
 {% extends "layout.html" %}
 {% block content %}
+<style>
+  .folder-drop-target { background-color: rgb(226 232 240) !important; box-shadow: inset 2px 0 0 0 rgb(15 23 42); border-radius: 0.5rem; }
+</style>
+{% macro tree_node(node) %}
+<li class="folder-item" data-folder-path="{{ node.path }}">
+  <div class="group/row flex items-center gap-1 rounded-lg pr-1 {{ 'bg-slate-100 text-slate-900' if current_folder == node.path else 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' }} folder-row"
+       data-folder-path="{{ node.path }}">
+    {% if node.children %}
+    <button type="button" class="folder-toggle h-6 w-5 flex items-center justify-center text-slate-400 hover:text-slate-600 flex-shrink-0" title="Expand">
+      <svg class="h-3 w-3 transition-transform folder-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+    </button>
+    {% else %}
+    <span class="h-6 w-5 flex items-center justify-center flex-shrink-0">
+      <svg class="h-3.5 w-3.5 {% if current_folder == node.path %}text-slate-700{% else %}text-slate-400{% endif %}" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>
+    </span>
+    {% endif %}
+    <a href="{{ url_for('docs.index', folder=node.path) }}" class="folder-link flex-1 min-w-0 flex items-center px-1 py-1.5 text-sm font-medium truncate" data-folder-path="{{ node.path }}" title="{{ node.name }}">
+      <span class="truncate">{{ node.name }}</span>
+    </a>
+    {% if node.count > 0 %}<span class="text-[11px] text-slate-400 font-normal tabular-nums">{{ node.count }}</span>{% endif %}
+    <div class="folder-actions opacity-0 group-hover/row:opacity-100 transition-opacity flex items-center gap-0.5 flex-shrink-0">
+      <button type="button" class="h-5 w-5 rounded hover:bg-slate-200 flex items-center justify-center folder-rename-btn" data-folder-path="{{ node.path }}" data-folder-name="{{ node.name }}" title="Rename">
+        <svg class="h-3 w-3 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+      </button>
+      <button type="button" class="h-5 w-5 rounded hover:bg-rose-100 flex items-center justify-center folder-delete-btn" data-folder-path="{{ node.path }}" data-folder-name="{{ node.name }}" title="Delete folder">
+        <svg class="h-3 w-3 text-slate-400 hover:text-rose-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9z" clip-rule="evenodd"/></svg>
+      </button>
+    </div>
+  </div>
+  {% if node.children %}
+  <ul class="hidden ml-3 border-l border-slate-100 pl-1 space-y-0.5 folder-children">
+    {% for child in node.children %}{{ tree_node(child) }}{% endfor %}
+  </ul>
+  {% endif %}
+</li>
+{% endmacro %}
 <div class="flex h-[calc(100vh-4rem)]">
-  <aside id="docs-sidebar" class="w-56 flex-shrink-0 border-r border-slate-200/80 bg-white flex flex-col overflow-y-auto">
-    <div class="p-4">
+  <aside id="docs-sidebar" class="w-60 flex-shrink-0 border-r border-slate-200/80 bg-white flex flex-col overflow-y-auto">
+    <div class="p-4 space-y-5">
       {% include "_account_switcher.html" %}
-      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Documents</p>
-      <nav class="space-y-0.5">
-        <a href="{{ url_for('docs.index', section='my') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors {{ 'bg-slate-100 text-slate-900' if section == 'my' else 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' }}">
-          <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9z" opacity="0.4"/><path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/></svg>
-          My Documents
-          {% if documents | length > 0 %}
-          <span class="ml-auto text-xs text-slate-400 font-normal">{{ documents | length }}</span>
-          {% endif %}
-        </a>
-        <a href="{{ url_for('docs.index', section='shared') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors {{ 'bg-slate-100 text-slate-900' if section == 'shared' else 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' }}">
-          <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z"/></svg>
-          Shared with me
-          {% if shared_docs | length > 0 %}
-          <span class="ml-auto text-xs text-slate-400 font-normal">{{ shared_docs | length }}</span>
-          {% endif %}
-        </a>
-      </nav>
+      <div>
+        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Documents</p>
+        <nav class="space-y-0.5">
+          <a href="{{ url_for('docs.index', section='my') }}" id="docs-home-link" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors {{ 'bg-slate-100 text-slate-900' if section == 'my' and not current_folder and not current_tag else 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' }}" data-folder-path="">
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9z" opacity="0.4"/><path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/></svg>
+            My Documents
+            {% if documents | length > 0 and not current_folder and not current_tag %}
+            <span class="ml-auto text-xs text-slate-400 font-normal">{{ documents | length }}</span>
+            {% endif %}
+          </a>
+          <a href="{{ url_for('docs.index', section='shared') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors {{ 'bg-slate-100 text-slate-900' if section == 'shared' else 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' }}">
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z"/></svg>
+            Shared with me
+            {% if shared_docs | length > 0 %}
+            <span class="ml-auto text-xs text-slate-400 font-normal">{{ shared_docs | length }}</span>
+            {% endif %}
+          </a>
+        </nav>
+      </div>
+
+      <div id="folders-section">
+        <div class="flex items-center justify-between mb-1.5">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Folders</p>
+          <button type="button" id="add-folder-btn" class="h-5 w-5 rounded hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700" title="New folder">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"/></svg>
+          </button>
+        </div>
+        <div id="new-folder-inline" class="hidden mb-2">
+          <form id="new-folder-form" class="flex gap-1">
+            <input type="text" name="name" id="new-folder-input" placeholder="Folder name" autocomplete="off"
+                   class="flex-1 min-w-0 rounded-md border border-slate-200 px-2 py-1 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100" />
+            <input type="hidden" name="parent" value="{{ current_folder }}" />
+            <button type="submit" class="rounded-md bg-slate-900 px-2 py-1 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50" disabled id="new-folder-add">Add</button>
+          </form>
+        </div>
+        {% if folder_tree %}
+        <ul id="folder-tree" class="space-y-0.5">
+          {% for node in folder_tree %}{{ tree_node(node) }}{% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-xs text-slate-400 px-1" id="folders-empty">No folders yet.</p>
+        {% endif %}
+      </div>
+
+      <div id="tags-section">
+        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Tags</p>
+        {% if all_tags %}
+        <div class="flex flex-wrap gap-1.5" id="tag-list">
+          {% for tag in all_tags %}
+          <a href="{{ url_for('docs.index', tag=tag) }}"
+             class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors {{ 'bg-slate-900 text-white' if current_tag == tag else 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
+            <span class="h-1.5 w-1.5 rounded-full {{ 'bg-white' if current_tag == tag else 'bg-slate-400' }}"></span>
+            {{ tag }}
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-xs text-slate-400 px-1" id="tags-empty">No tags yet.</p>
+        {% endif %}
+      </div>
     </div>
   </aside>
 
@@ -88,8 +167,25 @@
         {% endif %}
 
       {% else %}
+      {% if current_folder or current_tag %}
+      <div class="flex items-center gap-1.5 mb-3 text-sm flex-wrap">
+        <a href="{{ url_for('docs.index') }}" class="text-slate-500 hover:text-slate-900 font-medium">Home</a>
+        {% for crumb in breadcrumbs %}
+        <svg class="h-3 w-3 text-slate-300" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+        <a href="{{ url_for('docs.index', folder=crumb.path) }}" class="text-slate-500 hover:text-slate-900 font-medium {{ 'text-slate-900' if loop.last }}">{{ crumb.name }}</a>
+        {% endfor %}
+        {% if current_tag %}
+        <span class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900 text-white text-xs font-medium">
+          #{{ current_tag }}
+          <a href="{{ url_for('docs.index', folder=current_folder) }}" class="hover:text-slate-300" title="Clear tag filter">&times;</a>
+        </span>
+        {% endif %}
+      </div>
+      {% endif %}
       <div class="flex items-center justify-between mb-6">
-        <h1 class="text-xl font-semibold text-slate-900">My Documents</h1>
+        <h1 class="text-xl font-semibold text-slate-900">
+          {% if current_folder %}{{ breadcrumbs[-1].name if breadcrumbs else 'Folder' }}{% else %}My Documents{% endif %}
+        </h1>
         <div class="flex items-center gap-3">
           <form method="post" action="{{ url_for('docs.sync') }}" class="inline">
             <button type="submit" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50 cursor-pointer transition-colors">
@@ -98,6 +194,7 @@
             </button>
           </form>
           <form method="post" action="{{ url_for('docs.upload') }}" enctype="multipart/form-data" class="inline" id="upload-form">
+            <input type="hidden" name="folder" value="{{ current_folder }}" />
             <label id="upload-label" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50 cursor-pointer transition-colors">
               <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"/></svg>
               <span id="upload-label-text">Upload</span>
@@ -119,6 +216,7 @@
             <div id="new-doc-panel" class="hidden absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 bg-white shadow-lg py-1 text-sm z-30">
               <form method="post" action="{{ url_for('docs.create') }}" class="block">
                 <input type="hidden" name="doc_type" value="odt" />
+                <input type="hidden" name="folder" value="{{ current_folder }}" />
                 <button type="submit" class="w-full text-left flex items-center gap-3 px-3 py-2.5 text-slate-700 hover:bg-slate-50 transition-colors">
                   <span class="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
                     <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
@@ -128,6 +226,7 @@
               </form>
               <form method="post" action="{{ url_for('docs.create') }}" class="block">
                 <input type="hidden" name="doc_type" value="ods" />
+                <input type="hidden" name="folder" value="{{ current_folder }}" />
                 <button type="submit" class="w-full text-left flex items-center gap-3 px-3 py-2.5 text-slate-700 hover:bg-slate-50 transition-colors">
                   <span class="h-8 w-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center flex-shrink-0">
                     <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
@@ -137,6 +236,7 @@
               </form>
               <form method="post" action="{{ url_for('docs.create') }}" class="block">
                 <input type="hidden" name="doc_type" value="odp" />
+                <input type="hidden" name="folder" value="{{ current_folder }}" />
                 <button type="submit" class="w-full text-left flex items-center gap-3 px-3 py-2.5 text-slate-700 hover:bg-slate-50 transition-colors">
                   <span class="h-8 w-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center flex-shrink-0">
                     <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
@@ -146,6 +246,13 @@
               </form>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div id="folder-undo-banner" class="hidden mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center justify-between gap-3">
+        <p class="text-sm text-amber-800"><span id="folder-undo-msg"></span></p>
+        <div class="flex items-center gap-3 flex-shrink-0">
+          <button type="button" id="folder-undo-btn" class="text-sm font-semibold text-amber-900 hover:text-amber-700 underline underline-offset-2">Undo</button>
         </div>
       </div>
 
@@ -170,8 +277,9 @@
           </thead>
           <tbody class="divide-y divide-slate-50">
             {% for doc in documents %}
-            <tr class="group hover:bg-slate-50/60 transition-colors">
+            <tr class="group hover:bg-slate-50/60 transition-colors doc-row" draggable="true" data-doc-id="{{ doc.id }}" data-doc-folder="{{ doc.folder_path }}">
               <td class="py-2.5 px-4">
+                <div class="flex flex-col gap-1 min-w-0">
                 <a href="{{ url_for('docs.editor', doc_id=doc.id) }}" target="_blank" class="flex items-center gap-3 min-w-0">
                   <span class="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0
                     {% if doc.original_format == 'pdf' %}bg-red-50 text-red-500
@@ -210,6 +318,14 @@
                   <span class="text-xs text-slate-400 flex-shrink-0">.{{ doc.doc_type }}</span>
                   {% endif %}
                 </a>
+                {% if doc.tag_list %}
+                <div class="flex items-center gap-1 flex-wrap pl-12">
+                  {% for tag in doc.tag_list %}
+                  <a href="{{ url_for('docs.index', tag=tag) }}" class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors" title="Filter by tag">#{{ tag }}</a>
+                  {% endfor %}
+                </div>
+                {% endif %}
+                </div>
               </td>
               <td class="py-2.5 px-4 hidden sm:table-cell">
                 {% if doc.updated_at %}
@@ -233,6 +349,9 @@
                     <svg class="h-3.5 w-3.5 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z"/></svg>
                   </button>
                   {% endif %}
+                  <button type="button" class="h-7 w-7 rounded-md hover:bg-slate-100 flex items-center justify-center transition-colors tag-doc-btn" data-doc-id="{{ doc.id }}" data-doc-name="{{ doc.name }}" title="Add tag">
+                    <svg class="h-3.5 w-3.5 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0L1.586 10A2 2 0 011 8.586V3a1 1 0 011-1h5.586A2 2 0 0110 2.586l7.707 6.707zM4 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                  </button>
                   <a href="{{ url_for('docs.download', doc_id=doc.id) }}" class="h-7 w-7 rounded-md hover:bg-slate-100 flex items-center justify-center transition-colors" title="Download">
                     <svg class="h-3.5 w-3.5 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/></svg>
                   </a>
@@ -338,6 +457,35 @@
       </div>
       <div id="share-list-empty" class="hidden text-sm text-slate-400 text-center py-4">No shares yet.</div>
       <div id="share-list" class="space-y-2"></div>
+    </div>
+  </div>
+</div>
+
+<div id="tag-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+  <div id="tag-overlay" class="absolute inset-0 bg-black/25"></div>
+  <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 flex flex-col">
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+      <h3 class="text-base font-semibold text-slate-900">Tags</h3>
+      <button type="button" id="tag-modal-close" class="h-8 w-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors">
+        <svg class="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </button>
+    </div>
+    <div class="px-6 py-4">
+      <p class="text-xs text-slate-400 mb-1" id="tag-modal-doc-name">Document</p>
+      <div class="flex gap-2 mb-3">
+        <input type="text" id="tag-input" placeholder="Add a tag and press Enter" autocomplete="off"
+               class="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100" />
+        <button type="button" id="tag-add-btn" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 transition-colors">Add</button>
+      </div>
+      <div id="tag-current" class="flex flex-wrap gap-1.5 mb-3 min-h-[2rem]"></div>
+      {% if all_tags %}
+      <p class="text-xs text-slate-400 uppercase font-semibold tracking-wider mb-1.5">Suggested</p>
+      <div id="tag-suggest" class="flex flex-wrap gap-1.5">
+        {% for tag in all_tags %}
+        <button type="button" class="tag-suggest-btn inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200" data-tag="{{ tag }}">#{{ tag }}</button>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -756,6 +904,296 @@
   docsSse.addEventListener('ui_change', function(evt) {
     var d = JSON.parse(evt.data || '{}');
     if (d.module === 'docs') window.location.reload();
+  });
+
+  // -----------------------------------------------------------------------
+  // Folders: tree toggle, create, rename, delete + undo
+  // -----------------------------------------------------------------------
+  function currentFolderFromUrl() {
+    var p = new URLSearchParams(window.location.search);
+    return (p.get('folder') || '').trim();
+  }
+
+  document.querySelectorAll('.folder-toggle').forEach(function(btn) {
+    var item = btn.closest('.folder-item');
+    var children = item ? item.querySelector(':scope > .folder-children') : null;
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!children) return;
+      var open = !children.classList.contains('hidden');
+      children.classList.toggle('hidden');
+      var chev = btn.querySelector('.folder-chevron');
+      if (chev) chev.style.transform = open ? '' : 'rotate(-90deg)';
+    });
+  });
+
+  // Auto-expand ancestors of the current folder so it is visible.
+  (function autoExpand() {
+    var cur = currentFolderFromUrl();
+    if (!cur) return;
+    document.querySelectorAll('.folder-item').forEach(function(item) {
+      var path = item.getAttribute('data-folder-path');
+      if (path && (cur === path || cur.indexOf(path + '/') === 0)) {
+        var children = item.querySelector(':scope > .folder-children');
+        if (children && children.classList.contains('hidden')) {
+          children.classList.remove('hidden');
+          var chev = item.querySelector('.folder-chevron');
+          if (chev) chev.style.transform = 'rotate(-90deg)';
+        }
+      }
+    });
+  })();
+
+  var addFolderBtn = document.getElementById('add-folder-btn');
+  var newFolderInline = document.getElementById('new-folder-inline');
+  var newFolderForm = document.getElementById('new-folder-form');
+  var newFolderInput = document.getElementById('new-folder-input');
+  var newFolderAdd = document.getElementById('new-folder-add');
+  if (addFolderBtn) {
+    addFolderBtn.addEventListener('click', function() {
+      newFolderInline.classList.toggle('hidden');
+      if (!newFolderInline.classList.contains('hidden')) newFolderInput.focus();
+    });
+  }
+  if (newFolderInput) {
+    newFolderInput.addEventListener('input', function() {
+      newFolderAdd.disabled = !newFolderInput.value.trim();
+    });
+    newFolderInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { newFolderInline.classList.add('hidden'); newFolderInput.value = ''; }
+    });
+  }
+  if (newFolderForm) {
+    newFolderForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var name = newFolderInput.value.trim();
+      if (!name) return;
+      newFolderAdd.disabled = true;
+      fetch('{{ url_for("docs.create_folder") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, parent: currentFolderFromUrl() }),
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.ok) { window.location.reload(); }
+          else { newFolderAdd.disabled = false; alert((data.error && data.error.message) || 'Could not create folder.'); }
+        })
+        .catch(function() { newFolderAdd.disabled = false; alert('Network error. Please try again.'); });
+    });
+  }
+
+  document.querySelectorAll('.folder-rename-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var path = btn.getAttribute('data-folder-path');
+      var name = btn.getAttribute('data-folder-name');
+      var newName = window.prompt('Rename folder', name);
+      if (newName === null) return;
+      newName = newName.trim();
+      if (!newName || newName === name) return;
+      fetch('{{ url_for("docs.rename_folder") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: path, name: newName }),
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) { if (data.ok) window.location.reload(); else alert((data.error && data.error.message) || 'Rename failed.'); })
+        .catch(function() { alert('Network error. Please try again.'); });
+    });
+  });
+
+  var undoBanner = document.getElementById('folder-undo-banner');
+  var undoMsg = document.getElementById('folder-undo-msg');
+  var undoBtn = document.getElementById('folder-undo-btn');
+  function showUndoBanner(msg) {
+    if (!undoBanner) return;
+    undoMsg.textContent = msg;
+    undoBanner.classList.remove('hidden');
+  }
+  document.querySelectorAll('.folder-delete-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var path = btn.getAttribute('data-folder-path');
+      var name = btn.getAttribute('data-folder-name');
+      fetch('{{ url_for("docs.delete_folder") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: path }),
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.ok) {
+            window.location.reload();
+            // Reload fires before this line in practice; banner is shown by server if needed.
+            showUndoBanner('Folder "' + name + '" deleted. Contents moved up.');
+          } else {
+            alert((data.error && data.error.message) || 'Delete failed.');
+          }
+        })
+        .catch(function() { alert('Network error. Please try again.'); });
+    });
+  });
+  if (undoBtn) {
+    undoBtn.addEventListener('click', function() {
+      undoBtn.disabled = true;
+      fetch('{{ url_for("docs.undo_delete_folder") }}', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) { if (data.ok) window.location.reload(); else { undoBtn.disabled = false; alert((data.error && data.error.message) || 'Undo failed.'); } })
+        .catch(function() { undoBtn.disabled = false; alert('Network error. Please try again.'); });
+    });
+  }
+
+  // -----------------------------------------------------------------------
+  // Drag-and-drop document move
+  // -----------------------------------------------------------------------
+  var dragDocId = null;
+  document.querySelectorAll('.doc-row').forEach(function(row) {
+    row.addEventListener('dragstart', function() {
+      dragDocId = row.getAttribute('data-doc-id');
+      row.classList.add('opacity-50');
+    });
+    row.addEventListener('dragend', function() {
+      dragDocId = null;
+      row.classList.remove('opacity-50');
+      document.querySelectorAll('.folder-drop-target').forEach(function(el) {
+        el.classList.remove('folder-drop-target');
+      });
+    });
+  });
+
+  function dropTargetFolder(el) {
+    var node = el.closest('[data-folder-path]');
+    return node ? node.getAttribute('data-folder-path') : null;
+  }
+
+  document.querySelectorAll('.folder-link, .folder-row, #docs-home-link').forEach(function(el) {
+    el.addEventListener('dragover', function(e) {
+      if (!dragDocId) return;
+      e.preventDefault();
+      var target = dropTargetFolder(el);
+      if (target === null) target = el.getAttribute('data-folder-path');
+      el.classList.add('folder-drop-target');
+    });
+    el.addEventListener('dragleave', function() {
+      el.classList.remove('folder-drop-target');
+    });
+    el.addEventListener('drop', function(e) {
+      if (!dragDocId) return;
+      e.preventDefault();
+      el.classList.remove('folder-drop-target');
+      var target = dropTargetFolder(el);
+      if (target === null) target = el.getAttribute('data-folder-path');
+      moveDoc(dragDocId, target);
+    });
+  });
+  // Home link is a drop target for "move to root".
+  var homeLink = document.getElementById('docs-home-link');
+  if (homeLink) {
+    homeLink.addEventListener('dragover', function(e) { if (dragDocId) { e.preventDefault(); homeLink.classList.add('folder-drop-target'); } });
+    homeLink.addEventListener('dragleave', function() { homeLink.classList.remove('folder-drop-target'); });
+    homeLink.addEventListener('drop', function(e) { if (dragDocId) { e.preventDefault(); homeLink.classList.remove('folder-drop-target'); moveDoc(dragDocId, ''); } });
+  }
+
+  function moveDoc(docId, folder) {
+    fetch('/app/docs/' + encodeURIComponent(docId) + '/move', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder: folder || '' }),
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(data) { if (data.ok) window.location.reload(); else alert((data.error && data.error.message) || 'Move failed.'); })
+      .catch(function() { alert('Could not move the document. Please try again.'); });
+  }
+
+  // -----------------------------------------------------------------------
+  // Tags modal
+  // -----------------------------------------------------------------------
+  var tagModal = document.getElementById('tag-modal');
+  var tagOverlay = document.getElementById('tag-overlay');
+  var tagClose = document.getElementById('tag-modal-close');
+  var tagInput = document.getElementById('tag-input');
+  var tagAddBtn = document.getElementById('tag-add-btn');
+  var tagCurrent = document.getElementById('tag-current');
+  var tagDocName = document.getElementById('tag-modal-doc-name');
+  var currentTagDocId = null;
+
+  function esc2(t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+  function renderTagCurrent(tags) {
+    tagCurrent.innerHTML = '';
+    if (!tags.length) {
+      var empty = document.createElement('span');
+      empty.className = 'text-xs text-slate-400';
+      empty.textContent = 'No tags yet.';
+      tagCurrent.appendChild(empty);
+      return;
+    }
+    tags.forEach(function(t) {
+      var chip = document.createElement('span');
+      chip.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700';
+      chip.innerHTML = '#' + esc2(t) + ' <button type="button" class="text-slate-400 hover:text-rose-600" title="Remove">&times;</button>';
+      chip.querySelector('button').addEventListener('click', function() {
+        fetch('/app/docs/' + encodeURIComponent(currentTagDocId) + '/tags', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ remove: [t] }),
+        }).then(function(r) { return r.json(); }).then(function(d) { if (d.ok) renderTagCurrent(d.tags); });
+      });
+      tagCurrent.appendChild(chip);
+    });
+  }
+
+  function loadTags(docId) {
+    fetch('/app/docs/' + encodeURIComponent(docId) + '/tags', { method: 'GET' })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { renderTagCurrent(d.tags || []); })
+      .catch(function() { renderTagCurrent([]); });
+  }
+
+  function addTag(value) {
+    var t = (value || '').trim();
+    if (!t) return;
+    tagAddBtn.disabled = true;
+    fetch('/app/docs/' + encodeURIComponent(currentTagDocId) + '/tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ add: [t] }),
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { tagAddBtn.disabled = false; tagInput.value = ''; if (d.ok) renderTagCurrent(d.tags); else alert((d.error && d.error.message) || 'Could not add tag.'); })
+      .catch(function() { tagAddBtn.disabled = false; alert('Network error. Please try again.'); });
+  }
+
+  function openTagModal(docId, docName) {
+    currentTagDocId = docId;
+    tagDocName.textContent = docName || '';
+    tagInput.value = '';
+    tagModal.classList.remove('hidden');
+    loadTags(docId);
+    setTimeout(function() { tagInput.focus(); }, 50);
+  }
+  function closeTagModal() { tagModal.classList.add('hidden'); currentTagDocId = null; }
+
+  if (tagOverlay) tagOverlay.addEventListener('click', closeTagModal);
+  if (tagClose) tagClose.addEventListener('click', closeTagModal);
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && tagModal && !tagModal.classList.contains('hidden')) closeTagModal(); });
+  if (tagAddBtn) tagAddBtn.addEventListener('click', function() { addTag(tagInput.value); });
+  if (tagInput) tagInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); addTag(tagInput.value); } });
+
+  document.querySelectorAll('.tag-doc-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      openTagModal(btn.getAttribute('data-doc-id'), btn.getAttribute('data-doc-name'));
+    });
+  });
+
+  document.querySelectorAll('.tag-suggest-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { addTag(btn.getAttribute('data-tag')); });
   });
 })();
 </script>

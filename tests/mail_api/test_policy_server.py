@@ -75,7 +75,6 @@ def test_daily_reset(db):
 
 
 def test_policy_server_start_stop():
-    import asyncio
     tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
     tmp.close()
     server = PolicyServer(host="127.0.0.1", port=0, db_path=tmp.name)

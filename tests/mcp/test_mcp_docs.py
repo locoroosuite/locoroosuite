@@ -191,13 +191,14 @@ class TestDocsCreateDocument:
         with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
             with patch(f"{DOCS_CACHE_DB}.create_document"):
                 with patch(f"{DOCS_TEMPLATES}.empty_odt", return_value=mock_buf):
-                    with patch(f"{DOCS_STORAGE}.write_file"):
-                        with patch(f"{DOCS_CACHE_DB}.update_file_size"):
-                            with patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=mock_row):
-                                with patch(f"{UI_EVENTS}.push_ui_event"):
-                                    result = asyncio.run(
-                                        tools["docs_create_document"].fn(name="New Doc.odt", type="odt")
-                                    )
+                    with patch("app.modules.docs.services.doc_meta.inject_metadata", side_effect=lambda data, metadata: data):
+                        with patch(f"{DOCS_STORAGE}.write_file"):
+                            with patch(f"{DOCS_CACHE_DB}.update_file_size"):
+                                with patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=mock_row):
+                                    with patch(f"{UI_EVENTS}.push_ui_event"):
+                                        result = asyncio.run(
+                                            tools["docs_create_document"].fn(name="New Doc.odt", type="odt")
+                                        )
         data = json.loads(result)["data"]
         assert data["id"] == "new-doc"
         assert data["name"] == "New Doc.odt"
@@ -221,13 +222,14 @@ class TestDocsCreateDocument:
         with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
             with patch(f"{DOCS_CACHE_DB}.create_document"):
                 with patch(f"{DOCS_TEMPLATES}.empty_ods", return_value=mock_buf):
-                    with patch(f"{DOCS_STORAGE}.write_file"):
-                        with patch(f"{DOCS_CACHE_DB}.update_file_size"):
-                            with patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=mock_row):
-                                with patch(f"{UI_EVENTS}.push_ui_event"):
-                                    result = asyncio.run(
-                                        tools["docs_create_document"].fn(name="Sheet.ods", type="ods")
-                                    )
+                    with patch("app.modules.docs.services.doc_meta.inject_metadata", side_effect=lambda data, metadata: data):
+                        with patch(f"{DOCS_STORAGE}.write_file"):
+                            with patch(f"{DOCS_CACHE_DB}.update_file_size"):
+                                with patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=mock_row):
+                                    with patch(f"{UI_EVENTS}.push_ui_event"):
+                                        result = asyncio.run(
+                                            tools["docs_create_document"].fn(name="Sheet.ods", type="ods")
+                                        )
         data = json.loads(result)["data"]
         assert data["type"] == "ods"
 

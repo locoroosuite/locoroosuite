@@ -2,11 +2,10 @@ import io
 import json
 import os
 import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
-from app.modules.docs.services import collabora
 
 
 def _setup_test_env(app, account_id):
@@ -402,7 +401,6 @@ def test_docs_upload_ajax_oversized(authed_client, app):
     client, user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
-        from unittest.mock import patch as upatch
         big = io.BytesIO(b"x" * (50 * 1024 * 1024 + 1))
         resp = client.post(
             "/app/docs/upload",

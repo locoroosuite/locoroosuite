@@ -60,6 +60,37 @@ app/
 - No module may import from another module. All cross-module data access goes through `app.shared` only.
 - Each module owns its database tables. No foreign keys across module boundaries.
 
+## Schema Migration Architecture
+
+The application uses a unified, dependency-free, versioned migration runner (`app/shared/migrations.py`) for all five database layers: the main app database (SQLAlchemy / sqlite3) and the four per-account encrypted cache databases (mail, contacts, calendar, docs — each SQLCipher).
+
+### Two-Layer Robustness
+
+1. **Applied-migrations tracking table** (`_schema_migrations`) — Records every migration that has run, providing a fast skip-path and an inspectable audit trail.
+2. **Self-guarding migration functions** — Every migration inspects the actual schema and no-ops if the change is already present. Pre-versioning databases bootstrap correctly: the runner runs the full chain once, each step either no-ops or performs a real fix depending on the actual state. No version-stamping heuristics required.
+
+This combination survives fresh databases, old databases, partially-migrated databases, and corrupt-schema databases (e.g., a stale `account_id NOT NULL` column on the mail `folders` table that broke every INBOX/Sent sync).
+
+### File Layout
+
+- `app/shared/migrations.py` — The runner: `Migration`, `run_migrations()`, introspection helpers (`table_columns`, `has_table`, `has_index`).
+- `app/shared/app_migrations.py` — Registry for the main app DB (12 migrations).
+- `app/modules/<module>/services/cache_migrations.py` — Registry per cache module (mail, contacts, calendar, docs).
+
+### Adding a New Migration
+
+1. Append a `Migration("NNNN_descriptive_name", fn)` to the relevant registry tuple.
+2. The function must self-guard: check the current schema and return early if already applied.
+3. Do **not** call `conn.commit()` inside the migration — the runner commits after recording.
+4. Add a test that builds the pre-migration schema, runs migrations, and asserts the post-migration shape + data preservation.
+
+### Operational Notes
+
+- Migrations run automatically: the app factory calls `run_migrations()` for the main DB on startup; each cache `open_cache()` calls it on first open (memoized per-process).
+- Migrations are forward-only (no downgrades). The `applied_at` timestamp in `_schema_migrations` provides an audit trail.
+- For table-rebuild migrations (drop/rename columns), the SQLite dance is used: create new table → copy data → drop old → rename → recreate indexes. The mail `0005_drop_folders_account_id` migration is the reference example.
+- Production deployment: migrations run automatically on app startup. No manual `flask db upgrade` step is needed.
+
 ## URL Layout
 
 - `/app/login`, `/app/logout` — shared authentication (not inside any module)
@@ -201,6 +232,8 @@ U5.15 - Delete protection (lock). Customers can protect messages and folders fro
   - U5.15d - Protection blocks delete, move-to-Trash, bulk-delete, and empty-Trash. Reorganizing (move to a real folder), archive, mark read, and star/unstar remain allowed. Bulk delete skips protected messages and reports them in the `failed` list with code `PROTECTED`.
   - U5.15e - Per-account keyword capability fallback: if the IMAP server rejects the `$Locked` keyword (custom keywords not permitted), the lock action is auto-disabled for that account (mirroring the `\Junk` behaviour in U5.13/U9.5), stored in `CustomerSettings.locked_keyword_prefs` (JSON dict keyed by account id). The web UI hides the lock control for that account; the API/MCP return a structured error.
   - U5.15f - Exposure: lock/unlock and the protected state are available via the REST API (the existing flags endpoints accept a `locked` boolean) and MCP, with the same `{data: ...}` envelope.
+  - U5.15g - Protection errors are specific and actionable. When a delete/move-to-Trash is refused, the web UI, REST API, and MCP each return a message that states the **active reason** ("This message is starred.", "This message is locked.", or "This message is starred and locked.") and points the user at the resolution control ("Click Unstar in the ⋯ menu to allow deletion." / "Click Unlock …"). The `PROTECTED` error code stays stable for API/MCP clients; only the human-facing `message` becomes specific. The "Please retry…" suffix appended by the toast helper is suppressed for protection errors because there is nothing to retry.
+  - U5.15h - Protected state is visible before a delete is attempted. The message detail header and each message-list row show a protected indicator (a muted lock icon, with a tooltip giving the reason) whenever a message carries `$Locked`, or carries `\Flagged` while `protect_starred` is enabled. The indicator is deliberately understated (UX6): it shows the state without calling attention to it. This makes the current protection state discoverable instead of surfacing it only as a delete-time error.
 
 # Use Case U6 – Compose, Drafts & Sending
 U6.1 - The user can send emails, including attachments. Compose is full-featured: new/reply/forward, CC/BCC, and HTML + auto-generated plain text.
@@ -425,7 +458,7 @@ U13.9 - Supported file types (MVP): ODF text (.odt), ODF spreadsheet (.ods), ODF
 U13.85a - **Embedded metadata (ODF)** — every ODF document file on disk carries a JSON metadata blob in its `meta.xml` (`<meta:user-defined meta:name="x-locoroo-meta">` element). This makes the per-user SQLCipher cache fully reconstructable from disk files alone.
 U13.85a2 - **Sidecar metadata (non-ODF)** — non-ODF originals (PDF, DOCX, etc.) store metadata in a `meta.json` file alongside the `content` file in the same directory. Since non-ODF files are opened read-only by Collabora, the sidecar never goes stale from WOPI PutFile overwrites. Sidecar metadata is updated atomically with the cache DB on rename, soft-delete, and restore operations.
 U13.85a3 - **Sidecar fields** — `meta.json` contains the same fields as the ODF embedded blob plus `original_format` (e.g., `"pdf"`, `"docx"`) and `user_id`.
-U13.85b - **Metadata fields** — the embedded JSON object contains: `name`, `doc_type`, `original_format` (non-ODF only), `account_id`, `user_id`, `created_at`, `updated_at`, `deleted_at` (if trashed), and `file_size`.
+U13.85b - **Metadata fields** — the embedded JSON object contains: `name`, `doc_type`, `original_format` (non-ODF only), `account_id`, `user_id`, `created_at`, `updated_at`, `deleted_at` (if trashed), `file_size`, `folder_path` (empty string for root, slash-separated nested paths otherwise — see U13.90), and `tags` (JSON array of tag strings — see U13.91).
 U13.85c - **Injection points** — metadata is injected into the file at: document creation (empty template), upload (after conversion for ODF; sidecar written for non-ODF originals), WOPI PutFile (Collabora save, ODF only), rename, soft-delete (trash), and restore. This ensures the on-disk file always reflects the latest metadata state.
 U13.85d - **Resync** — `resync_docs(user_id, account_id, cache_db)` scans `data/docs/<user_id>/<account_id>/`, extracts metadata from each document file, and rebuilds the `documents` table in the SQLCipher cache. Existing entries (matching `doc_id`) are skipped to avoid overwriting newer data.
 U13.85e - **Resync trigger** — resync is triggered explicitly by the user via a "Sync" button in the docs list page, or programmatically via `?resync=1` query parameter. It is NOT auto-triggered on page load (too slow with thousands of production files).
@@ -532,7 +565,7 @@ U13.60m - **Docs list sidebar**: the document list view (`/app/docs/`) includes 
   - "My Documents" (default) — the current document list.
   - "Shared with me" — documents shared with the current user, showing document name, type, owner email, permission badge ("Can view" / "Can edit"), and last updated. Clicking opens the document in Collabora.
   - The sidebar is collapsible on mobile, always visible on desktop. Each section shows a count badge.
-  - Future sections (folders, starred, templates) will be added to the sidebar.
+  - Future sections (starred, templates) will be added to the sidebar. Folders and Tags sections are present per U13.90/U13.91.
 
 U13.60n - **Share UI in editor**: the editor floating bar gains a "Share" button that opens a modal for managing shares. The modal shows: a form to add email addresses (comma-separated) with permission selection (view/write), a list of current shares with stats (view count, last access) and revoke buttons. The modal uses AJAX — no page navigation.
 
@@ -544,6 +577,44 @@ U13.60q - **Privacy**: shared document access is logged only as aggregate counts
 
 U13.60r - **SMTP for invitations**: the docs module sends invitation emails by reading the domain's SMTP settings from the shared `Domain` model and using `smtplib` directly. No cross-module imports — the docs module reads SMTP config from `app.shared.models.core` and `app.shared.keys`, same pattern as the calendar module's iMIP sending.
 
+## Folder Management
+
+U13.90 - Folders are a virtual organizational layer over the (still flat) on-disk storage. A document's folder membership is stored as `folder_path` in the per-user SQLCipher `documents` table and embedded in the document metadata blob (U13.85b) so it survives a cache reset/resync. The on-disk directory layout (`data/docs/<user>/<account>/<doc_id>/`) is unchanged — folders do not create filesystem directories.
+
+U13.90a - **Path model** — folders are represented as slash-separated path strings with no leading slash. The account root is the empty string `""`. Nested folders use `/` as the delimiter (e.g. `"Work/Projects/Alpha"`). Folder names must be non-empty, max 100 characters, and must not contain `/`, `\`, leading/trailing whitespace, or null bytes. Nesting depth is capped at 8 levels.
+
+U13.90b - **Folder table** — a `folders` table in the per-user cache DB records `(id, account_id, path, name, created_at)` with a unique constraint on `(account_id, path)`. This table exists so that empty folders persist within a session. It is NOT the source of truth for the tree; the tree is derived from the union of `documents.folder_path` values plus the `folders` table.
+
+U13.90c - **Resync behavior** — on resync (`resync_docs`), the `folders` table is **merged** with `SELECT DISTINCT folder_path FROM documents WHERE deleted_at IS NULL AND folder_path != ''`: folder rows inferred from recovered documents (and their ancestors) are added, while manually-created empty folders are preserved so a manual Sync never wipes the user's organization. Empty folders are only lost on a true cache **reset** (fresh/empty DB, e.g. after a cache wipe), since there is nothing to merge into. This is an accepted trade-off: documents always retain their `folder_path` via the embedded metadata, so organization is preserved; only genuinely empty folders vanish across a reset.
+
+U13.90d - **Create folder** — `POST /app/docs/folders` (and REST/MCP equivalents) creates a folder row given a `name` and optional `parent` path. Creating a folder whose path already exists is idempotent (returns success). Parent path segments are auto-created if missing.
+
+U13.90e - **Rename folder** — `POST /app/docs/folders/rename` updates the folder row's path/name and cascades to all contained documents and subfolders: any `documents.folder_path` (and `folders.path`) starting with the old prefix is rewritten to the new prefix. Operates as a prefix replacement so the entire subtree moves atomically.
+
+U13.90f - **Delete folder** — `POST /app/docs/folders/delete` removes the folder row(s) for the given path and its subtree. Contained documents are NOT deleted: their `folder_path` is reset to the parent of the deleted folder (i.e. they move up one level), with an undo affordance in the UI. This matches the "delete-folder moves contents to parent" policy.
+
+U13.90g - **Move document** — `POST /app/docs/<doc_id>/move` sets `documents.folder_path` to the target path (default root). The document's embedded metadata is re-injected so the move survives a resync.
+
+U13.90h - **List/tree** — `GET /app/docs/folders` returns the folder tree (nested structure) for the account, computed from the `folders` table plus distinct `documents.folder_path` values. The docs list view (`GET /app/docs/`) accepts an optional `folder` query parameter to scope the visible documents to one folder (exact match on `folder_path`, not recursive).
+
+U13.90i - **Default folder on create/upload** — the create (`POST /app/docs/new`) and upload (`POST /app/docs/upload`) routes accept an optional `folder` parameter; the new document is created with that `folder_path`. The UI passes the currently-selected folder from the sidebar/breadcrumbs.
+
+U13.90j - **Three-layer parity** — folder CRUD, move, and tree-list are exposed via the REST API (`/api/v1/docs/folders`, `/api/v1/docs/documents/<id>/move`) and MCP (`docs_create_folder`, `docs_rename_folder`, `docs_delete_folder`, `docs_move_document`, `docs_list_folders`) alongside the web UI. The document list/detail envelopes (REST + MCP) include `folder_path`.
+
+## Tags
+
+U13.91 - Tags are free-form labels stored as a JSON array (`tags TEXT NOT NULL DEFAULT '[]'`) on each document in the per-user cache, and embedded in the document metadata blob (U13.85b) so they survive a cache reset/resync.
+
+U13.91a - **Tag values** — each tag is a non-empty string, max 50 characters, stripped of surrounding whitespace. A document may have zero or more tags; duplicates are de-duplicated (case-sensitive). Tag order is not significant.
+
+U13.91b - **Add/remove tags** — `POST /app/docs/<doc_id>/tags` accepts an `add` and/or `remove` list and updates `documents.tags` (JSON), then re-injects metadata. The REST API (`PUT /api/v1/docs/documents/<id>/tags`) and MCP (`docs_set_tags`) mirror this.
+
+U13.91c - **Tag list** — the sidebar derives the available tag set from `SELECT DISTINCT` over `documents.tags` (active documents only). The list is not stored as a separate registry; there is no tag rename or tag color in MVP (a tag is renamed by adding the new value and removing the old on each affected document, which the UI may batch).
+
+U13.91d - **Filter** — the docs list view accepts an optional `tag` query parameter; the list is filtered to documents whose `tags` JSON array contains the value. Multiple tag filters are not combined in MVP (single-tag filter only). Folder and tag filters compose with name search (logical AND).
+
+U13.91e - **Envelopes** — document list/detail responses (web JSON, REST, MCP, TS client) include a `tags` array. The list query params accept `tag`/`tags` filters.
+
 ## Out of Scope for MVP
 
 U13.70 - Real-time collaborative editing (multiple simultaneous editors).
@@ -552,7 +623,6 @@ U13.72 - Document templates.
 U13.73 - Comments and annotations.
 U13.74 - Offline editing.
 U13.75 - (Moved to U8.8 — now implemented.)
-U13.76 - Folder/nested organization.
 U13.77 - Thumbnail previews in the list.
 U13.78 - Share link auto-expiry.
 
@@ -1285,6 +1355,7 @@ UX7b - FLIP animations for message list updates: when refreshMessages() receives
   - This provides Gmail-like smooth reordering when new messages arrive, flag changes reorder threads, or the sort order changes after a sync completes.
 UX5 - Preview pane is toggleable: single-pane is default; split view shows list + message with preserved list density.
 UX6 - Use clean, high-contrast typography with muted metadata colors; avoid visual noise in dense layouts.
+UX3d - Message detail header shows a star toggle and, when the account supports it, a lock toggle to the left of the subject (after the back arrow). Each reflects the current state (filled/active when set, muted outline when not) and toggles in place via the existing flag/lock endpoints with a subtle inline spinner while in flight. These replace the Star/Lock entries previously in the ⋯ overflow menu (no duplicate controls). The star toggle is always shown; the lock toggle is hidden when the account's IMAP server rejects the `$Locked` keyword.
 
 # Use Case U19 – Mail Server Management API
 

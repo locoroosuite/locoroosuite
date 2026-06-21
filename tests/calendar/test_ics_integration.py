@@ -1,7 +1,7 @@
 import json
 from unittest.mock import patch, MagicMock
 
-from app.shared.models.core import User, Domain, CustomerAccount
+from app.shared.models.core import Domain, CustomerAccount
 from app.shared.db import db
 
 
@@ -64,8 +64,8 @@ def _setup_caldav_domain(app):
 def _create_temp_cache(app, user_id, account_id):
     from app.shared.keys import get_user_key
     from app.modules.calendar.services.cache_db import open_cache
-    from app.modules.calendar.services import cache_db
-    import tempfile, os
+    import tempfile
+    import os
 
     with app.app_context():
         account = db.session.get(CustomerAccount, account_id)
@@ -377,7 +377,6 @@ class TestEventDetailEmailLink:
         client, user_id, account_id = authed_client
 
         from app.modules.calendar.services import cache_db
-        from app.modules.calendar.services.cache_db import open_cache
         import os
 
         conn, path, key = _create_temp_cache(app, user_id, account_id)
@@ -431,7 +430,6 @@ class TestConflicts:
         client, user_id, account_id = authed_client
 
         from app.modules.calendar.services import cache_db
-        from app.modules.calendar.services.cache_db import open_cache
         import os
 
         conn, path, key = _create_temp_cache(app, user_id, account_id)

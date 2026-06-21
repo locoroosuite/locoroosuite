@@ -128,8 +128,6 @@ def _push_to_caldav(account, event, patched_ical):
     if not secret:
         return
 
-    scheme = "https" if domain.caldav_use_tls else "http"
-    base_url = f"{scheme}://{domain.caldav_host}:{domain.caldav_port or 5232}"
 
     s = caldav._make_session(account.username, secret)
     caldav.update_event(s, event["href"], patched_ical, event.get("etag"))

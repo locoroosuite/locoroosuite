@@ -11,7 +11,7 @@ from app.shared.db import db as _db
 from app.shared.models.core import User, Domain, CustomerAccount
 from app.shared.keys import set_user_key, clear_user_key
 from app.api.token_service import create_api_token, generate_dek
-from app.mcp.errors import resilient_tool, structured_error, get_registry_snapshot, health_check
+from app.mcp.errors import structured_error, get_registry_snapshot, health_check
 
 MAIL = "app.mcp.tools.mail"
 CONTACTS = "app.mcp.tools.contacts"

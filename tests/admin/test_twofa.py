@@ -216,7 +216,7 @@ class TestAdmin2FASettings:
     def test_revoke_device(self, admin_client, app):
         client, uid = admin_client
         with app.app_context():
-            device_id_db = totp_mod.issue_trusted_device(uid, "Chrome", None)
+            totp_mod.issue_trusted_device(uid, "Chrome", None)
             device = TrustedDevice.query.filter_by(user_id=uid).first()
             did = device.id
         resp = client.post(f"/admin/settings/security/devices/{did}/revoke")

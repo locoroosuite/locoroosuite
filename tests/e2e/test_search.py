@@ -3,7 +3,6 @@ import re
 import pytest
 
 from tests.e2e.conftest import skip_if_no_services
-from tests.e2e.services import wait_for
 
 
 @skip_if_no_services

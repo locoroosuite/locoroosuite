@@ -19,6 +19,8 @@ def purge_cache(path, key=None):
     cache_path = Path(path)
     if not cache_path.exists():
         return
+    from app.modules.mail.services.cache_db import clear_cache_schema_memo
+    clear_cache_schema_memo(path)
     if key:
         _drop_mail_tables(path, key)
     else:

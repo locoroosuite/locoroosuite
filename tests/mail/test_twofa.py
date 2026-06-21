@@ -4,7 +4,7 @@ import pyotp
 from unittest.mock import patch, MagicMock
 
 from app.shared.db import db
-from app.shared.models.core import User, Domain, CustomerAccount, TrustedDevice
+from app.shared.models.core import User, Domain, TrustedDevice
 from app.shared import totp as totp_mod
 from app.shared.keys import get_user_key, clear_user_key
 

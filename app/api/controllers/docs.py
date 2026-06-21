@@ -8,13 +8,11 @@ from app.api.schemas.common import ErrorResponse
 from app.api.schemas.docs import (
     DocumentListResponse, DocumentDetailResponse, ContentResponse,
     DocPath, DraftPath, ListDocumentsQuery, CreateDocumentBody,
-    RenameDocumentBody, ReadContentQuery, UpdateContentJsonBody,
-    CreateDraftBody, DraftListResponse, ConvertResponse,
+    RenameDocumentBody, ReadContentQuery, CreateDraftBody, DraftListResponse, ConvertResponse,
+    MoveDocumentBody, UpdateTagsBody, TagsResponse,
+    FolderItem, FolderListResponse, CreateFolderBody, RenameFolderBody,
+    DeleteFolderBody,
 )
-
-bp = create_api_blueprint("docs", "Document management")
-
-logger = logging.getLogger(__name__)
 from app.api.controllers.helpers import (
     api_response, api_paginated, api_error, require_api_token, require_scope,
     get_api_account_id, ApiError,
@@ -23,16 +21,25 @@ from app.shared.models.core import CustomerAccount
 from app.shared.pandoc_formats import target_odf_type
 from app.modules.docs.services.cache import get_cache_path
 from app.modules.docs.services.cache_db import (
-    open_cache, create_document, get_active_document, list_documents,
-    rename_document as db_rename, soft_delete_document, list_trash,
+    open_cache, create_document, get_active_document, get_document,
+    list_documents, rename_document as db_rename, soft_delete_document,
+    get_document_tags, update_document_tags,
+    parse_tags, set_document_folder, rename_folder_subtree,
+    subtree_documents, move_subtree_docs_to_parent, delete_folder_subtree_rows,
 )
-from app.modules.docs.services.storage import write_file, read_file, file_exists, _storage_path
+from app.modules.docs.services import folders as folders_svc
+from app.modules.docs.services import doc_meta, resync as resync_svc
+from app.modules.docs.services.storage import write_file, read_file, _storage_path
 from app.shared.ui_events import push_ui_event
 
+bp = create_api_blueprint("docs", "Document management")
 
-def _row_to_dict(row):
+logger = logging.getLogger(__name__)
+
+
+def _row_to_dict(row) -> dict:
     if row is None:
-        return None
+        return {}
     return {k: row[k] for k in row.keys()}
 
 
@@ -44,6 +51,13 @@ def _get_cache_conn(account_id, dek):
     return open_cache(path, dek)
 
 
+def _get_account(account_id):
+    account = CustomerAccount.query.filter_by(id=account_id).first()
+    if not account:
+        raise ApiError("NOT_FOUND", "Account not found", 404)
+    return account
+
+
 def _doc_to_dict(row):
     d = _row_to_dict(row)
     return {
@@ -53,6 +67,8 @@ def _doc_to_dict(row):
         "size": d.get("file_size", 0),
         "created_at": d.get("created_at", ""),
         "updated_at": d.get("updated_at", ""),
+        "folder_path": d.get("folder_path", ""),
+        "tags": parse_tags(d.get("tags")),
     }
 
 
@@ -71,9 +87,11 @@ def api_list_documents(query: ListDocumentsQuery):
     account_id = get_api_account_id()
     dek = g.api_context["dek"]
     limit = min(query.max_results, 200)
+    folder = query.folder if query.folder is not None else None
+    tag = query.tag if query.tag is not None else None
     conn = _get_cache_conn(account_id, dek)
     try:
-        rows = list_documents(conn, account_id)
+        rows = list_documents(conn, account_id, folder=folder, tag=tag)
         items = [_doc_to_dict(r) for r in rows[:limit]]
         has_more = len(rows) > limit
         return api_paginated(items, has_more=has_more)
@@ -108,22 +126,36 @@ def api_create_document(body: CreateDocumentBody):
     doc_type = body.type
     if doc_type not in ("odt", "ods", "odp"):
         return api_error("VALIDATION_ERROR", "Type must be odt, ods, or odp", 400)
+    folder = (body.folder or "").strip().strip("/")
+    if folder:
+        try:
+            for seg in folder.split("/"):
+                folders_svc.validate_folder_name(seg)
+            folders_svc.assert_depth(folder)
+        except folders_svc.FolderError as exc:
+            return api_error("VALIDATION_ERROR", str(exc), 400)
     doc_id = str(uuid.uuid4())
     conn = _get_cache_conn(account_id, dek)
     try:
-        create_document(conn, doc_id, name, doc_type, account_id)
+        if folder:
+            folders_svc.ensure_folder_path(conn, account_id, folder)
+        create_document(conn, doc_id, name, doc_type, account_id, folder_path=folder)
     finally:
         conn.close()
-    account = CustomerAccount.query.filter_by(id=account_id).first()
+    account = _get_account(account_id)
     doc_path = _storage_path(account.customer_id, account_id, doc_id)
     doc_path.parent.mkdir(parents=True, exist_ok=True)
     from app.modules.docs.services.templates import empty_odt, empty_ods, empty_odp
     template_fn = {"odt": empty_odt, "ods": empty_ods, "odp": empty_odp}.get(doc_type, empty_odt)
-    template_data = template_fn()
-    doc_path.write_bytes(template_data.read())
+    template_data = template_fn().read()
+    metadata = resync_svc.build_doc_metadata(doc_id, name, doc_type, account_id, folder_path=folder)
+    template_data = doc_meta.inject_metadata(template_data, metadata)
+    doc_path.write_bytes(template_data)
     push_ui_event(g.api_context["customer_id"], "docs", "document_created", {"account_id": account_id, "doc_id": doc_id})
     conn = _get_cache_conn(account_id, dek)
     try:
+        from app.modules.docs.services.cache_db import update_file_size
+        update_file_size(conn, doc_id, len(template_data))
         result = _serialize_document(conn, doc_id)
     finally:
         conn.close()
@@ -178,7 +210,7 @@ def api_rename_document(path: DocPath, body: RenameDocumentBody):
 def api_download_document(path: DocPath):
     doc_id = path.doc_id
     account_id = get_api_account_id()
-    account = CustomerAccount.query.filter_by(id=account_id).first()
+    account = _get_account(account_id)
     dek = g.api_context["dek"]
     conn = _get_cache_conn(account_id, dek)
     try:
@@ -202,7 +234,7 @@ def api_read_content(path: DocPath, query: ReadContentQuery):
     doc_id = path.doc_id
     fmt = query.format
     account_id = get_api_account_id()
-    account = CustomerAccount.query.filter_by(id=account_id).first()
+    account = _get_account(account_id)
     dek = g.api_context["dek"]
     conn = _get_cache_conn(account_id, dek)
     try:
@@ -342,7 +374,8 @@ def api_update_content(path: DocPath):
         f = request.files.get("file")
         if not f:
             return api_error("VALIDATION_ERROR", "No file provided", 400)
-        ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
+        fname = f.filename or ""
+        ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else ""
         if ext in ("odt", "ods", "odp"):
             file_data = f.read()
         else:
@@ -489,7 +522,6 @@ def api_create_draft(path: DocPath, body: CreateDraftBody):
 @require_api_token(scopes=["docs:read"])
 @require_scope("docs", "read")
 def api_list_drafts(path: DocPath):
-    doc_id = path.doc_id
     account_id = get_api_account_id()
     dek = g.api_context["dek"]
     conn = _get_cache_conn(account_id, dek)
@@ -606,7 +638,6 @@ def api_convert_document(path: DocPath):
             return api_error("CONVERSION_ERROR", f"Conversion failed: {exc}", 500)
 
     new_doc_id = str(uuid.uuid4())
-    from app.modules.docs.services import doc_meta, resync as resync_svc
     conn = _get_cache_conn(account_id, dek)
     try:
         create_document(conn, new_doc_id, doc["name"], target_type, account_id, file_size=0)
@@ -623,3 +654,173 @@ def api_convert_document(path: DocPath):
         conn.close()
     push_ui_event(g.api_context["customer_id"], "docs", "document_converted", {"account_id": account_id, "doc_id": new_doc_id, "source_doc_id": doc_id})
     return api_response(result or {"id": new_doc_id, "name": doc["name"], "type": target_type, "size": size}, 201)
+
+
+# ---------------------------------------------------------------------------
+# Folders
+# ---------------------------------------------------------------------------
+
+@bp.get("/docs/folders", summary="List folders", description="Returns the flat folder list (paths inferred from documents plus explicit empty folders). Requires `docs:read` scope.", responses={"200": FolderListResponse, "401": ErrorResponse})
+@require_api_token(scopes=["docs:read"])
+@require_scope("docs", "read")
+def api_list_folders():
+    account_id = get_api_account_id()
+    dek = g.api_context["dek"]
+    conn = _get_cache_conn(account_id, dek)
+    try:
+        items = folders_svc.list_flat(conn, account_id)
+    finally:
+        conn.close()
+    return api_response(items)
+
+
+@bp.post("/docs/folders", summary="Create folder", description="Creates a folder (and any missing ancestor segments). Idempotent: creating an existing path succeeds. Requires `docs:write` scope.", responses={"201": FolderItem, "400": ErrorResponse, "401": ErrorResponse})
+@require_api_token(scopes=["docs:write"])
+@require_scope("docs", "write")
+def api_create_folder(body: CreateFolderBody):
+    account_id = get_api_account_id()
+    dek = g.api_context["dek"]
+    parent = (body.parent or "").strip().strip("/")
+    try:
+        path = folders_svc.normalize_path(parent, body.name)
+        folders_svc.assert_depth(path)
+    except folders_svc.FolderError as exc:
+        return api_error("VALIDATION_ERROR", str(exc), 400)
+    conn = _get_cache_conn(account_id, dek)
+    try:
+        folders_svc.ensure_folder_path(conn, account_id, path)
+        items = {f["path"]: f for f in folders_svc.list_flat(conn, account_id)}
+    finally:
+        conn.close()
+    item = items.get(path, {"path": path, "name": folders_svc.leaf_name(path), "parent": parent, "count": 0})
+    return api_response(item, 201)
+
+
+@bp.post("/docs/folders/rename", summary="Rename folder", description="Renames a folder and its entire subtree, rewriting document folder paths. Requires `docs:write` scope.", responses={"200": FolderItem, "400": ErrorResponse, "401": ErrorResponse})
+@require_api_token(scopes=["docs:write"])
+@require_scope("docs", "write")
+def api_rename_folder(body: RenameFolderBody):
+    account_id = get_api_account_id()
+    dek = g.api_context["dek"]
+    customer_id = g.api_context["customer_id"]
+    path = (body.path or "").strip().strip("/")
+    if not path:
+        return api_error("VALIDATION_ERROR", "path is required", 400)
+    try:
+        new_name = folders_svc.validate_folder_name(body.name)
+    except folders_svc.FolderError as exc:
+        return api_error("VALIDATION_ERROR", str(exc), 400)
+    new_path = folders_svc.normalize_path(folders_svc.parent_path(path), new_name)
+    conn = _get_cache_conn(account_id, dek)
+    try:
+        rename_folder_subtree(conn, account_id, path, new_path)
+        for d in subtree_documents(conn, account_id, new_path):
+            if not d.get("deleted_at"):
+                resync_svc.inject_metadata_from_doc_row(customer_id, account_id, d)
+    finally:
+        conn.close()
+    return api_response({"path": new_path, "name": new_name, "parent": folders_svc.parent_path(new_path), "count": 0})
+
+
+@bp.post("/docs/folders/delete", summary="Delete folder", description="Deletes a folder subtree. Contained documents are moved to the deleted folder's parent (flattened). Requires `docs:write` scope.", responses={"200": None, "400": ErrorResponse, "401": ErrorResponse})
+@require_api_token(scopes=["docs:write"])
+@require_scope("docs", "write")
+def api_delete_folder(body: DeleteFolderBody):
+    account_id = get_api_account_id()
+    dek = g.api_context["dek"]
+    customer_id = g.api_context["customer_id"]
+    path = (body.path or "").strip().strip("/")
+    if not path:
+        return api_error("VALIDATION_ERROR", "path is required", 400)
+    parent = folders_svc.parent_path(path)
+    conn = _get_cache_conn(account_id, dek)
+    try:
+        moved = [
+            d for d in subtree_documents(conn, account_id, path)
+            if not d.get("deleted_at")
+        ]
+        move_subtree_docs_to_parent(conn, account_id, path, parent)
+        delete_folder_subtree_rows(conn, account_id, path)
+        for d in moved:
+            doc = get_document(conn, d["id"])
+            if doc and not doc.get("deleted_at"):
+                resync_svc.inject_metadata_from_doc_row(customer_id, account_id, doc)
+    finally:
+        conn.close()
+    return api_response({"path": path, "moved_to": parent}, 200)
+
+
+@bp.post("/docs/documents/<doc_id>/move", summary="Move document", description="Moves a document to a folder (empty/omitted folder = root). Requires `docs:write` scope.", responses={"200": DocumentDetailResponse, "400": ErrorResponse, "401": ErrorResponse, "404": ErrorResponse})
+@require_api_token(scopes=["docs:write"])
+@require_scope("docs", "write")
+def api_move_document(path: DocPath, body: MoveDocumentBody):
+    doc_id = path.doc_id
+    account_id = get_api_account_id()
+    dek = g.api_context["dek"]
+    customer_id = g.api_context["customer_id"]
+    target = (body.folder or "").strip().strip("/")
+    if target:
+        try:
+            for seg in target.split("/"):
+                folders_svc.validate_folder_name(seg)
+            folders_svc.assert_depth(target)
+        except folders_svc.FolderError as exc:
+            return api_error("VALIDATION_ERROR", str(exc), 400)
+    conn = _get_cache_conn(account_id, dek)
+    try:
+        row = get_document(conn, doc_id)
+        if not row or row.get("deleted_at"):
+            return api_error("NOT_FOUND", "Document not found", 404)
+        if target:
+            folders_svc.ensure_folder_path(conn, account_id, target)
+        set_document_folder(conn, doc_id, target)
+        resync_svc.inject_metadata_from_doc_row(customer_id, account_id, get_document(conn, doc_id))
+        result = _serialize_document(conn, doc_id)
+    finally:
+        conn.close()
+    push_ui_event(customer_id, "docs", "document_moved", {"account_id": account_id, "doc_id": doc_id, "folder": target})
+    return api_response(result or {"id": doc_id, "folder_path": target})
+
+
+# ---------------------------------------------------------------------------
+# Tags
+# ---------------------------------------------------------------------------
+
+@bp.get("/docs/documents/<doc_id>/tags", summary="Get document tags", description="Returns the tags applied to a document. Requires `docs:read` scope.", responses={"200": TagsResponse, "401": ErrorResponse, "404": ErrorResponse})
+@require_api_token(scopes=["docs:read"])
+@require_scope("docs", "read")
+def api_get_tags(path: DocPath):
+    doc_id = path.doc_id
+    account_id = get_api_account_id()
+    dek = g.api_context["dek"]
+    conn = _get_cache_conn(account_id, dek)
+    try:
+        row = get_document(conn, doc_id)
+        if not row:
+            return api_error("NOT_FOUND", "Document not found", 404)
+        tags = get_document_tags(conn, doc_id)
+    finally:
+        conn.close()
+    return api_response({"tags": tags})
+
+
+@bp.put("/docs/documents/<doc_id>/tags", summary="Update document tags", description="Add and/or remove tags, or replace the full tag list with `set`. Each tag is max 50 chars. Requires `docs:write` scope.", responses={"200": TagsResponse, "400": ErrorResponse, "401": ErrorResponse, "404": ErrorResponse})
+@require_api_token(scopes=["docs:write"])
+@require_scope("docs", "write")
+def api_update_tags(path: DocPath, body: UpdateTagsBody):
+    doc_id = path.doc_id
+    account_id = get_api_account_id()
+    dek = g.api_context["dek"]
+    customer_id = g.api_context["customer_id"]
+    conn = _get_cache_conn(account_id, dek)
+    try:
+        row = get_document(conn, doc_id)
+        if not row or row.get("deleted_at"):
+            return api_error("NOT_FOUND", "Document not found", 404)
+        update_document_tags(conn, doc_id, add=body.add or [], remove=body.remove or [])
+        resync_svc.inject_metadata_from_doc_row(customer_id, account_id, get_document(conn, doc_id))
+        tags = get_document_tags(conn, doc_id)
+    finally:
+        conn.close()
+    push_ui_event(customer_id, "docs", "document_tagged", {"account_id": account_id, "doc_id": doc_id})
+    return api_response({"tags": tags})

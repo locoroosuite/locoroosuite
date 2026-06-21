@@ -3,32 +3,62 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 import json
+import os
 import re
 
 import sqlcipher3
 
 from app.modules.mail.services.folder_sort import UNREAD_EXCLUDED_FOLDERS
+from app.modules.mail.services.cache_migrations import MAIL_CACHE_MIGRATIONS
 from app.shared.cache_errors import CacheKeyMismatchError
+from app.shared.migrations import run_migrations
+
+
+# Cache DB paths that have already had their schema initialized/migrated in
+# this process. open_cache() is called ~per-request, but the schema check only
+# needs to run once per process per cache file (≈ once per login/restart), never
+# per request. Cleared by clear_cache_schema_memo() when a cache is recreated.
+_SCHEMA_INITIALIZED: set[str] = set()
+
+
+def clear_cache_schema_memo(db_path: str | None) -> None:
+    """Drop a cache DB from the in-process schema-initialized memo.
+
+    Call this whenever a cache DB is deleted/recreated so the next open_cache
+    re-runs init_cache_schema against the fresh file.
+    """
+    if db_path:
+        _SCHEMA_INITIALIZED.discard(db_path)
 
 
 def open_cache(db_path, key):
     if not key:
         raise ValueError("cache key required")
+    # If the path is memoized but the file no longer exists, an external process
+    # (e.g. cache reset, E2E cleanup) deleted it after we memoized it. The memo
+    # is now stale: connecting will create a fresh empty file that lacks schema,
+    # so we must re-run init_cache_schema instead of trusting the memo.
+    file_existed = bool(db_path) and os.path.exists(db_path)
+    memo_valid = db_path in _SCHEMA_INITIALIZED and file_existed
     conn = sqlcipher3.connect(db_path)
     conn.row_factory = sqlcipher3.Row
     conn.execute(f"PRAGMA key = \"x'{key}'\"")
     try:
-        init_cache_schema(conn)
+        if not memo_valid:
+            init_cache_schema(conn)
+            _SCHEMA_INITIALIZED.add(db_path)
     except (MemoryError, Exception) as exc:
         conn.close()
         import os as _os
         if _os.path.exists(db_path):
             _os.unlink(db_path)
+            clear_cache_schema_memo(db_path)
         conn = sqlcipher3.connect(db_path)
         conn.row_factory = sqlcipher3.Row
         conn.execute(f"PRAGMA key = \"x'{key}'\"")
         try:
             init_cache_schema(conn)
+            _SCHEMA_INITIALIZED.add(db_path)
         except Exception:
             conn.close()
             raise CacheKeyMismatchError(
@@ -54,44 +84,6 @@ def _date_to_unix(date_value):
     return int(dt.timestamp())
 
 
-def _ensure_date_ts_column(conn):
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(messages)").fetchall()}
-    if "date_ts" in columns:
-        return
-    conn.execute("ALTER TABLE messages ADD COLUMN date_ts INTEGER")
-    rows = conn.execute("SELECT id, date FROM messages").fetchall()
-    for message_id, date_value in rows:
-        conn.execute(
-            "UPDATE messages SET date_ts = ? WHERE id = ?",
-            (_date_to_unix(date_value), message_id),
-        )
-    conn.commit()
-
-
-def _ensure_internal_date_ts_column(conn):
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(messages)").fetchall()}
-    if "internal_date_ts" in columns:
-        return
-    conn.execute("ALTER TABLE messages ADD COLUMN internal_date_ts INTEGER")
-    conn.commit()
-
-
-def _ensure_thread_columns(conn):
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(messages)").fetchall()}
-    altered = False
-    if "in_reply_to" not in columns:
-        conn.execute("ALTER TABLE messages ADD COLUMN in_reply_to TEXT")
-        altered = True
-    if "ref_list" not in columns:
-        conn.execute("ALTER TABLE messages ADD COLUMN ref_list TEXT")
-        altered = True
-    if "thread_id" not in columns:
-        conn.execute("ALTER TABLE messages ADD COLUMN thread_id TEXT")
-        altered = True
-    if altered:
-        conn.commit()
-
-
 def parse_references_header(value):
     if not value:
         return []
@@ -113,167 +105,15 @@ def compute_thread_id(message_id, in_reply_to, ref_list):
     return None
 
 
-def _ensure_calendar_link_column(conn):
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(messages)").fetchall()}
-    if "calendar_event_uid" not in columns:
-        conn.execute("ALTER TABLE messages ADD COLUMN calendar_event_uid TEXT")
-        conn.commit()
-
-
-def _ensure_bounce_columns(conn):
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(messages)").fetchall()}
-    altered = False
-    if "is_bounce" not in columns:
-        conn.execute("ALTER TABLE messages ADD COLUMN is_bounce INTEGER DEFAULT 0")
-        altered = True
-    if "bounce_reason" not in columns:
-        conn.execute("ALTER TABLE messages ADD COLUMN bounce_reason TEXT")
-        altered = True
-    if "original_subject" not in columns:
-        conn.execute("ALTER TABLE messages ADD COLUMN original_subject TEXT")
-        altered = True
-    if altered:
-        conn.commit()
-
-
-def _ensure_cc_column(conn):
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(messages)").fetchall()}
-    if "cc" not in columns:
-        conn.execute("ALTER TABLE messages ADD COLUMN cc TEXT")
-        conn.commit()
-
-
-def _ensure_attachment_list_column(conn):
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(messages)").fetchall()}
-    if "attachment_list" not in columns:
-        conn.execute("ALTER TABLE messages ADD COLUMN attachment_list TEXT")
-        conn.commit()
-
-
-def _ensure_body_html_column(conn):
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(messages)").fetchall()}
-    if "body_html" not in columns:
-        conn.execute("ALTER TABLE messages ADD COLUMN body_html TEXT")
-        conn.commit()
-
-
 def init_cache_schema(conn):
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS folders (
-            id INTEGER PRIMARY KEY,
-            name TEXT UNIQUE,
-            unread_count INTEGER DEFAULT 0
-        )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS folder_state (
-            folder TEXT PRIMARY KEY,
-            uidvalidity TEXT,
-            uidnext INTEGER,
-            highestmodseq TEXT,
-            last_sync_at TEXT,
-            last_new_at TEXT
-        )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY,
-            uid TEXT,
-            folder TEXT,
-            subject TEXT,
-            sender TEXT,
-            recipients TEXT,
-            date TEXT,
-            date_ts INTEGER,
-            flags TEXT,
-            snippet TEXT,
-            body TEXT,
-            has_attachments INTEGER DEFAULT 0,
-            message_id TEXT,
-            thread_id TEXT
-        )
-        """
-    )
-    _ensure_date_ts_column(conn)
-    _ensure_internal_date_ts_column(conn)
-    _ensure_thread_columns(conn)
-    _ensure_calendar_link_column(conn)
-    _ensure_bounce_columns(conn)
-    _ensure_cc_column(conn)
-    _ensure_attachment_list_column(conn)
-    _ensure_body_html_column(conn)
-    try:
-        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS messages_uid_folder_idx ON messages(uid, folder)")
-    except sqlcipher3.dbapi2.IntegrityError:
-        conn.execute(
-            """
-            DELETE FROM messages
-            WHERE id NOT IN (
-                SELECT MAX(id)
-                FROM messages
-                WHERE uid IS NOT NULL AND folder IS NOT NULL
-                GROUP BY uid, folder
-            )
-            """
-        )
-        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS messages_uid_folder_idx ON messages(uid, folder)")
-    conn.execute("CREATE INDEX IF NOT EXISTS messages_folder_date_ts_idx ON messages(folder, COALESCE(internal_date_ts, date_ts) DESC, id DESC)")
-    conn.execute(
-        """
-        CREATE VIRTUAL TABLE IF NOT EXISTS message_fts USING fts5(
-            subject, sender, recipients, body, content='messages', content_rowid='id'
-        )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS tags (
-            id INTEGER PRIMARY KEY,
-            name TEXT UNIQUE
-        )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS message_tags (
-            message_id INTEGER,
-            tag_id INTEGER,
-            PRIMARY KEY (message_id, tag_id)
-        )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
-            INSERT INTO message_fts(rowid, subject, sender, recipients, body)
-            VALUES (new.id, new.subject, new.sender, new.recipients, new.body);
-        END;
-        """
-    )
-    conn.execute(
-        """
-        CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
-            INSERT INTO message_fts(message_fts, rowid, subject, sender, recipients, body)
-            VALUES ('delete', old.id, old.subject, old.sender, old.recipients, old.body);
-        END;
-        """
-    )
-    conn.execute(
-        """
-        CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
-            INSERT INTO message_fts(message_fts, rowid, subject, sender, recipients, body)
-            VALUES ('delete', old.id, old.subject, old.sender, old.recipients, old.body);
-            INSERT INTO message_fts(rowid, subject, sender, recipients, body)
-            VALUES (new.id, new.subject, new.sender, new.recipients, new.body);
-        END;
-        """
-    )
-    conn.commit()
+    """Initialise or migrate the cache DB schema to the latest version.
+
+    Delegates to the unified migration runner (``app.shared.migrations``)
+    which applies the self-guarding migration chain from
+    ``cache_migrations.MAIL_CACHE_MIGRATIONS`` and records progress in the
+    ``_schema_migrations`` table.
+    """
+    run_migrations(conn, MAIL_CACHE_MIGRATIONS)
 
 
 def upsert_folder(conn, name, unread_count=0):

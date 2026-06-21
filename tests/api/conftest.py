@@ -11,6 +11,7 @@ from app.shared.keys import set_user_key, clear_user_key
 @pytest.fixture(autouse=True)
 def _reset_rate_limits():
     from app.api.controllers import helpers as _helpers
+
     _helpers._rate_limit_store.clear()
     yield
 
@@ -60,14 +61,19 @@ def api_customer(app, client, _clean_db):
     clear_user_key(user_id)
 
 
-def setup_cache_db(app, account_id):
+def setup_cache_db(app, account_id, cache_path_fn=None):
     with app.app_context():
         account = _db.session.get(CustomerAccount, account_id)
-        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-        cache_path = f.name
-        f.close()
-        account.cache_db_path = cache_path
-        _db.session.commit()
+        if cache_path_fn:
+            cache_path = cache_path_fn(account)
+        else:
+            f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+            cache_path = f.name
+            f.close()
+            account.cache_db_path = cache_path
+            _db.session.commit()
+    if cache_path_fn and os.path.exists(cache_path):
+        os.unlink(cache_path)
     return cache_path
 
 
@@ -80,12 +86,17 @@ def cleanup_cache_db(cache_path):
 
 def create_api_token(app, customer_id, dek_hex="a" * 64, name="test-token", scopes=None):
     from app.api.token_service import create_api_token as _create
+
     if scopes is None:
         scopes = [
-            "mail:read", "mail:write",
-            "contacts:read", "contacts:write",
-            "calendar:read", "calendar:write",
-            "docs:read", "docs:write",
+            "mail:read",
+            "mail:write",
+            "contacts:read",
+            "contacts:write",
+            "calendar:read",
+            "calendar:write",
+            "docs:read",
+            "docs:write",
         ]
     return _create(customer_id, dek_hex, name, scopes)
 

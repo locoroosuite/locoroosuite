@@ -8,19 +8,25 @@ from tests.api.conftest import setup_cache_db, cleanup_cache_db, create_api_toke
 
 @pytest.fixture()
 def contacts_api(app, api_customer):
+    from app.modules.contacts.services.cache import get_cache_path as _contacts_path
+
     client, user_id, account_id = api_customer
     with app.app_context():
         token_value, _ = create_api_token(app, user_id)
-    cache_path = setup_cache_db(app, account_id)
+    cache_path = setup_cache_db(app, account_id, cache_path_fn=_contacts_path)
     yield client, token_value, account_id, cache_path
     cleanup_cache_db(cache_path)
 
 
 def _seed_contacts_cache(cache_path, dek="a" * 64):
     from app.modules.contacts.services.cache_db import open_cache, upsert_contact
+
     conn = open_cache(cache_path, dek)
     upsert_contact(
-        conn, uid="contact-001", href="/contacts/contact-001.vcf", etag="etag-1",
+        conn,
+        uid="contact-001",
+        href="/contacts/contact-001.vcf",
+        etag="etag-1",
         vcard_text=(
             "BEGIN:VCARD\r\nVERSION:4.0\r\nUID:contact-001\r\n"
             "FN:Jane Smith\r\nN:Smith;Jane;;;\r\n"
@@ -31,7 +37,10 @@ def _seed_contacts_cache(cache_path, dek="a" * 64):
         ),
     )
     upsert_contact(
-        conn, uid="contact-002", href="/contacts/contact-002.vcf", etag="etag-2",
+        conn,
+        uid="contact-002",
+        href="/contacts/contact-002.vcf",
+        etag="etag-2",
         vcard_text=(
             "BEGIN:VCARD\r\nVERSION:4.0\r\nUID:contact-002\r\n"
             "FN:Bob Jones\r\nN:Jones;Bob;;;\r\n"
@@ -67,7 +76,18 @@ class TestListContacts:
         resp = client.get("/api/v1/contacts", headers=auth_header(token))
         data = json.loads(resp.data)
         contact = data["data"][0]
-        for key in ("id", "uid", "fn", "email_work", "email_home", "phone_work", "phone_cell", "organization", "title", "note"):
+        for key in (
+            "id",
+            "uid",
+            "fn",
+            "email_work",
+            "email_home",
+            "phone_work",
+            "phone_cell",
+            "organization",
+            "title",
+            "note",
+        ):
             assert key in contact, f"Missing field: {key}"
 
 
@@ -223,7 +243,12 @@ class TestUpdateContact:
             mock_update.return_value = '"etag-updated"'
             resp = client.put(
                 f"/api/v1/contacts/{jane_id}",
-                json={"fn": "Jane Smith", "email_work": "jane@example.com", "title": "QA Updated", "organization": "MCP Test Org"},
+                json={
+                    "fn": "Jane Smith",
+                    "email_work": "jane@example.com",
+                    "title": "QA Updated",
+                    "organization": "MCP Test Org",
+                },
                 headers=auth_header(token),
             )
         assert resp.status_code == 200
@@ -241,10 +266,13 @@ class TestUpdateContact:
         client, token, account_id, cache_path = contacts_api
 
         from app.modules.contacts.services.cache_db import open_cache, upsert_contact
+
         dek = "a" * 64
         conn = open_cache(cache_path, dek)
         upsert_contact(
-            conn, uid="full-href-contact", href="http://localhost:5232/user/contacts/full-href.vcf",
+            conn,
+            uid="full-href-contact",
+            href="http://localhost:5232/user/contacts/full-href.vcf",
             etag="etag-1",
             vcard_text=(
                 "BEGIN:VCARD\r\nVERSION:4.0\r\nUID:full-href-contact\r\n"
@@ -301,7 +329,19 @@ class TestCreateContactSchema:
             )
         assert resp.status_code == 201
         data = json.loads(resp.data)["data"]
-        for key in ("id", "uid", "fn", "email_work", "email_home", "phone_work", "phone_cell", "phone_home", "organization", "title", "note"):
+        for key in (
+            "id",
+            "uid",
+            "fn",
+            "email_work",
+            "email_home",
+            "phone_work",
+            "phone_cell",
+            "phone_home",
+            "organization",
+            "title",
+            "note",
+        ):
             assert key in data, f"Missing field: {key}"
         assert data["fn"] == "Schema Test"
         assert data["email_work"] == "schema@example.com"
@@ -319,8 +359,10 @@ class TestUpdateContactSchema:
         mock_s = MagicMock()
         mock_session.return_value = (mock_s, "http://localhost:5232/user/contacts/", "pass")
 
-        with patch("app.modules.contacts.services.carddav.get_contact") as mock_get, \
-             patch("app.modules.contacts.services.carddav.update_contact") as mock_update:
+        with (
+            patch("app.modules.contacts.services.carddav.get_contact") as mock_get,
+            patch("app.modules.contacts.services.carddav.update_contact") as mock_update,
+        ):
             mock_get.return_value = (
                 "BEGIN:VCARD\r\nVERSION:4.0\r\nUID:contact-001\r\n"
                 "FN:Jane Smith\r\nN:Smith;Jane;;;\r\n"
@@ -330,12 +372,29 @@ class TestUpdateContactSchema:
             mock_update.return_value = '"etag-updated"'
             resp = client.put(
                 f"/api/v1/contacts/{jane_id}",
-                json={"fn": "Jane Smith", "email_work": "jane@example.com", "organization": "Acme Corp", "title": "CTO"},
+                json={
+                    "fn": "Jane Smith",
+                    "email_work": "jane@example.com",
+                    "organization": "Acme Corp",
+                    "title": "CTO",
+                },
                 headers=auth_header(token),
             )
         assert resp.status_code == 200
         data = json.loads(resp.data)["data"]
-        for key in ("id", "uid", "fn", "email_work", "email_home", "phone_work", "phone_cell", "phone_home", "organization", "title", "note"):
+        for key in (
+            "id",
+            "uid",
+            "fn",
+            "email_work",
+            "email_home",
+            "phone_work",
+            "phone_cell",
+            "phone_home",
+            "organization",
+            "title",
+            "note",
+        ):
             assert key in data, f"Missing field: {key}"
         assert data["fn"] == "Jane Smith"
         assert data["title"] == "CTO"
@@ -353,8 +412,10 @@ class TestPartialUpdateContact:
         mock_s = MagicMock()
         mock_session.return_value = (mock_s, "http://localhost:5232/user/contacts/", "pass")
 
-        with patch("app.modules.contacts.services.carddav.get_contact") as mock_get, \
-             patch("app.modules.contacts.services.carddav.update_contact") as mock_update:
+        with (
+            patch("app.modules.contacts.services.carddav.get_contact") as mock_get,
+            patch("app.modules.contacts.services.carddav.update_contact") as mock_update,
+        ):
             mock_get.return_value = (
                 "BEGIN:VCARD\r\nVERSION:4.0\r\nUID:contact-001\r\n"
                 "FN:Jane Smith\r\nN:Smith;Jane;;;\r\n"
@@ -385,10 +446,11 @@ class TestCreateUpdateGetDeleteRegression:
         abook_url = "http://localhost:5232/test%40test.localhost/contacts/"
         mock_session.return_value = (mock_s, abook_url, "pass")
 
-        with patch("app.modules.contacts.services.carddav.create_contact") as mock_create, \
-             patch("app.modules.contacts.services.carddav.update_contact") as mock_update, \
-             patch("app.modules.contacts.services.carddav.delete_contact") as mock_delete:
-
+        with (
+            patch("app.modules.contacts.services.carddav.create_contact") as mock_create,
+            patch("app.modules.contacts.services.carddav.update_contact") as mock_update,
+            patch("app.modules.contacts.services.carddav.delete_contact") as mock_delete,
+        ):
             mock_create.return_value = (
                 "http://localhost:5232/test%40test.localhost/contacts/9bb663f7.vcf",
                 '"etag-create"',

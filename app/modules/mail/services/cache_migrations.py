@@ -288,9 +288,9 @@ def _drop_folders_account_id(conn) -> None:
 
 
 MAIL_CACHE_MIGRATIONS: tuple[Migration, ...] = (
-    Migration("0001_baseline_schema", _baseline_schema),
-    Migration("0002_ensure_message_columns", _ensure_message_columns),
-    Migration("0003_ensure_folder_columns", _ensure_folder_columns),
-    Migration("0004_ensure_message_indexes", _ensure_message_indexes),
-    Migration("0005_drop_folders_account_id", _drop_folders_account_id),
+    Migration("mail_0001_baseline_schema", _baseline_schema),
+    Migration("mail_0002_ensure_message_columns", _ensure_message_columns),
+    Migration("mail_0003_ensure_folder_columns", _ensure_folder_columns),
+    Migration("mail_0004_ensure_message_indexes", _ensure_message_indexes),
+    Migration("mail_0005_drop_folders_account_id", _drop_folders_account_id),
 )

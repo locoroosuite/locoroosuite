@@ -136,6 +136,6 @@ def _ensure_event_link_columns(conn) -> None:
 
 
 CALENDAR_CACHE_MIGRATIONS: tuple[Migration, ...] = (
-    Migration("0001_baseline_schema", _baseline_schema),
-    Migration("0002_ensure_event_link_columns", _ensure_event_link_columns),
+    Migration("calendar_0001_baseline_schema", _baseline_schema),
+    Migration("calendar_0002_ensure_event_link_columns", _ensure_event_link_columns),
 )

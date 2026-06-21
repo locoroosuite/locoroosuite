@@ -7,23 +7,33 @@ from tests.api.conftest import setup_cache_db, cleanup_cache_db, create_api_toke
 
 @pytest.fixture()
 def calendar_api(app, api_customer):
+    from app.modules.calendar.services.cache import get_cache_path as _cal_path
+
     client, user_id, account_id = api_customer
     with app.app_context():
         token_value, _ = create_api_token(app, user_id)
-    cache_path = setup_cache_db(app, account_id)
+    cache_path = setup_cache_db(app, account_id, cache_path_fn=_cal_path)
     yield client, token_value, account_id, cache_path
     cleanup_cache_db(cache_path)
 
 
 def _seed_calendar_cache(cache_path, dek="a" * 64):
     from app.modules.calendar.services.cache_db import open_cache, upsert_calendar, upsert_event
+
     conn = open_cache(cache_path, dek)
     cal_id = upsert_calendar(
-        conn, uid="cal-001", href="/caldav/cal-001/",
-        displayname="Personal", color="#4285f4", is_default=True,
+        conn,
+        uid="cal-001",
+        href="/caldav/cal-001/",
+        displayname="Personal",
+        color="#4285f4",
+        is_default=True,
     )
     upsert_event(
-        conn, uid="event-001", href="/caldav/cal-001/event-001.ics", etag="etag-1",
+        conn,
+        uid="event-001",
+        href="/caldav/cal-001/event-001.ics",
+        etag="etag-1",
         calendar_id=cal_id,
         ical_text=(
             "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n"
@@ -39,7 +49,10 @@ def _seed_calendar_cache(cache_path, dek="a" * 64):
         ),
     )
     upsert_event(
-        conn, uid="event-002", href="/caldav/cal-001/event-002.ics", etag="etag-2",
+        conn,
+        uid="event-002",
+        href="/caldav/cal-001/event-002.ics",
+        etag="etag-2",
         calendar_id=cal_id,
         ical_text=(
             "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n"
@@ -115,7 +128,17 @@ class TestListEvents:
         )
         data = json.loads(resp.data)
         event = data["data"][0]
-        for key in ("id", "uid", "summary", "description", "location", "start", "end", "is_all_day", "calendar_id"):
+        for key in (
+            "id",
+            "uid",
+            "summary",
+            "description",
+            "location",
+            "start",
+            "end",
+            "is_all_day",
+            "calendar_id",
+        ):
             assert key in event, f"Missing field: {key}"
 
     def test_events_with_date_range(self, app, calendar_api):
@@ -222,6 +245,7 @@ class TestDeleteCalendar:
 class TestUpdateEvent:
     def test_update_event_uses_raw_ical_column(self, app, calendar_api):
         from unittest.mock import patch, MagicMock
+
         client, token, account_id, cache_path = calendar_api
         _seed_calendar_cache(cache_path)
         list_resp = client.get("/api/v1/calendar/search?q=Team+Meeting", headers=auth_header(token))
@@ -230,7 +254,10 @@ class TestUpdateEvent:
         mock_session = MagicMock()
         mock_session.put.return_value = MagicMock(status_code=204, headers={})
         with (
-            patch("app.api.controllers.calendar._get_caldav_session", return_value=(mock_session, [], "http://localhost:5232", "pass")),
+            patch(
+                "app.api.controllers.calendar._get_caldav_session",
+                return_value=(mock_session, [], "http://localhost:5232", "pass"),
+            ),
         ):
             resp = client.put(
                 f"/api/v1/calendar/events/{event_id}",
@@ -251,21 +278,25 @@ class TestUpdateEvent:
 class TestTimezoneConversion:
     def test_format_dt_converts_to_utc(self):
         from app.shared.icalendar import _format_dt
+
         result = _format_dt("2026-05-25T10:00:00+09:30", utc=True)
         assert result == "20260525T003000Z"
 
     def test_format_dt_naive_keeps_time(self):
         from app.shared.icalendar import _format_dt
+
         result = _format_dt("2026-05-25T10:00:00", utc=True)
         assert result == "20260525T100000Z"
 
     def test_format_dt_utc_stays_same(self):
         from app.shared.icalendar import _format_dt
+
         result = _format_dt("2026-05-25T10:00:00+00:00", utc=True)
         assert result == "20260525T100000Z"
 
     def test_format_dt_non_utc(self):
         from app.shared.icalendar import _format_dt
+
         result = _format_dt("2026-05-25T10:00:00+09:30", utc=False)
         assert result == "20260525T100000"
 
@@ -287,6 +318,7 @@ class TestListEventsNoDateRange:
 
     def test_list_events_empty_calendar(self, app, calendar_api):
         from app.modules.calendar.services.cache_db import open_cache, upsert_calendar
+
         client, token, account_id, cache_path = calendar_api
         conn = open_cache(cache_path, "a" * 64)
         cal_id = upsert_calendar(conn, uid="empty-cal", href="/caldav/empty/", displayname="Empty")
@@ -303,19 +335,29 @@ class TestListEventsNoDateRange:
 class TestFreeBusyCalendarFilter:
     def test_calendar_ids_filter(self, app, calendar_api):
         from app.modules.calendar.services.cache_db import open_cache, upsert_calendar, upsert_event
+
         client, token, account_id, cache_path = calendar_api
         dek = "a" * 64
         conn = open_cache(cache_path, dek)
         cal1_id = upsert_calendar(
-            conn, uid="fb-cal-1", href="/caldav/fb-cal-1/",
-            displayname="Calendar 1", color="#4285f4",
+            conn,
+            uid="fb-cal-1",
+            href="/caldav/fb-cal-1/",
+            displayname="Calendar 1",
+            color="#4285f4",
         )
         cal2_id = upsert_calendar(
-            conn, uid="fb-cal-2", href="/caldav/fb-cal-2/",
-            displayname="Calendar 2", color="#ea4335",
+            conn,
+            uid="fb-cal-2",
+            href="/caldav/fb-cal-2/",
+            displayname="Calendar 2",
+            color="#ea4335",
         )
         upsert_event(
-            conn, uid="fb-evt-1", href="/caldav/fb-cal-1/fb-evt-1.ics", etag="e1",
+            conn,
+            uid="fb-evt-1",
+            href="/caldav/fb-cal-1/fb-evt-1.ics",
+            etag="e1",
             calendar_id=cal1_id,
             ical_text=(
                 "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n"
@@ -329,7 +371,10 @@ class TestFreeBusyCalendarFilter:
             ),
         )
         upsert_event(
-            conn, uid="fb-evt-2", href="/caldav/fb-cal-2/fb-evt-2.ics", etag="e2",
+            conn,
+            uid="fb-evt-2",
+            href="/caldav/fb-cal-2/fb-evt-2.ics",
+            etag="e2",
             calendar_id=cal2_id,
             ical_text=(
                 "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n"
@@ -355,7 +400,11 @@ class TestFreeBusyCalendarFilter:
 
         resp_filtered = client.post(
             "/api/v1/calendar/free-busy",
-            json={"start": "2026-07-01T00:00:00Z", "end": "2026-07-02T00:00:00Z", "calendar_ids": [cal1_id]},
+            json={
+                "start": "2026-07-01T00:00:00Z",
+                "end": "2026-07-02T00:00:00Z",
+                "calendar_ids": [cal1_id],
+            },
             headers=auth_header(token),
         )
         assert resp_filtered.status_code == 200
@@ -368,12 +417,19 @@ class TestFreeBusyCalendarFilter:
 class TestCreateCalendarSchema:
     def test_create_returns_full_object(self, app, calendar_api):
         from unittest.mock import patch, MagicMock
+
         client, token, account_id, cache_path = calendar_api
 
         mock_session = MagicMock()
         with (
-            patch("app.api.controllers.calendar._get_caldav_session", return_value=(mock_session, [], "http://localhost:5232", "pass")),
-            patch("app.modules.calendar.services.caldav.create_calendar", return_value="/caldav/new-cal/"),
+            patch(
+                "app.api.controllers.calendar._get_caldav_session",
+                return_value=(mock_session, [], "http://localhost:5232", "pass"),
+            ),
+            patch(
+                "app.modules.calendar.services.caldav.create_calendar",
+                return_value="/caldav/new-cal/",
+            ),
         ):
             resp = client.post(
                 "/api/v1/calendar/calendars",
@@ -392,12 +448,16 @@ class TestCreateCalendarSchema:
 class TestUpdateCalendarSchema:
     def test_update_returns_full_object(self, app, calendar_api):
         from unittest.mock import patch, MagicMock
+
         client, token, account_id, cache_path = calendar_api
         cal_id = _seed_calendar_cache(cache_path)
 
         mock_session = MagicMock()
         with (
-            patch("app.api.controllers.calendar._get_caldav_session", return_value=(mock_session, [], "http://localhost:5232", "pass")),
+            patch(
+                "app.api.controllers.calendar._get_caldav_session",
+                return_value=(mock_session, [], "http://localhost:5232", "pass"),
+            ),
             patch("app.modules.calendar.services.caldav.update_calendar_props"),
         ):
             resp = client.put(
@@ -417,18 +477,28 @@ class TestUpdateCalendarSchema:
 class TestCreateEventSchema:
     def test_create_returns_full_object(self, app, calendar_api):
         from unittest.mock import patch, MagicMock
+
         client, token, account_id, cache_path = calendar_api
 
         from app.modules.calendar.services.cache_db import open_cache, upsert_calendar
+
         conn = open_cache(cache_path, "a" * 64)
-        cal_id = upsert_calendar(conn, uid="evt-cal", href="/caldav/evt-cal/", displayname="Event Cal")
+        cal_id = upsert_calendar(
+            conn, uid="evt-cal", href="/caldav/evt-cal/", displayname="Event Cal"
+        )
         conn.close()
 
         mock_session = MagicMock()
         mock_session.put.return_value = MagicMock(status_code=204, headers={})
         with (
-            patch("app.api.controllers.calendar._get_caldav_session", return_value=(mock_session, [], "http://localhost:5232", "pass")),
-            patch("app.modules.calendar.services.caldav.create_event", return_value=("/caldav/evt-cal/evt.ics", "etag-evt")),
+            patch(
+                "app.api.controllers.calendar._get_caldav_session",
+                return_value=(mock_session, [], "http://localhost:5232", "pass"),
+            ),
+            patch(
+                "app.modules.calendar.services.caldav.create_event",
+                return_value=("/caldav/evt-cal/evt.ics", "etag-evt"),
+            ),
         ):
             resp = client.post(
                 "/api/v1/calendar/events",
@@ -444,7 +514,17 @@ class TestCreateEventSchema:
             )
         assert resp.status_code == 201
         data = json.loads(resp.data)["data"]
-        for key in ("id", "uid", "summary", "description", "location", "start", "end", "is_all_day", "calendar_id"):
+        for key in (
+            "id",
+            "uid",
+            "summary",
+            "description",
+            "location",
+            "start",
+            "end",
+            "is_all_day",
+            "calendar_id",
+        ):
             assert key in data, f"Missing field: {key}"
         assert data["summary"] == "Schema Event"
         assert data["calendar_id"] == cal_id
@@ -454,6 +534,7 @@ class TestCreateEventSchema:
 class TestUpdateEventSchema:
     def test_update_returns_full_object(self, app, calendar_api):
         from unittest.mock import patch, MagicMock
+
         client, token, account_id, cache_path = calendar_api
         _seed_calendar_cache(cache_path)
         list_resp = client.get("/api/v1/calendar/search?q=Team+Meeting", headers=auth_header(token))
@@ -462,7 +543,10 @@ class TestUpdateEventSchema:
         mock_session = MagicMock()
         mock_session.put.return_value = MagicMock(status_code=204, headers={})
         with (
-            patch("app.api.controllers.calendar._get_caldav_session", return_value=(mock_session, [], "http://localhost:5232", "pass")),
+            patch(
+                "app.api.controllers.calendar._get_caldav_session",
+                return_value=(mock_session, [], "http://localhost:5232", "pass"),
+            ),
         ):
             resp = client.put(
                 f"/api/v1/calendar/events/{event_id}",
@@ -471,7 +555,17 @@ class TestUpdateEventSchema:
             )
         assert resp.status_code == 200
         data = json.loads(resp.data)["data"]
-        for key in ("id", "uid", "summary", "description", "location", "start", "end", "is_all_day", "calendar_id"):
+        for key in (
+            "id",
+            "uid",
+            "summary",
+            "description",
+            "location",
+            "start",
+            "end",
+            "is_all_day",
+            "calendar_id",
+        ):
             assert key in data, f"Missing field: {key}"
         assert data["summary"] == "Schema Updated"
         assert data["location"] == "Room B"
@@ -481,9 +575,11 @@ class TestUpdateEventSchema:
 class TestEventLifecycle:
     def test_create_list_get_delete(self, app, calendar_api):
         from unittest.mock import patch, MagicMock
+
         client, token, account_id, cache_path = calendar_api
 
         from app.modules.calendar.services.cache_db import open_cache, upsert_calendar
+
         conn = open_cache(cache_path, "a" * 64)
         cal_id = upsert_calendar(conn, uid="lc-cal", href="/caldav/lc/", displayname="Lifecycle")
         conn.close()
@@ -491,8 +587,14 @@ class TestEventLifecycle:
         mock_session = MagicMock()
         mock_session.put.return_value = MagicMock(status_code=204, headers={})
         with (
-            patch("app.api.controllers.calendar._get_caldav_session", return_value=(mock_session, [], "http://localhost:5232", "pass")),
-            patch("app.modules.calendar.services.caldav.create_event", return_value=("/caldav/lc/evt.ics", "etag-lc")),
+            patch(
+                "app.api.controllers.calendar._get_caldav_session",
+                return_value=(mock_session, [], "http://localhost:5232", "pass"),
+            ),
+            patch(
+                "app.modules.calendar.services.caldav.create_event",
+                return_value=("/caldav/lc/evt.ics", "etag-lc"),
+            ),
         ):
             create_resp = client.post(
                 "/api/v1/calendar/events",
@@ -529,7 +631,10 @@ class TestEventLifecycle:
         assert get_data["uid"] == uid
 
         with (
-            patch("app.api.controllers.calendar._get_caldav_session", return_value=(mock_session, [], "http://localhost:5232", "pass")),
+            patch(
+                "app.api.controllers.calendar._get_caldav_session",
+                return_value=(mock_session, [], "http://localhost:5232", "pass"),
+            ),
             patch("app.modules.calendar.services.caldav.delete_event", return_value=True),
         ):
             delete_resp = client.delete(

@@ -1,25 +1,23 @@
 from __future__ import annotations
 
 import logging
-import uuid
 import time
+import uuid
 from urllib.parse import urlparse
 
-from flask import session, request, redirect, url_for, render_template, current_app, make_response
-
-from app.shared.db import db
-from app.shared.models.core import User, Domain, CustomerAccount
-from app.modules.mail.services.crypto import derive_key
-from app.modules.mail.services.secrets import encrypt_with_key
-from app.modules.mail.services.imap_client import connect_imap, login_imap, safe_logout
-from app.modules.mail.services.cache import build_cache_path
-from app.shared.auth import require_customer
-from app.shared.keys import set_user_key, clear_user_key
-from app.shared import totp as totp_mod
-from app.shared.rate_limit import record_failed_login, clear_failed_login, is_locked
+from flask import current_app, make_response, redirect, render_template, request, session, url_for
 
 from app.modules.mail.controllers.helpers import mail_bp
-
+from app.modules.mail.services.cache import build_cache_path
+from app.modules.mail.services.crypto import derive_key
+from app.modules.mail.services.imap_client import connect_imap, login_imap, safe_logout
+from app.modules.mail.services.secrets import encrypt_with_key
+from app.shared import totp as totp_mod
+from app.shared.auth import require_customer
+from app.shared.db import db
+from app.shared.keys import clear_user_key, set_user_key
+from app.shared.models.core import CustomerAccount, Domain, User
+from app.shared.rate_limit import clear_failed_login, is_locked, record_failed_login
 
 logger = logging.getLogger(__name__)
 
@@ -129,8 +127,7 @@ def login():
     t3 = time.monotonic()
     derived_key = derive_key(password, email)
     account.auth_type = "password"
-    if not account.cache_db_path:
-        account.cache_db_path = build_cache_path(customer.id, account.id)
+    account.cache_db_path = build_cache_path(customer.id, account.id)
 
     user_key = _resolve_login_key(account, derived_key, password)
 

@@ -38,13 +38,14 @@ def _setup_caldav_domain(app):
 def _create_temp_cache(app, user_id, account_id):
     from app.shared.keys import get_user_key
     from app.modules.calendar.services.cache_db import open_cache
+    from app.modules.calendar.services.cache import get_cache_path
 
     with app.app_context():
         account = db.session.get(CustomerAccount, account_id)
         key = get_user_key(user_id)
-        fd, path = tempfile.mkstemp(suffix=".db")
-        os.close(fd)
-        account.cache_db_path = path
+        path = get_cache_path(account)
+        if os.path.exists(path):
+            os.unlink(path)
         db.session.commit()
 
         conn = open_cache(path, key)
@@ -54,6 +55,7 @@ def _create_temp_cache(app, user_id, account_id):
 class TestBuildImipEmail:
     def test_build_request_email(self):
         from app.modules.calendar.services.imip import build_imip_email
+
         event_data = {
             "summary": "Test Event",
             "dtstart": "20260615T100000Z",
@@ -64,9 +66,12 @@ class TestBuildImipEmail:
             "attendees": [{"cn": "Bob", "email": "bob@example.com"}],
         }
         msg_bytes, subject = build_imip_email(
-            "alice@example.com", "Alice",
+            "alice@example.com",
+            "Alice",
             [{"email": "bob@example.com"}],
-            event_data, "REQUEST", uid="test-123",
+            event_data,
+            "REQUEST",
+            uid="test-123",
         )
         msg_str = msg_bytes.decode("utf-8", errors="replace")
         assert "Invitation: Test Event" in subject
@@ -78,6 +83,7 @@ class TestBuildImipEmail:
     def test_build_request_email_formats_datetime_with_timezone(self):
         import email as email_lib
         from app.modules.calendar.services.imip import build_imip_email
+
         event_data = {
             "summary": "Testing Test with Invite",
             "dtstart": "2026-05-14T12:00:00",
@@ -88,9 +94,12 @@ class TestBuildImipEmail:
             "attendees": [{"cn": "Bob", "email": "bob@example.com"}],
         }
         msg_bytes, subject = build_imip_email(
-            "alice@example.com", "Alice",
+            "alice@example.com",
+            "Alice",
             [{"email": "bob@example.com"}],
-            event_data, "REQUEST", uid="test-tz-1",
+            event_data,
+            "REQUEST",
+            uid="test-tz-1",
         )
         msg = email_lib.message_from_bytes(msg_bytes)
         body = ""
@@ -106,6 +115,7 @@ class TestBuildImipEmail:
     def test_build_request_email_utc_datetimes(self):
         import email as email_lib
         from app.modules.calendar.services.imip import build_imip_email
+
         event_data = {
             "summary": "UTC Event",
             "dtstart": "20260615T100000Z",
@@ -115,9 +125,12 @@ class TestBuildImipEmail:
             "attendees": [{"cn": "Bob", "email": "bob@example.com"}],
         }
         msg_bytes, _ = build_imip_email(
-            "alice@example.com", "Alice",
+            "alice@example.com",
+            "Alice",
             [{"email": "bob@example.com"}],
-            event_data, "REQUEST", uid="test-utc-1",
+            event_data,
+            "REQUEST",
+            uid="test-utc-1",
         )
         msg = email_lib.message_from_bytes(msg_bytes)
         body = ""
@@ -130,14 +143,18 @@ class TestBuildImipEmail:
 
     def test_build_cancel_email(self):
         from app.modules.calendar.services.imip import build_imip_email
+
         event_data = {
             "summary": "Test Event",
             "uid": "test-123",
         }
         msg_bytes, subject = build_imip_email(
-            "alice@example.com", "Alice",
+            "alice@example.com",
+            "Alice",
             [{"email": "bob@example.com"}],
-            event_data, "CANCEL", uid="test-123",
+            event_data,
+            "CANCEL",
+            uid="test-123",
         )
         msg_str = msg_bytes.decode("utf-8", errors="replace")
         assert "Cancelled: Test Event" in subject
@@ -145,6 +162,7 @@ class TestBuildImipEmail:
 
     def test_build_reply_email(self):
         from app.modules.calendar.services.imip import build_imip_email
+
         event_data = {
             "summary": "Test Event",
             "uid": "test-123",
@@ -153,8 +171,12 @@ class TestBuildImipEmail:
             "organizer": {"cn": "Alice", "email": "alice@example.com"},
         }
         msg_bytes, subject = build_imip_email(
-            "bob@example.com", "Bob", [],
-            event_data, "REPLY", uid="test-123",
+            "bob@example.com",
+            "Bob",
+            [],
+            event_data,
+            "REPLY",
+            uid="test-123",
         )
         msg_str = msg_bytes.decode("utf-8", errors="replace")
         assert "Re: Test Event" in subject
@@ -201,8 +223,10 @@ class TestSendInviteApi:
         _setup_caldav_domain(app)
         conn, path, key = _create_temp_cache(app, user_id, account_id)
         from app.modules.calendar.services import cache_db
+
         cal_id = cache_db.upsert_calendar(conn, "cal-1", "/cal1/", displayname="Test")
         from app.shared.icalendar import generate_icalendar
+
         ical = generate_icalendar({"summary": "No Attendees", "dtstart": "20260615T100000Z"})
         uid = "no-att-uid"
         event_id = cache_db.upsert_event(conn, uid, "/evt.ics", "e1", cal_id, ical)
@@ -225,6 +249,7 @@ class TestSendInviteApi:
         _setup_caldav_domain(app)
         conn, path, key = _create_temp_cache(app, user_id, account_id)
         from app.modules.calendar.services import cache_db
+
         cal_id = cache_db.upsert_calendar(conn, "cal-1", "/cal1/", displayname="Test")
 
         ical_data = {
@@ -232,9 +257,18 @@ class TestSendInviteApi:
             "dtstart": "20260615T100000Z",
             "dtend": "20260615T110000Z",
             "organizer": {"cn": "Alice", "email": "test@example.com"},
-            "attendees": [{"cn": "Bob", "email": "bob@example.com", "role": "REQ-PARTICIPANT", "partstat": "NEEDS-ACTION", "rsvp": "TRUE"}],
+            "attendees": [
+                {
+                    "cn": "Bob",
+                    "email": "bob@example.com",
+                    "role": "REQ-PARTICIPANT",
+                    "partstat": "NEEDS-ACTION",
+                    "rsvp": "TRUE",
+                }
+            ],
         }
         from app.shared.icalendar import generate_icalendar
+
         ical = generate_icalendar(ical_data, uid="imip-test-uid")
         event_id = cache_db.upsert_event(conn, "imip-test-uid", "/evt.ics", "e1", cal_id, ical)
         conn.close()
@@ -243,15 +277,18 @@ class TestSendInviteApi:
             with app.app_context():
                 account = db.session.get(CustomerAccount, account_id)
                 from cryptography.fernet import Fernet
+
                 key_bytes = bytes.fromhex("0" * 64)
                 fernet_key = base64.urlsafe_b64encode(key_bytes)
                 f = Fernet(fernet_key)
                 account.encrypted_secret = f.encrypt(b"test-password")
                 db.session.commit()
 
-            with patch("app.modules.mail.services.smtp_client.smtp_connect") as mock_smtp, \
-                 patch("app.modules.mail.services.smtp_client.smtp_login"), \
-                 patch("app.modules.mail.services.smtp_client.smtp_send") as mock_send:
+            with (
+                patch("app.modules.mail.services.smtp_client.smtp_connect") as mock_smtp,
+                patch("app.modules.mail.services.smtp_client.smtp_login"),
+                patch("app.modules.mail.services.smtp_client.smtp_send") as mock_send,
+            ):
                 mock_smtp.return_value = MagicMock()
                 resp = client.post(
                     "/app/calendar/api/send-invite",
@@ -276,24 +313,29 @@ class TestRsvpReplySending:
         from app.modules.calendar.services import cache_db
 
         conn, path, key = _create_temp_cache(app, user_id, account_id)
-        cal_id = cache_db.upsert_calendar(conn, "cal-uid-1", "http://localhost:5232/user/cal1/", displayname="Test Cal")
+        cal_id = cache_db.upsert_calendar(
+            conn, "cal-uid-1", "http://localhost:5232/user/cal1/", displayname="Test Cal"
+        )
         conn.close()
 
         try:
             with app.app_context():
                 account = db.session.get(CustomerAccount, account_id)
                 from cryptography.fernet import Fernet
+
                 key_bytes = bytes.fromhex("0" * 64)
                 fernet_key = base64.urlsafe_b64encode(key_bytes)
                 f = Fernet(fernet_key)
                 account.encrypted_secret = f.encrypt(b"test-password")
                 db.session.commit()
 
-            with patch("app.modules.calendar.controllers.api.caldav") as mock_caldav, \
-                 patch("app.modules.calendar.controllers.api._get_credentials", return_value="pw"), \
-                 patch("app.modules.mail.services.smtp_client.smtp_connect") as mock_smtp, \
-                 patch("app.modules.mail.services.smtp_client.smtp_login"), \
-                 patch("app.modules.mail.services.smtp_client.smtp_send") as mock_send:
+            with (
+                patch("app.modules.calendar.controllers.api.caldav") as mock_caldav,
+                patch("app.modules.calendar.controllers.api._get_credentials", return_value="pw"),
+                patch("app.modules.mail.services.smtp_client.smtp_connect") as mock_smtp,
+                patch("app.modules.mail.services.smtp_client.smtp_login"),
+                patch("app.modules.mail.services.smtp_client.smtp_send") as mock_send,
+            ):
                 mock_session = MagicMock()
                 mock_caldav.discover_calendars.return_value = (mock_session, [])
                 mock_caldav.create_event.return_value = (
@@ -304,11 +346,13 @@ class TestRsvpReplySending:
 
                 resp = client.post(
                     "/app/calendar/api/ics-rsvp",
-                    data=json.dumps({
-                        "ical_text": SAMPLE_ICS_REQUEST,
-                        "calendar_id": cal_id,
-                        "partstat": "ACCEPTED",
-                    }),
+                    data=json.dumps(
+                        {
+                            "ical_text": SAMPLE_ICS_REQUEST,
+                            "calendar_id": cal_id,
+                            "partstat": "ACCEPTED",
+                        }
+                    ),
                     content_type="application/json",
                 )
 
@@ -335,9 +379,11 @@ class TestDeleteWithNotification:
 
             account = db.session.get(CustomerAccount, account_id)
             key = get_user_key(user_id)
-            fd, path = tempfile.mkstemp(suffix=".db")
-            os.close(fd)
-            account.cache_db_path = path
+            from app.modules.calendar.services.cache import get_cache_path
+
+            path = get_cache_path(account)
+            if os.path.exists(path):
+                os.unlink(path)
             db.session.commit()
 
             conn = open_cache(path, key)
@@ -348,12 +394,21 @@ class TestDeleteWithNotification:
             attendees_json = json.dumps([{"cn": "Bob", "email": "bob@example.com"}])
             conn.execute(
                 "INSERT INTO calendar_events (uid, href, etag, calendar_id, summary, dtstart, raw_ical, attendees) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                ("evt-del", "/test/evt-del.ics", "etag-del", 1, "Delete Me", "2025-01-15T09:00:00+00:00",
-                 "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Delete Me\r\nEND:VEVENT\r\nEND:VCALENDAR",
-                 attendees_json),
+                (
+                    "evt-del",
+                    "/test/evt-del.ics",
+                    "etag-del",
+                    1,
+                    "Delete Me",
+                    "2025-01-15T09:00:00+00:00",
+                    "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Delete Me\r\nEND:VEVENT\r\nEND:VCALENDAR",
+                    attendees_json,
+                ),
             )
             conn.commit()
-            event_id = conn.execute("SELECT id FROM calendar_events WHERE uid = 'evt-del'").fetchone()[0]
+            event_id = conn.execute(
+                "SELECT id FROM calendar_events WHERE uid = 'evt-del'"
+            ).fetchone()[0]
             conn.close()
 
         try:
@@ -379,9 +434,11 @@ class TestDeleteWithNotification:
 
             account = db.session.get(CustomerAccount, account_id)
             key = get_user_key(user_id)
-            fd, path = tempfile.mkstemp(suffix=".db")
-            os.close(fd)
-            account.cache_db_path = path
+            from app.modules.calendar.services.cache import get_cache_path
+
+            path = get_cache_path(account)
+            if os.path.exists(path):
+                os.unlink(path)
             db.session.commit()
 
             conn = open_cache(path, key)
@@ -392,12 +449,21 @@ class TestDeleteWithNotification:
             attendees_json = json.dumps([{"cn": "Bob", "email": "bob@example.com"}])
             conn.execute(
                 "INSERT INTO calendar_events (uid, href, etag, calendar_id, summary, dtstart, raw_ical, attendees) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                ("evt-del2", "/test/evt-del2.ics", "etag-del2", 1, "Delete Me", "2025-01-15T09:00:00+00:00",
-                 "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Delete Me\r\nEND:VEVENT\r\nEND:VCALENDAR",
-                 attendees_json),
+                (
+                    "evt-del2",
+                    "/test/evt-del2.ics",
+                    "etag-del2",
+                    1,
+                    "Delete Me",
+                    "2025-01-15T09:00:00+00:00",
+                    "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Delete Me\r\nEND:VEVENT\r\nEND:VCALENDAR",
+                    attendees_json,
+                ),
             )
             conn.commit()
-            event_id = conn.execute("SELECT id FROM calendar_events WHERE uid = 'evt-del2'").fetchone()[0]
+            event_id = conn.execute(
+                "SELECT id FROM calendar_events WHERE uid = 'evt-del2'"
+            ).fetchone()[0]
             conn.close()
 
         try:
@@ -424,9 +490,11 @@ class TestDeleteWithNotification:
 
             account = db.session.get(CustomerAccount, account_id)
             key = get_user_key(user_id)
-            fd, path = tempfile.mkstemp(suffix=".db")
-            os.close(fd)
-            account.cache_db_path = path
+            from app.modules.calendar.services.cache import get_cache_path
+
+            path = get_cache_path(account)
+            if os.path.exists(path):
+                os.unlink(path)
             db.session.commit()
 
             conn = open_cache(path, key)
@@ -437,33 +505,47 @@ class TestDeleteWithNotification:
             attendees_json = json.dumps([{"cn": "Bob", "email": "bob@example.com"}])
             conn.execute(
                 "INSERT INTO calendar_events (uid, href, etag, calendar_id, summary, dtstart, raw_ical, attendees) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                ("evt-del3", "/test/evt-del3.ics", "etag-del3", 1, "Delete Me", "2025-01-15T09:00:00+00:00",
-                 "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Delete Me\r\nEND:VEVENT\r\nEND:VCALENDAR",
-                 attendees_json),
+                (
+                    "evt-del3",
+                    "/test/evt-del3.ics",
+                    "etag-del3",
+                    1,
+                    "Delete Me",
+                    "2025-01-15T09:00:00+00:00",
+                    "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Delete Me\r\nEND:VEVENT\r\nEND:VCALENDAR",
+                    attendees_json,
+                ),
             )
             conn.commit()
-            event_id = conn.execute("SELECT id FROM calendar_events WHERE uid = 'evt-del3'").fetchone()[0]
+            event_id = conn.execute(
+                "SELECT id FROM calendar_events WHERE uid = 'evt-del3'"
+            ).fetchone()[0]
             conn.close()
 
         try:
             with app.app_context():
                 account = db.session.get(CustomerAccount, account_id)
                 from cryptography.fernet import Fernet
+
                 key_bytes = bytes.fromhex("0" * 64)
                 fernet_key = base64.urlsafe_b64encode(key_bytes)
                 f = Fernet(fernet_key)
                 account.encrypted_secret = f.encrypt(b"test-password")
                 db.session.commit()
 
-            with patch("app.modules.calendar.controllers.events.caldav") as mock_caldav, \
-                 patch("app.modules.mail.services.smtp_client.smtp_connect") as mock_smtp, \
-                 patch("app.modules.mail.services.smtp_client.smtp_login"), \
-                 patch("app.modules.mail.services.smtp_client.smtp_send") as mock_send:
+            with (
+                patch("app.modules.calendar.controllers.events.caldav") as mock_caldav,
+                patch("app.modules.mail.services.smtp_client.smtp_connect") as mock_smtp,
+                patch("app.modules.mail.services.smtp_client.smtp_login"),
+                patch("app.modules.mail.services.smtp_client.smtp_send") as mock_send,
+            ):
                 mock_session = MagicMock()
                 mock_caldav.discover_calendars.return_value = (mock_session, [])
                 mock_caldav.delete_event.return_value = True
                 mock_smtp.return_value = MagicMock()
-                resp = client.post(f"/app/calendar/events/{event_id}/delete", data={"send_notification": "1"})
+                resp = client.post(
+                    f"/app/calendar/events/{event_id}/delete", data={"send_notification": "1"}
+                )
             assert resp.status_code == 302
             mock_send.assert_called_once()
         finally:
@@ -473,31 +555,38 @@ class TestDeleteWithNotification:
 class TestFormatImipDatetime:
     def test_format_naive_datetime_with_event_tz(self):
         from app.modules.calendar.services.imip import _format_imip_datetime
+
         formatted, tz_label = _format_imip_datetime("2026-05-14T12:00:00", "Australia/Adelaide")
         assert "12:00 PM" in formatted
         assert tz_label == "Australia/Adelaide"
 
     def test_format_naive_datetime_without_tz(self):
         from app.modules.calendar.services.imip import _format_imip_datetime
+
         formatted, tz_label = _format_imip_datetime("2026-05-14T12:00:00")
         assert "12:00 PM" in formatted
         assert tz_label == "UTC"
 
     def test_format_utc_datetime(self):
         from app.modules.calendar.services.imip import _format_imip_datetime
+
         formatted, tz_label = _format_imip_datetime("20260615T100000Z")
         assert "10:00 AM" in formatted
         assert tz_label == "UTC"
 
     def test_format_empty_string(self):
         from app.modules.calendar.services.imip import _format_imip_datetime
+
         formatted, tz_label = _format_imip_datetime("")
         assert formatted == ""
         assert tz_label == ""
 
     def test_format_same_day_when(self):
         from app.modules.calendar.services.imip import _format_imip_when
-        result = _format_imip_when("2026-05-14T12:00:00", "2026-05-14T13:00:00", "Australia/Adelaide")
+
+        result = _format_imip_when(
+            "2026-05-14T12:00:00", "2026-05-14T13:00:00", "Australia/Adelaide"
+        )
         assert "12:00 PM" in result
         assert "01:00 PM" in result
         assert "Australia/Adelaide" in result
@@ -505,19 +594,24 @@ class TestFormatImipDatetime:
 
     def test_format_multi_day_when(self):
         from app.modules.calendar.services.imip import _format_imip_when
-        result = _format_imip_when("2026-05-14T12:00:00", "2026-05-15T13:00:00", "Australia/Adelaide")
+
+        result = _format_imip_when(
+            "2026-05-14T12:00:00", "2026-05-15T13:00:00", "Australia/Adelaide"
+        )
         assert "May 14" in result
         assert "May 15" in result
         assert "Australia/Adelaide" in result
 
     def test_format_no_end(self):
         from app.modules.calendar.services.imip import _format_imip_when
+
         result = _format_imip_when("2026-05-14T12:00:00", "", "Australia/Adelaide")
         assert "12:00 PM" in result
         assert "Australia/Adelaide" in result
 
     def test_format_no_start(self):
         from app.modules.calendar.services.imip import _format_imip_when
+
         result = _format_imip_when("", "2026-05-14T13:00:00", "Australia/Adelaide")
         assert result == ""
 
@@ -537,9 +631,11 @@ class TestSendUpdatesModal:
 
             account = db.session.get(CustomerAccount, account_id)
             key = get_user_key(user_id)
-            fd, path = tempfile.mkstemp(suffix=".db")
-            os.close(fd)
-            account.cache_db_path = path
+            from app.modules.calendar.services.cache import get_cache_path
+
+            path = get_cache_path(account)
+            if os.path.exists(path):
+                os.unlink(path)
             db.session.commit()
 
             conn = open_cache(path, key)
@@ -550,12 +646,21 @@ class TestSendUpdatesModal:
             attendees_json = json.dumps([{"cn": "Bob", "email": "bob@example.com"}])
             conn.execute(
                 "INSERT INTO calendar_events (uid, href, etag, calendar_id, summary, dtstart, raw_ical, attendees) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                ("evt-modal", "/test/evt-modal.ics", "etag-modal", 1, "Modal Test", "2025-01-15T09:00:00+00:00",
-                 "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Modal Test\r\nEND:VEVENT\r\nEND:VCALENDAR",
-                 attendees_json),
+                (
+                    "evt-modal",
+                    "/test/evt-modal.ics",
+                    "etag-modal",
+                    1,
+                    "Modal Test",
+                    "2025-01-15T09:00:00+00:00",
+                    "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Modal Test\r\nEND:VEVENT\r\nEND:VCALENDAR",
+                    attendees_json,
+                ),
             )
             conn.commit()
-            event_id = conn.execute("SELECT id FROM calendar_events WHERE uid = 'evt-modal'").fetchone()[0]
+            event_id = conn.execute(
+                "SELECT id FROM calendar_events WHERE uid = 'evt-modal'"
+            ).fetchone()[0]
             conn.close()
 
         try:

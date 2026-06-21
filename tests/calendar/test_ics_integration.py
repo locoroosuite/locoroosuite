@@ -64,15 +64,15 @@ def _setup_caldav_domain(app):
 def _create_temp_cache(app, user_id, account_id):
     from app.shared.keys import get_user_key
     from app.modules.calendar.services.cache_db import open_cache
-    import tempfile
+    from app.modules.calendar.services.cache import get_cache_path
     import os
 
     with app.app_context():
         account = db.session.get(CustomerAccount, account_id)
         key = get_user_key(user_id)
-        fd, path = tempfile.mkstemp(suffix=".db")
-        os.close(fd)
-        account.cache_db_path = path
+        path = get_cache_path(account)
+        if os.path.exists(path):
+            os.unlink(path)
         db.session.commit()
 
         conn = open_cache(path, key)
@@ -176,11 +176,15 @@ class TestIcsImport:
         import os
 
         conn, path, key = _create_temp_cache(app, user_id, account_id)
-        cal_id = cache_db.upsert_calendar(conn, "cal-uid-1", "http://localhost:5232/user/cal1/", displayname="Test Cal")
+        cal_id = cache_db.upsert_calendar(
+            conn, "cal-uid-1", "http://localhost:5232/user/cal1/", displayname="Test Cal"
+        )
         conn.close()
 
-        with patch("app.modules.calendar.controllers.api.caldav") as mock_caldav, \
-             patch("app.modules.calendar.controllers.api._get_credentials", return_value="pw"):
+        with (
+            patch("app.modules.calendar.controllers.api.caldav") as mock_caldav,
+            patch("app.modules.calendar.controllers.api._get_credentials", return_value="pw"),
+        ):
             mock_session = MagicMock()
             mock_caldav.discover_calendars.return_value = (mock_session, [])
             mock_caldav.create_event.return_value = (
@@ -190,12 +194,14 @@ class TestIcsImport:
 
             resp = client.post(
                 "/app/calendar/api/ics-import",
-                data=json.dumps({
-                    "ical_text": SAMPLE_ICS_PUBLISH,
-                    "calendar_id": cal_id,
-                    "source_email_message_id": 42,
-                    "source_email_account_id": account_id,
-                }),
+                data=json.dumps(
+                    {
+                        "ical_text": SAMPLE_ICS_PUBLISH,
+                        "calendar_id": cal_id,
+                        "source_email_message_id": 42,
+                        "source_email_account_id": account_id,
+                    }
+                ),
                 content_type="application/json",
             )
 
@@ -206,6 +212,7 @@ class TestIcsImport:
         assert data["calendar_event_url"] is not None
 
         from app.modules.calendar.services.cache_db import open_cache
+
         conn = open_cache(path, key)
         event = cache_db.get_event(conn, data["event_id"])
         assert event is not None
@@ -230,7 +237,9 @@ class TestIcsRsvp:
         client, _, _ = authed_client
         resp = client.post(
             "/app/calendar/api/ics-rsvp",
-            data=json.dumps({"ical_text": SAMPLE_ICS_REQUEST, "calendar_id": 1, "partstat": "MAYBE"}),
+            data=json.dumps(
+                {"ical_text": SAMPLE_ICS_REQUEST, "calendar_id": 1, "partstat": "MAYBE"}
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 400
@@ -244,11 +253,15 @@ class TestIcsRsvp:
         import os
 
         conn, path, key = _create_temp_cache(app, user_id, account_id)
-        cal_id = cache_db.upsert_calendar(conn, "cal-uid-1", "http://localhost:5232/user/cal1/", displayname="Test Cal")
+        cal_id = cache_db.upsert_calendar(
+            conn, "cal-uid-1", "http://localhost:5232/user/cal1/", displayname="Test Cal"
+        )
         conn.close()
 
-        with patch("app.modules.calendar.controllers.api.caldav") as mock_caldav, \
-             patch("app.modules.calendar.controllers.api._get_credentials", return_value="pw"):
+        with (
+            patch("app.modules.calendar.controllers.api.caldav") as mock_caldav,
+            patch("app.modules.calendar.controllers.api._get_credentials", return_value="pw"),
+        ):
             mock_session = MagicMock()
             mock_caldav.discover_calendars.return_value = (mock_session, [])
             mock_caldav.create_event.return_value = (
@@ -258,13 +271,15 @@ class TestIcsRsvp:
 
             resp = client.post(
                 "/app/calendar/api/ics-rsvp",
-                data=json.dumps({
-                    "ical_text": SAMPLE_ICS_REQUEST,
-                    "calendar_id": cal_id,
-                    "partstat": "ACCEPTED",
-                    "source_email_message_id": 42,
-                    "source_email_account_id": account_id,
-                }),
+                data=json.dumps(
+                    {
+                        "ical_text": SAMPLE_ICS_REQUEST,
+                        "calendar_id": cal_id,
+                        "partstat": "ACCEPTED",
+                        "source_email_message_id": 42,
+                        "source_email_account_id": account_id,
+                    }
+                ),
                 content_type="application/json",
             )
 
@@ -308,6 +323,7 @@ class TestIcsCancel:
         assert data["status"] == "ok"
         assert data["action"] == "not_found"
         import os
+
         os.unlink(path)
 
     def test_cancel_marks_event_cancelled(self, app, authed_client):
@@ -327,7 +343,14 @@ class TestIcsCancel:
             "DTSTART:20260615T100000Z\r\nDTEND:20260615T110000Z\r\n"
             "END:VEVENT\r\nEND:VCALENDAR\r\n"
         )
-        event_id = cache_db.upsert_event(conn, "test-uid-123@example.com", "http://localhost/x/ev1.ics", "etag1", cal_id, existing_ics)
+        event_id = cache_db.upsert_event(
+            conn,
+            "test-uid-123@example.com",
+            "http://localhost/x/ev1.ics",
+            "etag1",
+            cal_id,
+            existing_ics,
+        )
         conn.close()
 
         resp = client.post(
@@ -380,7 +403,9 @@ class TestEventDetailEmailLink:
         import os
 
         conn, path, key = _create_temp_cache(app, user_id, account_id)
-        cal_id = cache_db.upsert_calendar(conn, "cal-uid-el", "http://localhost/el/", displayname="EL")
+        cal_id = cache_db.upsert_calendar(
+            conn, "cal-uid-el", "http://localhost/el/", displayname="EL"
+        )
 
         ics = (
             "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n"
@@ -388,7 +413,9 @@ class TestEventDetailEmailLink:
             "SUMMARY:Linked Event\r\nDTSTART:20260101T100000Z\r\nDTEND:20260101T110000Z\r\n"
             "END:VEVENT\r\nEND:VCALENDAR\r\n"
         )
-        event_id = cache_db.upsert_event(conn, "el-test@example.com", "http://localhost/el/ev.ics", "e1", cal_id, ics)
+        event_id = cache_db.upsert_event(
+            conn, "el-test@example.com", "http://localhost/el/ev.ics", "e1", cal_id, ics
+        )
         cache_db.set_event_source_email(conn, event_id, 42, account_id)
         conn.close()
 
@@ -407,7 +434,9 @@ class TestEventDetailEmailLink:
         import os
 
         conn, path, key = _create_temp_cache(app, user_id, account_id)
-        cal_id = cache_db.upsert_calendar(conn, "cal-uid-nl", "http://localhost/nl/", displayname="NL")
+        cal_id = cache_db.upsert_calendar(
+            conn, "cal-uid-nl", "http://localhost/nl/", displayname="NL"
+        )
 
         ics = (
             "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n"
@@ -415,7 +444,9 @@ class TestEventDetailEmailLink:
             "SUMMARY:No Link Event\r\nDTSTART:20260101T100000Z\r\nDTEND:20260101T110000Z\r\n"
             "END:VEVENT\r\nEND:VCALENDAR\r\n"
         )
-        event_id = cache_db.upsert_event(conn, "nl-test@example.com", "http://localhost/nl/ev.ics", "e2", cal_id, ics)
+        event_id = cache_db.upsert_event(
+            conn, "nl-test@example.com", "http://localhost/nl/ev.ics", "e2", cal_id, ics
+        )
         conn.close()
 
         resp = client.get(f"/app/calendar/events/{event_id}")
@@ -433,7 +464,9 @@ class TestConflicts:
         import os
 
         conn, path, key = _create_temp_cache(app, user_id, account_id)
-        cal_id = cache_db.upsert_calendar(conn, "cal-uid-cf", "http://localhost/cf/", displayname="CF")
+        cal_id = cache_db.upsert_calendar(
+            conn, "cal-uid-cf", "http://localhost/cf/", displayname="CF"
+        )
 
         ics = (
             "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n"
@@ -441,7 +474,9 @@ class TestConflicts:
             "SUMMARY:Existing Meeting\r\nDTSTART:20260615T100000Z\r\nDTEND:20260615T110000Z\r\n"
             "END:VEVENT\r\nEND:VCALENDAR\r\n"
         )
-        cache_db.upsert_event(conn, "cf-test@example.com", "http://localhost/cf/ev.ics", "e3", cal_id, ics)
+        cache_db.upsert_event(
+            conn, "cf-test@example.com", "http://localhost/cf/ev.ics", "e3", cal_id, ics
+        )
         conn.close()
 
         resp = client.get(

@@ -10,6 +10,7 @@ import pytest
 
 def _create_token(app, customer_id, dek_hex="a" * 64, name="test-token", scopes=None):
     from app.api.token_service import create_api_token
+
     if scopes is None:
         scopes = ["docs:read", "docs:write"]
     return create_api_token(customer_id, dek_hex, name, scopes)
@@ -21,27 +22,36 @@ def _auth_header(token_value):
 
 def _read_content_xml(data):
     import zipfile
+
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
         return zf.read("content.xml").decode("utf-8")
 
 
 def _read_styles_xml(data):
     import zipfile
+
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
         return zf.read("styles.xml").decode("utf-8")
+
+
+def _safe_unlink(path):
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
 
 
 def _setup_env(app, account_id):
     with app.app_context():
         from app.shared.db import db
         from app.shared.models.core import CustomerAccount
+        from app.modules.docs.services.cache import get_cache_path
+
         account = db.session.get(CustomerAccount, account_id)
         assert account is not None
-        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-        cache_path = f.name
-        f.close()
-        account.cache_db_path = cache_path
-        db.session.commit()
+        cache_path = get_cache_path(account)
+    if os.path.exists(cache_path):
+        os.unlink(cache_path)
     return cache_path
 
 
@@ -54,6 +64,7 @@ def docs_api(app, api_customer):
     docs_dir = tempfile.mkdtemp(prefix="docs_test_")
     app.config["DOCS_DIR"] = docs_dir
     from app.api.openapi import api_app
+
     api_app.config["DOCS_DIR"] = docs_dir
     yield client, token_value, account_id, cache_path
     try:
@@ -246,6 +257,7 @@ class TestCreateDocument:
         with app.app_context():
             from app.shared.models.core import CustomerAccount
             from app.modules.docs.services.storage import file_exists
+
             account = CustomerAccount.query.filter_by(id=account_id).first()
             assert account is not None
             assert file_exists(account.customer_id, account_id, doc["id"])
@@ -356,7 +368,9 @@ class TestDownloadDocument:
 
     def test_download_nonexistent(self, app, docs_api):
         client, token, account_id, _ = docs_api
-        resp = client.get("/api/v1/docs/documents/nonexistent/download", headers=_auth_header(token))
+        resp = client.get(
+            "/api/v1/docs/documents/nonexistent/download", headers=_auth_header(token)
+        )
         assert resp.status_code == 404
 
 
@@ -370,7 +384,9 @@ class TestReadContent:
         )
         doc_id = json.loads(create_resp.data)["data"]["id"]
 
-        resp = client.get(f"/api/v1/docs/documents/{doc_id}/content?format=text", headers=_auth_header(token))
+        resp = client.get(
+            f"/api/v1/docs/documents/{doc_id}/content?format=text", headers=_auth_header(token)
+        )
         assert resp.status_code == 200
         data = json.loads(resp.data)["data"]
         assert "content" in data
@@ -452,8 +468,10 @@ class TestMarkdownConversion:
         assert resp.status_code == 200
 
         from app.modules.docs.services.storage import read_file
+
         with app.app_context():
             from app.shared.models.core import CustomerAccount
+
             account = CustomerAccount.query.filter_by(id=account_id).first()
             assert account is not None
             data = read_file(account.customer_id, account_id, doc_id)
@@ -535,10 +553,10 @@ class TestDrafts:
         doc_id = json.loads(create_resp.data)["data"]["id"]
 
         resp = client.post(
-                f"/api/v1/docs/documents/{doc_id}/drafts",
-                json={"content": "Draft content", "summary": "AI edit"},
-                headers=_auth_header(token),
-            )
+            f"/api/v1/docs/documents/{doc_id}/drafts",
+            json={"content": "Draft content", "summary": "AI edit"},
+            headers=_auth_header(token),
+        )
         assert resp.status_code == 201
         draft = json.loads(resp.data)["data"]
         assert "id" in draft
@@ -562,10 +580,10 @@ class TestDrafts:
         doc_id = json.loads(create_resp.data)["data"]["id"]
 
         draft_resp = client.post(
-                f"/api/v1/docs/documents/{doc_id}/drafts",
-                json={"content": "Draft v2", "summary": "v2 edit"},
-                headers=_auth_header(token),
-            )
+            f"/api/v1/docs/documents/{doc_id}/drafts",
+            json={"content": "Draft v2", "summary": "v2 edit"},
+            headers=_auth_header(token),
+        )
         draft_id = json.loads(draft_resp.data)["data"]["id"]
 
         resp = client.post(
@@ -585,10 +603,10 @@ class TestDrafts:
         doc_id = json.loads(create_resp.data)["data"]["id"]
 
         draft_resp = client.post(
-                f"/api/v1/docs/documents/{doc_id}/drafts",
-                json={"content": "Discard me", "summary": "discard"},
-                headers=_auth_header(token),
-            )
+            f"/api/v1/docs/documents/{doc_id}/drafts",
+            json={"content": "Discard me", "summary": "discard"},
+            headers=_auth_header(token),
+        )
         draft_id = json.loads(draft_resp.data)["data"]["id"]
 
         resp = client.delete(
@@ -621,6 +639,7 @@ class TestConvertDocument:
             with app.app_context():
                 from app.shared.db import db
                 from app.shared.models.core import CustomerAccount
+
                 account = db.session.get(CustomerAccount, account_id)
                 assert account is not None
                 conn = cache_db.open_cache(get_cache_path(account), dek_hex)
@@ -628,8 +647,13 @@ class TestConvertDocument:
                     # Seed as a legacy PDF stored with doc_type="odt" to prove the
                     # API convert route corrects the target via target_odf_type.
                     cache_db.create_document(
-                        conn, doc_id, "Contract", "odt", account_id,
-                        file_size=0, original_format="pdf",
+                        conn,
+                        doc_id,
+                        "Contract",
+                        "odt",
+                        account_id,
+                        file_size=0,
+                        original_format="pdf",
                     )
                     storage.write_file(account.customer_id, account_id, doc_id, fake_pdf)
                     cache_db.update_file_size(conn, doc_id, len(fake_pdf))
@@ -655,6 +679,7 @@ class TestConvertDocument:
             with app.app_context():
                 from app.shared.db import db
                 from app.shared.models.core import CustomerAccount
+
                 account = db.session.get(CustomerAccount, account_id)
                 assert account is not None
                 conn = cache_db.open_cache(get_cache_path(account), dek_hex)
@@ -675,11 +700,13 @@ class TestConvertDocument:
         client, token, account_id, cache_path = docs_api
         from app.modules.docs.services import cache_db
         from app.modules.docs.services.cache import get_cache_path
+
         dek_hex = "a" * 64
         doc_id = "apidoc-native1"
         with app.app_context():
             from app.shared.db import db
             from app.shared.models.core import CustomerAccount
+
             account = db.session.get(CustomerAccount, account_id)
             assert account is not None
             conn = cache_db.open_cache(get_cache_path(account), dek_hex)
@@ -716,7 +743,7 @@ class TestScopeEnforcement:
             )
             assert resp.status_code == 403
         finally:
-            os.unlink(cache_path)
+            _safe_unlink(cache_path)
 
     def test_write_scope_can_read(self, app, api_customer):
         client, user_id, account_id = api_customer
@@ -727,7 +754,7 @@ class TestScopeEnforcement:
             resp = client.get("/api/v1/docs/documents", headers=_auth_header(token_value))
             assert resp.status_code == 200
         finally:
-            os.unlink(cache_path)
+            _safe_unlink(cache_path)
 
     def test_no_docs_scope_cannot_access(self, app, api_customer):
         client, user_id, account_id = api_customer
@@ -738,7 +765,7 @@ class TestScopeEnforcement:
             resp = client.get("/api/v1/docs/documents", headers=_auth_header(token_value))
             assert resp.status_code == 403
         finally:
-            os.unlink(cache_path)
+            _safe_unlink(cache_path)
 
 
 class TestDocumentEnvelopeFields:
@@ -788,7 +815,9 @@ class TestFolders:
     def test_create_folder_idempotent(self, app, docs_api):
         client, token, account_id, _ = docs_api
         client.post("/api/v1/docs/folders", json={"name": "Work"}, headers=_auth_header(token))
-        resp = client.post("/api/v1/docs/folders", json={"name": "Work"}, headers=_auth_header(token))
+        resp = client.post(
+            "/api/v1/docs/folders", json={"name": "Work"}, headers=_auth_header(token)
+        )
         assert resp.status_code == 201
 
     def test_rename_folder_moves_documents(self, app, docs_api):
@@ -810,7 +839,9 @@ class TestFolders:
         assert json.loads(resp.data)["data"]["path"] == "New"
 
         # The document's folder_path is rewritten.
-        doc = json.loads(client.get(f"/api/v1/docs/documents/{doc_id}", headers=_auth_header(token)).data)["data"]
+        doc = json.loads(
+            client.get(f"/api/v1/docs/documents/{doc_id}", headers=_auth_header(token)).data
+        )["data"]
         assert doc["folder_path"] == "New"
 
     def test_rename_folder_missing_path(self, app, docs_api):
@@ -825,7 +856,11 @@ class TestFolders:
     def test_delete_folder_flattens_to_parent(self, app, docs_api):
         client, token, account_id, _ = docs_api
         client.post("/api/v1/docs/folders", json={"name": "Parent"}, headers=_auth_header(token))
-        client.post("/api/v1/docs/folders", json={"name": "Child", "parent": "Parent"}, headers=_auth_header(token))
+        client.post(
+            "/api/v1/docs/folders",
+            json={"name": "Child", "parent": "Parent"},
+            headers=_auth_header(token),
+        )
         create = client.post(
             "/api/v1/docs/documents",
             json={"name": "Doc", "type": "odt", "folder": "Parent/Child"},
@@ -842,14 +877,28 @@ class TestFolders:
         assert json.loads(resp.data)["data"]["moved_to"] == "Parent"
 
         # Document flattened up to Parent.
-        doc = json.loads(client.get(f"/api/v1/docs/documents/{doc_id}", headers=_auth_header(token)).data)["data"]
+        doc = json.loads(
+            client.get(f"/api/v1/docs/documents/{doc_id}", headers=_auth_header(token)).data
+        )["data"]
         assert doc["folder_path"] == "Parent"
 
     def test_list_filter_by_folder_is_exact(self, app, docs_api):
         client, token, account_id, _ = docs_api
-        client.post("/api/v1/docs/documents", json={"name": "Root", "type": "odt"}, headers=_auth_header(token))
-        client.post("/api/v1/docs/documents", json={"name": "In Work", "type": "odt", "folder": "Work"}, headers=_auth_header(token))
-        client.post("/api/v1/docs/documents", json={"name": "Nested", "type": "odt", "folder": "Work/Sub"}, headers=_auth_header(token))
+        client.post(
+            "/api/v1/docs/documents",
+            json={"name": "Root", "type": "odt"},
+            headers=_auth_header(token),
+        )
+        client.post(
+            "/api/v1/docs/documents",
+            json={"name": "In Work", "type": "odt", "folder": "Work"},
+            headers=_auth_header(token),
+        )
+        client.post(
+            "/api/v1/docs/documents",
+            json={"name": "Nested", "type": "odt", "folder": "Work/Sub"},
+            headers=_auth_header(token),
+        )
 
         resp = client.get("/api/v1/docs/documents?folder=Work", headers=_auth_header(token))
         names = sorted(d["name"] for d in json.loads(resp.data)["data"])
@@ -942,8 +991,12 @@ class TestTags:
 
     def test_tag_filter_in_list(self, app, docs_api):
         client, token, account_id, _ = docs_api
-        a = client.post("/api/v1/docs/documents", json={"name": "A", "type": "odt"}, headers=_auth_header(token))
-        client.post("/api/v1/docs/documents", json={"name": "B", "type": "odt"}, headers=_auth_header(token))
+        a = client.post(
+            "/api/v1/docs/documents", json={"name": "A", "type": "odt"}, headers=_auth_header(token)
+        )
+        client.post(
+            "/api/v1/docs/documents", json={"name": "B", "type": "odt"}, headers=_auth_header(token)
+        )
         client.put(
             f"/api/v1/docs/documents/{json.loads(a.data)['data']['id']}/tags",
             json={"add": ["star"]},

@@ -1,7 +1,13 @@
 import io
 import json
 import os
-import tempfile
+
+
+def _safe_unlink(path):
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
 
 
 def _setup_test_env(app, account_id):
@@ -9,11 +15,12 @@ def _setup_test_env(app, account_id):
     with app.app_context():
         from app.shared.db import db
         from app.shared.models.core import CustomerAccount
+        from app.modules.docs.services.cache import get_cache_path
+
         account = db.session.get(CustomerAccount, account_id)
-        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-        paths["cache"] = f.name
-        f.close()
-        account.cache_db_path = paths["cache"]
+        paths["cache"] = get_cache_path(account)
+        if os.path.exists(paths["cache"]):
+            _safe_unlink(paths["cache"])
         db.session.commit()
     return paths
 
@@ -47,7 +54,7 @@ def test_api_list_returns_documents(authed_client, app):
         for key in ("id", "name", "doc_type", "original_format", "file_size", "updated_at"):
             assert key in docs[0]
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_api_list_search_filter(authed_client, app):
@@ -65,7 +72,7 @@ def test_api_list_search_filter(authed_client, app):
         resp = client.get("/app/docs/api/list?account_id=%s&q=nomatch" % account_id)
         assert resp.get_json()["documents"] == []
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_download_with_account_id_param(authed_client, app):
@@ -80,7 +87,7 @@ def test_download_with_account_id_param(authed_client, app):
         cd = resp.headers.get("Content-Disposition", "")
         assert "contract.pdf" in cd
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_download_falls_back_to_session_account(authed_client, app):
@@ -94,7 +101,7 @@ def test_download_falls_back_to_session_account(authed_client, app):
         assert resp.status_code == 200
         assert resp.data == raw
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_download_wrong_account_owner_404(authed_client, app):
@@ -105,7 +112,7 @@ def test_download_wrong_account_owner_404(authed_client, app):
         resp = client.get("/app/docs/%s/download?account_id=999999" % doc_id)
         assert resp.status_code == 404
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_api_list_uses_session_when_no_param(authed_client, app):
@@ -117,4 +124,4 @@ def test_api_list_uses_session_when_no_param(authed_client, app):
         assert resp.status_code == 200
         assert resp.get_json()["account_id"] == account_id
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])

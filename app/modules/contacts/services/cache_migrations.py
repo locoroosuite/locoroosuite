@@ -81,5 +81,5 @@ def _baseline_schema(conn) -> None:
 
 
 CONTACTS_CACHE_MIGRATIONS: tuple[Migration, ...] = (
-    Migration("0001_baseline_schema", _baseline_schema),
+    Migration("contacts_0001_baseline_schema", _baseline_schema),
 )

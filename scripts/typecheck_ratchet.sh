@@ -11,17 +11,26 @@
 # pre-existing" loophole is falsifiable: the base count is measured, not vibes.
 #
 # Usage:
-#   ./scripts/typecheck_ratchet.sh [BASE_REF]    # default BASE_REF=master
-#   BASE_REF=origin/master make typecheck-ratchet
+#   ./scripts/typecheck_ratchet.sh              # BASE_REF defaults to master
+#   ./scripts/typecheck_ratchet.sh origin/main  # positional arg
+#   BASE_REF=HEAD make typecheck-ratchet        # env var (Make sets it)
+#
+# BASE_REF resolution: positional arg > env var > "master".
 #
 # Escape hatch: if a file cannot be made cleaner without a cross-module change,
 # a signature change, or a schema migration, flag it to the user instead of
 # silently expanding scope. This script will report the violation; the human
 # decides whether to accept the escape hatch for that file.
+#
+# Safety: to measure the base version with the same project context (imports,
+# pyrightconfig.json) as the working version, this script temporarily swaps the
+# working file for its base version in place, counts, then restores it. The
+# EXIT trap restores every swapped file from its backup before cleaning up, so
+# interruption (Ctrl-C, SIGTERM, timeout) cannot lose working-tree data.
 
-set -euo pipefail
+set -uo pipefail
 
-BASE_REF="${1:-master}"
+BASE_REF="${1:-${BASE_REF:-master}}"
 PYRIGHT="./venv/bin/pyright"
 
 if [ ! -x "$PYRIGHT" ]; then
@@ -29,9 +38,32 @@ if [ ! -x "$PYRIGHT" ]; then
     exit 2
 fi
 
+if ! git cat-file -e "$BASE_REF" 2>/dev/null; then
+    echo "typecheck-ratchet: BASE_REF '$BASE_REF' is not a valid git ref" >&2
+    exit 2
+fi
+
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
-trap 'echo "" >&2; echo "typecheck-ratchet: interrupted — run \`git status\` and restore any clobbered file from git." >&2' INT TERM
+RESTORE="$TMP/restore.tsv"   # backup<TAB>orig, one per swapped file
+: > "$RESTORE"
+
+cleanup() {
+    local rc=$?
+    if [ -s "$RESTORE" ]; then
+        while IFS=$'\t' read -r bk orig; do
+            [ -f "$bk" ] && cp "$bk" "$orig" 2>/dev/null || true
+        done < "$RESTORE"
+    fi
+    rm -rf "$TMP"
+    return $rc
+}
+trap cleanup EXIT
+
+note_interrupt() {
+    echo "" >&2
+    echo "typecheck-ratchet: interrupted — restoring working tree from backups." >&2
+}
+trap note_interrupt INT TERM
 
 # Collect touched .py files: modified/added vs BASE_REF, plus untracked.
 # Skip deletes (the file must exist in the working tree to be checked).
@@ -53,14 +85,13 @@ fi
 count() {
     local summary e w
     summary="$("$PYRIGHT" "$1" 2>/dev/null | tail -n1 || true)"
-    # Summary line looks like: "N errors, M warnings, K informations"
-    e="$(printf '%s' "$summary" | grep -oE '^[0-9]+' || echo 0)"
-    w="$(printf '%s' "$summary" | grep -oE '[0-9]+ warnings' | grep -oE '[0-9]+' || echo 0)"
-    # If pyright produced no summary line at all, treat as unknown -> fail loud.
     if [ -z "$summary" ]; then
         echo "ERR"
         return
     fi
+    # Summary line looks like: "N errors, M warnings, K informations"
+    e="$(printf '%s' "$summary" | grep -oE '^[0-9]+' || echo 0)"
+    w="$(printf '%s' "$summary" | grep -oE '[0-9]+ warnings' | grep -oE '[0-9]+' || echo 0)"
     echo $(( e + w ))
 }
 
@@ -71,22 +102,22 @@ printf "%-55s %s\n" "file" "before -> after"
 printf -- "------------------------------------------------------------ %s\n" "------------------"
 for f in "${FILES[@]}"; do
     if git cat-file -e "$BASE_REF:$f" 2>/dev/null; then
-        # Measure base version AT the real path so pyright resolves imports
-        # the same way it does for the working-tree version.
-        cp "$f" "$TMP/cur"
+        # Swap in the base version at the real path, count, then restore inline.
+        # Backup is also registered for the EXIT trap so interruption is safe.
+        bk="$(mktemp "$TMP/cur.XXXXXX")"
+        cp "$f" "$bk"
+        printf '%s\t%s\n' "$bk" "$f" >> "$RESTORE"
         git show "$BASE_REF:$f" > "$f"
         before="$(count "$f")"
-        cp "$TMP/cur" "$f"   # restore working tree immediately
+        cp "$bk" "$f"
     else
         before=0   # new file: must be clean
     fi
     after="$(count "$f")"
 
     status="ok"
-    if [ "$after" = "ERR" ]; then
+    if [ "$after" = "ERR" ] || [ "$before" = "ERR" ]; then
         status="ERROR running pyright"; fail=1
-    elif [ "$before" = "ERR" ]; then
-        status="ERROR running pyright (base)"; fail=1
     elif [ "$before" -eq 0 ] && [ "$after" -ne 0 ]; then
         status="FAIL (was 0, must stay 0)"; fail=1
     elif [ "$before" -gt 0 ] && [ "$after" -ge "$before" ]; then

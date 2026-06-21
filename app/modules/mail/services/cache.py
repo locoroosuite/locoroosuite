@@ -9,7 +9,7 @@ CACHE_DIR.mkdir(exist_ok=True)
 
 
 def build_cache_path(customer_id, account_id):
-    filename = f"customer_{customer_id}_account_{account_id}.db"
+    filename = f"customer_{customer_id}_account_{account_id}_mail.db"
     return str(CACHE_DIR / filename)
 
 
@@ -20,6 +20,7 @@ def purge_cache(path, key=None):
     if not cache_path.exists():
         return
     from app.modules.mail.services.cache_db import clear_cache_schema_memo
+
     clear_cache_schema_memo(path)
     if key:
         _drop_mail_tables(path, key)

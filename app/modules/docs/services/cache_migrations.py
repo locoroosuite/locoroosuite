@@ -45,15 +45,9 @@ def _baseline_schema(conn) -> None:
         )
         """
     )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_documents_account ON documents(account_id)"
-    )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_documents_deleted ON documents(deleted_at)"
-    )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_folders_account ON folders(account_id)"
-    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_account ON documents(account_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_deleted ON documents(deleted_at)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_folders_account ON folders(account_id)")
 
 
 def _ensure_document_columns(conn) -> None:
@@ -77,7 +71,7 @@ def _ensure_document_folder_index(conn) -> None:
 
 
 DOCS_CACHE_MIGRATIONS: tuple[Migration, ...] = (
-    Migration("0001_baseline_schema", _baseline_schema),
-    Migration("0002_ensure_document_columns", _ensure_document_columns),
-    Migration("0003_ensure_document_folder_index", _ensure_document_folder_index),
+    Migration("docs_0001_baseline_schema", _baseline_schema),
+    Migration("docs_0002_ensure_document_columns", _ensure_document_columns),
+    Migration("docs_0003_ensure_document_folder_index", _ensure_document_folder_index),
 )

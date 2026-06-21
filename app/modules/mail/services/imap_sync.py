@@ -1,21 +1,19 @@
 import email
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-from app.shared.db import db
-from app.shared.models.core import Domain
 from app.modules.mail.services.cache import build_cache_path
 from app.modules.mail.services.cache_db import (
     delete_folder_state,
     delete_messages_by_folder,
     delete_messages_by_uids,
     get_folder_state,
+    list_cached_folders,
     list_message_uids,
     list_uids_missing_internal_date_ts,
-    list_cached_folders,
     open_cache,
-    update_internal_date_ts_for_uid,
     update_flags_bulk,
+    update_internal_date_ts_for_uid,
     upsert_folder,
     upsert_folder_state,
     upsert_message,
@@ -32,11 +30,17 @@ from app.modules.mail.services.imap_client import (
     select_folder,
 )
 from app.modules.mail.services.secrets import decrypt_with_key
-from app.shared.icalendar import parse_icalendar
+from app.modules.mail.utils.sanitize import (
+    build_snippet,
+    decode_address_header,
+    html_to_text_lines,
+    normalize_header_text,
+)
+from app.shared.db import db
 from app.shared.events import push_event
+from app.shared.icalendar import parse_icalendar
 from app.shared.keys import get_user_key
-from app.modules.mail.utils.sanitize import build_snippet, decode_address_header, html_to_text_lines, normalize_header_text
-
+from app.shared.models.core import Domain
 
 CACHE_DAYS = 30
 CACHE_MAX = 100
@@ -347,7 +351,7 @@ def _backfill_missing_date_ts(client, conn, folder):
 
 def _sync_initial_folder(client, conn, folder, status_info, include_recent_page=False, page_size=CACHE_MAX, account=None):
     unread_uids = fetch_message_uids(client, "UNSEEN")
-    since_date = (datetime.now(timezone.utc) - timedelta(days=CACHE_DAYS)).strftime("%d-%b-%Y")
+    since_date = (datetime.now(UTC) - timedelta(days=CACHE_DAYS)).strftime("%d-%b-%Y")
     recent_uids = fetch_message_uids(client, f"SINCE {since_date}")
     recent_page = []
     if include_recent_page:
@@ -391,7 +395,7 @@ def _sync_initial_folder(client, conn, folder, status_info, include_recent_page=
         )
         _check_imip_reply(account, msg, args["sender"])
         new_added += 1
-        last_new_at = datetime.now(timezone.utc).isoformat()
+        last_new_at = datetime.now(UTC).isoformat()
     unseen = status_info.get("UNSEEN")
     if unseen is None:
         unseen = len(unread_uids)
@@ -445,7 +449,7 @@ def _sync_incremental_folder(client, conn, folder, status_info, state, include_r
         )
         _check_imip_reply(account, msg, args["sender"])
         new_added += 1
-        last_new_at = datetime.now(timezone.utc).isoformat()
+        last_new_at = datetime.now(UTC).isoformat()
 
     if include_recent_page and len(cached_uids) < page_size:
         all_uids = fetch_message_uids(client, "ALL")
@@ -485,7 +489,7 @@ def _sync_incremental_folder(client, conn, folder, status_info, state, include_r
                 )
                 _check_imip_reply(account, msg, args["sender"])
                 new_added += 1
-                last_new_at = datetime.now(timezone.utc).isoformat()
+                last_new_at = datetime.now(UTC).isoformat()
 
     if cached_uids:
         for chunk in _chunked(cached_uids, size=75):
@@ -542,15 +546,14 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
         emit("error", folder="INBOX", message="inactive domain")
         return False
 
-    if not account.cache_db_path:
-        account.cache_db_path = build_cache_path(account.customer_id, account.id)
-        db.session.commit()
-        logger.info(
-            "imap cache path created account_id=%s customer_id=%s path=%s",
-            account.id,
-            account.customer_id,
-            account.cache_db_path,
-        )
+    account.cache_db_path = build_cache_path(account.customer_id, account.id)
+    db.session.commit()
+    logger.info(
+        "imap cache path account_id=%s customer_id=%s path=%s",
+        account.id,
+        account.customer_id,
+        account.cache_db_path,
+    )
 
     try:
         conn = open_cache(account.cache_db_path, key)
@@ -674,7 +677,7 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
                     uidvalidity=status_info.get("UIDVALIDITY"),
                     uidnext=int(status_info.get("UIDNEXT", 0)) if status_info.get("UIDNEXT") else None,
                     highestmodseq=status_info.get("HIGHESTMODSEQ"),
-                    last_sync_at=datetime.now(timezone.utc).isoformat(),
+                    last_sync_at=datetime.now(UTC).isoformat(),
                     last_new_at=last_new_at,
                 )
             except Exception:

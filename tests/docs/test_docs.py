@@ -1,11 +1,16 @@
 import io
 import json
 import os
-import tempfile
 from unittest.mock import patch
 
 import pytest
 
+
+def _safe_unlink(path):
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
 
 
 def _setup_test_env(app, account_id):
@@ -13,11 +18,12 @@ def _setup_test_env(app, account_id):
     with app.app_context():
         from app.shared.db import db
         from app.shared.models.core import CustomerAccount
+        from app.modules.docs.services.cache import get_cache_path
+
         account = db.session.get(CustomerAccount, account_id)
-        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-        paths["cache"] = f.name
-        f.close()
-        account.cache_db_path = paths["cache"]
+        paths["cache"] = get_cache_path(account)
+        if os.path.exists(paths["cache"]):
+            _safe_unlink(paths["cache"])
         db.session.commit()
     return paths
 
@@ -30,7 +36,7 @@ def test_docs_index_empty(authed_client, app):
         assert resp.status_code == 200
         assert b"No documents yet" in resp.data
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_create(authed_client, app):
@@ -42,7 +48,7 @@ def test_docs_create(authed_client, app):
         assert "/docs/" in resp.headers["Location"]
         assert "/edit" in resp.headers["Location"]
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_create_spreadsheet(authed_client, app):
@@ -53,7 +59,7 @@ def test_docs_create_spreadsheet(authed_client, app):
         assert resp.status_code == 302
         assert "/edit" in resp.headers["Location"]
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_create_presentation(authed_client, app):
@@ -64,7 +70,7 @@ def test_docs_create_presentation(authed_client, app):
         assert resp.status_code == 302
         assert "/edit" in resp.headers["Location"]
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_create_invalid_type(authed_client, app):
@@ -74,7 +80,7 @@ def test_docs_create_invalid_type(authed_client, app):
         resp = client.post("/app/docs/new", data={"doc_type": "exe"}, follow_redirects=False)
         assert resp.status_code == 302
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_list_after_create(authed_client, app):
@@ -88,7 +94,7 @@ def test_docs_list_after_create(authed_client, app):
         assert resp.status_code == 200
         assert b"Untitled Document" in resp.data
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_editor_page(authed_client, app):
@@ -112,7 +118,7 @@ def test_docs_editor_page(authed_client, app):
         assert b"#editor-frame { width: 100%; flex: 1 1 auto" in resp.data
         assert b"display: flex; flex-direction: column" in resp.data
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_editor_page_for_pdf_shows_convert(authed_client, app):
@@ -137,7 +143,7 @@ def test_docs_editor_page_for_pdf_shows_convert(authed_client, app):
         resp = client.get(f"/app/docs/{doc_id}/edit")
         assert resp.status_code == 200
         # Convert button present + read-only badge for an original-format doc.
-        assert b"id=\"convert-btn\"" in resp.data
+        assert b'id="convert-btn"' in resp.data
         assert b"Convert to editable document" in resp.data
         assert b"Read only" in resp.data
         # rename-btn is NOT rendered for originals...
@@ -146,7 +152,7 @@ def test_docs_editor_page_for_pdf_shows_convert(authed_client, app):
         assert b"if (renameBtn)" in resp.data
         assert b"if (shareBtnEl)" in resp.data
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_rename(authed_client, app):
@@ -166,7 +172,7 @@ def test_docs_rename(authed_client, app):
         assert data["ok"] is True
         assert data["name"] == "My Report"
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_rename_empty(authed_client, app):
@@ -179,7 +185,7 @@ def test_docs_rename_empty(authed_client, app):
         resp = client.post(f"/app/docs/{doc_id}/rename", data={"name": ""})
         assert resp.status_code == 400
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_rename_slash(authed_client, app):
@@ -192,7 +198,7 @@ def test_docs_rename_slash(authed_client, app):
         resp = client.post(f"/app/docs/{doc_id}/rename", data={"name": "bad/name"})
         assert resp.status_code == 400
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_rename_too_long(authed_client, app):
@@ -205,7 +211,7 @@ def test_docs_rename_too_long(authed_client, app):
         resp = client.post(f"/app/docs/{doc_id}/rename", data={"name": "x" * 256})
         assert resp.status_code == 400
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_soft_delete(authed_client, app):
@@ -222,7 +228,7 @@ def test_docs_soft_delete(authed_client, app):
         assert resp.status_code == 200
         assert b"Trash" in resp.data
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_restore(authed_client, app):
@@ -240,7 +246,7 @@ def test_docs_restore(authed_client, app):
         assert resp.status_code == 200
         assert b"Untitled Document" in resp.data
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_hard_delete_from_trash(authed_client, app):
@@ -258,7 +264,7 @@ def test_docs_hard_delete_from_trash(authed_client, app):
         assert b"Untitled Document" not in resp.data
         assert b"Trash" not in resp.data
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_download(authed_client, app):
@@ -273,7 +279,7 @@ def test_docs_download(authed_client, app):
         assert resp.content_type == "application/vnd.oasis.opendocument.text"
         assert len(resp.data) > 0
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_download_deleted(authed_client, app):
@@ -287,7 +293,7 @@ def test_docs_download_deleted(authed_client, app):
         resp = client.get(f"/app/docs/{doc_id}/download", follow_redirects=False)
         assert resp.status_code == 302
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_upload_odt(authed_client, app):
@@ -295,6 +301,7 @@ def test_docs_upload_odt(authed_client, app):
     paths = _setup_test_env(app, account_id)
     try:
         from app.modules.docs.services.templates import empty_odt
+
         buf = empty_odt()
         data = buf.read()
 
@@ -307,7 +314,7 @@ def test_docs_upload_odt(authed_client, app):
         assert resp.status_code == 302
         assert "/edit" in resp.headers["Location"]
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_upload_invalid_extension(authed_client, app):
@@ -323,7 +330,7 @@ def test_docs_upload_invalid_extension(authed_client, app):
         assert resp.status_code == 302
         assert "/edit" not in resp.headers["Location"]
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_upload_ajax_odt(authed_client, app):
@@ -331,6 +338,7 @@ def test_docs_upload_ajax_odt(authed_client, app):
     paths = _setup_test_env(app, account_id)
     try:
         from app.modules.docs.services.templates import empty_odt
+
         buf = empty_odt()
         data = buf.read()
 
@@ -346,7 +354,7 @@ def test_docs_upload_ajax_odt(authed_client, app):
         assert "editor_url" in body
         assert "/edit" in body["editor_url"]
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_upload_ajax_no_account(authed_client, app):
@@ -377,7 +385,7 @@ def test_docs_upload_ajax_no_file(authed_client, app):
         body = json.loads(resp.data)
         assert "error" in body
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_upload_ajax_invalid_extension(authed_client, app):
@@ -394,7 +402,7 @@ def test_docs_upload_ajax_invalid_extension(authed_client, app):
         body = json.loads(resp.data)
         assert "Unsupported" in body["error"]
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_upload_ajax_oversized(authed_client, app):
@@ -412,7 +420,7 @@ def test_docs_upload_ajax_oversized(authed_client, app):
         body = json.loads(resp.data)
         assert "50 MB" in body["error"]
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_empty_trash(authed_client, app):
@@ -429,7 +437,7 @@ def test_docs_empty_trash(authed_client, app):
         resp = client.get("/app/docs/")
         assert b"Trash" not in resp.data
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_no_account_redirect(authed_client, app):
@@ -447,21 +455,24 @@ def test_docs_editor_nonexistent(authed_client, app):
         resp = client.get("/app/docs/nonexistent/edit", follow_redirects=False)
         assert resp.status_code == 302
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def _fake_odt_bytes():
     from app.modules.docs.services.templates import empty_odt
+
     return empty_odt().read()
 
 
 def _fake_ods_bytes():
     from app.modules.docs.services.templates import empty_ods
+
     return empty_ods().read()
 
 
 def _fake_odp_bytes():
     from app.modules.docs.services.templates import empty_odp
+
     return empty_odp().read()
 
 
@@ -492,6 +503,7 @@ def test_docs_upload_original_stored(authed_client, app, src_ext, target_ext):
         assert "editor_url" in body
 
         from app.modules.docs.services import storage
+
         stored = storage.read_file(user_id, account_id, body["doc_id"])
         assert stored == fake_content
 
@@ -501,7 +513,7 @@ def test_docs_upload_original_stored(authed_client, app, src_ext, target_ext):
         assert sidecar["doc_type"] == target_ext
         assert sidecar["original_format"] == src_ext
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 @pytest.mark.parametrize("src_ext,target_ext", _CONVERSION_CASES)
@@ -519,7 +531,7 @@ def test_docs_upload_original_not_ajax(authed_client, app, src_ext, target_ext):
 
         assert resp.status_code == 302
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_upload_pdf_original_stored(authed_client, app):
@@ -541,6 +553,7 @@ def test_docs_upload_pdf_original_stored(authed_client, app):
         assert "editor_url" in body
 
         from app.modules.docs.services import storage
+
         stored = storage.read_file(user_id, account_id, body["doc_id"])
         assert stored == fake_pdf
 
@@ -550,7 +563,7 @@ def test_docs_upload_pdf_original_stored(authed_client, app):
         assert sidecar["original_format"] == "pdf"
         assert sidecar["doc_type"] == "odg"
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 _PANDOC_FORMAT_CASES = [
@@ -561,7 +574,10 @@ _PANDOC_FORMAT_CASES = [
     ("epub", b"fake-epub-data"),
     ("csv", b"name,age\nAlice,30\nBob,25"),
     ("tsv", b"name\tage\nAlice\t30\nBob\t25"),
-    ("ipynb", b'{"nbformat":4,"nbformat_minor":5,"metadata":{},"cells":[{"cell_type":"markdown","source":["# Hello"]}]}'),
+    (
+        "ipynb",
+        b'{"nbformat":4,"nbformat_minor":5,"metadata":{},"cells":[{"cell_type":"markdown","source":["# Hello"]}]}',
+    ),
 ]
 
 
@@ -589,7 +605,7 @@ def test_docs_upload_pandoc_format_success(authed_client, app, src_ext, content)
         assert "doc_id" in body
         assert "editor_url" in body
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_upload_pandoc_format_failure(authed_client, app):
@@ -611,7 +627,7 @@ def test_docs_upload_pandoc_format_failure(authed_client, app):
         body = json.loads(resp.data)
         assert "error" in body
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 class TestConvertDocument:
@@ -629,18 +645,35 @@ class TestConvertDocument:
             with app.app_context():
                 from app.shared.db import db
                 from app.shared.models.core import CustomerAccount
+
                 account = db.session.get(CustomerAccount, account_id)
                 conn = cache_db.open_cache(get_cache_path(account), key)
                 try:
                     doc_id = "pdfdoc001"
                     # Seed as a *legacy* PDF stored with doc_type="odt" to prove
                     # the convert route corrects the target via target_odf_type.
-                    cache_db.create_document(conn, doc_id, "Contract", "odt", account_id, file_size=0, original_format="pdf")
+                    cache_db.create_document(
+                        conn,
+                        doc_id,
+                        "Contract",
+                        "odt",
+                        account_id,
+                        file_size=0,
+                        original_format="pdf",
+                    )
                     storage.write_file(user_id, account_id, doc_id, fake_pdf)
-                    storage.write_sidecar(user_id, account_id, doc_id, {
-                        "id": doc_id, "name": "Contract", "doc_type": "odt",
-                        "original_format": "pdf", "account_id": account_id,
-                    })
+                    storage.write_sidecar(
+                        user_id,
+                        account_id,
+                        doc_id,
+                        {
+                            "id": doc_id,
+                            "name": "Contract",
+                            "doc_type": "odt",
+                            "original_format": "pdf",
+                            "account_id": account_id,
+                        },
+                    )
                     cache_db.update_file_size(conn, doc_id, len(fake_pdf))
                 finally:
                     conn.close()
@@ -685,7 +718,7 @@ class TestConvertDocument:
             assert storage.read_file(user_id, account_id, doc_id) == fake_pdf
             assert storage.read_file(user_id, account_id, new_doc_id) is not None
         finally:
-            os.unlink(paths["cache"])
+            _safe_unlink(paths["cache"])
 
     def test_convert_already_editable_returns_error(self, authed_client, app):
         client, user_id, account_id = authed_client
@@ -700,6 +733,7 @@ class TestConvertDocument:
             with app.app_context():
                 from app.shared.db import db
                 from app.shared.models.core import CustomerAccount
+
                 account = db.session.get(CustomerAccount, account_id)
                 conn = cache_db.open_cache(get_cache_path(account), key)
                 try:
@@ -717,7 +751,7 @@ class TestConvertDocument:
             )
             assert resp.status_code == 400
         finally:
-            os.unlink(paths["cache"])
+            _safe_unlink(paths["cache"])
 
     def test_convert_not_found(self, authed_client, app):
         client, user_id, account_id = authed_client
@@ -729,4 +763,4 @@ class TestConvertDocument:
             )
             assert resp.status_code == 404
         finally:
-            os.unlink(paths["cache"])
+            _safe_unlink(paths["cache"])

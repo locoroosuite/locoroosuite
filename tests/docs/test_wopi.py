@@ -1,7 +1,12 @@
 import json
 import os
-import tempfile
 
+
+def _safe_unlink(path):
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
 
 
 def _setup_test_env(app, account_id):
@@ -9,11 +14,12 @@ def _setup_test_env(app, account_id):
     with app.app_context():
         from app.shared.db import db
         from app.shared.models.core import CustomerAccount
+        from app.modules.docs.services.cache import get_cache_path
+
         account = db.session.get(CustomerAccount, account_id)
-        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-        paths["cache"] = f.name
-        f.close()
-        account.cache_db_path = paths["cache"]
+        paths["cache"] = get_cache_path(account)
+        if os.path.exists(paths["cache"]):
+            _safe_unlink(paths["cache"])
         db.session.commit()
     return paths
 
@@ -34,7 +40,7 @@ def test_wopi_check_file_info_no_token(authed_client, app):
         resp = client.post(f"/app/docs/wopi/files/{doc_id}")
         assert resp.status_code == 401
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_wopi_check_file_info_invalid_token(authed_client, app):
@@ -45,7 +51,7 @@ def test_wopi_check_file_info_invalid_token(authed_client, app):
         resp = client.post(f"/app/docs/wopi/files/{doc_id}?access_token=invalid")
         assert resp.status_code == 401
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_wopi_check_file_info_valid_token(authed_client, app):
@@ -56,6 +62,7 @@ def test_wopi_check_file_info_valid_token(authed_client, app):
 
         with app.app_context():
             from app.modules.docs.services.wopi_token import generate_token
+
             token = generate_token(doc_id, user_id, account_id, writable=True)
 
         resp = client.post(f"/app/docs/wopi/files/{doc_id}?access_token={token}")
@@ -66,7 +73,7 @@ def test_wopi_check_file_info_valid_token(authed_client, app):
         assert data["UserCanWrite"] is True
         assert data["ReadOnly"] is False
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_wopi_check_file_info_wrong_doc_id(authed_client, app):
@@ -77,12 +84,13 @@ def test_wopi_check_file_info_wrong_doc_id(authed_client, app):
 
         with app.app_context():
             from app.modules.docs.services.wopi_token import generate_token
+
             token = generate_token(doc_id, user_id, account_id, writable=True)
 
         resp = client.post(f"/app/docs/wopi/files/wrong-id?access_token={token}")
         assert resp.status_code == 403
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_wopi_get_file(authed_client, app):
@@ -93,13 +101,14 @@ def test_wopi_get_file(authed_client, app):
 
         with app.app_context():
             from app.modules.docs.services.wopi_token import generate_token
+
             token = generate_token(doc_id, user_id, account_id, writable=True)
 
         resp = client.get(f"/app/docs/wopi/files/{doc_id}/contents?access_token={token}")
         assert resp.status_code == 200
         assert len(resp.data) > 0
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_wopi_get_file_no_token(authed_client, app):
@@ -110,7 +119,7 @@ def test_wopi_get_file_no_token(authed_client, app):
         resp = client.get(f"/app/docs/wopi/files/{doc_id}/contents")
         assert resp.status_code == 401
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_wopi_put_file(authed_client, app):
@@ -121,6 +130,7 @@ def test_wopi_put_file(authed_client, app):
 
         with app.app_context():
             from app.modules.docs.services.wopi_token import generate_token
+
             token = generate_token(doc_id, user_id, account_id, writable=True)
 
         new_content = b"updated document content for testing"
@@ -137,7 +147,7 @@ def test_wopi_put_file(authed_client, app):
         assert resp.status_code == 200
         assert resp.data == new_content
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_wopi_put_file_readonly(authed_client, app):
@@ -148,6 +158,7 @@ def test_wopi_put_file_readonly(authed_client, app):
 
         with app.app_context():
             from app.modules.docs.services.wopi_token import generate_token
+
             token = generate_token(doc_id, user_id, account_id, writable=False)
 
         resp = client.post(
@@ -157,7 +168,7 @@ def test_wopi_put_file_readonly(authed_client, app):
         )
         assert resp.status_code == 403
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_wopi_put_file_no_token(authed_client, app):
@@ -172,4 +183,4 @@ def test_wopi_put_file_no_token(authed_client, app):
         )
         assert resp.status_code == 401
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])

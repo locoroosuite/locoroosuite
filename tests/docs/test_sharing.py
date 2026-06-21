@@ -10,14 +10,22 @@ from app.shared.models.core import User, Domain, CustomerAccount, DocShare
 from app.shared.keys import set_user_key, clear_user_key
 
 
+def _safe_unlink(path):
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+
+
 def _setup_test_env(app, account_id):
     paths = {}
     with app.app_context():
+        from app.modules.docs.services.cache import get_cache_path
+
         account = db.session.get(CustomerAccount, account_id)
-        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-        paths["cache"] = f.name
-        f.close()
-        account.cache_db_path = paths["cache"]
+        paths["cache"] = get_cache_path(account)
+        if os.path.exists(paths["cache"]):
+            _safe_unlink(paths["cache"])
         db.session.commit()
     return paths
 
@@ -89,7 +97,7 @@ def test_list_shares_empty(share_client, app):
         data = json.loads(resp.data)
         assert data["shares"] == []
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_add_share(share_client, app):
@@ -99,11 +107,13 @@ def test_add_share(share_client, app):
         doc_id = _create_doc(client)
         resp = client.post(
             f"/app/docs/{doc_id}/shares",
-            data=json.dumps({
-                "emails": "external@gmail.com",
-                "permission": "view",
-                "send_invite": False,
-            }),
+            data=json.dumps(
+                {
+                    "emails": "external@gmail.com",
+                    "permission": "view",
+                    "send_invite": False,
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 201
@@ -113,7 +123,7 @@ def test_add_share(share_client, app):
         assert data["shares"][0]["permission"] == "view"
         assert data["shares"][0]["share_type"] == "link"
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_add_share_internal(share_client, app):
@@ -123,11 +133,13 @@ def test_add_share_internal(share_client, app):
         doc_id = _create_doc(client)
         resp = client.post(
             f"/app/docs/{doc_id}/shares",
-            data=json.dumps({
-                "emails": "colleague@example.com",
-                "permission": "write",
-                "send_invite": False,
-            }),
+            data=json.dumps(
+                {
+                    "emails": "colleague@example.com",
+                    "permission": "write",
+                    "send_invite": False,
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 201
@@ -136,7 +148,7 @@ def test_add_share_internal(share_client, app):
         assert data["shares"][0]["share_type"] == "internal"
         assert data["shares"][0]["permission"] == "write"
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_add_share_multiple_emails(share_client, app):
@@ -146,18 +158,20 @@ def test_add_share_multiple_emails(share_client, app):
         doc_id = _create_doc(client)
         resp = client.post(
             f"/app/docs/{doc_id}/shares",
-            data=json.dumps({
-                "emails": "a@gmail.com, b@gmail.com",
-                "permission": "view",
-                "send_invite": False,
-            }),
+            data=json.dumps(
+                {
+                    "emails": "a@gmail.com, b@gmail.com",
+                    "permission": "view",
+                    "send_invite": False,
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 201
         data = json.loads(resp.data)
         assert len(data["shares"]) == 2
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_add_share_duplicate_skipped(share_client, app):
@@ -167,27 +181,31 @@ def test_add_share_duplicate_skipped(share_client, app):
         doc_id = _create_doc(client)
         client.post(
             f"/app/docs/{doc_id}/shares",
-            data=json.dumps({
-                "emails": "a@gmail.com",
-                "permission": "view",
-                "send_invite": False,
-            }),
+            data=json.dumps(
+                {
+                    "emails": "a@gmail.com",
+                    "permission": "view",
+                    "send_invite": False,
+                }
+            ),
             content_type="application/json",
         )
         resp = client.post(
             f"/app/docs/{doc_id}/shares",
-            data=json.dumps({
-                "emails": "a@gmail.com",
-                "permission": "view",
-                "send_invite": False,
-            }),
+            data=json.dumps(
+                {
+                    "emails": "a@gmail.com",
+                    "permission": "view",
+                    "send_invite": False,
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 201
         data = json.loads(resp.data)
         assert len(data["shares"]) == 0
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_add_share_invalid_permission(share_client, app):
@@ -197,16 +215,18 @@ def test_add_share_invalid_permission(share_client, app):
         doc_id = _create_doc(client)
         resp = client.post(
             f"/app/docs/{doc_id}/shares",
-            data=json.dumps({
-                "emails": "a@gmail.com",
-                "permission": "admin",
-                "send_invite": False,
-            }),
+            data=json.dumps(
+                {
+                    "emails": "a@gmail.com",
+                    "permission": "admin",
+                    "send_invite": False,
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 400
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_add_share_no_emails(share_client, app):
@@ -216,16 +236,18 @@ def test_add_share_no_emails(share_client, app):
         doc_id = _create_doc(client)
         resp = client.post(
             f"/app/docs/{doc_id}/shares",
-            data=json.dumps({
-                "emails": "",
-                "permission": "view",
-                "send_invite": False,
-            }),
+            data=json.dumps(
+                {
+                    "emails": "",
+                    "permission": "view",
+                    "send_invite": False,
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 400
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_add_share_nonexistent_doc(share_client, app):
@@ -233,11 +255,13 @@ def test_add_share_nonexistent_doc(share_client, app):
     _setup_test_env(app, account_id)
     resp = client.post(
         "/app/docs/0000/shares",
-        data=json.dumps({
-            "emails": "a@gmail.com",
-            "permission": "view",
-            "send_invite": False,
-        }),
+        data=json.dumps(
+            {
+                "emails": "a@gmail.com",
+                "permission": "view",
+                "send_invite": False,
+            }
+        ),
         content_type="application/json",
     )
     assert resp.status_code == 404
@@ -250,11 +274,13 @@ def test_revoke_share(share_client, app):
         doc_id = _create_doc(client)
         resp = client.post(
             f"/app/docs/{doc_id}/shares",
-            data=json.dumps({
-                "emails": "a@gmail.com",
-                "permission": "view",
-                "send_invite": False,
-            }),
+            data=json.dumps(
+                {
+                    "emails": "a@gmail.com",
+                    "permission": "view",
+                    "send_invite": False,
+                }
+            ),
             content_type="application/json",
         )
         data = json.loads(resp.data)
@@ -267,7 +293,7 @@ def test_revoke_share(share_client, app):
         data = json.loads(resp.data)
         assert len(data["shares"]) == 0
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_revoke_share_not_owner(share_client, app):
@@ -294,7 +320,7 @@ def test_revoke_share_not_owner(share_client, app):
         resp = client.delete(f"/app/docs/{doc_id}/shares/{share_id}")
         assert resp.status_code == 404
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_public_share_view(share_client, app):
@@ -330,7 +356,7 @@ def test_public_share_view(share_client, app):
         assert "SameSite=Lax" in share_cookie
         assert "Max-Age=28800" in share_cookie
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_public_share_revoked(share_client, app):
@@ -392,7 +418,7 @@ def test_public_share_records_access(share_client, app):
             assert share.view_count == 1
             assert share.last_accessed_at is not None
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_delete_doc_revokes_shares(share_client, app):
@@ -402,11 +428,13 @@ def test_delete_doc_revokes_shares(share_client, app):
         doc_id = _create_doc(client)
         client.post(
             f"/app/docs/{doc_id}/shares",
-            data=json.dumps({
-                "emails": "a@gmail.com",
-                "permission": "view",
-                "send_invite": False,
-            }),
+            data=json.dumps(
+                {
+                    "emails": "a@gmail.com",
+                    "permission": "view",
+                    "send_invite": False,
+                }
+            ),
             content_type="application/json",
         )
 
@@ -416,7 +444,7 @@ def test_delete_doc_revokes_shares(share_client, app):
             active = DocShare.query.filter_by(doc_id=doc_id, revoked_at=None).all()
             assert len(active) == 0
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_rename_updates_shares(share_client, app):
@@ -446,7 +474,7 @@ def test_rename_updates_shares(share_client, app):
             share = db.session.get(DocShare, share_id)
             assert share.doc_name == "New Name"
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_index_shows_sidebar(share_client, app):
@@ -458,7 +486,7 @@ def test_docs_index_shows_sidebar(share_client, app):
         assert b"My Documents" in resp.data
         assert b"Shared with me" in resp.data
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_docs_index_shared_section(share_client, app):
@@ -486,7 +514,7 @@ def test_docs_index_shared_section(share_client, app):
         assert b"Shared Doc" in resp.data
         assert b"Can edit" in resp.data
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])
 
 
 def test_share_list_returns_stats(share_client, app):
@@ -514,4 +542,4 @@ def test_share_list_returns_stats(share_client, app):
         data = json.loads(resp.data)
         assert data["shares"][0]["view_count"] == 5
     finally:
-        os.unlink(paths["cache"])
+        _safe_unlink(paths["cache"])

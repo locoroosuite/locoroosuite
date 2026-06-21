@@ -194,3 +194,4 @@ Why ruff + pyright together: `ruff` is the linter/formatter (style, unused impor
 - **Never deploy to production.** Ask the user to deploy.
 - **Production infra is managed separately.** Provide prompts for ops agents, don't SSH into production.
 - **Breaking changes require confirmation.** Default to clean break unless user requests backward compatibility.
+- **Releases need a tag, not just a bump commit.** When asked to cut a version, follow `CONTRIBUTING.md → Releases`: update all four version files, rebuild `dist`, commit "Bump version to X.Y.Z", **and** create an annotated `vX.Y.Z` tag with release-note bullets on that commit. A bump commit without the tag is incomplete.

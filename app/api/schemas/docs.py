@@ -10,7 +10,9 @@ class DocumentItem(BaseModel):
     size: int = Field(0, description="File size in bytes")
     created_at: str = Field("", description="Creation timestamp (ISO 8601)")
     updated_at: str = Field("", description="Last update timestamp (ISO 8601)")
-    folder_path: str = Field("", description="Slash-separated folder path relative to account root (empty string = root)")
+    folder_path: str = Field(
+        "", description="Slash-separated folder path relative to account root (empty string = root)"
+    )
     tags: list[str] = Field(default_factory=list, description="Document tags")
 
 
@@ -33,16 +35,22 @@ class DraftPath(BaseModel):
 
 
 class ListDocumentsQuery(BaseModel):
-    account_id: int | None = Field(default=None, description="Mail account ID (defaults to primary account)")
+    account_id: int | None = Field(
+        default=None, description="Mail account ID (defaults to primary account)"
+    )
     max_results: int = Field(default=50, ge=1, le=200, description="Maximum results (1-200)")
-    folder: str | None = Field(default=None, description="Filter to documents directly in this folder path (exact match)")
+    folder: str | None = Field(
+        default=None, description="Filter to documents directly in this folder path (exact match)"
+    )
     tag: str | None = Field(default=None, description="Filter to documents carrying this tag")
 
 
 class CreateDocumentBody(BaseModel):
     name: str = Field(default="Untitled Document", description="Document name")
     type: str = Field(default="odt", description="Document type: odt, ods, or odp")
-    folder: str | None = Field(default=None, description="Folder path to create the document in (empty/omitted = root)")
+    folder: str | None = Field(
+        default=None, description="Folder path to create the document in (empty/omitted = root)"
+    )
 
 
 class RenameDocumentBody(BaseModel):
@@ -56,10 +64,10 @@ class MoveDocumentBody(BaseModel):
 class UpdateTagsBody(BaseModel):
     add: list[str] | None = Field(default=None, description="Tags to add")
     remove: list[str] | None = Field(default=None, description="Tags to remove")
-
-
-class SetTagsBody(BaseModel):
-    set: list[str] | None = Field(default=None, description="Replace all tags with this list")
+    set: list[str] | None = Field(
+        default=None,
+        description="Replace the full tag list with this list (takes precedence over add/remove)",
+    )
 
 
 class FolderItem(BaseModel):
@@ -75,7 +83,9 @@ class FolderListResponse(BaseModel):
 
 class CreateFolderBody(BaseModel):
     name: str = Field(..., description="Folder name (leaf segment)")
-    parent: str | None = Field(default=None, description="Parent folder path (empty/omitted = top-level)")
+    parent: str | None = Field(
+        default=None, description="Parent folder path (empty/omitted = top-level)"
+    )
 
 
 class RenameFolderBody(BaseModel):
@@ -91,8 +101,16 @@ class TagsResponse(BaseModel):
     data: dict = Field(..., description="Document tags")
 
 
+class TagListResponse(BaseModel):
+    data: list[str] = Field(
+        ..., description="Distinct tags in use across the account (sorted, case-insensitive)"
+    )
+
+
 class ReadContentQuery(BaseModel):
-    account_id: int | None = Field(default=None, description="Mail account ID (defaults to primary account)")
+    account_id: int | None = Field(
+        default=None, description="Mail account ID (defaults to primary account)"
+    )
     format: str = Field(default="text", description="Output format: text or markdown")
 
 
@@ -103,7 +121,9 @@ class ContentResponse(BaseModel):
 class UpdateContentJsonBody(BaseModel):
     content: str = Field(default="", description="Document content")
     format: str = Field(default="markdown", description="Input format: markdown or text")
-    account_id: int | None = Field(default=None, description="Mail account ID (defaults to primary account)")
+    account_id: int | None = Field(
+        default=None, description="Mail account ID (defaults to primary account)"
+    )
 
 
 class CreateDraftBody(BaseModel):
@@ -113,7 +133,9 @@ class CreateDraftBody(BaseModel):
 
 
 class DraftItem(DocumentItem):
-    source_document_id: str | None = Field(None, description="UUID of the source document this draft was created from")
+    source_document_id: str | None = Field(
+        None, description="UUID of the source document this draft was created from"
+    )
     summary: str = Field("", description="Human-readable description of draft changes")
 
 

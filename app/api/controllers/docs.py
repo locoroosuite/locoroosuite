@@ -1,35 +1,71 @@
 import io
 import logging
 import uuid
-from flask import request, g, send_file
 
+from flask import g, request, send_file
+
+from app.api.controllers.helpers import (
+    ApiError,
+    api_error,
+    api_paginated,
+    api_response,
+    get_api_account_id,
+    require_api_token,
+    require_scope,
+)
 from app.api.openapi import create_api_blueprint
 from app.api.schemas.common import ErrorResponse
 from app.api.schemas.docs import (
-    DocumentListResponse, DocumentDetailResponse, ContentResponse,
-    DocPath, DraftPath, ListDocumentsQuery, CreateDocumentBody,
-    RenameDocumentBody, ReadContentQuery, CreateDraftBody, DraftListResponse, ConvertResponse,
-    MoveDocumentBody, UpdateTagsBody, TagsResponse,
-    FolderItem, FolderListResponse, CreateFolderBody, RenameFolderBody,
+    ContentResponse,
+    ConvertResponse,
+    CreateDocumentBody,
+    CreateDraftBody,
+    CreateFolderBody,
     DeleteFolderBody,
+    DocPath,
+    DocumentDetailResponse,
+    DocumentListResponse,
+    DraftListResponse,
+    DraftPath,
+    FolderItem,
+    FolderListResponse,
+    ListDocumentsQuery,
+    MoveDocumentBody,
+    ReadContentQuery,
+    RenameDocumentBody,
+    RenameFolderBody,
+    TagListResponse,
+    TagsResponse,
+    UpdateTagsBody,
 )
-from app.api.controllers.helpers import (
-    api_response, api_paginated, api_error, require_api_token, require_scope,
-    get_api_account_id, ApiError,
-)
-from app.shared.models.core import CustomerAccount
-from app.shared.pandoc_formats import target_odf_type
+from app.modules.docs.services import doc_meta
+from app.modules.docs.services import folders as folders_svc
+from app.modules.docs.services import resync as resync_svc
 from app.modules.docs.services.cache import get_cache_path
 from app.modules.docs.services.cache_db import (
-    open_cache, create_document, get_active_document, get_document,
-    list_documents, rename_document as db_rename, soft_delete_document,
-    get_document_tags, update_document_tags,
-    parse_tags, set_document_folder, rename_folder_subtree,
-    subtree_documents, move_subtree_docs_to_parent, delete_folder_subtree_rows,
+    create_document,
+    delete_folder_subtree_rows,
+    get_active_document,
+    get_document,
+    get_document_tags,
+    list_all_tags,
+    list_documents,
+    move_subtree_docs_to_parent,
+    open_cache,
+    parse_tags,
+    rename_folder_subtree,
+    set_document_folder,
+    set_document_tags,
+    soft_delete_document,
+    subtree_documents,
+    update_document_tags,
 )
-from app.modules.docs.services import folders as folders_svc
-from app.modules.docs.services import doc_meta, resync as resync_svc
-from app.modules.docs.services.storage import write_file, read_file, _storage_path
+from app.modules.docs.services.cache_db import (
+    rename_document as db_rename,
+)
+from app.modules.docs.services.storage import _storage_path, read_file, write_file
+from app.shared.models.core import CustomerAccount
+from app.shared.pandoc_formats import target_odf_type
 from app.shared.ui_events import push_ui_event
 
 bp = create_api_blueprint("docs", "Document management")
@@ -40,7 +76,7 @@ logger = logging.getLogger(__name__)
 def _row_to_dict(row) -> dict:
     if row is None:
         return {}
-    return {k: row[k] for k in row.keys()}
+    return {k: row[k] for k in row.keys()}  # Row iteration yields values, not keys; .keys() is required
 
 
 def _get_cache_conn(account_id, dek):
@@ -76,11 +112,17 @@ def _serialize_document(conn, doc_id):
     row = get_active_document(conn, doc_id)
     if not row:
         from app.modules.docs.services.cache_db import get_document
+
         row = get_document(conn, doc_id)
     return _doc_to_dict(row) if row else None
 
 
-@bp.get("/docs/documents", summary="List documents", description="Returns all active documents for the authenticated account. Requires `docs:read` scope.", responses={"200": DocumentListResponse, "401": ErrorResponse})
+@bp.get(
+    "/docs/documents",
+    summary="List documents",
+    description="Returns all active documents for the authenticated account. Requires `docs:read` scope.",
+    responses={"200": DocumentListResponse, "401": ErrorResponse},
+)
 @require_api_token(scopes=["docs:read"])
 @require_scope("docs", "read")
 def api_list_documents(query: ListDocumentsQuery):
@@ -99,7 +141,12 @@ def api_list_documents(query: ListDocumentsQuery):
         conn.close()
 
 
-@bp.get("/docs/documents/<doc_id>", summary="Get document detail", description="Returns metadata for a single active document by UUID. Requires `docs:read` scope.", responses={"200": DocumentDetailResponse, "401": ErrorResponse, "404": ErrorResponse})
+@bp.get(
+    "/docs/documents/<doc_id>",
+    summary="Get document detail",
+    description="Returns metadata for a single active document by UUID. Requires `docs:read` scope.",
+    responses={"200": DocumentDetailResponse, "401": ErrorResponse, "404": ErrorResponse},
+)
 @require_api_token(scopes=["docs:read"])
 @require_scope("docs", "read")
 def api_get_active_document(path: DocPath):
@@ -116,7 +163,12 @@ def api_get_active_document(path: DocPath):
         conn.close()
 
 
-@bp.post("/docs/documents", summary="Create document", description="Creates a new empty document from a template (odt, ods, or odp). Requires `docs:write` scope.", responses={"201": DocumentDetailResponse, "400": ErrorResponse, "401": ErrorResponse})
+@bp.post(
+    "/docs/documents",
+    summary="Create document",
+    description="Creates a new empty document from a template (odt, ods, or odp). Requires `docs:write` scope.",
+    responses={"201": DocumentDetailResponse, "400": ErrorResponse, "401": ErrorResponse},
+)
 @require_api_token(scopes=["docs:write"])
 @require_scope("docs", "write")
 def api_create_document(body: CreateDocumentBody):
@@ -145,16 +197,23 @@ def api_create_document(body: CreateDocumentBody):
     account = _get_account(account_id)
     doc_path = _storage_path(account.customer_id, account_id, doc_id)
     doc_path.parent.mkdir(parents=True, exist_ok=True)
-    from app.modules.docs.services.templates import empty_odt, empty_ods, empty_odp
+    from app.modules.docs.services.templates import empty_odp, empty_ods, empty_odt
+
     template_fn = {"odt": empty_odt, "ods": empty_ods, "odp": empty_odp}.get(doc_type, empty_odt)
     template_data = template_fn().read()
     metadata = resync_svc.build_doc_metadata(doc_id, name, doc_type, account_id, folder_path=folder)
     template_data = doc_meta.inject_metadata(template_data, metadata)
     doc_path.write_bytes(template_data)
-    push_ui_event(g.api_context["customer_id"], "docs", "document_created", {"account_id": account_id, "doc_id": doc_id})
+    push_ui_event(
+        g.api_context["customer_id"],
+        "docs",
+        "document_created",
+        {"account_id": account_id, "doc_id": doc_id},
+    )
     conn = _get_cache_conn(account_id, dek)
     try:
         from app.modules.docs.services.cache_db import update_file_size
+
         update_file_size(conn, doc_id, len(template_data))
         result = _serialize_document(conn, doc_id)
     finally:
@@ -162,7 +221,12 @@ def api_create_document(body: CreateDocumentBody):
     return api_response(result or {"id": doc_id, "name": name, "type": doc_type, "size": 0}, 201)
 
 
-@bp.delete("/docs/documents/<doc_id>", summary="Delete document", description="Soft-deletes a document by UUID. The document is moved to trash and can be restored. Requires `docs:write` scope.", responses={"204": None, "401": ErrorResponse, "404": ErrorResponse})
+@bp.delete(
+    "/docs/documents/<doc_id>",
+    summary="Delete document",
+    description="Soft-deletes a document by UUID. The document is moved to trash and can be restored. Requires `docs:write` scope.",
+    responses={"204": None, "401": ErrorResponse, "404": ErrorResponse},
+)
 @require_api_token(scopes=["docs:write"])
 @require_scope("docs", "write")
 def api_delete_document(path: DocPath):
@@ -175,13 +239,28 @@ def api_delete_document(path: DocPath):
         if not row:
             return api_error("NOT_FOUND", "Document not found", 404)
         soft_delete_document(conn, doc_id)
-        push_ui_event(g.api_context["customer_id"], "docs", "document_deleted", {"account_id": account_id, "doc_id": doc_id})
+        push_ui_event(
+            g.api_context["customer_id"],
+            "docs",
+            "document_deleted",
+            {"account_id": account_id, "doc_id": doc_id},
+        )
         return api_response(None, 204)
     finally:
         conn.close()
 
 
-@bp.put("/docs/documents/<doc_id>", summary="Rename document", description="Renames a document. The new name must be non-empty. Requires `docs:write` scope.", responses={"200": DocumentDetailResponse, "400": ErrorResponse, "401": ErrorResponse, "404": ErrorResponse})
+@bp.put(
+    "/docs/documents/<doc_id>",
+    summary="Rename document",
+    description="Renames a document. The new name must be non-empty. Requires `docs:write` scope.",
+    responses={
+        "200": DocumentDetailResponse,
+        "400": ErrorResponse,
+        "401": ErrorResponse,
+        "404": ErrorResponse,
+    },
+)
 @require_api_token(scopes=["docs:write"])
 @require_scope("docs", "write")
 def api_rename_document(path: DocPath, body: RenameDocumentBody):
@@ -197,14 +276,24 @@ def api_rename_document(path: DocPath, body: RenameDocumentBody):
         if not row:
             return api_error("NOT_FOUND", "Document not found", 404)
         db_rename(conn, doc_id, name)
-        push_ui_event(g.api_context["customer_id"], "docs", "document_renamed", {"account_id": account_id, "doc_id": doc_id})
+        push_ui_event(
+            g.api_context["customer_id"],
+            "docs",
+            "document_renamed",
+            {"account_id": account_id, "doc_id": doc_id},
+        )
         result = _serialize_document(conn, doc_id)
         return api_response(result or {"id": doc_id, "name": name})
     finally:
         conn.close()
 
 
-@bp.get("/docs/documents/<doc_id>/download", summary="Download document", description="Downloads the document file as a binary attachment. Requires `docs:read` scope.", responses={"200": None, "401": ErrorResponse, "404": ErrorResponse})
+@bp.get(
+    "/docs/documents/<doc_id>/download",
+    summary="Download document",
+    description="Downloads the document file as a binary attachment. Requires `docs:read` scope.",
+    responses={"200": None, "401": ErrorResponse, "404": ErrorResponse},
+)
 @require_api_token(scopes=["docs:read"])
 @require_scope("docs", "read")
 def api_download_document(path: DocPath):
@@ -227,7 +316,12 @@ def api_download_document(path: DocPath):
     return send_file(str(file_path), as_attachment=True, download_name=f"{d['name']}.{ext}")
 
 
-@bp.get("/docs/documents/<doc_id>/content", summary="Read document content", description="Extracts and returns the text content of a document. Supports text and markdown output formats. Requires `docs:read` scope.", responses={"200": ContentResponse, "401": ErrorResponse, "404": ErrorResponse})
+@bp.get(
+    "/docs/documents/<doc_id>/content",
+    summary="Read document content",
+    description="Extracts and returns the text content of a document. Supports text and markdown output formats. Requires `docs:read` scope.",
+    responses={"200": ContentResponse, "401": ErrorResponse, "404": ErrorResponse},
+)
 @require_api_token(scopes=["docs:read"])
 @require_scope("docs", "read")
 def api_read_content(path: DocPath, query: ReadContentQuery):
@@ -259,41 +353,48 @@ def api_read_content(path: DocPath, query: ReadContentQuery):
 
 def _extract_odt_text(path):
     import zipfile
+
     try:
-        with zipfile.ZipFile(str(path)) as z:
-            with z.open("content.xml") as f:
-                import xml.etree.ElementTree as ET
-                tree = ET.parse(f)
-                root = tree.getroot()
-                texts = []
-                for elem in root.iter():
-                    if elem.text:
-                        texts.append(elem.text)
-                    if elem.tail:
-                        texts.append(elem.tail)
-                return " ".join(texts).strip()
+        with zipfile.ZipFile(str(path)) as z, z.open("content.xml") as f:
+            import xml.etree.ElementTree as ET
+
+            tree = ET.parse(f)
+            root = tree.getroot()
+            texts = []
+            for elem in root.iter():
+                if elem.text:
+                    texts.append(elem.text)
+                if elem.tail:
+                    texts.append(elem.tail)
+            return " ".join(texts).strip()
     except Exception:
         return ""
 
 
 def _extract_ods_text(path):
     import zipfile
+
     try:
-        with zipfile.ZipFile(str(path)) as z:
-            with z.open("content.xml") as f:
-                import xml.etree.ElementTree as ET
-                tree = ET.parse(f)
-                root = tree.getroot()
-                texts = []
-                for elem in root.iter():
-                    if elem.text:
-                        texts.append(elem.text)
-                return " ".join(texts).strip()
+        with zipfile.ZipFile(str(path)) as z, z.open("content.xml") as f:
+            import xml.etree.ElementTree as ET
+
+            tree = ET.parse(f)
+            root = tree.getroot()
+            texts = []
+            for elem in root.iter():
+                if elem.text:
+                    texts.append(elem.text)
+            return " ".join(texts).strip()
     except Exception:
         return ""
 
 
-@bp.post("/docs/documents/upload", summary="Upload document", description="Uploads a file as a new document. Supports ODF, Office, PDF, and pandoc-compatible formats. Non-ODF files are converted to ODF automatically. Requires `docs:write` scope.", responses={"201": DocumentDetailResponse, "400": ErrorResponse, "401": ErrorResponse})
+@bp.post(
+    "/docs/documents/upload",
+    summary="Upload document",
+    description="Uploads a file as a new document. Supports ODF, Office, PDF, and pandoc-compatible formats. Non-ODF files are converted to ODF automatically. Requires `docs:write` scope.",
+    responses={"201": DocumentDetailResponse, "400": ErrorResponse, "401": ErrorResponse},
+)
 @require_api_token(scopes=["docs:write"])
 @require_scope("docs", "write")
 def api_upload_document():
@@ -308,18 +409,58 @@ def api_upload_document():
     if not f.filename:
         return api_error("VALIDATION_ERROR", "Filename is required", 400)
     ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
-    allowed_exts = {"odt", "ods", "odp", "docx", "xlsx", "pptx", "pdf", "rtf", "epub", "html", "htm", "tex", "latex", "md", "markdown", "txt", "org", "rst", "docbook", "opml", "csv", "tsv", "ipynb"}
+    allowed_exts = {
+        "odt",
+        "ods",
+        "odp",
+        "docx",
+        "xlsx",
+        "pptx",
+        "pdf",
+        "rtf",
+        "epub",
+        "html",
+        "htm",
+        "tex",
+        "latex",
+        "md",
+        "markdown",
+        "txt",
+        "org",
+        "rst",
+        "docbook",
+        "opml",
+        "csv",
+        "tsv",
+        "ipynb",
+    }
     if ext not in allowed_exts:
         return api_error("VALIDATION_ERROR", f"Unsupported file type: {ext}", 400)
     doc_id = str(uuid.uuid4())
     target_type = {"docx": "odt", "xlsx": "ods", "pptx": "odp"}.get(ext, ext)
     original_format = ext if ext not in ("odt", "ods", "odp") else None
-    pandoc_exts = {"rtf", "epub", "html", "htm", "tex", "latex", "md", "markdown", "txt", "org", "rst", "docbook", "opml"}
+    pandoc_exts = {
+        "rtf",
+        "epub",
+        "html",
+        "htm",
+        "tex",
+        "latex",
+        "md",
+        "markdown",
+        "txt",
+        "org",
+        "rst",
+        "docbook",
+        "opml",
+    }
     if ext in ("odt", "ods", "odp"):
         file_data = f.read()
     elif ext in pandoc_exts:
         raw_data = f.read()
-        from app.shared.pandoc_formats import convert_to_odf as pandoc_convert, PANDOC_EXTENSIONS
+        from app.shared.pandoc_formats import PANDOC_EXTENSIONS
+        from app.shared.pandoc_formats import convert_to_odf as pandoc_convert
+
         pandoc_reader = PANDOC_EXTENSIONS.get(ext, {}).get("pandoc_reader", "plain")
         converted = pandoc_convert(raw_data, pandoc_reader, "odt")
         if not converted:
@@ -332,14 +473,26 @@ def api_upload_document():
     conn = _get_cache_conn(account_id, dek)
     try:
         from app.modules.docs.services.cache_db import create_document, update_file_size
-        create_document(conn, doc_id, name, target_type, account_id, file_size=0, original_format=original_format)
+
+        create_document(
+            conn,
+            doc_id,
+            name,
+            target_type,
+            account_id,
+            file_size=0,
+            original_format=original_format,
+        )
     finally:
         conn.close()
     size = write_file(account.customer_id, account_id, doc_id, file_data)
     if original_format:
         from app.modules.docs.services.resync import build_doc_metadata
         from app.modules.docs.services.storage import write_sidecar as _write_sidecar
-        metadata = build_doc_metadata(doc_id, name, target_type, account_id, original_format=original_format)
+
+        metadata = build_doc_metadata(
+            doc_id, name, target_type, account_id, original_format=original_format
+        )
         _write_sidecar(account.customer_id, account_id, doc_id, metadata)
     conn = _get_cache_conn(account_id, dek)
     try:
@@ -347,11 +500,36 @@ def api_upload_document():
         result = _serialize_document(conn, doc_id)
     finally:
         conn.close()
-    push_ui_event(g.api_context["customer_id"], "docs", "document_uploaded", {"account_id": account_id, "doc_id": doc_id})
-    return api_response(result or {"id": doc_id, "name": name, "type": target_type, "size": size, "original_format": original_format}, 201)
+    push_ui_event(
+        g.api_context["customer_id"],
+        "docs",
+        "document_uploaded",
+        {"account_id": account_id, "doc_id": doc_id},
+    )
+    return api_response(
+        result
+        or {
+            "id": doc_id,
+            "name": name,
+            "type": target_type,
+            "size": size,
+            "original_format": original_format,
+        },
+        201,
+    )
 
 
-@bp.put("/docs/documents/<doc_id>/content", summary="Update document content", description="Replaces the content of a document. Accepts multipart file upload (ODF) or JSON with markdown/text content. Requires `docs:write` scope.", responses={"200": DocumentDetailResponse, "400": ErrorResponse, "401": ErrorResponse, "404": ErrorResponse})
+@bp.put(
+    "/docs/documents/<doc_id>/content",
+    summary="Update document content",
+    description="Replaces the content of a document. Accepts multipart file upload (ODF) or JSON with markdown/text content. Requires `docs:write` scope.",
+    responses={
+        "200": DocumentDetailResponse,
+        "400": ErrorResponse,
+        "401": ErrorResponse,
+        "404": ErrorResponse,
+    },
+)
 @require_api_token(scopes=["docs:write"])
 @require_scope("docs", "write")
 def api_update_content(path: DocPath):
@@ -379,7 +557,8 @@ def api_update_content(path: DocPath):
         if ext in ("odt", "ods", "odp"):
             file_data = f.read()
         else:
-            from app.modules.docs.services.collabora import convert_upload, ConversionError
+            from app.modules.docs.services.collabora import ConversionError, convert_upload
+
             try:
                 converted = convert_upload(f, f.filename, doc_type)
                 file_data = converted.read()
@@ -399,16 +578,23 @@ def api_update_content(path: DocPath):
     conn = _get_cache_conn(account_id, dek)
     try:
         from app.modules.docs.services.cache_db import update_file_size
+
         update_file_size(conn, doc_id, size)
         result = _serialize_document(conn, doc_id)
     finally:
         conn.close()
-    push_ui_event(g.api_context["customer_id"], "docs", "content_updated", {"account_id": account_id, "doc_id": doc_id})
+    push_ui_event(
+        g.api_context["customer_id"],
+        "docs",
+        "content_updated",
+        {"account_id": account_id, "doc_id": doc_id},
+    )
     return api_response(result or {"id": doc_id, "size": size})
 
 
 def _markdown_to_odf(markdown_text, doc_type):
     import subprocess
+
     if doc_type == "odt":
         result = subprocess.run(
             ["pandoc", "-f", "markdown", "-t", "odt"],
@@ -419,7 +605,9 @@ def _markdown_to_odf(markdown_text, doc_type):
         )
         return result.stdout
     import io
+
     import markdown as md_lib
+
     html = md_lib.markdown(markdown_text, extensions=["extra"], output_format="html")
     full_html = (
         "<!DOCTYPE html>\n<html><head><meta charset='utf-8'>\n"
@@ -427,6 +615,7 @@ def _markdown_to_odf(markdown_text, doc_type):
         f"</head><body>{html}</body></html>"
     )
     from app.modules.docs.services.collabora import convert_upload
+
     return convert_upload(io.BytesIO(full_html.encode("utf-8")), "source.html", doc_type).read()
 
 
@@ -437,7 +626,12 @@ _MARKDOWN_CSS = (
 )
 
 
-@bp.get("/docs/documents/<doc_id>/download/pdf", summary="Export document as PDF", description="Converts a document to PDF and returns it as a download. Requires `docs:read` scope.", responses={"200": None, "401": ErrorResponse, "404": ErrorResponse, "502": ErrorResponse})
+@bp.get(
+    "/docs/documents/<doc_id>/download/pdf",
+    summary="Export document as PDF",
+    description="Converts a document to PDF and returns it as a download. Requires `docs:read` scope.",
+    responses={"200": None, "401": ErrorResponse, "404": ErrorResponse, "502": ErrorResponse},
+)
 @require_api_token(scopes=["docs:read"])
 @require_scope("docs", "read")
 def api_export_pdf(path: DocPath):
@@ -459,16 +653,28 @@ def api_export_pdf(path: DocPath):
     if not file_data:
         return api_error("NOT_FOUND", "Document file not found", 404)
     import io
+
     try:
         from app.modules.docs.services.collabora import convert_upload
+
         pdf = convert_upload(io.BytesIO(file_data), f"doc.{d.get('doc_type', 'odt')}", "pdf")
         pdf_data = pdf.read()
-        return send_file(io.BytesIO(pdf_data), as_attachment=True, download_name=f"{d['name']}.pdf", mimetype="application/pdf")
+        return send_file(
+            io.BytesIO(pdf_data),
+            as_attachment=True,
+            download_name=f"{d['name']}.pdf",
+            mimetype="application/pdf",
+        )
     except Exception as e:
         return api_error("CONVERSION_ERROR", f"PDF conversion failed: {e}", 502)
 
 
-@bp.post("/docs/documents/<doc_id>/drafts", summary="Create draft", description="Creates an AI draft document from markdown or text content. The draft is stored as a separate document linked to the source. Requires `docs:write` scope.", responses={"201": DocumentDetailResponse, "401": ErrorResponse, "404": ErrorResponse})
+@bp.post(
+    "/docs/documents/<doc_id>/drafts",
+    summary="Create draft",
+    description="Creates an AI draft document from markdown or text content. The draft is stored as a separate document linked to the source. Requires `docs:write` scope.",
+    responses={"201": DocumentDetailResponse, "401": ErrorResponse, "404": ErrorResponse},
+)
 @require_api_token(scopes=["docs:write"])
 @require_scope("docs", "write")
 def api_create_draft(path: DocPath, body: CreateDraftBody):
@@ -500,11 +706,17 @@ def api_create_draft(path: DocPath, body: CreateDraftBody):
     conn = _get_cache_conn(account_id, dek)
     try:
         from app.modules.docs.services.cache_db import create_document, update_file_size
+
         create_document(conn, draft_id, draft_name, doc_type, account_id, file_size=0)
         update_file_size(conn, draft_id, size)
     finally:
         conn.close()
-    push_ui_event(g.api_context["customer_id"], "docs", "draft_created", {"account_id": account_id, "doc_id": doc_id, "draft_id": draft_id})
+    push_ui_event(
+        g.api_context["customer_id"],
+        "docs",
+        "draft_created",
+        {"account_id": account_id, "doc_id": doc_id, "draft_id": draft_id},
+    )
     conn2 = _get_cache_conn(account_id, dek)
     try:
         result = _serialize_document(conn2, draft_id)
@@ -514,11 +726,21 @@ def api_create_draft(path: DocPath, body: CreateDraftBody):
         result["source_document_id"] = doc_id
         result["summary"] = summary
     else:
-        result = {"id": draft_id, "name": draft_name, "source_document_id": doc_id, "summary": summary}
+        result = {
+            "id": draft_id,
+            "name": draft_name,
+            "source_document_id": doc_id,
+            "summary": summary,
+        }
     return api_response(result, 201)
 
 
-@bp.get("/docs/documents/<doc_id>/drafts", summary="List drafts", description="Returns all AI draft documents for a source document. Drafts are identified by '(AI Draft)' in their name. Requires `docs:read` scope.", responses={"200": DraftListResponse, "401": ErrorResponse})
+@bp.get(
+    "/docs/documents/<doc_id>/drafts",
+    summary="List drafts",
+    description="Returns all AI draft documents for a source document. Drafts are identified by '(AI Draft)' in their name. Requires `docs:read` scope.",
+    responses={"200": DraftListResponse, "401": ErrorResponse},
+)
 @require_api_token(scopes=["docs:read"])
 @require_scope("docs", "read")
 def api_list_drafts(path: DocPath):
@@ -538,7 +760,12 @@ def api_list_drafts(path: DocPath):
         conn.close()
 
 
-@bp.post("/docs/documents/<doc_id>/drafts/<draft_id>/apply", summary="Apply draft", description="Replaces the source document content with the draft content, then deletes the draft. Requires `docs:write` scope.", responses={"200": DocumentDetailResponse, "401": ErrorResponse, "404": ErrorResponse})
+@bp.post(
+    "/docs/documents/<doc_id>/drafts/<draft_id>/apply",
+    summary="Apply draft",
+    description="Replaces the source document content with the draft content, then deletes the draft. Requires `docs:write` scope.",
+    responses={"200": DocumentDetailResponse, "401": ErrorResponse, "404": ErrorResponse},
+)
 @require_api_token(scopes=["docs:write"])
 @require_scope("docs", "write")
 def api_apply_draft(path: DraftPath):
@@ -555,19 +782,31 @@ def api_apply_draft(path: DraftPath):
     size = write_file(account.customer_id, account_id, doc_id, draft_data)
     conn = _get_cache_conn(account_id, dek)
     try:
-        from app.modules.docs.services.cache_db import update_file_size, hard_delete_document
+        from app.modules.docs.services.cache_db import hard_delete_document, update_file_size
+
         update_file_size(conn, doc_id, size)
         hard_delete_document(conn, draft_id)
         result = _serialize_document(conn, doc_id)
     finally:
         conn.close()
     from app.modules.docs.services.storage import delete_file
+
     delete_file(account.customer_id, account_id, draft_id)
-    push_ui_event(g.api_context["customer_id"], "docs", "draft_applied", {"account_id": account_id, "doc_id": doc_id, "draft_id": draft_id})
+    push_ui_event(
+        g.api_context["customer_id"],
+        "docs",
+        "draft_applied",
+        {"account_id": account_id, "doc_id": doc_id, "draft_id": draft_id},
+    )
     return api_response(result or {"id": doc_id, "size": size})
 
 
-@bp.delete("/docs/documents/<doc_id>/drafts/<draft_id>", summary="Discard draft", description="Permanently deletes a draft document and its file. Requires `docs:write` scope.", responses={"204": None, "401": ErrorResponse, "404": ErrorResponse})
+@bp.delete(
+    "/docs/documents/<doc_id>/drafts/<draft_id>",
+    summary="Discard draft",
+    description="Permanently deletes a draft document and its file. Requires `docs:write` scope.",
+    responses={"204": None, "401": ErrorResponse, "404": ErrorResponse},
+)
 @require_api_token(scopes=["docs:write"])
 @require_scope("docs", "write")
 def api_discard_draft(path: DraftPath):
@@ -581,16 +820,33 @@ def api_discard_draft(path: DraftPath):
     conn = _get_cache_conn(account_id, dek)
     try:
         from app.modules.docs.services.cache_db import hard_delete_document
+
         hard_delete_document(conn, draft_id)
     finally:
         conn.close()
     from app.modules.docs.services.storage import delete_file
+
     delete_file(account.customer_id, account_id, draft_id)
-    push_ui_event(g.api_context["customer_id"], "docs", "draft_discarded", {"account_id": account_id, "doc_id": doc_id, "draft_id": draft_id})
+    push_ui_event(
+        g.api_context["customer_id"],
+        "docs",
+        "draft_discarded",
+        {"account_id": account_id, "doc_id": doc_id, "draft_id": draft_id},
+    )
     return api_response(None, 204)
 
 
-@bp.post("/docs/documents/<doc_id>/convert", summary="Convert document to editable format", description="Converts a non-editable document (e.g. docx, pdf) to its editable ODF equivalent (odt, ods, odp). Creates a new document; the original is preserved. Requires `docs:write` scope.", responses={"201": ConvertResponse, "400": ErrorResponse, "401": ErrorResponse, "404": ErrorResponse})
+@bp.post(
+    "/docs/documents/<doc_id>/convert",
+    summary="Convert document to editable format",
+    description="Converts a non-editable document (e.g. docx, pdf) to its editable ODF equivalent (odt, ods, odp). Creates a new document; the original is preserved. Requires `docs:write` scope.",
+    responses={
+        "201": ConvertResponse,
+        "400": ErrorResponse,
+        "401": ErrorResponse,
+        "404": ErrorResponse,
+    },
+)
 @require_api_token(scopes=["docs:write"])
 @require_scope("docs", "write")
 def api_convert_document(path: DocPath):
@@ -602,7 +858,12 @@ def api_convert_document(path: DocPath):
         return api_error("NOT_FOUND", "Account not found", 404)
     conn = _get_cache_conn(account_id, dek)
     try:
-        from app.modules.docs.services.cache_db import get_active_document, create_document, update_file_size
+        from app.modules.docs.services.cache_db import (
+            create_document,
+            get_active_document,
+            update_file_size,
+        )
+
         row = get_active_document(conn, doc_id)
         if not row:
             return api_error("NOT_FOUND", "Document not found", 404)
@@ -618,19 +879,38 @@ def api_convert_document(path: DocPath):
 
     original_format = doc["original_format"]
     target_type = target_odf_type(original_format) or doc["doc_type"]
-    pandoc_exts = {"rtf", "epub", "html", "htm", "tex", "latex", "md", "markdown", "txt", "org", "rst", "docbook", "opml"}
+    pandoc_exts = {
+        "rtf",
+        "epub",
+        "html",
+        "htm",
+        "tex",
+        "latex",
+        "md",
+        "markdown",
+        "txt",
+        "org",
+        "rst",
+        "docbook",
+        "opml",
+    }
 
     if original_format in pandoc_exts:
-        from app.shared.pandoc_formats import convert_to_odf as pandoc_convert, PANDOC_EXTENSIONS
+        from app.shared.pandoc_formats import PANDOC_EXTENSIONS
+        from app.shared.pandoc_formats import convert_to_odf as pandoc_convert
+
         pandoc_reader = PANDOC_EXTENSIONS.get(original_format, {}).get("pandoc_reader", "plain")
         converted = pandoc_convert(raw_data, pandoc_reader, target_type)
         if not converted:
             return api_error("CONVERSION_ERROR", f"Could not convert .{original_format} file", 500)
         file_data = converted
     else:
-        from app.modules.docs.services.collabora import convert_upload, ConversionError
+        from app.modules.docs.services.collabora import ConversionError, convert_upload
+
         try:
-            converted = convert_upload(io.BytesIO(raw_data), f"{doc['name']}.{original_format}", target_type)
+            converted = convert_upload(
+                io.BytesIO(raw_data), f"{doc['name']}.{original_format}", target_type
+            )
             file_data = converted.read()
         except (ConversionError, Exception) as exc:
             if not isinstance(exc, ConversionError):
@@ -652,15 +932,28 @@ def api_convert_document(path: DocPath):
         result = _serialize_document(conn, new_doc_id)
     finally:
         conn.close()
-    push_ui_event(g.api_context["customer_id"], "docs", "document_converted", {"account_id": account_id, "doc_id": new_doc_id, "source_doc_id": doc_id})
-    return api_response(result or {"id": new_doc_id, "name": doc["name"], "type": target_type, "size": size}, 201)
+    push_ui_event(
+        g.api_context["customer_id"],
+        "docs",
+        "document_converted",
+        {"account_id": account_id, "doc_id": new_doc_id, "source_doc_id": doc_id},
+    )
+    return api_response(
+        result or {"id": new_doc_id, "name": doc["name"], "type": target_type, "size": size}, 201
+    )
 
 
 # ---------------------------------------------------------------------------
 # Folders
 # ---------------------------------------------------------------------------
 
-@bp.get("/docs/folders", summary="List folders", description="Returns the flat folder list (paths inferred from documents plus explicit empty folders). Requires `docs:read` scope.", responses={"200": FolderListResponse, "401": ErrorResponse})
+
+@bp.get(
+    "/docs/folders",
+    summary="List folders",
+    description="Returns the flat folder list (paths inferred from documents plus explicit empty folders). Requires `docs:read` scope.",
+    responses={"200": FolderListResponse, "401": ErrorResponse},
+)
 @require_api_token(scopes=["docs:read"])
 @require_scope("docs", "read")
 def api_list_folders():
@@ -674,7 +967,12 @@ def api_list_folders():
     return api_response(items)
 
 
-@bp.post("/docs/folders", summary="Create folder", description="Creates a folder (and any missing ancestor segments). Idempotent: creating an existing path succeeds. Requires `docs:write` scope.", responses={"201": FolderItem, "400": ErrorResponse, "401": ErrorResponse})
+@bp.post(
+    "/docs/folders",
+    summary="Create folder",
+    description="Creates a folder (and any missing ancestor segments). Idempotent: creating an existing path succeeds. Requires `docs:write` scope.",
+    responses={"201": FolderItem, "400": ErrorResponse, "401": ErrorResponse},
+)
 @require_api_token(scopes=["docs:write"])
 @require_scope("docs", "write")
 def api_create_folder(body: CreateFolderBody):
@@ -692,11 +990,18 @@ def api_create_folder(body: CreateFolderBody):
         items = {f["path"]: f for f in folders_svc.list_flat(conn, account_id)}
     finally:
         conn.close()
-    item = items.get(path, {"path": path, "name": folders_svc.leaf_name(path), "parent": parent, "count": 0})
+    item = items.get(
+        path, {"path": path, "name": folders_svc.leaf_name(path), "parent": parent, "count": 0}
+    )
     return api_response(item, 201)
 
 
-@bp.post("/docs/folders/rename", summary="Rename folder", description="Renames a folder and its entire subtree, rewriting document folder paths. Requires `docs:write` scope.", responses={"200": FolderItem, "400": ErrorResponse, "401": ErrorResponse})
+@bp.post(
+    "/docs/folders/rename",
+    summary="Rename folder",
+    description="Renames a folder and its entire subtree, rewriting document folder paths. Requires `docs:write` scope.",
+    responses={"200": FolderItem, "400": ErrorResponse, "401": ErrorResponse},
+)
 @require_api_token(scopes=["docs:write"])
 @require_scope("docs", "write")
 def api_rename_folder(body: RenameFolderBody):
@@ -719,10 +1024,22 @@ def api_rename_folder(body: RenameFolderBody):
                 resync_svc.inject_metadata_from_doc_row(customer_id, account_id, d)
     finally:
         conn.close()
-    return api_response({"path": new_path, "name": new_name, "parent": folders_svc.parent_path(new_path), "count": 0})
+    return api_response(
+        {
+            "path": new_path,
+            "name": new_name,
+            "parent": folders_svc.parent_path(new_path),
+            "count": 0,
+        }
+    )
 
 
-@bp.post("/docs/folders/delete", summary="Delete folder", description="Deletes a folder subtree. Contained documents are moved to the deleted folder's parent (flattened). Requires `docs:write` scope.", responses={"200": None, "400": ErrorResponse, "401": ErrorResponse})
+@bp.post(
+    "/docs/folders/delete",
+    summary="Delete folder",
+    description="Deletes a folder subtree. Contained documents are moved to the deleted folder's parent (flattened). Requires `docs:write` scope.",
+    responses={"200": None, "400": ErrorResponse, "401": ErrorResponse},
+)
 @require_api_token(scopes=["docs:write"])
 @require_scope("docs", "write")
 def api_delete_folder(body: DeleteFolderBody):
@@ -735,10 +1052,7 @@ def api_delete_folder(body: DeleteFolderBody):
     parent = folders_svc.parent_path(path)
     conn = _get_cache_conn(account_id, dek)
     try:
-        moved = [
-            d for d in subtree_documents(conn, account_id, path)
-            if not d.get("deleted_at")
-        ]
+        moved = [d for d in subtree_documents(conn, account_id, path) if not d.get("deleted_at")]
         move_subtree_docs_to_parent(conn, account_id, path, parent)
         delete_folder_subtree_rows(conn, account_id, path)
         for d in moved:
@@ -750,7 +1064,17 @@ def api_delete_folder(body: DeleteFolderBody):
     return api_response({"path": path, "moved_to": parent}, 200)
 
 
-@bp.post("/docs/documents/<doc_id>/move", summary="Move document", description="Moves a document to a folder (empty/omitted folder = root). Requires `docs:write` scope.", responses={"200": DocumentDetailResponse, "400": ErrorResponse, "401": ErrorResponse, "404": ErrorResponse})
+@bp.post(
+    "/docs/documents/<doc_id>/move",
+    summary="Move document",
+    description="Moves a document to a folder (empty/omitted folder = root). Requires `docs:write` scope.",
+    responses={
+        "200": DocumentDetailResponse,
+        "400": ErrorResponse,
+        "401": ErrorResponse,
+        "404": ErrorResponse,
+    },
+)
 @require_api_token(scopes=["docs:write"])
 @require_scope("docs", "write")
 def api_move_document(path: DocPath, body: MoveDocumentBody):
@@ -778,7 +1102,12 @@ def api_move_document(path: DocPath, body: MoveDocumentBody):
         result = _serialize_document(conn, doc_id)
     finally:
         conn.close()
-    push_ui_event(customer_id, "docs", "document_moved", {"account_id": account_id, "doc_id": doc_id, "folder": target})
+    push_ui_event(
+        customer_id,
+        "docs",
+        "document_moved",
+        {"account_id": account_id, "doc_id": doc_id, "folder": target},
+    )
     return api_response(result or {"id": doc_id, "folder_path": target})
 
 
@@ -786,7 +1115,13 @@ def api_move_document(path: DocPath, body: MoveDocumentBody):
 # Tags
 # ---------------------------------------------------------------------------
 
-@bp.get("/docs/documents/<doc_id>/tags", summary="Get document tags", description="Returns the tags applied to a document. Requires `docs:read` scope.", responses={"200": TagsResponse, "401": ErrorResponse, "404": ErrorResponse})
+
+@bp.get(
+    "/docs/documents/<doc_id>/tags",
+    summary="Get document tags",
+    description="Returns the tags applied to a document. Requires `docs:read` scope.",
+    responses={"200": TagsResponse, "401": ErrorResponse, "404": ErrorResponse},
+)
 @require_api_token(scopes=["docs:read"])
 @require_scope("docs", "read")
 def api_get_tags(path: DocPath):
@@ -804,7 +1139,17 @@ def api_get_tags(path: DocPath):
     return api_response({"tags": tags})
 
 
-@bp.put("/docs/documents/<doc_id>/tags", summary="Update document tags", description="Add and/or remove tags, or replace the full tag list with `set`. Each tag is max 50 chars. Requires `docs:write` scope.", responses={"200": TagsResponse, "400": ErrorResponse, "401": ErrorResponse, "404": ErrorResponse})
+@bp.put(
+    "/docs/documents/<doc_id>/tags",
+    summary="Update document tags",
+    description="Add and/or remove tags, or replace the full tag list with `set`. Each tag is max 50 chars. Requires `docs:write` scope.",
+    responses={
+        "200": TagsResponse,
+        "400": ErrorResponse,
+        "401": ErrorResponse,
+        "404": ErrorResponse,
+    },
+)
 @require_api_token(scopes=["docs:write"])
 @require_scope("docs", "write")
 def api_update_tags(path: DocPath, body: UpdateTagsBody):
@@ -817,10 +1162,34 @@ def api_update_tags(path: DocPath, body: UpdateTagsBody):
         row = get_document(conn, doc_id)
         if not row or row.get("deleted_at"):
             return api_error("NOT_FOUND", "Document not found", 404)
-        update_document_tags(conn, doc_id, add=body.add or [], remove=body.remove or [])
+        if body.set is not None:
+            set_document_tags(conn, doc_id, body.set)
+        else:
+            update_document_tags(conn, doc_id, add=body.add or [], remove=body.remove or [])
         resync_svc.inject_metadata_from_doc_row(customer_id, account_id, get_document(conn, doc_id))
         tags = get_document_tags(conn, doc_id)
     finally:
         conn.close()
-    push_ui_event(customer_id, "docs", "document_tagged", {"account_id": account_id, "doc_id": doc_id})
+    push_ui_event(
+        customer_id, "docs", "document_tagged", {"account_id": account_id, "doc_id": doc_id}
+    )
     return api_response({"tags": tags})
+
+
+@bp.get(
+    "/docs/tags",
+    summary="List tags",
+    description="Returns the distinct tags in use across the account's active documents (sorted, case-insensitive). Requires `docs:read` scope.",
+    responses={"200": TagListResponse, "401": ErrorResponse},
+)
+@require_api_token(scopes=["docs:read"])
+@require_scope("docs", "read")
+def api_list_tags():
+    account_id = get_api_account_id()
+    dek = g.api_context["dek"]
+    conn = _get_cache_conn(account_id, dek)
+    try:
+        tags = list_all_tags(conn, account_id)
+    finally:
+        conn.close()
+    return api_response(tags)

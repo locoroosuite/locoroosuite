@@ -413,15 +413,17 @@ You can ask your AI things like "do I have any unread emails from Sarah?", "repl
 | `mail_send` | Compose and send a new email |
 | `mail_save_draft` | Save a draft |
 | `mail_delete_draft` | Delete a draft |
-| `mail_move_message` | Move a message to another folder |
-| `mail_delete_message` | Move a message to Trash |
+| `mail_move_message` | Move a message to another folder (refuses move to Trash if protected) |
+| `mail_delete_message` | Move a message to Trash (refuses if protected) |
 | `mail_update_flags` | Toggle read / flagged / locked status |
 | `mail_get_thread` | Get all messages in a conversation thread |
 | `mail_get_attachment` | Download an attachment |
 | `mail_view_attachment` | Convert an attachment to HTML for viewing |
-| `mail_bulk_move` | Move multiple messages at once |
-| `mail_bulk_delete` | Delete multiple messages at once |
+| `mail_bulk_move` | Move multiple messages at once (skips protected on Trash moves) |
+| `mail_bulk_delete` | Delete multiple messages at once (skips protected) |
 | `mail_bulk_flag` | Update flags on multiple messages |
+
+> **Protection:** Messages and folders can be protected from accidental deletion. A message carrying the `$Locked` flag, or any starred message while "protect starred" is enabled, refuses delete and move-to-Trash with a `PROTECTED` error (HTTP 409). System folders (INBOX, Sent, Drafts, Trash, Junk) always refuse delete. Each message and folder response includes a read-only `protected` boolean so you can see this state before acting. Toggling protection is done in the web UI; the API/MCP only **enforce** it — they will not delete a protected item.
 
 ### Contacts
 
@@ -459,13 +461,16 @@ CalDAV-based calendar with full event management. Check today's schedule, create
 
 Collabora Online-based document editing via the WOPI protocol. Create and edit text documents, spreadsheets, and presentations in OpenDocument format. The AI can read a document's content, make edits via markdown, and even work through a draft/review workflow — create a proposed change as a draft, then you or your team can accept or discard it.
 
+Documents can be organized into folders and tagged. Every document response includes `folder_path` (slash-separated path, empty for root) and a `tags` array.
+
 | Tool | What it does |
 |------|-------------|
-| `docs_list_documents` | List documents (filterable by type) |
+| `docs_list_documents` | List documents (filterable by type, folder, or tag) |
 | `docs_get_document` | Get document metadata |
-| `docs_create_document` | Create a new empty document |
+| `docs_create_document` | Create a new empty document (optional `folder`) |
 | `docs_rename_document` | Rename a document |
 | `docs_delete_document` | Soft-delete (moves to trash) |
+| `docs_move_document` | Move a document into a folder (empty = root) |
 | `docs_read_content` | Read document content as text or markdown |
 | `docs_update_content` | Replace document content (markdown input) |
 | `docs_create_draft` | Create a draft with AI-modified content |
@@ -475,6 +480,13 @@ Collabora Online-based document editing via the WOPI protocol. Create and edit t
 | `docs_download_document` | Download in ODF format |
 | `docs_export_pdf` | Export as PDF |
 | `docs_convert_document` | Convert a non-ODF file to an editable document |
+| `docs_list_folders` | List all folders (explicit rows + paths inferred from documents) |
+| `docs_create_folder` | Create a folder and any missing ancestors (idempotent) |
+| `docs_rename_folder` | Rename a folder subtree (rewrites document paths) |
+| `docs_delete_folder` | Delete a folder subtree (contents move to parent) |
+| `docs_get_tags` | Get the tags applied to a document |
+| `docs_update_tags` | Add/remove tags, or replace the full tag list with `set` |
+| `docs_list_tags` | List all distinct tags in use across the account (sorted) |
 
 ### Accounts
 

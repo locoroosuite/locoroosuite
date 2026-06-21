@@ -43,9 +43,9 @@ def _safe_unlink(path):
 
 def _setup_env(app, account_id):
     with app.app_context():
+        from app.modules.docs.services.cache import get_cache_path
         from app.shared.db import db
         from app.shared.models.core import CustomerAccount
-        from app.modules.docs.services.cache import get_cache_path
 
         account = db.session.get(CustomerAccount, account_id)
         assert account is not None
@@ -255,8 +255,8 @@ class TestCreateDocument:
         )
         doc = json.loads(resp.data)["data"]
         with app.app_context():
-            from app.shared.models.core import CustomerAccount
             from app.modules.docs.services.storage import file_exists
+            from app.shared.models.core import CustomerAccount
 
             account = CustomerAccount.query.filter_by(id=account_id).first()
             assert account is not None
@@ -1011,3 +1011,55 @@ class TestTags:
         client, token, account_id, _ = docs_api
         resp = client.get("/api/v1/docs/documents/nope/tags", headers=_auth_header(token))
         assert resp.status_code == 404
+
+    def test_set_tags_replaces_all(self, app, docs_api):
+        client, token, account_id, _ = docs_api
+        create = client.post(
+            "/api/v1/docs/documents",
+            json={"name": "Doc", "type": "odt"},
+            headers=_auth_header(token),
+        )
+        doc_id = json.loads(create.data)["data"]["id"]
+        client.put(
+            f"/api/v1/docs/documents/{doc_id}/tags",
+            json={"add": ["urgent", "finance", "old"]},
+            headers=_auth_header(token),
+        )
+
+        resp = client.put(
+            f"/api/v1/docs/documents/{doc_id}/tags",
+            json={"set": ["keep", "new"]},
+            headers=_auth_header(token),
+        )
+        assert resp.status_code == 200
+        assert json.loads(resp.data)["data"]["tags"] == ["keep", "new"]
+
+    def test_list_tags(self, app, docs_api):
+        client, token, account_id, _ = docs_api
+        a = client.post(
+            "/api/v1/docs/documents", json={"name": "A", "type": "odt"}, headers=_auth_header(token)
+        )
+        b = client.post(
+            "/api/v1/docs/documents", json={"name": "B", "type": "odt"}, headers=_auth_header(token)
+        )
+        client.put(
+            f"/api/v1/docs/documents/{json.loads(a.data)['data']['id']}/tags",
+            json={"add": ["zebra", "apple"]},
+            headers=_auth_header(token),
+        )
+        client.put(
+            f"/api/v1/docs/documents/{json.loads(b.data)['data']['id']}/tags",
+            json={"add": ["apple", "mango"]},
+            headers=_auth_header(token),
+        )
+
+        resp = client.get("/api/v1/docs/tags", headers=_auth_header(token))
+        assert resp.status_code == 200
+        # Distinct values, sorted case-insensitively.
+        assert json.loads(resp.data)["data"] == ["apple", "mango", "zebra"]
+
+    def test_list_tags_empty(self, app, docs_api):
+        client, token, account_id, _ = docs_api
+        resp = client.get("/api/v1/docs/tags", headers=_auth_header(token))
+        assert resp.status_code == 200
+        assert json.loads(resp.data)["data"] == []

@@ -391,22 +391,36 @@ export function registerDocsTools(server: McpServer, client: ApiClient) {
 
   server.tool(
     "docs_update_tags",
-    "Add and/or remove tags on a document (each tag max 50 chars)",
+    "Add/remove tags on a document, or replace the full tag list with `set` (each tag max 50 chars)",
     {
       account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
       document_id: z.string().describe("Document ID to tag"),
       add: z.array(z.string()).optional().describe("Tags to add"),
       remove: z.array(z.string()).optional().describe("Tags to remove"),
+      set: z.array(z.string()).optional().describe("Replace the full tag list with this list (takes precedence over add/remove)"),
     },
-    async ({ account_id, document_id, add, remove }) => {
+    async ({ account_id, document_id, add, remove, set }) => {
       const data = await client.put(
         `/api/v1/docs/documents/${encodeURIComponent(document_id)}/tags`,
         {
           ...client.accountId(account_id),
           ...(add ? { add } : {}),
           ...(remove ? { remove } : {}),
+          ...(set ? { set } : {}),
         },
       );
+      return json(data);
+    },
+  );
+
+  server.tool(
+    "docs_list_tags",
+    "List the distinct tags in use across the account's active documents (sorted, case-insensitive)",
+    {
+      account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
+    },
+    async ({ account_id }) => {
+      const data = await client.get("/api/v1/docs/tags", client.accountId(account_id));
       return json(data);
     },
   );

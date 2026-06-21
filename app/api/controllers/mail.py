@@ -1,48 +1,81 @@
 from __future__ import annotations
 
+import contextlib
+import json
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
-import json
 from typing import Any
 
-from flask import request, g, Response, current_app
+from flask import Response, current_app, g, request
 
-from app.api.openapi import create_api_blueprint
 from app.api.controllers.helpers import (
-    api_response, api_paginated, api_error, require_api_token, require_scope,
-    get_api_account_id, ApiError,
+    ApiError,
+    api_error,
+    api_paginated,
+    api_response,
+    get_api_account_id,
+    require_api_token,
+    require_scope,
 )
-from app.api.schemas.common import ErrorResponse, BulkResponse
+from app.api.openapi import create_api_blueprint
+from app.api.schemas.common import BulkResponse, ErrorResponse
 from app.api.schemas.mail import (
-    FolderListResponse, FolderMutationResponse, MessageListResponse, MessageDetailResponse,
-    FolderPath, MessagePath, ThreadPath, DraftPath, AttachmentPath,
-    SearchQuery, ListMessagesQuery, GetMessageQuery,
-    UpdateFlagsBody, MoveMessageBody, SendMessageBody, CreateDraftBody,
-    BulkFlagBody, BulkMoveBody, BulkDeleteBody,
-    CreateFolderBody, RenameFolderBody,
+    AttachmentPath,
+    BulkDeleteBody,
+    BulkFlagBody,
+    BulkMoveBody,
+    CreateDraftBody,
+    CreateFolderBody,
+    DraftPath,
+    FolderListResponse,
+    FolderMutationResponse,
+    FolderPath,
+    GetMessageQuery,
+    ListMessagesQuery,
+    MessageDetailResponse,
+    MessageListResponse,
+    MessagePath,
+    MoveMessageBody,
+    RenameFolderBody,
+    SearchQuery,
+    SendMessageBody,
+    ThreadPath,
+    UpdateFlagsBody,
 )
-from app.shared.models.core import CustomerAccount, Domain, CustomerSettings
-from app.modules.mail.services.secrets import decrypt_with_key
 from app.modules.mail.services.cache import build_cache_path
 from app.modules.mail.services.cache_db import (
-    open_cache, list_cached_folders, get_message,
+    delete_folder_in_cache,
+    delete_message_by_id,
+    get_message,
     get_message_by_uid_and_folder,
-    list_thread_messages, search_local, update_flags, list_messages_with_threading,
-    delete_message_by_id, upsert_message,
-    upsert_folder, rename_folder_in_cache, delete_folder_in_cache,
+    list_cached_folders,
+    list_messages_with_threading,
+    list_thread_messages,
+    open_cache,
+    rename_folder_in_cache,
+    search_local,
+    update_flags,
+    upsert_folder,
+    upsert_message,
 )
 from app.modules.mail.services.protection import (
-    LOCKED_KEYWORD, folder_is_protected, is_system_folder,
-    protection_reason, protected_delete_message,
+    LOCKED_KEYWORD,
+    folder_is_protected,
+    is_system_folder,
+    message_is_protected,
+    protected_delete_message,
+    protection_reason,
 )
+from app.modules.mail.services.secrets import decrypt_with_key
+from app.shared.models.core import CustomerAccount, CustomerSettings, Domain
 from app.shared.ui_events import push_ui_event
 
 bp = create_api_blueprint("mail", "Mail operations")
 
 
 def _row_to_dict(row: Any) -> dict[str, Any]:
-    return {k: row[k] for k in row.keys()}
+    return {k: row[k] for k in row.keys()}  # Row iteration yields values, not keys; .keys() is required
 
 
 def _get_cache_conn(account_id, dek):
@@ -53,8 +86,21 @@ def _get_cache_conn(account_id, dek):
     return open_cache(path, dek)
 
 
-def _message_to_dict(row):
+def _get_settings():
+    return CustomerSettings.query.filter_by(customer_id=g.api_context["customer_id"]).first()
+
+
+def _safe_enqueue_sync(account_id, *, folder=None, reason="manual", priority=10):
+    sync_manager = getattr(current_app, "sync_manager", None)
+    if sync_manager is None:
+        return
+    with contextlib.suppress(Exception):
+        sync_manager.enqueue_sync(account_id, folder=folder, reason=reason, priority=priority)
+
+
+def _message_to_dict(row, settings=None):
     d = _row_to_dict(row)
+    flags_list = _parse_flags_list(d.get("flags"))
     return {
         "id": d["id"],
         "folder": d.get("folder"),
@@ -68,6 +114,7 @@ def _message_to_dict(row):
         "thread_id": d.get("thread_id"),
         "unread": "\\Seen" not in (d.get("flags") or ""),
         "flagged": "\\Flagged" in (d.get("flags") or ""),
+        "protected": message_is_protected(flags_list, settings),
     }
 
 
@@ -92,8 +139,13 @@ def _merge_flag(flags_list, flag, add):
 
 
 def _sync_single_message_to_cache(account, domain, secret, account_id, dek, folder, uid):
-    from app.modules.mail.services.imap_client import select_folder, fetch_message_with_flags, safe_logout
+    from app.modules.mail.services.imap_client import (
+        fetch_message_with_flags,
+        safe_logout,
+        select_folder,
+    )
     from app.modules.mail.services.imap_sync import _prepare_message_args, _to_uid_str
+
     uid_str = _to_uid_str(uid)
     client = _imap_connect(account, domain, secret)
     try:
@@ -136,15 +188,32 @@ def _sync_single_message_to_cache(account, domain, secret, account_id, dek, fold
     return row
 
 
-@bp.get("/mail/folders", summary="List mail folders", description="Returns all mail folders for the authenticated account with unread message counts. Requires `mail:read` scope.", responses={"200": FolderListResponse, "401": ErrorResponse})
+@bp.get(
+    "/mail/folders",
+    summary="List mail folders",
+    description="Returns all mail folders for the authenticated account with unread message counts. Requires `mail:read` scope.",
+    responses={"200": FolderListResponse, "401": ErrorResponse},
+)
 @require_api_token(scopes=["mail:read"])
 def api_list_folders():
     account_id = get_api_account_id()
     dek = g.api_context["dek"]
+    settings = _get_settings()
     conn = _get_cache_conn(account_id, dek)
     try:
         folders = list_cached_folders(conn)
-        items = [{"id": _row_to_dict(f)["name"], "name": _row_to_dict(f)["name"], "unread_count": _row_to_dict(f).get("unread_count", 0)} for f in folders]
+        items = []
+        for f in folders:
+            fd = _row_to_dict(f)
+            name = fd["name"]
+            items.append(
+                {
+                    "id": name,
+                    "name": name,
+                    "unread_count": fd.get("unread_count", 0),
+                    "protected": folder_is_protected(settings, name),
+                }
+            )
         return api_response(items)
     finally:
         conn.close()
@@ -160,10 +229,17 @@ def api_list_folders():
 @require_scope("mail", "write")
 def api_create_folder(body: CreateFolderBody):
     import imaplib as _imaplib
+
     from app.modules.mail.services.imap_client import (
-        create_folder as imap_create_folder, list_folders, get_folder_delimiter,
-        encode_mailbox_name, safe_logout,
+        create_folder as imap_create_folder,
     )
+    from app.modules.mail.services.imap_client import (
+        encode_mailbox_name,
+        get_folder_delimiter,
+        list_folders,
+        safe_logout,
+    )
+
     account_id = get_api_account_id()
     dek = g.api_context["dek"]
     name = (body.name or "").strip()
@@ -192,11 +268,13 @@ def api_create_folder(body: CreateFolderBody):
         upsert_folder(conn, full_name, 0)
     finally:
         conn.close()
-    try:
-        current_app.sync_manager.enqueue_sync(account_id, folder=full_name, reason="folder_created", priority=5)
-    except Exception:
-        pass
-    push_ui_event(g.api_context["customer_id"], "mail", "folder_created", {"account_id": account_id, "folder": full_name})
+    _safe_enqueue_sync(account_id, folder=full_name, reason="folder_created", priority=5)
+    push_ui_event(
+        g.api_context["customer_id"],
+        "mail",
+        "folder_created",
+        {"account_id": account_id, "folder": full_name},
+    )
     return api_response({"id": full_name, "name": full_name, "created": created})
 
 
@@ -204,15 +282,26 @@ def api_create_folder(body: CreateFolderBody):
     "/mail/folders/<path:folder>/rename",
     summary="Rename mail folder",
     description="Renames a mail folder (IMAP RENAME). System folders (INBOX, Sent, Drafts, Trash, Junk, Bookings) cannot be renamed. Requires `mail:write` scope.",
-    responses={"200": FolderMutationResponse, "401": ErrorResponse, "400": ErrorResponse, "409": ErrorResponse},
+    responses={
+        "200": FolderMutationResponse,
+        "401": ErrorResponse,
+        "400": ErrorResponse,
+        "409": ErrorResponse,
+    },
 )
 @require_api_token(scopes=["mail:write"])
 @require_scope("mail", "write")
 def api_rename_folder(path: FolderPath, body: RenameFolderBody):
     import imaplib as _imaplib
+
     from app.modules.mail.services.imap_client import (
-        rename_folder as imap_rename_folder, encode_mailbox_name, safe_logout,
+        encode_mailbox_name,
+        safe_logout,
     )
+    from app.modules.mail.services.imap_client import (
+        rename_folder as imap_rename_folder,
+    )
+
     old_name = path.folder
     new_name = (body.name or "").strip()
     if not new_name:
@@ -225,7 +314,9 @@ def api_rename_folder(path: FolderPath, body: RenameFolderBody):
     client = _imap_connect(account, domain, secret)
     try:
         try:
-            status, _ = imap_rename_folder(client, encode_mailbox_name(old_name), encode_mailbox_name(new_name))
+            status, _ = imap_rename_folder(
+                client, encode_mailbox_name(old_name), encode_mailbox_name(new_name)
+            )
             if status != "OK":
                 return api_error("IMAP_ERROR", "Failed to rename folder", 400)
         except _imaplib.IMAP4.error as exc:
@@ -237,11 +328,13 @@ def api_rename_folder(path: FolderPath, body: RenameFolderBody):
         rename_folder_in_cache(conn, old_name, new_name)
     finally:
         conn.close()
-    try:
-        current_app.sync_manager.enqueue_sync(account_id, folder=new_name, reason="folder_renamed", priority=5)
-    except Exception:
-        pass
-    push_ui_event(g.api_context["customer_id"], "mail", "folder_renamed", {"account_id": account_id, "old_folder": old_name, "new_folder": new_name})
+    _safe_enqueue_sync(account_id, folder=new_name, reason="folder_renamed", priority=5)
+    push_ui_event(
+        g.api_context["customer_id"],
+        "mail",
+        "folder_renamed",
+        {"account_id": account_id, "old_folder": old_name, "new_folder": new_name},
+    )
     return api_response({"id": new_name, "name": new_name})
 
 
@@ -249,15 +342,26 @@ def api_rename_folder(path: FolderPath, body: RenameFolderBody):
     "/mail/folders/<path:folder>",
     summary="Delete mail folder",
     description="Deletes a mail folder (IMAP DELETE). System folders and folders the customer has marked protected cannot be deleted. Requires `mail:write` scope.",
-    responses={"200": FolderMutationResponse, "401": ErrorResponse, "400": ErrorResponse, "409": ErrorResponse},
+    responses={
+        "200": FolderMutationResponse,
+        "401": ErrorResponse,
+        "400": ErrorResponse,
+        "409": ErrorResponse,
+    },
 )
 @require_api_token(scopes=["mail:write"])
 @require_scope("mail", "write")
 def api_delete_folder(path: FolderPath):
     import imaplib as _imaplib
+
     from app.modules.mail.services.imap_client import (
-        delete_folder as imap_delete_folder, encode_mailbox_name, safe_logout,
+        delete_folder as imap_delete_folder,
     )
+    from app.modules.mail.services.imap_client import (
+        encode_mailbox_name,
+        safe_logout,
+    )
+
     folder = path.folder
     account_id = get_api_account_id()
     dek = g.api_context["dek"]
@@ -281,7 +385,9 @@ def api_delete_folder(path: FolderPath):
         delete_folder_in_cache(conn, folder)
     finally:
         conn.close()
-    push_ui_event(customer_id, "mail", "folder_deleted", {"account_id": account_id, "folder": folder})
+    push_ui_event(
+        customer_id, "mail", "folder_deleted", {"account_id": account_id, "folder": folder}
+    )
     return api_response({"id": folder, "deleted": True})
 
 
@@ -306,7 +412,8 @@ def api_list_messages(path: FolderPath, query: ListMessagesQuery):
         rows = list_messages_with_threading(conn, folder, limit=limit + 1, after_id=after_id)
         has_more = len(rows) > limit
         rows = rows[:limit]
-        items = [_message_to_dict(r) for r in rows]
+        settings = _get_settings()
+        items = [_message_to_dict(r, settings) for r in rows]
         next_cursor = None
         if has_more and items:
             next_cursor = str(items[-1]["id"])
@@ -348,7 +455,8 @@ def api_get_message(path: MessagePath, query: GetMessageQuery):
     if mark_read:
         try:
             account, domain, secret = _get_account_and_secret(account_id, dek)
-            from app.modules.mail.services.imap_client import select_folder, set_flag, safe_logout
+            from app.modules.mail.services.imap_client import safe_logout, select_folder, set_flag
+
             client = _imap_connect(account, domain, secret)
             try:
                 select_folder(client, d.get("folder", "INBOX"))
@@ -357,11 +465,12 @@ def api_get_message(path: MessagePath, query: GetMessageQuery):
                 safe_logout(client)
         except Exception:
             pass
-    result = _message_to_dict_from_raw(d)
+    result = _message_to_dict_from_raw(d, _get_settings())
     return api_response(result)
 
 
-def _message_to_dict_from_raw(d):
+def _message_to_dict_from_raw(d, settings=None):
+    flags_list = _parse_flags_list(d.get("flags"))
     return {
         "id": d["id"],
         "folder": d.get("folder"),
@@ -375,6 +484,7 @@ def _message_to_dict_from_raw(d):
         "thread_id": d.get("thread_id"),
         "unread": "\\Seen" not in (d.get("flags") or ""),
         "flagged": "\\Flagged" in (d.get("flags") or ""),
+        "protected": message_is_protected(flags_list, settings),
         "body_plain": d.get("body") or "",
         "body_html": d.get("body_html") or "",
     }
@@ -394,7 +504,8 @@ def api_get_thread(path: ThreadPath):
     conn = _get_cache_conn(account_id, dek)
     try:
         rows = list_thread_messages(conn, thread_id)
-        items = [_message_to_dict_from_raw(_row_to_dict(r)) for r in rows]
+        settings = _get_settings()
+        items = [_message_to_dict_from_raw(_row_to_dict(r), settings) for r in rows]
         return api_response(items)
     finally:
         conn.close()
@@ -417,7 +528,8 @@ def api_search_messages(query: SearchQuery):
     conn = _get_cache_conn(account_id, dek)
     try:
         rows = search_local(conn, q, limit=limit)
-        items = [_message_to_dict(r) for r in rows]
+        settings = _get_settings()
+        items = [_message_to_dict(r, settings) for r in rows]
         return api_paginated(items)
     finally:
         conn.close()
@@ -468,7 +580,8 @@ def api_update_flags(path: MessagePath, body: UpdateFlagsBody):
     if changed_flags:
         try:
             account, domain, secret = _get_account_and_secret(account_id, dek)
-            from app.modules.mail.services.imap_client import select_folder, set_flag, safe_logout
+            from app.modules.mail.services.imap_client import safe_logout, select_folder, set_flag
+
             client = _imap_connect(account, domain, secret)
             try:
                 select_folder(client, d.get("folder", "INBOX"))
@@ -478,7 +591,12 @@ def api_update_flags(path: MessagePath, body: UpdateFlagsBody):
                 safe_logout(client)
         except Exception:
             pass
-    push_ui_event(g.api_context["customer_id"], "mail", "flags_updated", {"account_id": account_id, "message_id": message_id})
+    push_ui_event(
+        g.api_context["customer_id"],
+        "mail",
+        "flags_updated",
+        {"account_id": account_id, "message_id": message_id},
+    )
     return api_response({"id": message_id, "flags": json.dumps(flag_list)})
 
 
@@ -527,7 +645,9 @@ def api_bulk_flag(body: BulkFlagBody):
                 flag_list = _merge_flag(flag_list, LOCKED_KEYWORD, False)
             update_flags(conn, mid, flag_list)
             succeeded.append({"message_id": mid})
-        push_ui_event(g.api_context["customer_id"], "mail", "flags_updated", {"account_id": account_id})
+        push_ui_event(
+            g.api_context["customer_id"], "mail", "flags_updated", {"account_id": account_id}
+        )
         return api_response({"succeeded": succeeded, "failed": failed})
     finally:
         conn.close()
@@ -571,15 +691,26 @@ def api_bulk_move(body: BulkMoveBody):
             if trash_move:
                 reason = protection_reason(_parse_flags_list(d.get("flags", "")), settings)
                 if reason:
-                    failed.append({"message_id": mid, "error": {"code": "PROTECTED", "message": protected_delete_message(reason)}})
+                    failed.append(
+                        {
+                            "message_id": mid,
+                            "error": {
+                                "code": "PROTECTED",
+                                "message": protected_delete_message(reason),
+                            },
+                        }
+                    )
                     continue
-            to_move.append({"message_id": mid, "uid": d.get("uid"), "folder": d.get("folder", "INBOX")})
+            to_move.append(
+                {"message_id": mid, "uid": d.get("uid"), "folder": d.get("folder", "INBOX")}
+            )
     finally:
         conn.close()
     if not to_move:
         return api_response({"succeeded": succeeded, "failed": failed})
     account, domain, secret = _get_account_and_secret(account_id, dek)
-    from app.modules.mail.services.imap_client import select_folder, move_message, safe_logout
+    from app.modules.mail.services.imap_client import move_message, safe_logout, select_folder
+
     client = _imap_connect(account, domain, secret)
     try:
         current_folder = None
@@ -597,7 +728,12 @@ def api_bulk_move(body: BulkMoveBody):
         client.expunge()
     finally:
         safe_logout(client)
-    push_ui_event(g.api_context["customer_id"], "mail", "messages_moved", {"account_id": account_id, "folder": dest_folder})
+    push_ui_event(
+        g.api_context["customer_id"],
+        "mail",
+        "messages_moved",
+        {"account_id": account_id, "folder": dest_folder},
+    )
     return api_response({"succeeded": succeeded, "failed": failed})
 
 
@@ -634,15 +770,29 @@ def api_bulk_delete(body: BulkDeleteBody):
             d = _row_to_dict(row)
             reason = protection_reason(_parse_flags_list(d.get("flags", "")), settings)
             if reason:
-                failed.append({"message_id": mid, "error": {"code": "PROTECTED", "message": protected_delete_message(reason)}})
+                failed.append(
+                    {
+                        "message_id": mid,
+                        "error": {"code": "PROTECTED", "message": protected_delete_message(reason)},
+                    }
+                )
                 continue
-            to_delete.append({"message_id": mid, "uid": d.get("uid"), "folder": d.get("folder", "INBOX")})
+            to_delete.append(
+                {"message_id": mid, "uid": d.get("uid"), "folder": d.get("folder", "INBOX")}
+            )
     finally:
         conn.close()
     if not to_delete:
         return api_response({"succeeded": succeeded, "failed": failed})
     account, domain, secret = _get_account_and_secret(account_id, dek)
-    from app.modules.mail.services.imap_client import select_folder, move_message, list_folders, create_folder, safe_logout
+    from app.modules.mail.services.imap_client import (
+        create_folder,
+        list_folders,
+        move_message,
+        safe_logout,
+        select_folder,
+    )
+
     client = _imap_connect(account, domain, secret)
     try:
         server_folders = [f.upper() for f in list_folders(client)]
@@ -675,7 +825,9 @@ def api_bulk_delete(body: BulkDeleteBody):
                 delete_message_by_id(conn, mid)
         finally:
             conn.close()
-    push_ui_event(g.api_context["customer_id"], "mail", "messages_deleted", {"account_id": account_id})
+    push_ui_event(
+        g.api_context["customer_id"], "mail", "messages_deleted", {"account_id": account_id}
+    )
     return api_response({"succeeded": succeeded, "failed": failed})
 
 
@@ -692,6 +844,7 @@ def _get_account_and_secret(account_id, dek):
 
 def _imap_connect(account, domain, secret):
     from app.modules.mail.services.imap_client import connect_imap, login_imap
+
     client = connect_imap(domain.imap_host, domain.imap_port, domain.imap_tls)
     login_imap(client, account.username, password=secret)
     return client
@@ -701,7 +854,12 @@ def _imap_connect(account, domain, secret):
     "/mail/messages/<int:message_id>/move",
     summary="Move message",
     description="Moves a single message to a destination folder via IMAP. Requires `mail:write` scope.",
-    responses={"200": MessageDetailResponse, "401": ErrorResponse, "400": ErrorResponse, "404": ErrorResponse},
+    responses={
+        "200": MessageDetailResponse,
+        "401": ErrorResponse,
+        "400": ErrorResponse,
+        "404": ErrorResponse,
+    },
 )
 @require_api_token(scopes=["mail:write"])
 @require_scope("mail", "write")
@@ -719,7 +877,9 @@ def api_move_message(path: MessagePath, body: MoveMessageBody):
             return api_error("NOT_FOUND", "Message not found", 404)
         d = _row_to_dict(row)
         if (dest_folder or "").strip().lower() == "trash":
-            settings = CustomerSettings.query.filter_by(customer_id=g.api_context["customer_id"]).first()
+            settings = CustomerSettings.query.filter_by(
+                customer_id=g.api_context["customer_id"]
+            ).first()
             reason = protection_reason(_parse_flags_list(d.get("flags", "")), settings)
             if reason:
                 return api_error("PROTECTED", protected_delete_message(reason), 409)
@@ -728,7 +888,8 @@ def api_move_message(path: MessagePath, body: MoveMessageBody):
     finally:
         conn.close()
     account, domain, secret = _get_account_and_secret(account_id, dek)
-    from app.modules.mail.services.imap_client import select_folder, move_message, safe_logout
+    from app.modules.mail.services.imap_client import move_message, safe_logout, select_folder
+
     client = _imap_connect(account, domain, secret)
     try:
         select_folder(client, folder)
@@ -736,7 +897,12 @@ def api_move_message(path: MessagePath, body: MoveMessageBody):
         client.expunge()
     finally:
         safe_logout(client)
-    push_ui_event(g.api_context["customer_id"], "mail", "message_moved", {"account_id": account_id, "folder": dest_folder, "message_id": message_id})
+    push_ui_event(
+        g.api_context["customer_id"],
+        "mail",
+        "message_moved",
+        {"account_id": account_id, "folder": dest_folder, "message_id": message_id},
+    )
     return api_response({"id": message_id, "moved_to": dest_folder})
 
 
@@ -758,7 +924,9 @@ def api_delete_message(path: MessagePath):
         if not row:
             return api_error("NOT_FOUND", "Message not found", 404)
         d = _row_to_dict(row)
-        settings = CustomerSettings.query.filter_by(customer_id=g.api_context["customer_id"]).first()
+        settings = CustomerSettings.query.filter_by(
+            customer_id=g.api_context["customer_id"]
+        ).first()
         reason = protection_reason(_parse_flags_list(d.get("flags", "")), settings)
         if reason:
             return api_error("PROTECTED", protected_delete_message(reason), 409)
@@ -767,7 +935,14 @@ def api_delete_message(path: MessagePath):
     finally:
         conn.close()
     account, domain, secret = _get_account_and_secret(account_id, dek)
-    from app.modules.mail.services.imap_client import select_folder, move_message, list_folders, create_folder, safe_logout
+    from app.modules.mail.services.imap_client import (
+        create_folder,
+        list_folders,
+        move_message,
+        safe_logout,
+        select_folder,
+    )
+
     client = _imap_connect(account, domain, secret)
     try:
         server_folders = [f.upper() for f in list_folders(client)]
@@ -787,7 +962,12 @@ def api_delete_message(path: MessagePath):
         delete_message_by_id(conn, message_id)
     finally:
         conn.close()
-    push_ui_event(g.api_context["customer_id"], "mail", "message_deleted", {"account_id": account_id, "message_id": message_id})
+    push_ui_event(
+        g.api_context["customer_id"],
+        "mail",
+        "message_deleted",
+        {"account_id": account_id, "message_id": message_id},
+    )
     return api_response({"id": message_id, "deleted": True})
 
 
@@ -814,7 +994,8 @@ def api_raw_message(path: MessagePath):
         uid = d.get("uid")
     finally:
         conn.close()
-    from app.modules.mail.services.imap_client import select_folder, fetch_raw_message, safe_logout
+    from app.modules.mail.services.imap_client import fetch_raw_message, safe_logout, select_folder
+
     client = _imap_connect(account, domain, secret)
     try:
         select_folder(client, folder)
@@ -824,11 +1005,13 @@ def api_raw_message(path: MessagePath):
     if raw is None:
         return api_error("NOT_FOUND", "Raw message not available", 404)
     text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else raw
-    return api_response({
-        "mime_type": "message/rfc822",
-        "data": text,
-        "filename": "message.eml",
-    })
+    return api_response(
+        {
+            "mime_type": "message/rfc822",
+            "data": text,
+            "filename": "message.eml",
+        }
+    )
 
 
 @bp.post(
@@ -870,9 +1053,14 @@ def api_mail_create_draft(body: CreateDraftBody):
     msg.attach(alt)
 
     from app.modules.mail.services.imap_client import (
-        append_message, parse_append_uid, delete_message_by_uid,
-        create_folder, safe_logout, select_folder,
+        append_message,
+        create_folder,
+        delete_message_by_uid,
+        parse_append_uid,
+        safe_logout,
+        select_folder,
     )
+
     client = _imap_connect(account, domain, secret)
     try:
         if replace_uid:
@@ -883,6 +1071,7 @@ def api_mail_create_draft(body: CreateDraftBody):
                 pass
 
         import imaplib as _imaplib
+
         try:
             status, resp_data = append_message(client, "Drafts", msg.as_bytes(), flags=["\\Draft"])
         except _imaplib.IMAP4.error:
@@ -892,10 +1081,7 @@ def api_mail_create_draft(body: CreateDraftBody):
     finally:
         safe_logout(client)
 
-    try:
-        current_app.sync_manager.enqueue_sync(account_id, folder="Drafts", reason="draft_saved", priority=5)
-    except Exception:
-        pass
+    _safe_enqueue_sync(account_id, folder="Drafts", reason="draft_saved", priority=5)
 
     push_ui_event(g.api_context["customer_id"], "mail", "draft_saved", {"account_id": account_id})
 
@@ -907,7 +1093,9 @@ def api_mail_create_draft(body: CreateDraftBody):
     }
     if draft_uid:
         try:
-            row = _sync_single_message_to_cache(account, domain, secret, account_id, dek, "Drafts", draft_uid)
+            row = _sync_single_message_to_cache(
+                account, domain, secret, account_id, dek, "Drafts", draft_uid
+            )
             if row:
                 result.update(_message_to_dict(row))
         except Exception:
@@ -931,8 +1119,11 @@ def api_mail_delete_draft(path: DraftPath):
     account, domain, secret = _get_account_and_secret(account_id, dek)
 
     from app.modules.mail.services.imap_client import (
-        delete_message_by_uid, safe_logout, select_folder,
+        delete_message_by_uid,
+        safe_logout,
+        select_folder,
     )
+
     client = _imap_connect(account, domain, secret)
     try:
         select_folder(client, "Drafts")
@@ -940,10 +1131,7 @@ def api_mail_delete_draft(path: DraftPath):
     finally:
         safe_logout(client)
 
-    try:
-        current_app.sync_manager.enqueue_sync(account_id, folder="Drafts", reason="draft_deleted", priority=5)
-    except Exception:
-        pass
+    _safe_enqueue_sync(account_id, folder="Drafts", reason="draft_deleted", priority=5)
 
     push_ui_event(g.api_context["customer_id"], "mail", "draft_deleted", {"account_id": account_id})
 
@@ -981,30 +1169,33 @@ def api_send_message(body: SendMessageBody):
         return api_error("VALIDATION_ERROR", "'body_html' or 'body_plain' is required", 400)
 
     from app.modules.mail.services.send import send_message
+
     result = send_message(
-        account, domain, secret,
-        to=to_list, cc=cc_list, bcc=bcc_list,
-        subject=subject, body_plain=body_plain, body_html=body_html,
+        account,
+        domain,
+        secret,
+        to=to_list,
+        cc=cc_list,
+        bcc=bcc_list,
+        subject=subject,
+        body_plain=body_plain,
+        body_html=body_html,
         draft_id=draft_id,
         get_cache_conn=lambda: _get_cache_conn(account_id, dek),
     )
 
     sent_uid = result.pop("sent_uid", None)
 
-    try:
-        current_app.sync_manager.enqueue_sync(account_id, folder="Sent", reason="send_complete", priority=5)
-    except Exception:
-        pass
-    try:
-        current_app.sync_manager.enqueue_sync(account_id, folder="Drafts", reason="send_complete", priority=5)
-    except Exception:
-        pass
+    _safe_enqueue_sync(account_id, folder="Sent", reason="send_complete", priority=5)
+    _safe_enqueue_sync(account_id, folder="Drafts", reason="send_complete", priority=5)
 
     push_ui_event(g.api_context["customer_id"], "mail", "message_sent", {"account_id": account_id})
 
     if sent_uid:
         try:
-            row = _sync_single_message_to_cache(account, domain, secret, account_id, dek, "Sent", sent_uid)
+            row = _sync_single_message_to_cache(
+                account, domain, secret, account_id, dek, "Sent", sent_uid
+            )
             if row:
                 result.update(_message_to_dict(row))
         except Exception:
@@ -1037,7 +1228,8 @@ def api_download_attachment(path: AttachmentPath):
         uid = d.get("uid")
     finally:
         conn.close()
-    from app.modules.mail.services.imap_client import select_folder, fetch_message, safe_logout
+    from app.modules.mail.services.imap_client import fetch_message, safe_logout, select_folder
+
     client = _imap_connect(account, domain, secret)
     try:
         select_folder(client, folder)
@@ -1054,8 +1246,11 @@ def api_download_attachment(path: AttachmentPath):
         if idx == attachment_index:
             payload = part.get_payload(decode=True)
             filename = part.get_filename() or f"attachment_{attachment_index}"
-            return Response(payload, mimetype=part.get_content_type(),
-                            headers={"Content-Disposition": f"attachment; filename={filename}"})
+            return Response(
+                payload,
+                mimetype=part.get_content_type(),
+                headers={"Content-Disposition": f"attachment; filename={filename}"},
+            )
         idx += 1
     return api_error("NOT_FOUND", "Attachment not found", 404)
 
@@ -1064,12 +1259,17 @@ def api_download_attachment(path: AttachmentPath):
     "/mail/messages/<int:message_id>/attachments/<int:attachment_index>/view",
     summary="View attachment as HTML",
     description="Converts a message attachment to HTML for inline viewing. Uses pandoc for supported document types. Returns an error for unsupported file types. Requires `mail:read` scope.",
-    responses={"200": MessageDetailResponse, "401": ErrorResponse, "404": ErrorResponse, "400": ErrorResponse},
+    responses={
+        "200": MessageDetailResponse,
+        "401": ErrorResponse,
+        "404": ErrorResponse,
+        "400": ErrorResponse,
+    },
 )
 @require_api_token(scopes=["mail:read"])
 @require_scope("mail", "read")
 def api_view_attachment(path: AttachmentPath):
-    from app.shared.pandoc_formats import get_attachment_actions, convert_to_html
+    from app.shared.pandoc_formats import convert_to_html, get_attachment_actions
 
     message_id = path.message_id
     attachment_index = path.attachment_index
@@ -1086,7 +1286,8 @@ def api_view_attachment(path: AttachmentPath):
         uid = d.get("uid")
     finally:
         conn.close()
-    from app.modules.mail.services.imap_client import select_folder, fetch_message, safe_logout
+    from app.modules.mail.services.imap_client import fetch_message, safe_logout, select_folder
+
     client = _imap_connect(account, domain, secret)
     try:
         select_folder(client, folder)
@@ -1105,17 +1306,23 @@ def api_view_attachment(path: AttachmentPath):
             filename = part.get_filename() or f"attachment_{attachment_index}"
             actions = get_attachment_actions(filename)
             if not actions.get("view"):
-                return api_error("UNSUPPORTED", f"Cannot view .{filename.rsplit('.', 1)[-1] if '.' in filename else ''} files inline", 400)
+                return api_error(
+                    "UNSUPPORTED",
+                    f"Cannot view .{filename.rsplit('.', 1)[-1] if '.' in filename else ''} files inline",
+                    400,
+                )
             pandoc_reader = actions.get("pandoc_reader")
             if not pandoc_reader:
                 return api_error("UNSUPPORTED", "This file type cannot be converted to HTML", 400)
             html_content = convert_to_html(payload, pandoc_reader)
             if not html_content:
                 return api_error("CONVERSION_ERROR", "Failed to convert attachment to HTML", 500)
-            return api_response({
-                "filename": filename,
-                "content_type": "text/html",
-                "html_content": html_content,
-            })
+            return api_response(
+                {
+                    "filename": filename,
+                    "content_type": "text/html",
+                    "html_content": html_content,
+                }
+            )
         idx += 1
     return api_error("NOT_FOUND", "Attachment not found", 404)

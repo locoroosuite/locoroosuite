@@ -62,6 +62,23 @@ describe.skipIf(!(await isServerAvailable()))("MCP Client → API: Docs folders 
     const got = await client.get(`/api/v1/docs/documents/${encodeURIComponent(docId)}/tags`);
     const g = assertSuccess<{ tags: string[] }>(got, "get_tags");
     expect(g.data!.tags).toContain("urgent");
+
+    // Tags: set (replace-all) mode.
+    const replaced = await client.put(`/api/v1/docs/documents/${encodeURIComponent(docId)}/tags`, { set: ["final", "done"] });
+    const rs = assertSuccess<{ tags: string[] }>(replaced, "set_tags");
+    expect(rs.data!.tags).toEqual(["final", "done"]);
+  });
+
+  it("lists all tags across the account", async () => {
+    const created = await client.post("/api/v1/docs/documents", { name: "Tagged Doc", type: "odt" });
+    const c = assertSuccess<{ id: string }>(created, "create_document");
+    const uniq = `L${Date.now()}`;
+    await client.put(`/api/v1/docs/documents/${encodeURIComponent(c.data!.id)}/tags`, { add: [uniq] });
+
+    const list = await client.get("/api/v1/docs/tags");
+    const l = assertSuccess<string[]>(list, "list_tags");
+    expect(Array.isArray(l.data)).toBe(true);
+    expect(l.data!.includes(uniq)).toBe(true);
   });
 
   it("renames a folder and deletes it (contents flatten to parent)", async () => {

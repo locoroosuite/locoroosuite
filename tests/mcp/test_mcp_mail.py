@@ -2,16 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 from mcp.server.fastmcp import FastMCP
-from app.shared.db import db as _db
-from app.shared.models.core import User, Domain, CustomerAccount
-from app.shared.keys import set_user_key, clear_user_key
-from app.api.token_service import create_api_token, generate_dek
 
+from app.api.token_service import create_api_token, generate_dek
+from app.shared.db import db as _db
+from app.shared.keys import clear_user_key, set_user_key
+from app.shared.models.core import CustomerAccount, Domain, User
 
 MAIL = "app.mcp.tools.mail"
 CACHE_DB = "app.modules.mail.services.cache_db"
@@ -25,13 +24,13 @@ def mcp_mail(app, _clean_db):
     account_id = None
 
     with app.app_context():
-        user = User(email="mcp-mail@example.com", role="customer", is_active=True)
+        user = User(email="mcp-mail@example.com", role="customer", is_active=True)  # type: ignore[call-arg]
         user.password_hash = "x"
         _db.session.add(user)
         _db.session.flush()
         user_id = user.id
 
-        domain = Domain(
+        domain = Domain(  # type: ignore[call-arg]
             name="example.com",
             is_active=True,
             status="active",
@@ -46,7 +45,7 @@ def mcp_mail(app, _clean_db):
         _db.session.flush()
 
         dek = generate_dek()
-        account = CustomerAccount(
+        account = CustomerAccount(  # type: ignore[call-arg]
             customer_id=user.id,
             domain_id=domain.id,
             email_address="mcp-mail@example.com",
@@ -65,15 +64,15 @@ def mcp_mail(app, _clean_db):
 
     token_value = None
     with app.app_context():
-        token_value, _ = create_api_token(
-            user_id, dek, "test-token", ["mail:read", "mail:write"]
-        )
+        token_value, _ = create_api_token(user_id, dek, "test-token", ["mail:read", "mail:write"])
 
     from app.mcp.auth import set_current_token
+
     set_current_token(token_value)
 
     mcp = FastMCP("test")
     from app.mcp.tools.mail import register as register_mail
+
     register_mail(mcp, app)
 
     tools = mcp._tool_manager._tools
@@ -103,14 +102,45 @@ def _mock_folder_row(name, unread_count):
     return r
 
 
-def _mock_message_row(msg_id, subject, sender="test@example.com", folder="INBOX",
-                       flags='["\\Seen"]', snippet="", thread_id=None,
-                       recipients="", cc="", date="", uid="1"):
-    keys = ["id", "subject", "sender", "folder", "flags", "snippet",
-            "thread_id", "recipients", "cc", "date", "uid"]
-    vals = {"id": msg_id, "subject": subject, "sender": sender, "folder": folder,
-            "flags": flags, "snippet": snippet, "thread_id": thread_id,
-            "recipients": recipients, "cc": cc, "date": date, "uid": uid}
+def _mock_message_row(
+    msg_id,
+    subject,
+    sender="test@example.com",
+    folder="INBOX",
+    flags='["\\Seen"]',
+    snippet="",
+    thread_id=None,
+    recipients="",
+    cc="",
+    date="",
+    uid="1",
+):
+    keys = [
+        "id",
+        "subject",
+        "sender",
+        "folder",
+        "flags",
+        "snippet",
+        "thread_id",
+        "recipients",
+        "cc",
+        "date",
+        "uid",
+    ]
+    vals = {
+        "id": msg_id,
+        "subject": subject,
+        "sender": sender,
+        "folder": folder,
+        "flags": flags,
+        "snippet": snippet,
+        "thread_id": thread_id,
+        "recipients": recipients,
+        "cc": cc,
+        "date": date,
+        "uid": uid,
+    }
     r = MagicMock()
     r.__getitem__ = lambda self, k: vals[k]
     r.keys = lambda: keys
@@ -139,7 +169,9 @@ class TestMcpMailListTools:
         tools = mcp_mail["tools"]
         with patch(f"{MAIL}._get_cache_conn", return_value=_mock_conn()):
             with patch(f"{CACHE_DB}.list_cached_folders", return_value=[]):
-                result = asyncio.run(tools["mail_list_folders"].fn(account_id=mcp_mail["account_id"]))
+                result = asyncio.run(
+                    tools["mail_list_folders"].fn(account_id=mcp_mail["account_id"])
+                )
         data = json.loads(result)["data"]
         assert data == []
 
@@ -184,6 +216,20 @@ class TestMcpMailListTools:
         data = json.loads(result)["data"]
         assert data == []
 
+    def test_list_messages_includes_protected(self, mcp_mail):
+        # HLD U5.15h: the protected state is visible before a delete is attempted.
+        tools = mcp_mail["tools"]
+        flagged_row = _mock_message_row(1, "Starred", flags='["\\\\Flagged"]')
+        plain_row = _mock_message_row(2, "Plain", flags='["\\\\Seen"]')
+        with patch(f"{MAIL}._get_cache_conn", return_value=_mock_conn()):
+            with patch(
+                f"{CACHE_DB}.list_messages_with_threading", return_value=[flagged_row, plain_row]
+            ):
+                result = asyncio.run(tools["mail_list_messages"].fn(folder_id="INBOX"))
+        by_id = {m["id"]: m for m in json.loads(result)["data"]}
+        assert by_id[1]["protected"] is True
+        assert by_id[2]["protected"] is False
+
 
 class TestMcpMailMutationTools:
     def test_update_flags(self, mcp_mail):
@@ -194,10 +240,15 @@ class TestMcpMailMutationTools:
         with patch(f"{MAIL}._get_cache_conn", return_value=_mock_conn()):
             with patch(f"{CACHE_DB}.get_message", return_value=mock_row):
                 with patch(f"{CACHE_DB}.update_flags"):
-                    with patch(f"{MAIL}._get_account_and_secret", return_value=(mock_account, mock_domain, "pass")):
+                    with patch(
+                        f"{MAIL}._get_account_and_secret",
+                        return_value=(mock_account, mock_domain, "pass"),
+                    ):
                         with patch(f"{MAIL}._imap_connect"):
                             with patch(f"{UI_EVENTS}.push_ui_event"):
-                                result = asyncio.run(tools["mail_update_flags"].fn(message_id=1, read=True))
+                                result = asyncio.run(
+                                    tools["mail_update_flags"].fn(message_id=1, read=True)
+                                )
         data = json.loads(result)["data"]
         assert data["id"] == 1
 
@@ -250,10 +301,119 @@ class TestMcpMailMutationTools:
         starred_row = _mock_message_row(1, "Starred", flags='["\\\\Flagged"]')
         with patch(f"{MAIL}._get_cache_conn", return_value=_mock_conn()):
             with patch(f"{CACHE_DB}.get_message", return_value=starred_row):
+                result = asyncio.run(tools["mail_bulk_delete"].fn(items=[{"message_id": 1}]))
+        data = json.loads(result)["data"]
+        codes = [f["error"]["code"] for f in data["failed"]]
+        assert "PROTECTED" in codes
+        assert data["succeeded"] == []
+
+    def test_move_to_trash_refuses_starred(self, mcp_mail):
+        # MCP move-to-Trash must enforce protection (parity with delete).
+        tools = mcp_mail["tools"]
+        starred_row = _mock_message_row(1, "Starred", flags='["\\\\Flagged"]')
+        with patch(f"{MAIL}._get_cache_conn", return_value=_mock_conn()):
+            with patch(f"{CACHE_DB}.get_message", return_value=starred_row):
+                result = asyncio.run(tools["mail_move_message"].fn(message_id=1, folder_id="Trash"))
+        data = json.loads(result)
+        assert data["error"]["code"] == "PROTECTED"
+        assert "starred" in data["error"]["message"].lower()
+
+    def test_move_to_trash_refuses_locked(self, mcp_mail):
+        tools = mcp_mail["tools"]
+        locked_row = _mock_message_row(1, "Locked", flags='["$Locked"]')
+        with patch(f"{MAIL}._get_cache_conn", return_value=_mock_conn()):
+            with patch(f"{CACHE_DB}.get_message", return_value=locked_row):
+                result = asyncio.run(tools["mail_move_message"].fn(message_id=1, folder_id="Trash"))
+        data = json.loads(result)
+        assert data["error"]["code"] == "PROTECTED"
+        assert "locked" in data["error"]["message"].lower()
+
+    def test_move_to_non_trash_allows_protected(self, mcp_mail):
+        # Protection blocks only Trash moves; archiving a starred message is fine.
+        tools = mcp_mail["tools"]
+        starred_row = _mock_message_row(1, "Starred", flags='["\\\\Flagged"]')
+        mock_account = MagicMock()
+        mock_domain = MagicMock()
+        with patch(f"{MAIL}._get_cache_conn", return_value=_mock_conn()):
+            with patch(f"{CACHE_DB}.get_message", return_value=starred_row):
+                with patch(
+                    f"{MAIL}._get_account_and_secret",
+                    return_value=(mock_account, mock_domain, "pass"),
+                ):
+                    with patch(f"{MAIL}._imap_connect"):
+                        with patch(f"{IMAP_CLIENT}.select_folder"):
+                            with patch(f"{IMAP_CLIENT}.move_message"):
+                                with patch(f"{IMAP_CLIENT}.safe_logout"):
+                                    with patch(f"{UI_EVENTS}.push_ui_event"):
+                                        result = asyncio.run(
+                                            tools["mail_move_message"].fn(
+                                                message_id=1, folder_id="Archive"
+                                            )
+                                        )
+        data = json.loads(result)["data"]
+        assert data["moved_to"] == "Archive"
+
+    def test_bulk_move_to_trash_skips_protected(self, mcp_mail):
+        # MCP bulk move-to-Trash must skip protected messages (parity with bulk delete).
+        tools = mcp_mail["tools"]
+        starred_row = _mock_message_row(1, "Starred", flags='["\\\\Flagged"]')
+        with patch(f"{MAIL}._get_cache_conn", return_value=_mock_conn()):
+            with patch(f"{CACHE_DB}.get_message", return_value=starred_row):
                 result = asyncio.run(
-                    tools["mail_bulk_delete"].fn(items=[{"message_id": 1}])
+                    tools["mail_bulk_move"].fn(items=[{"message_id": 1}], folder_id="Trash")
                 )
         data = json.loads(result)["data"]
         codes = [f["error"]["code"] for f in data["failed"]]
         assert "PROTECTED" in codes
         assert data["succeeded"] == []
+
+    def test_create_folder_enqueues_sync(self, mcp_mail):
+        # Parity with REST: folder creation must enqueue a cache sync.
+        tools = mcp_mail["tools"]
+        app = mcp_mail["app"]
+        sync_mock = MagicMock()
+        app.sync_manager = sync_mock
+        with (
+            patch(
+                f"{MAIL}._get_account_and_secret", return_value=(MagicMock(), MagicMock(), "pass")
+            ),
+            patch(f"{MAIL}._imap_connect", return_value=MagicMock()),
+            patch(f"{IMAP_CLIENT}.list_folders", return_value=[]),
+            patch(f"{IMAP_CLIENT}.get_folder_delimiter", return_value="/"),
+            patch(f"{IMAP_CLIENT}.create_folder", return_value=("OK", [b""])),
+            patch(f"{IMAP_CLIENT}.encode_mailbox_name", side_effect=lambda x: x),
+            patch(f"{IMAP_CLIENT}.safe_logout"),
+            patch(f"{MAIL}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{CACHE_DB}.upsert_folder"),
+            patch(f"{UI_EVENTS}.push_ui_event"),
+        ):
+            result = asyncio.run(tools["mail_create_folder"].fn(name="NewFolder"))
+        data = json.loads(result)["data"]
+        assert data["created"] is True
+        sync_mock.enqueue_sync.assert_any_call(
+            mcp_mail["account_id"], folder="NewFolder", reason="folder_created", priority=5
+        )
+
+    def test_rename_folder_enqueues_sync(self, mcp_mail):
+        tools = mcp_mail["tools"]
+        app = mcp_mail["app"]
+        sync_mock = MagicMock()
+        app.sync_manager = sync_mock
+        with (
+            patch(
+                f"{MAIL}._get_account_and_secret", return_value=(MagicMock(), MagicMock(), "pass")
+            ),
+            patch(f"{MAIL}._imap_connect", return_value=MagicMock()),
+            patch(f"{IMAP_CLIENT}.rename_folder", return_value=("OK", [b""])),
+            patch(f"{IMAP_CLIENT}.encode_mailbox_name", side_effect=lambda x: x),
+            patch(f"{IMAP_CLIENT}.safe_logout"),
+            patch(f"{MAIL}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{CACHE_DB}.rename_folder_in_cache"),
+            patch(f"{UI_EVENTS}.push_ui_event"),
+        ):
+            result = asyncio.run(tools["mail_rename_folder"].fn(folder_id="Old", name="New"))
+        data = json.loads(result)["data"]
+        assert data["name"] == "New"
+        sync_mock.enqueue_sync.assert_any_call(
+            mcp_mail["account_id"], folder="New", reason="folder_renamed", priority=5
+        )

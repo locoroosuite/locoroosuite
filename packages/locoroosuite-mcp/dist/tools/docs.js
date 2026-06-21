@@ -3,17 +3,21 @@ function json(data) {
     return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
 }
 export function registerDocsTools(server, client) {
-    server.tool("docs_list_documents", "List documents with optional type filter and search", {
+    server.tool("docs_list_documents", "List documents with optional type, folder, tag, and name filters", {
         account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
         type: z.enum(["odt", "ods", "odp"]).optional().describe("Filter by document type"),
         search: z.string().optional().describe("Search by document name"),
+        folder: z.string().optional().describe("Filter to documents directly in this folder path (exact match)"),
+        tag: z.string().optional().describe("Filter to documents carrying this tag"),
         cursor: z.string().optional().describe("Pagination cursor from previous response"),
         max_results: z.number().min(1).max(200).optional().describe("Maximum number of documents to return (1–200, default 50)"),
-    }, async ({ account_id, type, search, cursor, max_results }) => {
+    }, async ({ account_id, type, search, folder, tag, cursor, max_results }) => {
         const data = await client.get("/api/v1/docs/documents", {
             ...client.accountId(account_id),
             type,
             search,
+            folder,
+            tag,
             cursor,
             max_results: max_results?.toString(),
         });
@@ -30,11 +34,13 @@ export function registerDocsTools(server, client) {
         account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
         name: z.string().describe("Document name"),
         type: z.enum(["odt", "ods", "odp"]).describe("Document type"),
-    }, async ({ account_id, name, type }) => {
+        folder: z.string().optional().describe("Folder path to create the document in (empty/omitted = root)"),
+    }, async ({ account_id, name, type, folder }) => {
         const data = await client.post("/api/v1/docs/documents", {
             ...client.accountId(account_id),
             name,
             type,
+            ...(folder ? { folder } : {}),
         });
         return json(data);
     });
@@ -143,6 +149,83 @@ export function registerDocsTools(server, client) {
         document_id: z.string().describe("Document ID to convert"),
     }, async ({ account_id, document_id }) => {
         const data = await client.post(`/api/v1/docs/documents/${encodeURIComponent(document_id)}/convert`, client.accountId(account_id));
+        return json(data);
+    });
+    // ---------------------------------------------------------------------
+    // Folders
+    // ---------------------------------------------------------------------
+    server.tool("docs_list_folders", "List all folders (explicit rows plus paths inferred from documents)", {
+        account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
+    }, async ({ account_id }) => {
+        const data = await client.get("/api/v1/docs/folders", client.accountId(account_id));
+        return json(data);
+    });
+    server.tool("docs_create_folder", "Create a folder (and any missing ancestors). Idempotent.", {
+        account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
+        name: z.string().describe("Folder name (leaf segment)"),
+        parent: z.string().optional().describe("Parent folder path (empty/omitted = top-level)"),
+    }, async ({ account_id, name, parent }) => {
+        const data = await client.post("/api/v1/docs/folders", {
+            ...client.accountId(account_id),
+            name,
+            ...(parent ? { parent } : {}),
+        });
+        return json(data);
+    });
+    server.tool("docs_rename_folder", "Rename a folder and its entire subtree", {
+        account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
+        path: z.string().describe("Existing folder path to rename"),
+        name: z.string().describe("New leaf folder name"),
+    }, async ({ account_id, path, name }) => {
+        const data = await client.post("/api/v1/docs/folders/rename", {
+            ...client.accountId(account_id),
+            path,
+            name,
+        });
+        return json(data);
+    });
+    server.tool("docs_delete_folder", "Delete a folder subtree. Contained documents move to the deleted folder's parent.", {
+        account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
+        path: z.string().describe("Folder path to delete"),
+    }, async ({ account_id, path }) => {
+        const data = await client.post("/api/v1/docs/folders/delete", {
+            ...client.accountId(account_id),
+            path,
+        });
+        return json(data);
+    });
+    server.tool("docs_move_document", "Move a document to a folder (empty/omitted folder = root)", {
+        account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
+        document_id: z.string().describe("Document ID to move"),
+        folder: z.string().optional().describe("Target folder path (empty/omitted = root)"),
+    }, async ({ account_id, document_id, folder }) => {
+        const data = await client.post(`/api/v1/docs/documents/${encodeURIComponent(document_id)}/move`, {
+            ...client.accountId(account_id),
+            ...(folder ? { folder } : {}),
+        });
+        return json(data);
+    });
+    // ---------------------------------------------------------------------
+    // Tags
+    // ---------------------------------------------------------------------
+    server.tool("docs_get_tags", "Get the tags applied to a document", {
+        account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
+        document_id: z.string().describe("Document ID"),
+    }, async ({ account_id, document_id }) => {
+        const data = await client.get(`/api/v1/docs/documents/${encodeURIComponent(document_id)}/tags`, client.accountId(account_id));
+        return json(data);
+    });
+    server.tool("docs_update_tags", "Add and/or remove tags on a document (each tag max 50 chars)", {
+        account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
+        document_id: z.string().describe("Document ID to tag"),
+        add: z.array(z.string()).optional().describe("Tags to add"),
+        remove: z.array(z.string()).optional().describe("Tags to remove"),
+    }, async ({ account_id, document_id, add, remove }) => {
+        const data = await client.put(`/api/v1/docs/documents/${encodeURIComponent(document_id)}/tags`, {
+            ...client.accountId(account_id),
+            ...(add ? { add } : {}),
+            ...(remove ? { remove } : {}),
+        });
         return json(data);
     });
 }

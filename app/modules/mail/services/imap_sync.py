@@ -1,5 +1,6 @@
 import email
 import logging
+import time
 from datetime import UTC, datetime, timedelta
 
 from app.modules.mail.services.cache import build_cache_path
@@ -76,6 +77,7 @@ def _check_imip_reply(account, msg, sender):
                 continue
 
             from app.modules.calendar.services.cache import get_cache_path
+
             cache_path = get_cache_path(account)
             if not cache_path:
                 return
@@ -85,6 +87,7 @@ def _check_imip_reply(account, msg, sender):
                 return
 
             from app.modules.calendar.services.cache_db import open_cache as open_cal_cache
+
             try:
                 cal_conn = open_cal_cache(cache_path, key)
             except Exception:
@@ -94,6 +97,7 @@ def _check_imip_reply(account, msg, sender):
 
             try:
                 from app.modules.calendar.services.reply_processor import process_incoming_reply
+
                 sender_email = ""
                 if isinstance(sender, str):
                     sender_email = sender
@@ -181,7 +185,9 @@ def _extract_attachment_list(message):
     for part in message.walk():
         if _is_attachment_part(part):
             filename = part.get_filename()
-            result.append(normalize_header_text(filename) if filename else f"attachment-{len(result)}")
+            result.append(
+                normalize_header_text(filename) if filename else f"attachment-{len(result)}"
+            )
     return result
 
 
@@ -265,6 +271,7 @@ def _resolve_folders(available, requested):
 
 def _prepare_message_args(msg, account=None):
     from app.modules.mail.services.cache_db import compute_thread_id
+
     subject = normalize_header_text(msg.get("Subject", "")) or "(no subject)"
     sender = decode_address_header(msg.get("From", ""))
     recipients = decode_address_header(msg.get("To", ""))
@@ -326,7 +333,7 @@ def _to_uid_str(uid):
 
 def _chunked(items, size=50):
     for idx in range(0, len(items), size):
-        yield items[idx: idx + size]
+        yield items[idx : idx + size]
 
 
 def _build_uid_set(uids):
@@ -345,11 +352,15 @@ def _backfill_missing_date_ts(client, conn, folder):
         if internal_date:
             ts = _date_to_unix(internal_date)
             if ts:
-                logger.info("backfill updated uid=%s folder=%s internal_date_ts=%s", uid, folder, ts)
+                logger.info(
+                    "backfill updated uid=%s folder=%s internal_date_ts=%s", uid, folder, ts
+                )
                 update_internal_date_ts_for_uid(conn, folder, uid, ts)
 
 
-def _sync_initial_folder(client, conn, folder, status_info, include_recent_page=False, page_size=CACHE_MAX, account=None):
+def _sync_initial_folder(
+    client, conn, folder, status_info, include_recent_page=False, page_size=CACHE_MAX, account=None
+):
     unread_uids = fetch_message_uids(client, "UNSEEN")
     since_date = (datetime.now(UTC) - timedelta(days=CACHE_DAYS)).strftime("%d-%b-%Y")
     recent_uids = fetch_message_uids(client, f"SINCE {since_date}")
@@ -405,7 +416,16 @@ def _sync_initial_folder(client, conn, folder, status_info, include_recent_page=
     return len(combined), new_added, last_new_at
 
 
-def _sync_incremental_folder(client, conn, folder, status_info, state, include_recent_page=False, page_size=CACHE_MAX, account=None):
+def _sync_incremental_folder(
+    client,
+    conn,
+    folder,
+    status_info,
+    state,
+    include_recent_page=False,
+    page_size=CACHE_MAX,
+    account=None,
+):
     cached_uids = list_message_uids(conn, folder)
     cached_set = set(cached_uids)
     last_uidnext = state[2] if state else None
@@ -524,6 +544,7 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
                 }
             )
 
+    sync_started = time.monotonic()
     key = get_user_key(account.customer_id)
     if not key:
         logger.warning(
@@ -623,6 +644,7 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
             len(available_folders),
         )
         for folder in folders:
+            folder_start = time.monotonic()
             try:
                 select_folder(client, folder)
                 status_info = folder_status(client, folder)
@@ -648,6 +670,7 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
                 continue
 
             cached_in_folder = 0
+            sync_path = "initial" if not state else "incremental"
             try:
                 if not state:
                     total, added, last_new_at = _sync_initial_folder(
@@ -675,7 +698,9 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
                     conn,
                     folder,
                     uidvalidity=status_info.get("UIDVALIDITY"),
-                    uidnext=int(status_info.get("UIDNEXT", 0)) if status_info.get("UIDNEXT") else None,
+                    uidnext=int(status_info.get("UIDNEXT", 0))
+                    if status_info.get("UIDNEXT")
+                    else None,
                     highestmodseq=status_info.get("HIGHESTMODSEQ"),
                     last_sync_at=datetime.now(UTC).isoformat(),
                     last_new_at=last_new_at,
@@ -692,11 +717,14 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
 
             total_cached += cached_in_folder
             logger.info(
-                "imap folder cached account_id=%s folder=%s messages=%s unread=%s",
+                "imap folder synced account_id=%s folder=%s path=%s total=%s added=%s unread=%s duration_ms=%s",
                 account.id,
                 folder,
+                sync_path,
+                total,
                 cached_in_folder,
                 status_info.get("UNSEEN"),
+                int((time.monotonic() - folder_start) * 1000),
             )
             emit("complete", folder=folder, done=cached_in_folder, total=total)
     except Exception:
@@ -711,10 +739,15 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
         safe_logout(client)
 
     folder_counts = {name: count for name, count in list_cached_folders(conn)}
-    push_event(account.customer_id, "counts_updated", {"account_id": account.id, "folder_counts": folder_counts})
+    push_event(
+        account.customer_id,
+        "counts_updated",
+        {"account_id": account.id, "folder_counts": folder_counts},
+    )
     logger.info(
-        "imap sync complete account_id=%s total_cached=%s",
+        "imap sync complete account_id=%s total_cached=%s duration_ms=%s",
         account.id,
         total_cached,
+        int((time.monotonic() - sync_started) * 1000),
     )
     return not any_error

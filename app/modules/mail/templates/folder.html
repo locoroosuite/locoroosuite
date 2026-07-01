@@ -938,7 +938,7 @@
         toggleBar.setAttribute('aria-expanded', 'false');
         if (chevron) chevron.style.transform = 'rotate(0deg)';
         if (label) {
-          const count = content.querySelectorAll('.message-row').length;
+          const count = parseInt(toggleBar.dataset.olderCount || content.querySelectorAll('.message-row').length, 10);
           label.textContent = count + ' older message' + (count !== 1 ? 's' : '');
         }
         const card = toggleBar.closest('[data-thread-card]');
@@ -1064,12 +1064,19 @@
   };
   const FLIP_DURATION = 250;
   const FLIP_STAGGER = 20;
+  const FLIP_MAX_ROWS = 100;
 
   const applyFLIPUpdate = (container, newHtml) => {
     saveExpandState();
-    if (prefersReducedMotion) {
+    const existingRowCount = container.querySelectorAll('.message-row').length;
+    if (prefersReducedMotion || existingRowCount > FLIP_MAX_ROWS) {
       container.innerHTML = newHtml;
       restoreExpandState();
+      const skeletonEl = document.getElementById('message-skeleton');
+      if (skeletonEl) {
+        skeletonEl.remove();
+        skeletonVisible = false;
+      }
       return;
     }
     const oldRects = new Map();
@@ -1191,6 +1198,16 @@
       .finally(() => {
         refreshInFlight = false;
       });
+  };
+  let refreshDebounceTimer = null;
+  const scheduleRefresh = (force = false) => {
+    if (refreshDebounceTimer) {
+      clearTimeout(refreshDebounceTimer);
+    }
+    refreshDebounceTimer = setTimeout(() => {
+      refreshDebounceTimer = null;
+      refreshMessages({ force });
+    }, 250);
   };
   const indicatorByFolder = new Map();
   document.querySelectorAll('.sync-indicator').forEach(el => {
@@ -1654,12 +1671,8 @@
         hasCompletedSync = true;
       }
       updateEmptyState();
-      if (!isSmartView) {
-        const force = data.state === 'complete';
-        refreshMessages({ force });
-        if (force) {
-          setTimeout(() => refreshMessages({ force: true }), 300);
-        }
+      if (!isSmartView && data.state === 'complete') {
+        scheduleRefresh(true);
       }
     }
   });
@@ -1674,8 +1687,7 @@
     const data = JSON.parse(evt.data || '{}');
     if (data.module !== 'mail') return;
     if (data.account_id && data.account_id !== currentAccountId) return;
-    refreshMessages({ force: true });
-    setTimeout(() => refreshMessages({ force: true }), 300);
+    scheduleRefresh(true);
   });
 
   if (undoLabel && undoToken) {

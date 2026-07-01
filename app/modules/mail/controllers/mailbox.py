@@ -2,31 +2,36 @@ import json
 import logging
 from pathlib import Path
 
-from flask import session, request, redirect, url_for, render_template, current_app, jsonify
-
-from app.shared.db import db
-from app.shared.models.core import CustomerAccount, CustomerSettings
-from app.shared.keys import get_user_key
-from app.modules.mail.services.secrets import decrypt_with_key
-from app.modules.mail.services.imap_client import select_folder, create_folder, rename_folder as imap_rename_folder, delete_folder as imap_delete_folder, encode_mailbox_name, safe_logout
-from app.modules.mail.services.cache import purge_cache
-from app.modules.mail.services.cache_db import open_cache
-from app.shared.auth import require_customer
+from flask import current_app, jsonify, redirect, render_template, request, session, url_for
 
 from app.modules.mail.controllers.helpers import (
-    mail_bp,
-    _get_or_create_settings,
     _build_threads,
-    _folder_sidebar_context,
-    _snippet_debug_enabled,
     _consume_send_failure_notice,
     _current_undo_action,
-    _spam_action_enabled,
-    _imap_for_account,
     _decorate_message_row,
+    _folder_sidebar_context,
+    _get_or_create_settings,
+    _imap_for_account,
+    _snippet_debug_enabled,
+    _spam_action_enabled,
+    mail_bp,
     normalize_subject_for_threading,
 )
-
+from app.modules.mail.services.cache import purge_cache
+from app.modules.mail.services.cache_db import open_cache
+from app.modules.mail.services.imap_client import (
+    create_folder,
+    encode_mailbox_name,
+    safe_logout,
+    select_folder,
+)
+from app.modules.mail.services.imap_client import delete_folder as imap_delete_folder
+from app.modules.mail.services.imap_client import rename_folder as imap_rename_folder
+from app.modules.mail.services.secrets import decrypt_with_key
+from app.shared.auth import require_customer
+from app.shared.db import db
+from app.shared.keys import get_user_key
+from app.shared.models.core import CustomerAccount, CustomerSettings
 
 logger = logging.getLogger(__name__)
 
@@ -61,11 +66,19 @@ def folder_view(account_id, folder):
     session["active_account_id"] = account.id
     current_app.sync_manager.set_active_account(user_id, account.id)
     current_app.sync_manager.set_active_folder(account.id, folder)
-    initial_syncing = current_app.sync_manager.enqueue_sync(account.id, folder=folder, reason="folder_open", priority=0)
+    initial_syncing = current_app.sync_manager.enqueue_sync(
+        account.id, folder=folder, reason="folder_open", priority=0
+    )
     conn = open_cache(account.cache_db_path, key)
     settings = _get_or_create_settings(user_id)
     page = request.args.get("page", 1, type=int)
-    threads, pagination = _build_threads(conn, folder, timezone_name=settings.timezone, account_email=account.email_address, page=page)
+    threads, pagination = _build_threads(
+        conn,
+        folder,
+        timezone_name=settings.timezone,
+        account_email=account.email_address,
+        page=page,
+    )
     logger.info(
         "folder view account_id=%s folder=%s page=%s total_threads=%s total_messages=%s",
         account.id,
@@ -75,9 +88,14 @@ def folder_view(account_id, folder):
         pagination["total_messages"],
     )
     from app.modules.mail.services.cache_db import has_completed_sync
-    from app.modules.mail.services.protection import load_protected_folders, locked_keyword_enabled, protect_starred_enabled
-    accounts, folder_sections, cached_folders, pinned, starred_count, sidebar_warning = _folder_sidebar_context(
-        user_id, account, key, conn
+    from app.modules.mail.services.protection import (
+        load_protected_folders,
+        locked_keyword_enabled,
+        protect_starred_enabled,
+    )
+
+    accounts, folder_sections, cached_folders, pinned, starred_count, sidebar_warning = (
+        _folder_sidebar_context(user_id, account, key, conn)
     )
     snippet_debug_enabled = _snippet_debug_enabled()
     send_failure = _consume_send_failure_notice(user_id)
@@ -105,6 +123,8 @@ def folder_view(account_id, folder):
         spam_action_enabled=_spam_action_enabled(settings, account.id),
         snippet_debug=snippet_debug_enabled,
         pagination=pagination,
+        thread_counts=pagination.get("thread_counts", {}),
+        thread_omitted=pagination.get("thread_omitted", {}),
     )
 
 
@@ -115,14 +135,22 @@ def reset_cache(account_id):
     account = CustomerAccount.query.filter_by(id=account_id, customer_id=user_id).first_or_404()
     if account.cache_db_path:
         from app.modules.mail.services.cache_db import clear_cache_schema_memo
+
         clear_cache_schema_memo(account.cache_db_path)
         cache_path = Path(account.cache_db_path)
         if cache_path.exists():
             cache_path.unlink()
-            logger.info("cache file deleted user_id=%s account_id=%s path=%s", user_id, account.id, account.cache_db_path)
+            logger.info(
+                "cache file deleted user_id=%s account_id=%s path=%s",
+                user_id,
+                account.id,
+                account.cache_db_path,
+            )
         account.cache_db_path = None
         db.session.commit()
-    current_app.sync_manager.enqueue_sync(account.id, folder="INBOX", reason="cache_reset", priority=0)
+    current_app.sync_manager.enqueue_sync(
+        account.id, folder="INBOX", reason="cache_reset", priority=0
+    )
     return redirect(url_for("mail.folder_view", account_id=account.id, folder="INBOX"))
 
 
@@ -137,9 +165,16 @@ def folder_messages(account_id, folder):
     conn = open_cache(account.cache_db_path, key)
     settings = _get_or_create_settings(user_id)
     page = request.args.get("page", 1, type=int)
-    threads, pagination = _build_threads(conn, folder, timezone_name=settings.timezone, account_email=account.email_address, page=page)
+    threads, pagination = _build_threads(
+        conn,
+        folder,
+        timezone_name=settings.timezone,
+        account_email=account.email_address,
+        page=page,
+    )
     snippet_debug_enabled = _snippet_debug_enabled()
     from app.modules.mail.services.protection import locked_keyword_enabled, protect_starred_enabled
+
     html = render_template(
         "message_list.html",
         account=account,
@@ -148,22 +183,32 @@ def folder_messages(account_id, folder):
         lock_action_enabled=locked_keyword_enabled(settings, account.id),
         protect_starred=protect_starred_enabled(settings),
         snippet_debug=snippet_debug_enabled,
+        thread_counts=pagination.get("thread_counts", {}),
+        thread_omitted=pagination.get("thread_omitted", {}),
     )
-    return jsonify({
-        "html": html,
-        "thread_count": pagination["total_threads"],
-        "total_threads": pagination["total_threads"],
-        "total_messages": pagination["total_messages"],
-        "current_page": pagination["current_page"],
-        "total_pages": pagination["total_pages"],
-    })
+    return jsonify(
+        {
+            "html": html,
+            "thread_count": pagination["total_threads"],
+            "total_threads": pagination["total_threads"],
+            "total_messages": pagination["total_messages"],
+            "current_page": pagination["current_page"],
+            "total_pages": pagination["total_pages"],
+        }
+    )
 
 
 @mail_bp.route("/mail/folder/<int:account_id>/<path:folder>/mark-all-read", methods=["POST"])
 @require_customer
 def mark_all_read(account_id, folder):
-    account = CustomerAccount.query.filter_by(id=account_id, customer_id=session.get("user_id")).first_or_404()
-    secret = decrypt_with_key(account.encrypted_secret, get_user_key(session.get("user_id"))) if account.encrypted_secret else None
+    account = CustomerAccount.query.filter_by(
+        id=account_id, customer_id=session.get("user_id")
+    ).first_or_404()
+    secret = (
+        decrypt_with_key(account.encrypted_secret, get_user_key(session.get("user_id")))
+        if account.encrypted_secret
+        else None
+    )
     client, _domain = _imap_for_account(account, secret)
     select_folder(client, folder)
     client.store("1:*", "+FLAGS", "(\\Seen)")
@@ -177,8 +222,14 @@ def create_folder_route(account_id):
     name = request.form.get("name", "").strip()
     if not name:
         return redirect(url_for("mail.folder_view", account_id=account_id, folder="INBOX"))
-    account = CustomerAccount.query.filter_by(id=account_id, customer_id=session.get("user_id")).first_or_404()
-    secret = decrypt_with_key(account.encrypted_secret, get_user_key(session.get("user_id"))) if account.encrypted_secret else None
+    account = CustomerAccount.query.filter_by(
+        id=account_id, customer_id=session.get("user_id")
+    ).first_or_404()
+    secret = (
+        decrypt_with_key(account.encrypted_secret, get_user_key(session.get("user_id")))
+        if account.encrypted_secret
+        else None
+    )
     client, _domain = _imap_for_account(account, secret)
     create_folder(client, name)
     client.logout()
@@ -208,7 +259,12 @@ def toggle_pin_folder(account_id, folder):
 @mail_bp.route("/mail/folder/<int:account_id>/<path:folder>/protect", methods=["POST"])
 @require_customer
 def toggle_protect_folder(account_id, folder):
-    from app.modules.mail.services.protection import is_system_folder, load_protected_folders, set_folder_protected
+    from app.modules.mail.services.protection import (
+        is_system_folder,
+        load_protected_folders,
+        set_folder_protected,
+    )
+
     is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     if is_system_folder(folder):
         msg = "System folders are always protected and cannot be changed."
@@ -230,15 +286,23 @@ def toggle_protect_folder(account_id, folder):
 @require_customer
 def rename_folder_route(account_id, folder):
     from app.modules.mail.services.protection import is_system_folder
+
     new_name = request.form.get("name", "").strip()
     if not new_name:
         return redirect(url_for("mail.folder_view", account_id=account_id, folder=folder))
     if is_system_folder(folder):
         session["undo_error"] = "System folders cannot be renamed."
         return redirect(url_for("mail.folder_view", account_id=account_id, folder=folder))
-    account = CustomerAccount.query.filter_by(id=account_id, customer_id=session.get("user_id")).first_or_404()
-    secret = decrypt_with_key(account.encrypted_secret, get_user_key(session.get("user_id"))) if account.encrypted_secret else None
+    account = CustomerAccount.query.filter_by(
+        id=account_id, customer_id=session.get("user_id")
+    ).first_or_404()
+    secret = (
+        decrypt_with_key(account.encrypted_secret, get_user_key(session.get("user_id")))
+        if account.encrypted_secret
+        else None
+    )
     from app.modules.mail.services.cache_db import rename_folder_in_cache
+
     client, _domain = _imap_for_account(account, secret)
     try:
         imap_rename_folder(client, encode_mailbox_name(folder), encode_mailbox_name(new_name))
@@ -254,7 +318,9 @@ def rename_folder_route(account_id, folder):
     finally:
         conn.close()
     try:
-        current_app.sync_manager.enqueue_sync(account.id, folder=new_name, reason="folder_renamed", priority=5)
+        current_app.sync_manager.enqueue_sync(
+            account.id, folder=new_name, reason="folder_renamed", priority=5
+        )
     except Exception:
         pass
     return redirect(url_for("mail.folder_view", account_id=account_id, folder=new_name))
@@ -264,6 +330,7 @@ def rename_folder_route(account_id, folder):
 @require_customer
 def delete_folder_route(account_id, folder):
     from app.modules.mail.services.protection import folder_is_protected
+
     is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     settings = _get_or_create_settings(session.get("user_id"))
     if folder_is_protected(settings, folder):
@@ -272,9 +339,16 @@ def delete_folder_route(account_id, folder):
             return jsonify({"status": "error", "error": msg}), 409
         session["undo_error"] = msg
         return redirect(url_for("mail.folder_view", account_id=account_id, folder=folder))
-    account = CustomerAccount.query.filter_by(id=account_id, customer_id=session.get("user_id")).first_or_404()
-    secret = decrypt_with_key(account.encrypted_secret, get_user_key(session.get("user_id"))) if account.encrypted_secret else None
+    account = CustomerAccount.query.filter_by(
+        id=account_id, customer_id=session.get("user_id")
+    ).first_or_404()
+    secret = (
+        decrypt_with_key(account.encrypted_secret, get_user_key(session.get("user_id")))
+        if account.encrypted_secret
+        else None
+    )
     from app.modules.mail.services.cache_db import delete_folder_in_cache
+
     client, _domain = _imap_for_account(account, secret)
     try:
         imap_delete_folder(client, encode_mailbox_name(folder))
@@ -293,7 +367,12 @@ def delete_folder_route(account_id, folder):
     finally:
         conn.close()
     if is_xhr:
-        return jsonify({"status": "ok", "redirect": url_for("mail.folder_view", account_id=account_id, folder="INBOX")})
+        return jsonify(
+            {
+                "status": "ok",
+                "redirect": url_for("mail.folder_view", account_id=account_id, folder="INBOX"),
+            }
+        )
     return redirect(url_for("mail.folder_view", account_id=account_id, folder="INBOX"))
 
 
@@ -315,11 +394,15 @@ def remove_account(account_id):
 def set_active_account():
     user_id = session.get("user_id")
     account_id = int(request.form.get("account_id"))
-    account = CustomerAccount.query.filter_by(id=account_id, customer_id=user_id, is_active=True).first_or_404()
+    account = CustomerAccount.query.filter_by(
+        id=account_id, customer_id=user_id, is_active=True
+    ).first_or_404()
     session["active_account_id"] = account.id
     current_app.sync_manager.set_active_account(user_id, account.id)
     current_app.sync_manager.set_active_folder(account.id, "INBOX")
-    current_app.sync_manager.enqueue_sync(account.id, folder="INBOX", reason="account_switch", priority=0)
+    current_app.sync_manager.enqueue_sync(
+        account.id, folder="INBOX", reason="account_switch", priority=0
+    )
     next_url = request.form.get("next")
     if next_url and next_url.startswith("/"):
         return redirect(next_url)
@@ -337,7 +420,13 @@ def smart_folder(account_id, view):
         return redirect(url_for("mail.login"))
     conn = open_cache(account.cache_db_path, key)
     settings = _get_or_create_settings(user_id)
-    from app.modules.mail.services.cache_db import list_unread, list_flagged, list_with_attachments, has_completed_sync
+    from app.modules.mail.services.cache_db import (
+        has_completed_sync,
+        list_flagged,
+        list_unread,
+        list_with_attachments,
+    )
+
     if view == "unread":
         messages = list_unread(conn)
     elif view == "starred":
@@ -349,11 +438,16 @@ def smart_folder(account_id, view):
         row = _decorate_message_row(msg, timezone_name=settings.timezone)
         thread_key = normalize_subject_for_threading(row["subject"])
         threads.setdefault(thread_key, []).append(row)
-    accounts, folder_sections, cached_folders, pinned, starred_count, sidebar_warning = _folder_sidebar_context(
-        user_id, account, key, conn
+    accounts, folder_sections, cached_folders, pinned, starred_count, sidebar_warning = (
+        _folder_sidebar_context(user_id, account, key, conn)
     )
     send_failure = _consume_send_failure_notice(user_id)
-    from app.modules.mail.services.protection import load_protected_folders, locked_keyword_enabled, protect_starred_enabled
+    from app.modules.mail.services.protection import (
+        load_protected_folders,
+        locked_keyword_enabled,
+        protect_starred_enabled,
+    )
+
     return render_template(
         "folder.html",
         account=account,

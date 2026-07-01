@@ -22,4 +22,4 @@ EXPOSE 5001 8001
 VOLUME ["/app/data"]
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["gunicorn", "--bind", "0.0.0.0:5001", "--workers", "1", "--worker-class", "gevent", "--timeout", "120", "run:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5001", "--workers", "1", "--worker-class", "gevent", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "run:app"]

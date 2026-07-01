@@ -2,7 +2,8 @@
 <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" role="img" aria-label="Protected" title="Protected from deletion ({{ reason }}). Use the &#8943; menu to {{ 'unlock' if reason == 'locked' else ('unstar' if reason == 'starred' else 'unstar and unlock') }} it." data-protected-badge><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V8H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
 {% endmacro %}
 
-{% macro message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred=False) %}
+{% macro message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred=False, thread_total=0) %}
+{% set total = thread_total or msgs|length %}
 {% set row_locked = '$Locked' in (msg.flags or []) %}
 {% set row_protected = row_locked or (protect_starred and msg.is_flagged) %}
 {% set row_protected_reason = 'starred and locked' if (row_locked and msg.is_flagged) else ('locked' if row_locked else 'starred') %}
@@ -25,8 +26,8 @@
           <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">Delivery failed</span>
           <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
           {% if row_protected %}{{ _protected_pill(row_protected_reason) }}{% endif %}
-          {% if loop.first and msgs|length > 1 %}
-          <span class="thread-count text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ msgs|length }}</span>
+          {% if loop.first and total > 1 %}
+          <span class="thread-count text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ total }}</span>
           {% endif %}
           {% if msg.has_attachments %}
           <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -60,8 +61,8 @@
           <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Draft</span>
           <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
           {% if row_protected %}{{ _protected_pill(row_protected_reason) }}{% endif %}
-          {% if loop.first and msgs|length > 1 %}
-          <span class="thread-count text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ msgs|length }}</span>
+          {% if loop.first and total > 1 %}
+          <span class="thread-count text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ total }}</span>
           {% endif %}
           {% if msg.has_attachments %}
           <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -98,8 +99,8 @@
         <div class="flex items-center gap-2 min-w-0">
           <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
           {% if row_protected %}{{ _protected_pill(row_protected_reason) }}{% endif %}
-          {% if loop.first and msgs|length > 1 %}
-          <span class="thread-count text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ msgs|length }}</span>
+          {% if loop.first and total > 1 %}
+          <span class="thread-count text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ total }}</span>
           {% endif %}
           {% if msg.has_attachments %}
           <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -137,8 +138,8 @@
         <div class="flex items-center gap-2 min-w-0">
           <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
           {% if row_protected %}{{ _protected_pill(row_protected_reason) }}{% endif %}
-          {% if loop.first and msgs|length > 1 %}
-          <span class="thread-count text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ msgs|length }}</span>
+          {% if loop.first and total > 1 %}
+          <span class="thread-count text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ total }}</span>
           {% endif %}
           {% if msg.has_attachments %}
           <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -188,23 +189,27 @@
 {% endmacro %}
 
 {% for subject, msgs in threads.items() %}
+{% set tc = thread_counts or {} %}
+{% set to = thread_omitted or {} %}
+{% set full_count = tc.get(subject, msgs|length) %}
+{% set omitted = to.get(subject, 0) %}
 {% set collapsed_threshold = 4 %}
 {% set thread_key = msgs[0].id|string if msgs|length > 0 else '' %}
 {% set has_bounce = msgs | selectattr('is_bounce') | list | length > 0 %}
 {% set has_draft = msgs | selectattr('is_draft') | list | length > 0 %}
 <div class="thread-card rounded-xl border border-slate-200/80 border-l-2 {{ 'border-l-red-400' if has_bounce else ('border-l-amber-400' if has_draft else 'border-l-indigo-400') }} bg-white" data-thread-card="true" {% if thread_key %}data-thread-key="{{ thread_key }}"{% endif %}>
   <div class="divide-y divide-slate-200/70">
-    {% if msgs|length > collapsed_threshold %}
+    {% if full_count > collapsed_threshold %}
       {% set visible_count = 2 %}
       {% set older_msgs = msgs[visible_count:] %}
-      {% set older_count = older_msgs|length %}
+      {% set older_count = full_count - visible_count %}
 
       {% for msg in msgs[:visible_count] %}
-        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred) }}
+        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred, thread_total=full_count) }}
       {% endfor %}
 
       <div class="border-l-2 border-slate-200">
-        <div class="thread-collapse-bar relative px-4 py-2 text-[12px] text-slate-500 cursor-pointer select-none bg-slate-50/60 hover:bg-slate-100/70 transition-colors duration-150" data-thread-collapse-toggle aria-expanded="false" data-no-row-nav>
+        <div class="thread-collapse-bar relative px-4 py-2 text-[12px] text-slate-500 cursor-pointer select-none bg-slate-50/60 hover:bg-slate-100/70 transition-colors duration-150" data-thread-collapse-toggle aria-expanded="false" data-older-count="{{ older_count }}" data-no-row-nav>
           <div class="flex items-center justify-center gap-1.5">
             <svg class="w-3 h-3 text-slate-400 transition-transform duration-200" data-collapse-chevron viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
             <span data-collapse-label>{{ older_count }} older message{{ 's' if older_count != 1 else '' }}</span>
@@ -213,13 +218,16 @@
 
         <div class="thread-collapse-content bg-slate-50/40 overflow-hidden" data-thread-collapse-content style="max-height: 0; opacity: 0; transition: max-height 0.3s ease-out, opacity 0.2s ease-out;">
           {% for msg in older_msgs %}
-            {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred) }}
+            {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred, thread_total=full_count) }}
           {% endfor %}
+          {% if omitted > 0 %}
+          <a href="{{ url_for('mail.message_view', account_id=account.id, message_id=msgs[0].id) }}" class="block px-4 py-2 text-[12px] text-indigo-600 hover:text-indigo-800 hover:bg-slate-100/70 cursor-pointer" data-no-row-nav>&hellip; {{ omitted }} more in thread &mdash; open all</a>
+          {% endif %}
         </div>
       </div>
     {% else %}
       {% for msg in msgs %}
-        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred) }}
+        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred, thread_total=full_count) }}
       {% endfor %}
     {% endif %}
   </div>

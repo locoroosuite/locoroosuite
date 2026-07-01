@@ -1,50 +1,70 @@
-import logging
-import threading
-import uuid
-import json
-import time
 import imaplib
-import re
+import json
+import logging
 import math
-from datetime import datetime, timedelta, timezone
+import re
+import threading
+import time
+import uuid
+from datetime import UTC, datetime, timedelta
 from email.utils import getaddresses, parsedate_to_datetime
 from zoneinfo import ZoneInfo
 
-from flask import Blueprint, session, request, url_for, current_app
+from flask import Blueprint, current_app, request, session, url_for
 
-from app.shared.db import db
-from app.shared.models.core import Domain, CustomerAccount, CustomerSettings
-from app.modules.mail.services.secrets import decrypt_with_key
-from app.modules.mail.services.imap_client import (
-    connect_imap, login_imap, select_folder, fetch_message,
-    set_flag, list_folders, safe_logout, ensure_folder_and_append,
-    delete_message_by_uid,
+from app.modules.mail.services.cache_db import (
+    delete_messages_by_uids,
+    get_message,
+    open_cache,
+    update_flags,
 )
-from app.modules.mail.services.smtp_client import smtp_connect, smtp_login, smtp_send
-from app.modules.mail.services.cache_db import open_cache, get_message, update_flags, delete_messages_by_uids
 from app.modules.mail.services.folder_sort import build_folder_sections
-from app.shared.keys import get_user_key
-from app.modules.mail.utils.sanitize import (
-    decode_address_header, normalize_header_text, normalize_preview_text,
-    plain_text_to_html, sanitize_html, strip_subject_from_html,
-    strip_subject_from_text, wrap_email_html, add_quoted_collapse,
+from app.modules.mail.services.imap_client import (
+    connect_imap,
+    delete_message_by_uid,
+    ensure_folder_and_append,
+    fetch_message,
+    list_folders,
+    login_imap,
+    safe_logout,
+    select_folder,
+    set_flag,
 )
+from app.modules.mail.services.secrets import decrypt_with_key
+from app.modules.mail.services.smtp_client import smtp_connect, smtp_login, smtp_send
+from app.modules.mail.utils.sanitize import (
+    add_quoted_collapse,
+    decode_address_header,
+    normalize_header_text,
+    normalize_preview_text,
+    plain_text_to_html,
+    sanitize_html,
+    strip_subject_from_html,
+    strip_subject_from_text,
+    wrap_email_html,
+)
+from app.shared.db import db
 from app.shared.icalendar import parse_icalendar
-
+from app.shared.keys import get_user_key
+from app.shared.models.core import CustomerAccount, CustomerSettings, Domain
 
 mail_bp = Blueprint("mail", __name__, template_folder="../templates")
 mail_sse_bp = Blueprint("mail_sse", __name__)
 logger = logging.getLogger(__name__)
+
+MAX_MESSAGES_PER_THREAD = 50
 
 
 @mail_bp.context_processor
 def _inject_unread_excluded_folders():
     from app.modules.mail.services.folder_sort import UNREAD_EXCLUDED_FOLDERS
     from app.modules.mail.services.protection import SYSTEM_FOLDERS
+
     return {
         "unread_excluded_folders": [f.lower() for f in sorted(UNREAD_EXCLUDED_FOLDERS)],
         "system_folder_keys": sorted(SYSTEM_FOLDERS.keys()),
     }
+
 
 _pending_sends = {}
 _pending_sends_lock = threading.RLock()
@@ -124,15 +144,16 @@ def _fallback_sidebar_folders(conn, cached_folders):
 
 
 def _folder_sidebar_context(user_id, account, key, conn):
-    from app.modules.mail.services.cache_db import list_cached_folders
-    from app.modules.mail.services.cache_db import count_unread_flagged
+    from app.modules.mail.services.cache_db import count_unread_flagged, list_cached_folders
 
     cached_folders = dict(list_cached_folders(conn))
     starred_count = count_unread_flagged(conn)
     folders = None
     sidebar_warning = None
     try:
-        secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
+        secret = (
+            decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
+        )
         client, _domain = _imap_for_account(account, secret)
         try:
             folders = list_folders(client)
@@ -145,7 +166,9 @@ def _folder_sidebar_context(user_id, account, key, conn):
             user_id,
         )
         folders = _fallback_sidebar_folders(conn, cached_folders)
-        sidebar_warning = "IMAP is temporarily unavailable. Showing cached data while retrying in the background."
+        sidebar_warning = (
+            "IMAP is temporarily unavailable. Showing cached data while retrying in the background."
+        )
     except Exception:
         logger.exception(
             "folder sidebar imap fetch failed account_id=%s customer_id=%s",
@@ -153,7 +176,9 @@ def _folder_sidebar_context(user_id, account, key, conn):
             user_id,
         )
         folders = _fallback_sidebar_folders(conn, cached_folders)
-        sidebar_warning = "IMAP is temporarily unavailable. Showing cached data while retrying in the background."
+        sidebar_warning = (
+            "IMAP is temporarily unavailable. Showing cached data while retrying in the background."
+        )
     settings = CustomerSettings.query.filter_by(customer_id=user_id).first()
     pinned = []
     if settings and settings.pinned_folders:
@@ -279,12 +304,13 @@ def _parse_message_datetime(date_value):
     if not dt:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt
 
 
 def _resolve_timezone(timezone_name):
     from app.shared.timezone import resolve_tzinfo
+
     return resolve_tzinfo(timezone_name)
 
 
@@ -309,12 +335,15 @@ def _decorate_message_row(row, timezone_name=None, is_sent=False):
     recipients_raw = row["recipients"]
     is_bounce = bool(row["is_bounce"])
     bounce_reason = row["bounce_reason"]
-    original_subject = normalize_header_text(row["original_subject"]) if row["original_subject"] else None
+    original_subject = (
+        normalize_header_text(row["original_subject"]) if row["original_subject"] else None
+    )
     has_attachments = bool(row["has_attachments"])
     is_draft = "\\Draft" in flags or (folder and folder.lower() == "drafts")
     recipients_display = ""
     if recipients_raw:
         from email.utils import getaddresses as _getaddresses
+
         addrs = _getaddresses([decode_address_header(recipients_raw)])
         recipients_display = ", ".join(name or addr for name, addr in addrs[:2])
     display_subject = original_subject or subject
@@ -387,17 +416,20 @@ def normalize_subject_for_threading(subject):
     s = subject.strip()
     while True:
         prev = s
-        s = re.sub(r'^\[[^\]]*\]\s*', '', s)
-        s = re.sub(r'^(Re|Fwd|Fw)\s*:\s*', '', s, flags=re.IGNORECASE)
+        s = re.sub(r"^\[[^\]]*\]\s*", "", s)
+        s = re.sub(r"^(Re|Fwd|Fw)\s*:\s*", "", s, flags=re.IGNORECASE)
         s = s.strip()
         if s == prev:
             break
-    return re.sub(r'\s+', ' ', s).lower().strip()
+    return re.sub(r"\s+", " ", s).lower().strip()
 
 
 def _build_threads(conn, folder, timezone_name=None, account_email=None, page=1, per_page=50):
     from app.modules.mail.services.cache_db import (
-        list_messages_for_folder_view, list_sent_for_threading, list_drafts_for_threading, count_messages_in_folder,
+        count_messages_in_folder,
+        list_drafts_for_threading,
+        list_messages_for_folder_view,
+        list_sent_for_threading,
     )
 
     total_messages = count_messages_in_folder(conn, folder)
@@ -499,18 +531,33 @@ def _build_threads(conn, folder, timezone_name=None, account_email=None, page=1,
     for key in groups:
         groups[key].sort(key=lambda r: r.get("sort_ts") or 0, reverse=True)
 
-    sorted_threads = dict(sorted(
-        groups.items(),
-        key=lambda item: max(r.get("sort_ts") or 0 for r in item[1]),
-        reverse=True,
-    ))
+    sorted_threads = dict(
+        sorted(
+            groups.items(),
+            key=lambda item: max(r.get("sort_ts") or 0 for r in item[1]),
+            reverse=True,
+        )
+    )
 
     total_threads = len(sorted_threads)
     total_pages = max(1, math.ceil(total_threads / per_page))
     page = max(1, min(page, total_pages))
     start = (page - 1) * per_page
-    page_keys = list(sorted_threads.keys())[start:start + per_page]
-    page_threads = {k: sorted_threads[k] for k in page_keys}
+    page_keys = list(sorted_threads.keys())[start : start + per_page]
+
+    page_threads = {}
+    thread_counts = {}
+    thread_omitted = {}
+    for key in page_keys:
+        rows = sorted_threads[key]
+        full = len(rows)
+        thread_counts[key] = full
+        if full > MAX_MESSAGES_PER_THREAD:
+            page_threads[key] = rows[:MAX_MESSAGES_PER_THREAD]
+            thread_omitted[key] = full - MAX_MESSAGES_PER_THREAD
+        else:
+            page_threads[key] = rows
+            thread_omitted[key] = 0
 
     return page_threads, {
         "total_threads": total_threads,
@@ -518,6 +565,8 @@ def _build_threads(conn, folder, timezone_name=None, account_email=None, page=1,
         "current_page": page,
         "total_pages": total_pages,
         "per_page": per_page,
+        "thread_counts": thread_counts,
+        "thread_omitted": thread_omitted,
     }
 
 
@@ -679,7 +728,11 @@ def _send_worker(app, send_token, delay_seconds=0):
             secret = payload.get("secret")
             recipients = []
             seen = set()
-            for field in (payload.get("to_addrs"), payload.get("cc_addrs"), payload.get("bcc_addrs")):
+            for field in (
+                payload.get("to_addrs"),
+                payload.get("cc_addrs"),
+                payload.get("bcc_addrs"),
+            ):
                 if not field:
                     continue
                 for _, addr in getaddresses([field]):
@@ -710,10 +763,16 @@ def _send_worker(app, send_token, delay_seconds=0):
             imap_client = None
             try:
                 imap_client, _domain = _imap_for_account(account, secret, domain=domain)
-                ensure_folder_and_append(imap_client, "Sent", payload.get("sent_msg") or payload["msg"])
+                ensure_folder_and_append(
+                    imap_client, "Sent", payload.get("sent_msg") or payload["msg"]
+                )
             except Exception:
                 warning = "Message sent, but saving to Sent failed."
-                logger.exception("send sent-copy append failed send_token=%s account_id=%s", send_token, account.id)
+                logger.exception(
+                    "send sent-copy append failed send_token=%s account_id=%s",
+                    send_token,
+                    account.id,
+                )
             finally:
                 if imap_client:
                     safe_logout(imap_client)
@@ -726,7 +785,9 @@ def _send_worker(app, send_token, delay_seconds=0):
                     select_folder(draft_client, "Drafts")
                     delete_message_by_uid(draft_client, draft_uid)
                 except Exception:
-                    logger.debug("failed to delete draft after send uid=%s", draft_uid, exc_info=True)
+                    logger.debug(
+                        "failed to delete draft after send uid=%s", draft_uid, exc_info=True
+                    )
                 finally:
                     if draft_client:
                         safe_logout(draft_client)
@@ -734,7 +795,11 @@ def _send_worker(app, send_token, delay_seconds=0):
                     conn = open_cache(account.cache_db_path, get_user_key(payload["user_id"]))
                     delete_messages_by_uids(conn, "Drafts", [draft_uid])
                 except Exception:
-                    logger.debug("failed to delete draft from cache after send uid=%s", draft_uid, exc_info=True)
+                    logger.debug(
+                        "failed to delete draft from cache after send uid=%s",
+                        draft_uid,
+                        exc_info=True,
+                    )
 
             with _pending_sends_lock:
                 latest = _pending_sends.get(send_token)
@@ -749,11 +814,15 @@ def _send_worker(app, send_token, delay_seconds=0):
                     _send_failure_notice.pop(latest["user_id"], None)
 
             try:
-                app.sync_manager.enqueue_sync(account.id, folder="Sent", reason="send_complete", priority=5)
+                app.sync_manager.enqueue_sync(
+                    account.id, folder="Sent", reason="send_complete", priority=5
+                )
             except Exception:
                 logger.debug("sent-folder sync enqueue failed send_token=%s", send_token)
             try:
-                app.sync_manager.enqueue_sync(account.id, folder="Drafts", reason="send_complete", priority=5)
+                app.sync_manager.enqueue_sync(
+                    account.id, folder="Drafts", reason="send_complete", priority=5
+                )
             except Exception:
                 logger.debug("drafts-folder sync enqueue failed send_token=%s", send_token)
         except Exception as exc:
@@ -794,7 +863,9 @@ def _rewrite_cid_urls(html, cid_map, account_id, message_id):
     return html
 
 
-def _load_message_detail(account, message_id, allow_images=False, mark_seen=True, collapse_quotes=False):
+def _load_message_detail(
+    account, message_id, allow_images=False, mark_seen=True, collapse_quotes=False
+):
     key = get_user_key(session.get("user_id"))
     conn = open_cache(account.cache_db_path, key)
     message = get_message(conn, message_id)
@@ -828,31 +899,36 @@ def _load_message_detail(account, message_id, allow_images=False, mark_seen=True
         for part in raw_msg.walk():
             content_type = part.get_content_type()
             filename = part.get_filename()
-            is_ics = (
-                content_type in ("text/calendar", "application/ics")
-                or (filename and filename.lower().endswith(".ics"))
+            is_ics = content_type in ("text/calendar", "application/ics") or (
+                filename and filename.lower().endswith(".ics")
             )
             if is_ics:
                 ics_text = _decode_part(part)
                 if ics_text:
                     parsed_ics = parse_icalendar(ics_text)
                     if parsed_ics:
-                        ics_attachments.append({
-                            "index": len(ics_attachments),
-                            "filename": normalize_header_text(filename) or f"invite-{len(ics_attachments)}.ics",
-                            "ical_text": ics_text,
-                            "parsed": parsed_ics,
-                        })
+                        ics_attachments.append(
+                            {
+                                "index": len(ics_attachments),
+                                "filename": normalize_header_text(filename)
+                                or f"invite-{len(ics_attachments)}.ics",
+                                "ical_text": ics_text,
+                                "parsed": parsed_ics,
+                            }
+                        )
                         continue
             if _is_attachment_part(part):
                 content_id = part.get("Content-ID", "")
                 if content_id:
                     content_id = content_id.strip("<>")
                     cid_map[content_id] = len(attachments)
-                attachments.append({
-                    "index": len(attachments),
-                    "filename": normalize_header_text(filename) or f"attachment-{len(attachments)}",
-                })
+                attachments.append(
+                    {
+                        "index": len(attachments),
+                        "filename": normalize_header_text(filename)
+                        or f"attachment-{len(attachments)}",
+                    }
+                )
     elif raw_msg:
         content_type = raw_msg.get_content_type()
         if content_type in ("text/calendar", "application/ics"):
@@ -860,12 +936,14 @@ def _load_message_detail(account, message_id, allow_images=False, mark_seen=True
             if ics_text:
                 parsed_ics = parse_icalendar(ics_text)
                 if parsed_ics:
-                    ics_attachments.append({
-                        "index": 0,
-                        "filename": "invite.ics",
-                        "ical_text": ics_text,
-                        "parsed": parsed_ics,
-                    })
+                    ics_attachments.append(
+                        {
+                            "index": 0,
+                            "filename": "invite.ics",
+                            "ical_text": ics_text,
+                            "parsed": parsed_ics,
+                        }
+                    )
     seen_uids = set()
     unique_ics = []
     for ics in ics_attachments:
@@ -890,11 +968,20 @@ def _load_message_detail(account, message_id, allow_images=False, mark_seen=True
     if collapse_quotes:
         sanitized_body = add_quoted_collapse(sanitized_body)
     wrapped_body = wrap_email_html(sanitized_body)
-    return message, wrapped_body, attachments, flags, (text_plain, text_html), ics_attachments, cc_display
+    return (
+        message,
+        wrapped_body,
+        attachments,
+        flags,
+        (text_plain, text_html),
+        ics_attachments,
+        cc_display,
+    )
 
 
 def _format_ics_dates(ics_attachments, settings_timezone):
     from app.shared.timezone import resolve_tzinfo
+
     user_tz = resolve_tzinfo(settings_timezone)
     for ics in ics_attachments:
         parsed = ics.get("parsed") or {}
@@ -905,9 +992,7 @@ def _format_ics_dates(ics_attachments, settings_timezone):
         if all_day:
             ics["formatted_date"] = _format_allday_range(dtstart_str, dtend_str)
         else:
-            ics["formatted_date"] = _format_timed_range(
-                dtstart_str, dtend_str, event_tzid, user_tz
-            )
+            ics["formatted_date"] = _format_timed_range(dtstart_str, dtend_str, event_tzid, user_tz)
 
 
 def _parse_ics_dt(dt_str, fallback_tzid=None):
@@ -921,14 +1006,15 @@ def _parse_ics_dt(dt_str, fallback_tzid=None):
         try:
             dt = dt.replace(tzinfo=ZoneInfo(fallback_tzid))
         except Exception:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
     elif dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt
 
 
 def _format_allday_range(dtstart_str, dtend_str):
     from datetime import date as date_type
+
     try:
         start = date_type.fromisoformat(dtstart_str[:10])
     except (ValueError, TypeError):
@@ -999,8 +1085,13 @@ def _build_quote_html(from_addr, to_addr, cc_addr, date_str, text_plain, text_ht
         summary = "Quoted text"
     return (
         '<div data-quote-block style="margin-top:12px;padding-left:12px;border-left:3px solid #cbd5e1;color:#64748b;">'
-        '<div data-quote-summary style="display:none;font-size:12px;margin-bottom:4px;">' + summary + '</div>'
-        '<div data-quote-header>' + header_html + ("<br><br>" if body else "") + '</div>'
+        '<div data-quote-summary style="display:none;font-size:12px;margin-bottom:4px;">'
+        + summary
+        + "</div>"
+        "<div data-quote-header>"
+        + header_html
+        + ("<br><br>" if body else "")
+        + "</div>"
         + (body if body else "")
         + "</div>"
     )
@@ -1022,7 +1113,9 @@ def _build_reply_forward_prefill(account, message_id, reply_all=False, forward=F
     text_html = ""
     cc_header = ""
     try:
-        secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
+        secret = (
+            decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
+        )
         client, _domain = _imap_for_account(account, secret)
         select_folder(client, folder)
         raw_msg = fetch_message(client, uid)
@@ -1031,7 +1124,12 @@ def _build_reply_forward_prefill(account, message_id, reply_all=False, forward=F
             cc_header = raw_msg.get("Cc", "") or ""
             text_plain, text_html = _extract_message_bodies(raw_msg)
     except Exception:
-        logger.warning("reply/forward prefill IMAP failed account_id=%s message_id=%s", account.id, message_id, exc_info=True)
+        logger.warning(
+            "reply/forward prefill IMAP failed account_id=%s message_id=%s",
+            account.id,
+            message_id,
+            exc_info=True,
+        )
     if not text_plain and not text_html:
         text_plain = msg["snippet"] or ""
     cc_display = decode_address_header(cc_header) if cc_header else ""
@@ -1075,7 +1173,9 @@ def _thread_sort_ts(row):
     return _message_date_ts(row["date"]) or 0
 
 
-def _load_thread_for_detail(conn, thread_id, current_message_id, subject, account_email=None, timezone_name=None):
+def _load_thread_for_detail(
+    conn, thread_id, current_message_id, subject, account_email=None, timezone_name=None
+):
     from app.modules.mail.services.cache_db import list_thread_messages
 
     thread_rows = list(list_thread_messages(conn, thread_id)) if thread_id else []
@@ -1155,42 +1255,48 @@ def _load_thread_for_detail(conn, thread_id, current_message_id, subject, accoun
 
         is_bounce = bool(row["is_bounce"])
         bounce_reason = row["bounce_reason"]
-        original_subject = normalize_header_text(row["original_subject"]) if row["original_subject"] else None
+        original_subject = (
+            normalize_header_text(row["original_subject"]) if row["original_subject"] else None
+        )
         cc_raw = row["cc"]
         cc_display = decode_address_header(cc_raw) if cc_raw else ""
-        display_subject = original_subject or normalize_header_text(row["subject"]) or "(no subject)"
+        display_subject = (
+            original_subject or normalize_header_text(row["subject"]) or "(no subject)"
+        )
         is_draft = "\\Draft" in msg_flags or (folder and folder.lower() == "drafts")
         attachment_list_raw = row["attachment_list"]
         attachment_names = json.loads(attachment_list_raw) if attachment_list_raw else []
 
-        result.append({
-            "id": row["id"],
-            "uid": row["uid"],
-            "folder": folder,
-            "subject": display_subject,
-            "sender": sender_full,
-            "sender_display": sender_display,
-            "sender_tooltip": sender_tooltip or sender_full,
-            "sender_email": sender_email,
-            "recipients": decode_address_header(row["recipients"]),
-            "recipients_display": recipients_display,
-            "recipients_email": recipients_email,
-            "date": row["date"],
-            "date_display": _format_short_date(row["date"], timezone_name),
-            "date_ts": _message_date_ts(row["date"]),
-            "flags": msg_flags,
-            "is_unread": "\\Seen" not in msg_flags,
-            "is_flagged": "\\Flagged" in msg_flags,
-            "is_sent": is_sent,
-            "is_draft": is_draft,
-            "is_current": row["id"] == current_message_id,
-            "snippet": snippet,
-            "body_html": wrapped_body,
-            "has_attachments": bool(row["has_attachments"]),
-            "attachment_names": attachment_names,
-            "is_bounce": is_bounce,
-            "bounce_reason": bounce_reason,
-            "cc": cc_display,
-        })
+        result.append(
+            {
+                "id": row["id"],
+                "uid": row["uid"],
+                "folder": folder,
+                "subject": display_subject,
+                "sender": sender_full,
+                "sender_display": sender_display,
+                "sender_tooltip": sender_tooltip or sender_full,
+                "sender_email": sender_email,
+                "recipients": decode_address_header(row["recipients"]),
+                "recipients_display": recipients_display,
+                "recipients_email": recipients_email,
+                "date": row["date"],
+                "date_display": _format_short_date(row["date"], timezone_name),
+                "date_ts": _message_date_ts(row["date"]),
+                "flags": msg_flags,
+                "is_unread": "\\Seen" not in msg_flags,
+                "is_flagged": "\\Flagged" in msg_flags,
+                "is_sent": is_sent,
+                "is_draft": is_draft,
+                "is_current": row["id"] == current_message_id,
+                "snippet": snippet,
+                "body_html": wrapped_body,
+                "has_attachments": bool(row["has_attachments"]),
+                "attachment_names": attachment_names,
+                "is_bounce": is_bounce,
+                "bounce_reason": bounce_reason,
+                "cc": cc_display,
+            }
+        )
 
     return result

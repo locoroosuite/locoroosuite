@@ -1,21 +1,24 @@
-from flask import Flask, session, url_for, redirect, render_template, request
-
-from app.config import AppConfig
-from app.shared.db import db
-from app.shared.models import core
-from app.shared.models import imports as import_models  # noqa: F401 (side-effect: registers models)
-from app.shared.models import oauth as oauth_models  # noqa: F401 (side-effect: registers models)
-from app.shared.logging import configure_logging
-from app.shared.keys import get_user_key
-from app.shared.app_migrations import APP_DB_MIGRATIONS
-from app.shared.migrations import run_migrations
-
 import logging
 import os
 import re
+import time
 from datetime import timedelta
 
+from flask import Flask, g, redirect, render_template, request, session, url_for
+
+from app.config import AppConfig
+from app.shared.app_migrations import APP_DB_MIGRATIONS
+from app.shared.db import db
+from app.shared.keys import get_user_key
+from app.shared.logging import configure_logging
+from app.shared.migrations import run_migrations
+from app.shared.models import core
+from app.shared.models import imports as import_models  # noqa: F401 (side-effect: registers models)
+from app.shared.models import oauth as oauth_models  # noqa: F401 (side-effect: registers models)
+
 _logger = logging.getLogger(__name__)
+
+SLOW_REQUEST_MS = 2000
 
 
 def create_app():
@@ -25,14 +28,14 @@ def create_app():
 
     db.init_app(app)
 
-    from app.modules.mail import register as register_mail
-    from app.modules.contacts import register as register_contacts
-    from app.modules.calendar import register as register_calendar
-    from app.modules.docs import register as register_docs
     from app.admin import register as register_admin
     from app.api import register as register_api
-    from app.shared.oauth import register as register_oauth
+    from app.modules.calendar import register as register_calendar
+    from app.modules.contacts import register as register_contacts
+    from app.modules.docs import register as register_docs
+    from app.modules.mail import register as register_mail
     from app.provisioning import register as register_provisioning
+    from app.shared.oauth import register as register_oauth
 
     register_mail(app)
     register_contacts(app)
@@ -121,23 +124,64 @@ def create_app():
         _logger.info("session key missing for user %s, redirecting to login", user_id)
         session.clear()
         if not request.accept_mimetypes.accept_html:
-            return {"error": {"code": "SESSION_EXPIRED", "message": "Your session has expired. Please log in again."}}, 401
+            return {
+                "error": {
+                    "code": "SESSION_EXPIRED",
+                    "message": "Your session has expired. Please log in again.",
+                }
+            }, 401
         login_url = url_for("mail.login")
         if request.path != url_for("mail.login"):
             login_url = url_for("mail.login", next=request.url)
         return redirect(login_url)
 
+    @app.before_request
+    def _mark_request_start():
+        g.req_started = time.monotonic()
+
+    @app.after_request
+    def _log_slow_request(response):
+        started = g.get("req_started")
+        if (
+            started is not None
+            and not request.path.startswith("/events/")
+            and not request.path.startswith("/static/")
+        ):
+            duration_ms = int((time.monotonic() - started) * 1000)
+            if duration_ms >= SLOW_REQUEST_MS:
+                _logger.warning(
+                    "slow request %s %s status=%s duration_ms=%s user_id=%s account_id=%s",
+                    request.method,
+                    request.path,
+                    response.status_code,
+                    duration_ms,
+                    session.get("user_id"),
+                    session.get("active_account_id"),
+                )
+        return response
+
     @app.errorhandler(404)
     def _handle_404(exc):
         if request.accept_mimetypes.accept_html:
-            return render_template("error.html", title="Not Found", message="The page you requested does not exist."), 404
-        return {"error": {"code": "NOT_FOUND", "message": "The requested resource does not exist."}}, 404
+            return render_template(
+                "error.html", title="Not Found", message="The page you requested does not exist."
+            ), 404
+        return {
+            "error": {"code": "NOT_FOUND", "message": "The requested resource does not exist."}
+        }, 404
 
     @app.errorhandler(405)
     def _handle_405(exc):
         if request.accept_mimetypes.accept_html:
-            return render_template("error.html", title="Method Not Allowed", message="This action is not supported."), 405
-        return {"error": {"code": "METHOD_NOT_ALLOWED", "message": "This HTTP method is not supported for the requested endpoint."}}, 405
+            return render_template(
+                "error.html", title="Method Not Allowed", message="This action is not supported."
+            ), 405
+        return {
+            "error": {
+                "code": "METHOD_NOT_ALLOWED",
+                "message": "This HTTP method is not supported for the requested endpoint.",
+            }
+        }, 405
 
     from app.shared.cache_errors import CacheKeyMismatchError
 
@@ -155,14 +199,16 @@ def create_app():
                 show_cache_reset=True,
                 account_id=account_id,
             ), 500
-        return {"error": {
-            "code": "CACHE_KEY_MISMATCH",
-            "message": "Your encrypted cache cannot be opened because the encryption key does not match. "
-            "This can happen after a password change, a server upgrade, or an API key rotation. "
-            "To fix this: go to Settings → API → Disable API access, then re-enable it and create a new API token. "
-            "This resets your encryption keys and re-syncs your data from the mail server.",
-            "account_id": account_id,
-        }}, 500
+        return {
+            "error": {
+                "code": "CACHE_KEY_MISMATCH",
+                "message": "Your encrypted cache cannot be opened because the encryption key does not match. "
+                "This can happen after a password change, a server upgrade, or an API key rotation. "
+                "To fix this: go to Settings → API → Disable API access, then re-enable it and create a new API token. "
+                "This resets your encryption keys and re-syncs your data from the mail server.",
+                "account_id": account_id,
+            }
+        }, 500
 
     @app.errorhandler(Exception)
     def _handle_exception(exc):
@@ -175,7 +221,12 @@ def create_app():
                 show_cache_reset="active_account_id" in session,
                 account_id=session.get("active_account_id"),
             ), 500
-        return {"error": {"code": "INTERNAL_ERROR", "message": "An internal error occurred. Please retry or contact support."}}, 500
+        return {
+            "error": {
+                "code": "INTERNAL_ERROR",
+                "message": "An internal error occurred. Please retry or contact support.",
+            }
+        }, 500
 
     with app.app_context():
         db.create_all()
@@ -186,12 +237,14 @@ def create_app():
             conn.close()
 
     from app.workers.manager import WorkerManager
+
     worker = WorkerManager(app)
     if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         worker.start()
-    setattr(app, "sync_manager", worker)
+    setattr(app, "sync_manager", worker)  # noqa: B010
 
     from app.shared.cli import register_cli
+
     register_cli(app)
 
     return app

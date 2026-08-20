@@ -3,7 +3,6 @@ import logging
 import xml.etree.ElementTree as ET
 
 import requests
-
 from flask import current_app
 
 logger = logging.getLogger(__name__)
@@ -81,7 +80,10 @@ def _convert(file_stream, source_filename, target_type, collabora_url=None):
     if not _is_valid_output(content, target_type):
         logger.error(
             "Collabora returned invalid output for %s -> %s (size=%d, head=%r)",
-            source_filename, target_type, len(content), content[:20],
+            source_filename,
+            target_type,
+            len(content),
+            content[:20],
         )
         raise ConversionError(
             f"Collabora returned invalid output for {source_filename} -> {target_type}"
@@ -110,9 +112,8 @@ def _is_valid_output(content: bytes, target_type: str) -> bool:
 
 
 def _default_url():
-    return (
-        current_app.config.get("COLLABORA_INTERNAL_URL")
-        or current_app.config.get("COLLABORA_URL", "http://localhost:9980")
+    return current_app.config.get("COLLABORA_INTERNAL_URL") or current_app.config.get(
+        "COLLABORA_URL", "http://localhost:9980"
     )
 
 
@@ -144,5 +145,12 @@ def _mime_for_ext(ext):
         "markdown": "text/markdown",
         "csv": "text/csv",
         "tsv": "text/tab-separated-values",
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "png": "image/png",
+        "gif": "image/gif",
+        "svg": "image/svg+xml",
+        "webp": "image/webp",
+        "bmp": "image/bmp",
     }
     return mimes.get(ext, "application/octet-stream")

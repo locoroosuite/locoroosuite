@@ -14,6 +14,10 @@ class DocumentItem(BaseModel):
         "", description="Slash-separated folder path relative to account root (empty string = root)"
     )
     tags: list[str] = Field(default_factory=list, description="Document tags")
+    original_format: str | None = Field(
+        None,
+        description="Source format for non-ODF originals (e.g. 'pdf', 'docx', 'jpg'); null for ODF documents",
+    )
 
 
 class DocumentListResponse(BaseModel):

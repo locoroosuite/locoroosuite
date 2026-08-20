@@ -1,3 +1,4 @@
+import contextlib
 import io
 import json
 import os
@@ -35,10 +36,8 @@ def _read_styles_xml(data):
 
 
 def _safe_unlink(path):
-    try:
+    with contextlib.suppress(OSError):
         os.unlink(path)
-    except OSError:
-        pass
 
 
 def _setup_env(app, account_id):
@@ -67,16 +66,14 @@ def docs_api(app, api_customer):
 
     api_app.config["DOCS_DIR"] = docs_dir
     yield client, token_value, account_id, cache_path
-    try:
+    with contextlib.suppress(OSError):
         os.unlink(cache_path)
-    except OSError:
-        pass
     shutil.rmtree(docs_dir, ignore_errors=True)
 
 
 class TestListDocuments:
     def test_empty_list(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.get("/api/v1/docs/documents", headers=_auth_header(token))
         assert resp.status_code == 200
         data = json.loads(resp.data)
@@ -84,7 +81,7 @@ class TestListDocuments:
         assert data["pagination"]["has_more"] is False
 
     def test_returns_created_document(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "Test Doc", "type": "odt"},
@@ -104,7 +101,7 @@ class TestListDocuments:
         assert "updated_at" in doc
 
     def test_respects_limit(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         for i in range(5):
             client.post(
                 "/api/v1/docs/documents",
@@ -119,7 +116,7 @@ class TestListDocuments:
         assert data["pagination"]["has_more"] is True
 
     def test_excludes_deleted(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         create_resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "To Delete", "type": "odt"},
@@ -134,7 +131,7 @@ class TestListDocuments:
         assert data["data"] == []
 
     def test_search_not_supported(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         client.post(
             "/api/v1/docs/documents",
             json={"name": "Budget Report", "type": "odt"},
@@ -154,7 +151,7 @@ class TestListDocuments:
 
 class TestGetDocument:
     def test_get_existing(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         create_resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "My Doc", "type": "odt"},
@@ -170,14 +167,14 @@ class TestGetDocument:
         assert doc["type"] == "odt"
 
     def test_get_nonexistent(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.get("/api/v1/docs/documents/nonexistent-id", headers=_auth_header(token))
         assert resp.status_code == 404
 
 
 class TestCreateDocument:
     def test_create_odt(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "New Doc", "type": "odt"},
@@ -191,7 +188,7 @@ class TestCreateDocument:
         assert "id" in doc
 
     def test_create_returns_consistent_schema(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "Schema Doc", "type": "odt"},
@@ -206,7 +203,7 @@ class TestCreateDocument:
         assert doc["updated_at"] is not None
 
     def test_create_ods(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "Spreadsheet", "type": "ods"},
@@ -216,7 +213,7 @@ class TestCreateDocument:
         assert json.loads(resp.data)["data"]["type"] == "ods"
 
     def test_create_odp(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "Presentation", "type": "odp"},
@@ -226,7 +223,7 @@ class TestCreateDocument:
         assert json.loads(resp.data)["data"]["type"] == "odp"
 
     def test_create_invalid_type(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "Bad Type", "type": "exe"},
@@ -235,7 +232,7 @@ class TestCreateDocument:
         assert resp.status_code == 400
 
     def test_create_default_name_and_type(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.post(
             "/api/v1/docs/documents",
             json={},
@@ -265,7 +262,7 @@ class TestCreateDocument:
 
 class TestDeleteDocument:
     def test_soft_delete(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         create_resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "To Delete", "type": "odt"},
@@ -281,14 +278,14 @@ class TestDeleteDocument:
         assert all(d["id"] != doc_id for d in data["data"])
 
     def test_delete_nonexistent(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.delete("/api/v1/docs/documents/nonexistent", headers=_auth_header(token))
         assert resp.status_code == 404
 
 
 class TestRenameDocument:
     def test_rename(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         create_resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "Original", "type": "odt"},
@@ -305,7 +302,7 @@ class TestRenameDocument:
         assert json.loads(resp.data)["data"]["name"] == "Renamed"
 
     def test_rename_returns_consistent_schema(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         create_resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "Schema Rename", "type": "ods"},
@@ -326,7 +323,7 @@ class TestRenameDocument:
         assert doc["type"] == "ods"
 
     def test_rename_empty_name(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         create_resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "Original", "type": "odt"},
@@ -342,7 +339,7 @@ class TestRenameDocument:
         assert resp.status_code == 400
 
     def test_rename_nonexistent(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.put(
             "/api/v1/docs/documents/nonexistent",
             json={"name": "New Name"},
@@ -353,7 +350,7 @@ class TestRenameDocument:
 
 class TestDownloadDocument:
     def test_download_odt(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         create_resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "Download Me", "type": "odt"},
@@ -367,7 +364,7 @@ class TestDownloadDocument:
         assert len(resp.data) > 0
 
     def test_download_nonexistent(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.get(
             "/api/v1/docs/documents/nonexistent/download", headers=_auth_header(token)
         )
@@ -376,7 +373,7 @@ class TestDownloadDocument:
 
 class TestReadContent:
     def test_read_content_text(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         create_resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "Content Doc", "type": "odt"},
@@ -393,14 +390,14 @@ class TestReadContent:
         assert data["format"] == "text"
 
     def test_read_content_nonexistent(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.get("/api/v1/docs/documents/nonexistent/content", headers=_auth_header(token))
         assert resp.status_code == 404
 
 
 class TestUpdateContent:
     def test_update_via_json(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         create_resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "Update Me", "type": "odt"},
@@ -419,7 +416,7 @@ class TestUpdateContent:
         assert data["data"]["size"] > 0
 
     def test_update_content_returns_consistent_schema(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         create_resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "Content Schema", "type": "odt"},
@@ -439,7 +436,7 @@ class TestUpdateContent:
         assert doc["size"] > 0
 
     def test_update_nonexistent(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.put(
             "/api/v1/docs/documents/nonexistent/content",
             json={"content": "text"},
@@ -544,7 +541,7 @@ class TestMarkdownConversion:
 
 class TestDrafts:
     def test_create_and_list_drafts(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         create_resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "Original", "type": "odt"},
@@ -571,7 +568,7 @@ class TestDrafts:
         assert any(d["id"] == draft_id for d in drafts)
 
     def test_apply_draft(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         create_resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "Original", "type": "odt"},
@@ -594,7 +591,7 @@ class TestDrafts:
         assert json.loads(resp.data)["data"]["id"] == doc_id
 
     def test_discard_draft(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         create_resp = client.post(
             "/api/v1/docs/documents",
             json={"name": "Original", "type": "odt"},
@@ -616,7 +613,7 @@ class TestDrafts:
         assert resp.status_code == 204
 
     def test_create_draft_nonexistent_doc(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.post(
             "/api/v1/docs/documents/nonexistent/drafts",
             json={"content": "text"},
@@ -625,9 +622,91 @@ class TestDrafts:
         assert resp.status_code == 404
 
 
+class TestUploadDocument:
+    def test_upload_image_stored_as_original(self, app, docs_api):
+        # Images upload as non-ODF originals: raw bytes stored, meta.json
+        # sidecar, doc_type = odg (conversion target per target_odf_type).
+        client, token, account_id, cache_path = docs_api
+        try:
+            fake_jpg = b"\xff\xd8\xff\xe0 fake jpeg content"
+            resp = client.post(
+                "/api/v1/docs/documents/upload",
+                data={"file": (io.BytesIO(fake_jpg), "receipt.jpg")},
+                content_type="multipart/form-data",
+                headers=_auth_header(token),
+            )
+            assert resp.status_code == 201
+            data = json.loads(resp.data)["data"]
+            assert data["name"] == "receipt"
+            assert data["type"] == "odg"
+            assert data["original_format"] == "jpg"
+            assert data["size"] == len(fake_jpg)
+
+            from app.modules.docs.services import storage
+
+            with app.app_context():
+                from app.shared.db import db
+                from app.shared.models.core import CustomerAccount
+
+                account = db.session.get(CustomerAccount, account_id)
+                assert account is not None
+                stored = storage.read_file(account.customer_id, account_id, data["id"])
+                assert stored == fake_jpg
+                sidecar = storage.read_sidecar(account.customer_id, account_id, data["id"])
+                assert sidecar is not None
+                assert sidecar["original_format"] == "jpg"
+                assert sidecar["doc_type"] == "odg"
+        finally:
+            _safe_unlink(cache_path)
+
+    def test_upload_pdf_doc_type_is_odg(self, app, docs_api):
+        # Regression guard: the API upload route used a local ext map that
+        # left doc_type="pdf" for PDFs; it must use target_odf_type (U13.33).
+        client, token, _account_id, cache_path = docs_api
+        try:
+            resp = client.post(
+                "/api/v1/docs/documents/upload",
+                data={"file": (io.BytesIO(b"%PDF-1.4 fake"), "contract.pdf")},
+                content_type="multipart/form-data",
+                headers=_auth_header(token),
+            )
+            assert resp.status_code == 201
+            data = json.loads(resp.data)["data"]
+            assert data["type"] == "odg"
+            assert data["original_format"] == "pdf"
+        finally:
+            _safe_unlink(cache_path)
+
+    def test_upload_unsupported_extension(self, app, docs_api):
+        client, token, _account_id, cache_path = docs_api
+        try:
+            resp = client.post(
+                "/api/v1/docs/documents/upload",
+                data={"file": (io.BytesIO(b"MZ binary"), "malware.exe")},
+                content_type="multipart/form-data",
+                headers=_auth_header(token),
+            )
+            assert resp.status_code == 400
+            body = json.loads(resp.data)
+            assert body["error"]["code"] == "VALIDATION_ERROR"
+        finally:
+            _safe_unlink(cache_path)
+
+    def test_upload_no_file(self, app, docs_api):
+        client, token, _account_id, cache_path = docs_api
+        try:
+            resp = client.post(
+                "/api/v1/docs/documents/upload",
+                headers=_auth_header(token),
+            )
+            assert resp.status_code == 400
+        finally:
+            _safe_unlink(cache_path)
+
+
 class TestConvertDocument:
     def test_convert_pdf_targets_odg(self, app, docs_api):
-        client, token, account_id, cache_path = docs_api
+        client, token, account_id, _cache_path = docs_api
         try:
             from app.modules.docs.services import cache_db, storage
             from app.modules.docs.services.cache import get_cache_path
@@ -697,7 +776,7 @@ class TestConvertDocument:
             pass
 
     def test_convert_already_editable_returns_400(self, app, docs_api):
-        client, token, account_id, cache_path = docs_api
+        client, token, account_id, _cache_path = docs_api
         from app.modules.docs.services import cache_db
         from app.modules.docs.services.cache import get_cache_path
 
@@ -721,7 +800,7 @@ class TestConvertDocument:
         assert resp.status_code == 400
 
     def test_convert_not_found(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.post(
             "/api/v1/docs/documents/does-not-exist/convert",
             headers=_auth_header(token),
@@ -770,7 +849,7 @@ class TestScopeEnforcement:
 
 class TestDocumentEnvelopeFields:
     def test_list_includes_folder_path_and_tags(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         client.post(
             "/api/v1/docs/documents",
             json={"name": "Foldered", "type": "odt", "folder": "Work"},
@@ -784,7 +863,7 @@ class TestDocumentEnvelopeFields:
 
 class TestFolders:
     def test_create_and_list_folder(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.post(
             "/api/v1/docs/folders",
             json={"name": "Work"},
@@ -804,7 +883,7 @@ class TestFolders:
         assert paths == ["Work", "Work/Reports"]
 
     def test_create_folder_invalid_name(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.post(
             "/api/v1/docs/folders",
             json={"name": "bad/name"},
@@ -813,7 +892,7 @@ class TestFolders:
         assert resp.status_code == 400
 
     def test_create_folder_idempotent(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         client.post("/api/v1/docs/folders", json={"name": "Work"}, headers=_auth_header(token))
         resp = client.post(
             "/api/v1/docs/folders", json={"name": "Work"}, headers=_auth_header(token)
@@ -821,7 +900,7 @@ class TestFolders:
         assert resp.status_code == 201
 
     def test_rename_folder_moves_documents(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         client.post("/api/v1/docs/folders", json={"name": "Old"}, headers=_auth_header(token))
         create = client.post(
             "/api/v1/docs/documents",
@@ -845,7 +924,7 @@ class TestFolders:
         assert doc["folder_path"] == "New"
 
     def test_rename_folder_missing_path(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.post(
             "/api/v1/docs/folders/rename",
             json={"path": "", "name": "X"},
@@ -854,7 +933,7 @@ class TestFolders:
         assert resp.status_code == 400
 
     def test_delete_folder_flattens_to_parent(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         client.post("/api/v1/docs/folders", json={"name": "Parent"}, headers=_auth_header(token))
         client.post(
             "/api/v1/docs/folders",
@@ -883,7 +962,7 @@ class TestFolders:
         assert doc["folder_path"] == "Parent"
 
     def test_list_filter_by_folder_is_exact(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         client.post(
             "/api/v1/docs/documents",
             json={"name": "Root", "type": "odt"},
@@ -907,7 +986,7 @@ class TestFolders:
 
 class TestMoveDocument:
     def test_move_to_folder(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         client.post("/api/v1/docs/folders", json={"name": "Inbox"}, headers=_auth_header(token))
         create = client.post(
             "/api/v1/docs/documents",
@@ -925,7 +1004,7 @@ class TestMoveDocument:
         assert json.loads(resp.data)["data"]["folder_path"] == "Inbox"
 
     def test_move_to_root(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         create = client.post(
             "/api/v1/docs/documents",
             json={"name": "Doc", "type": "odt", "folder": "Work"},
@@ -942,7 +1021,7 @@ class TestMoveDocument:
         assert json.loads(resp.data)["data"]["folder_path"] == ""
 
     def test_move_nonexistent(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.post(
             "/api/v1/docs/documents/nope/move",
             json={"folder": ""},
@@ -953,7 +1032,7 @@ class TestMoveDocument:
 
 class TestTags:
     def test_get_empty_tags(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         create = client.post(
             "/api/v1/docs/documents",
             json={"name": "Doc", "type": "odt"},
@@ -966,7 +1045,7 @@ class TestTags:
         assert json.loads(resp.data)["data"]["tags"] == []
 
     def test_add_and_remove_tags(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         create = client.post(
             "/api/v1/docs/documents",
             json={"name": "Doc", "type": "odt"},
@@ -990,7 +1069,7 @@ class TestTags:
         assert json.loads(resp.data)["data"]["tags"] == ["finance"]
 
     def test_tag_filter_in_list(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         a = client.post(
             "/api/v1/docs/documents", json={"name": "A", "type": "odt"}, headers=_auth_header(token)
         )
@@ -1008,12 +1087,12 @@ class TestTags:
         assert names == ["A"]
 
     def test_tags_nonexistent(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.get("/api/v1/docs/documents/nope/tags", headers=_auth_header(token))
         assert resp.status_code == 404
 
     def test_set_tags_replaces_all(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         create = client.post(
             "/api/v1/docs/documents",
             json={"name": "Doc", "type": "odt"},
@@ -1035,7 +1114,7 @@ class TestTags:
         assert json.loads(resp.data)["data"]["tags"] == ["keep", "new"]
 
     def test_list_tags(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         a = client.post(
             "/api/v1/docs/documents", json={"name": "A", "type": "odt"}, headers=_auth_header(token)
         )
@@ -1059,7 +1138,7 @@ class TestTags:
         assert json.loads(resp.data)["data"] == ["apple", "mango", "zebra"]
 
     def test_list_tags_empty(self, app, docs_api):
-        client, token, account_id, _ = docs_api
+        client, token, _account_id, _ = docs_api
         resp = client.get("/api/v1/docs/tags", headers=_auth_header(token))
         assert resp.status_code == 200
         assert json.loads(resp.data)["data"] == []

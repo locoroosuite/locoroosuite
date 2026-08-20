@@ -41,6 +41,13 @@ MIME_TYPES = {
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+    "gif": "image/gif",
+    "svg": "image/svg+xml",
+    "webp": "image/webp",
+    "bmp": "image/bmp",
 }
 
 EXTENSIONS = {
@@ -101,7 +108,7 @@ def _build_odf(kind):
 
     content = (
         f'<?xml version="1.0" encoding="UTF-8"?>'
-        f'<office:document-content {_common_attrs}>'
+        f"<office:document-content {_common_attrs}>"
         f"{_common_children}"
         f"{body}"
         f"</office:document-content>"
@@ -119,7 +126,7 @@ def _build_odf(kind):
 
     styles = (
         f'<?xml version="1.0" encoding="UTF-8"?>'
-        f'<office:document-styles {_common_attrs}>'
+        f"<office:document-styles {_common_attrs}>"
         f"<office:font-face-decls/>"
         f"<office:styles/>"
         f"<office:automatic-styles/>"

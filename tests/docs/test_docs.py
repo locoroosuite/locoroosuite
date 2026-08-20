@@ -1,3 +1,4 @@
+import contextlib
 import io
 import json
 import os
@@ -7,18 +8,16 @@ import pytest
 
 
 def _safe_unlink(path):
-    try:
+    with contextlib.suppress(OSError):
         os.unlink(path)
-    except OSError:
-        pass
 
 
 def _setup_test_env(app, account_id):
     paths = {}
     with app.app_context():
+        from app.modules.docs.services.cache import get_cache_path
         from app.shared.db import db
         from app.shared.models.core import CustomerAccount
-        from app.modules.docs.services.cache import get_cache_path
 
         account = db.session.get(CustomerAccount, account_id)
         paths["cache"] = get_cache_path(account)
@@ -29,7 +28,7 @@ def _setup_test_env(app, account_id):
 
 
 def test_docs_index_empty(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.get("/app/docs/")
@@ -40,7 +39,7 @@ def test_docs_index_empty(authed_client, app):
 
 
 def test_docs_create(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post("/app/docs/new", data={"doc_type": "odt"}, follow_redirects=False)
@@ -52,7 +51,7 @@ def test_docs_create(authed_client, app):
 
 
 def test_docs_create_spreadsheet(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post("/app/docs/new", data={"doc_type": "ods"}, follow_redirects=False)
@@ -63,7 +62,7 @@ def test_docs_create_spreadsheet(authed_client, app):
 
 
 def test_docs_create_presentation(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post("/app/docs/new", data={"doc_type": "odp"}, follow_redirects=False)
@@ -74,7 +73,7 @@ def test_docs_create_presentation(authed_client, app):
 
 
 def test_docs_create_invalid_type(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post("/app/docs/new", data={"doc_type": "exe"}, follow_redirects=False)
@@ -84,7 +83,7 @@ def test_docs_create_invalid_type(authed_client, app):
 
 
 def test_docs_list_after_create(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post("/app/docs/new", data={"doc_type": "odt"}, follow_redirects=False)
@@ -98,7 +97,7 @@ def test_docs_list_after_create(authed_client, app):
 
 
 def test_docs_editor_page(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post("/app/docs/new", data={"doc_type": "odt"}, follow_redirects=False)
@@ -127,7 +126,7 @@ def test_docs_editor_page_for_pdf_shows_convert(authed_client, app):
     # the editor JS must null-guard its handler attachment. Previously it did
     # not, the IIFE threw at the rename-btn line, and the convert handler lower
     # in the script was never attached -> clicking "Convert" did nothing.
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         fake_pdf = b"%PDF-1.4 fake pdf content"
@@ -156,7 +155,7 @@ def test_docs_editor_page_for_pdf_shows_convert(authed_client, app):
 
 
 def test_docs_rename(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post("/app/docs/new", data={"doc_type": "odt"}, follow_redirects=False)
@@ -176,7 +175,7 @@ def test_docs_rename(authed_client, app):
 
 
 def test_docs_rename_empty(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post("/app/docs/new", data={"doc_type": "odt"}, follow_redirects=False)
@@ -189,7 +188,7 @@ def test_docs_rename_empty(authed_client, app):
 
 
 def test_docs_rename_slash(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post("/app/docs/new", data={"doc_type": "odt"}, follow_redirects=False)
@@ -202,7 +201,7 @@ def test_docs_rename_slash(authed_client, app):
 
 
 def test_docs_rename_too_long(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post("/app/docs/new", data={"doc_type": "odt"}, follow_redirects=False)
@@ -215,7 +214,7 @@ def test_docs_rename_too_long(authed_client, app):
 
 
 def test_docs_soft_delete(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post("/app/docs/new", data={"doc_type": "odt"}, follow_redirects=False)
@@ -232,7 +231,7 @@ def test_docs_soft_delete(authed_client, app):
 
 
 def test_docs_restore(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post("/app/docs/new", data={"doc_type": "odt"}, follow_redirects=False)
@@ -250,7 +249,7 @@ def test_docs_restore(authed_client, app):
 
 
 def test_docs_hard_delete_from_trash(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post("/app/docs/new", data={"doc_type": "odt"}, follow_redirects=False)
@@ -268,7 +267,7 @@ def test_docs_hard_delete_from_trash(authed_client, app):
 
 
 def test_docs_download(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post("/app/docs/new", data={"doc_type": "odt"}, follow_redirects=False)
@@ -283,7 +282,7 @@ def test_docs_download(authed_client, app):
 
 
 def test_docs_download_deleted(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post("/app/docs/new", data={"doc_type": "odt"}, follow_redirects=False)
@@ -297,7 +296,7 @@ def test_docs_download_deleted(authed_client, app):
 
 
 def test_docs_upload_odt(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         from app.modules.docs.services.templates import empty_odt
@@ -318,7 +317,7 @@ def test_docs_upload_odt(authed_client, app):
 
 
 def test_docs_upload_invalid_extension(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post(
@@ -334,7 +333,7 @@ def test_docs_upload_invalid_extension(authed_client, app):
 
 
 def test_docs_upload_ajax_odt(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         from app.modules.docs.services.templates import empty_odt
@@ -358,7 +357,7 @@ def test_docs_upload_ajax_odt(authed_client, app):
 
 
 def test_docs_upload_ajax_no_account(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, _account_id = authed_client
     with client.session_transaction() as sess:
         sess["active_account_id"] = None
     resp = client.post(
@@ -373,7 +372,7 @@ def test_docs_upload_ajax_no_account(authed_client, app):
 
 
 def test_docs_upload_ajax_no_file(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post(
@@ -389,7 +388,7 @@ def test_docs_upload_ajax_no_file(authed_client, app):
 
 
 def test_docs_upload_ajax_invalid_extension(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post(
@@ -406,7 +405,7 @@ def test_docs_upload_ajax_invalid_extension(authed_client, app):
 
 
 def test_docs_upload_ajax_oversized(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         big = io.BytesIO(b"x" * (50 * 1024 * 1024 + 1))
@@ -424,7 +423,7 @@ def test_docs_upload_ajax_oversized(authed_client, app):
 
 
 def test_docs_empty_trash(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post("/app/docs/new", data={"doc_type": "odt"}, follow_redirects=False)
@@ -441,7 +440,7 @@ def test_docs_empty_trash(authed_client, app):
 
 
 def test_docs_no_account_redirect(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, _account_id = authed_client
     with client.session_transaction() as sess:
         sess["active_account_id"] = None
     resp = client.get("/app/docs/", follow_redirects=False)
@@ -449,7 +448,7 @@ def test_docs_no_account_redirect(authed_client, app):
 
 
 def test_docs_editor_nonexistent(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.get("/app/docs/nonexistent/edit", follow_redirects=False)
@@ -518,7 +517,7 @@ def test_docs_upload_original_stored(authed_client, app, src_ext, target_ext):
 
 @pytest.mark.parametrize("src_ext,target_ext", _CONVERSION_CASES)
 def test_docs_upload_original_not_ajax(authed_client, app, src_ext, target_ext):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         fake_content = b"PK\x03\x04 fake office document content"
@@ -566,6 +565,45 @@ def test_docs_upload_pdf_original_stored(authed_client, app):
         _safe_unlink(paths["cache"])
 
 
+_IMAGE_CASES = ["jpg", "jpeg", "png", "gif", "svg", "webp", "bmp"]
+
+
+@pytest.mark.parametrize("src_ext", _IMAGE_CASES)
+def test_docs_upload_image_original_stored(authed_client, app, src_ext):
+    # Receipt/"paperclip" use case: images are stored as-is as non-ODF
+    # originals with a meta.json sidecar; doc_type is the conversion target
+    # (odg, same as PDF) so the list shows the Convert action.
+    client, user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+    try:
+        fake_image = b"\x89PNG\r\n\x1a\n fake image content"
+
+        resp = client.post(
+            "/app/docs/upload",
+            data={"file": (io.BytesIO(fake_image), f"receipt.{src_ext}")},
+            content_type="multipart/form-data",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+
+        assert resp.status_code == 200
+        body = json.loads(resp.data)
+        assert "doc_id" in body
+        assert "editor_url" in body
+
+        from app.modules.docs.services import storage
+
+        stored = storage.read_file(user_id, account_id, body["doc_id"])
+        assert stored == fake_image
+
+        sidecar = storage.read_sidecar(user_id, account_id, body["doc_id"])
+        assert sidecar is not None
+        assert sidecar["name"] == "receipt"
+        assert sidecar["original_format"] == src_ext
+        assert sidecar["doc_type"] == "odg"
+    finally:
+        _safe_unlink(paths["cache"])
+
+
 _PANDOC_FORMAT_CASES = [
     ("rtf", b"{\\rtf1 Hello}"),
     ("txt", b"Hello world"),
@@ -583,7 +621,7 @@ _PANDOC_FORMAT_CASES = [
 
 @pytest.mark.parametrize("src_ext,content", _PANDOC_FORMAT_CASES)
 def test_docs_upload_pandoc_format_success(authed_client, app, src_ext, content):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         fake_odt = _fake_odt_bytes()
@@ -609,7 +647,7 @@ def test_docs_upload_pandoc_format_success(authed_client, app, src_ext, content)
 
 
 def test_docs_upload_pandoc_format_failure(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         with patch(
@@ -635,7 +673,7 @@ class TestConvertDocument:
         client, user_id, account_id = authed_client
         paths = _setup_test_env(app, account_id)
         try:
-            from app.modules.docs.services import storage, cache_db
+            from app.modules.docs.services import cache_db, storage
             from app.modules.docs.services.cache import get_cache_path
             from app.modules.docs.services.templates import empty_odg
             from app.shared.keys import get_user_key
@@ -705,6 +743,7 @@ class TestConvertDocument:
                 conn = cache_db.open_cache(get_cache_path(account), key)
                 try:
                     original = cache_db.get_document(conn, doc_id)
+                    assert original is not None
                     assert original["original_format"] == "pdf"
 
                     new_doc = cache_db.get_document(conn, new_doc_id)
@@ -720,14 +759,100 @@ class TestConvertDocument:
         finally:
             _safe_unlink(paths["cache"])
 
+    def test_convert_image_creates_odg_drawing(self, authed_client, app):
+        # Images convert to odg (drawing) via Collabora, mirroring the PDF
+        # flow: original preserved, new editable odg document created.
+        client, user_id, account_id = authed_client
+        paths = _setup_test_env(app, account_id)
+        try:
+            from app.modules.docs.services import cache_db, storage
+            from app.modules.docs.services.cache import get_cache_path
+            from app.modules.docs.services.templates import empty_odg
+            from app.shared.keys import get_user_key
+
+            fake_jpg = b"\xff\xd8\xff\xe0 fake jpeg content"
+            key = get_user_key(user_id)
+            with app.app_context():
+                from app.shared.db import db
+                from app.shared.models.core import CustomerAccount
+
+                account = db.session.get(CustomerAccount, account_id)
+                conn = cache_db.open_cache(get_cache_path(account), key)
+                try:
+                    doc_id = "imgdoc0001"
+                    cache_db.create_document(
+                        conn,
+                        doc_id,
+                        "Receipt",
+                        "odg",
+                        account_id,
+                        file_size=0,
+                        original_format="jpg",
+                    )
+                    storage.write_file(user_id, account_id, doc_id, fake_jpg)
+                    storage.write_sidecar(
+                        user_id,
+                        account_id,
+                        doc_id,
+                        {
+                            "id": doc_id,
+                            "name": "Receipt",
+                            "doc_type": "odg",
+                            "original_format": "jpg",
+                            "account_id": account_id,
+                        },
+                    )
+                    cache_db.update_file_size(conn, doc_id, len(fake_jpg))
+                finally:
+                    conn.close()
+
+            converted_odg = empty_odg().read()
+            with patch(
+                "app.modules.docs.controllers.docs.collabora.convert_upload",
+                return_value=io.BytesIO(converted_odg),
+            ) as mock_convert:
+                resp = client.post(
+                    f"/app/docs/{doc_id}/convert",
+                    headers={"X-Requested-With": "XMLHttpRequest"},
+                )
+
+            assert resp.status_code == 200
+            body = json.loads(resp.data)
+            new_doc_id = body["doc_id"]
+            assert new_doc_id != doc_id
+
+            # Image originals must request the odg (drawing) target.
+            mock_convert.assert_called_once()
+            assert mock_convert.call_args.args[2] == "odg"
+            assert mock_convert.call_args.args[1].endswith(".jpg")
+
+            with app.app_context():
+                conn = cache_db.open_cache(get_cache_path(account), key)
+                try:
+                    original = cache_db.get_document(conn, doc_id)
+                    assert original is not None
+                    assert original["original_format"] == "jpg"
+
+                    new_doc = cache_db.get_document(conn, new_doc_id)
+                    assert new_doc is not None
+                    assert new_doc["name"] == "Receipt"
+                    assert new_doc["original_format"] is None
+                    assert new_doc["doc_type"] == "odg"
+                finally:
+                    conn.close()
+
+            assert storage.read_file(user_id, account_id, doc_id) == fake_jpg
+        finally:
+            _safe_unlink(paths["cache"])
+
     def test_convert_already_editable_returns_error(self, authed_client, app):
         client, user_id, account_id = authed_client
         paths = _setup_test_env(app, account_id)
         try:
-            from app.modules.docs.services import storage, cache_db
+            from app.modules.docs.services import cache_db, storage
             from app.modules.docs.services.cache import get_cache_path
-            from app.shared.keys import get_user_key
             from app.modules.docs.services.templates import empty_odt
+            from app.shared.keys import get_user_key
 
             key = get_user_key(user_id)
             with app.app_context():
@@ -754,7 +879,7 @@ class TestConvertDocument:
             _safe_unlink(paths["cache"])
 
     def test_convert_not_found(self, authed_client, app):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         paths = _setup_test_env(app, account_id)
         try:
             resp = client.post(

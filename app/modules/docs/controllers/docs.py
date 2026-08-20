@@ -3,26 +3,69 @@ import logging
 import uuid
 from urllib.parse import quote
 
-from flask import request, redirect, url_for, session, render_template, send_file, jsonify, current_app
+from flask import (
+    current_app,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    session,
+    url_for,
+)
 
+from app.modules.docs.controllers.helpers import _get_account, _open_cache_for_account, docs_bp
+from app.modules.docs.services import cache_db, collabora, doc_meta, sharing, storage, wopi_token
+from app.modules.docs.services import folders as folders_svc
+from app.modules.docs.services import resync as resync_svc
+from app.modules.docs.services.templates import (
+    MIME_TYPES,
+    TYPE_NAMES,
+    empty_odp,
+    empty_ods,
+    empty_odt,
+)
 from app.shared.auth import require_customer
 from app.shared.models.core import CustomerAccount
 from app.shared.pandoc_formats import target_odf_type
-from app.modules.docs.controllers.helpers import docs_bp, _get_account, _open_cache_for_account
-from app.modules.docs.services import cache_db, storage, wopi_token, collabora, sharing
-from app.modules.docs.services import doc_meta, resync as resync_svc
-from app.modules.docs.services import folders as folders_svc
-from app.modules.docs.services.templates import empty_odt, empty_ods, empty_odp, TYPE_NAMES, MIME_TYPES
 
 logger = logging.getLogger(__name__)
 
-ALLOWED_UPLOAD_EXTENSIONS = {"odt", "ods", "odp", "docx", "xlsx", "pptx", "pdf"}
+ALLOWED_UPLOAD_EXTENSIONS = {
+    "odt",
+    "ods",
+    "odp",
+    "docx",
+    "xlsx",
+    "pptx",
+    "pdf",
+    "jpg",
+    "jpeg",
+    "png",
+    "gif",
+    "svg",
+    "webp",
+    "bmp",
+}
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 PANDOC_UPLOAD_EXTENSIONS = {
-    "rtf", "epub", "html", "htm", "tex", "latex",
-    "md", "markdown", "txt", "org", "rst", "docbook", "opml",
-    "csv", "tsv", "ipynb",
+    "rtf",
+    "epub",
+    "html",
+    "htm",
+    "tex",
+    "latex",
+    "md",
+    "markdown",
+    "txt",
+    "org",
+    "rst",
+    "docbook",
+    "opml",
+    "csv",
+    "tsv",
+    "ipynb",
 }
 
 ALL_UPLOAD_EXTENSIONS = ALLOWED_UPLOAD_EXTENSIONS | PANDOC_UPLOAD_EXTENSIONS
@@ -47,7 +90,8 @@ def index():
 
     def _snapshot():
         docs = cache_db.list_documents(
-            conn, account_id,
+            conn,
+            account_id,
             folder=current_folder or None,
             tag=current_tag or None,
         )
@@ -136,7 +180,9 @@ def api_list():
     account = _get_account(account_id, user_id)
     conn = _open_cache_for_account(account)
     if not conn:
-        return jsonify({"error": {"code": "no_cache", "message": "Unable to open document store."}}), 503
+        return jsonify(
+            {"error": {"code": "no_cache", "message": "Unable to open document store."}}
+        ), 503
 
     try:
         documents = cache_db.list_documents(conn, account_id)
@@ -150,15 +196,17 @@ def api_list():
         if q and q not in (name or "").lower():
             continue
         ext = doc.get("original_format") or doc.get("doc_type") or "odt"
-        items.append({
-            "id": doc.get("id"),
-            "name": name,
-            "doc_type": doc.get("doc_type"),
-            "original_format": doc.get("original_format"),
-            "ext": ext,
-            "file_size": doc.get("file_size", 0),
-            "updated_at": doc.get("updated_at"),
-        })
+        items.append(
+            {
+                "id": doc.get("id"),
+                "name": name,
+                "doc_type": doc.get("doc_type"),
+                "original_format": doc.get("original_format"),
+                "ext": ext,
+                "file_size": doc.get("file_size", 0),
+                "updated_at": doc.get("updated_at"),
+            }
+        )
     return jsonify({"documents": items, "account_id": account_id})
 
 
@@ -198,8 +246,12 @@ def create():
     try:
         if folder:
             folders_svc.ensure_folder_path(conn, account_id, folder)
-        cache_db.create_document(conn, doc_id, name, doc_type, account_id, file_size=0, folder_path=folder)
-        metadata = resync_svc.build_doc_metadata(doc_id, name, doc_type, account_id, folder_path=folder)
+        cache_db.create_document(
+            conn, doc_id, name, doc_type, account_id, file_size=0, folder_path=folder
+        )
+        metadata = resync_svc.build_doc_metadata(
+            doc_id, name, doc_type, account_id, folder_path=folder
+        )
         template_data = doc_meta.inject_metadata(template_data, metadata)
         storage.write_file(user_id, account_id, doc_id, template_data)
         cache_db.update_file_size(conn, doc_id, len(template_data))
@@ -229,27 +281,24 @@ def editor(doc_id):
 
         token = wopi_token.generate_token(doc_id, user_id, account_id, writable=True)
 
-        collabora_internal = (
-            current_app.config.get("COLLABORA_INTERNAL_URL")
-            or current_app.config.get("COLLABORA_URL", "http://localhost:9980")
-        )
-        collabora_public = (
-            current_app.config.get("COLLABORA_PUBLIC_URL")
-            or collabora_internal
-        )
+        collabora_internal = current_app.config.get(
+            "COLLABORA_INTERNAL_URL"
+        ) or current_app.config.get("COLLABORA_URL", "http://localhost:9980")
+        collabora_public = current_app.config.get("COLLABORA_PUBLIC_URL") or collabora_internal
 
         wopi_host_url = current_app.config.get("WOPI_HOST_URL", "") or request.host_url.rstrip("/")
         wopi_src = wopi_host_url + url_for("docs.wopi_check_file_info", doc_id=doc_id)
-        edit_base = collabora.get_edit_url(doc["doc_type"], collabora_internal) or f"{collabora_public}/browser/dist/cool.html?"
+        edit_base = (
+            collabora.get_edit_url(doc["doc_type"], collabora_internal)
+            or f"{collabora_public}/browser/dist/cool.html?"
+        )
 
         edit_base_http = edit_base.replace("https://", "http://", 1)
         if edit_base_http.startswith(collabora_internal):
-            edit_base = collabora_public + edit_base_http[len(collabora_internal):]
+            edit_base = collabora_public + edit_base_http[len(collabora_internal) :]
 
         collabora_src = (
-            f"{edit_base}"
-            f"WOPISrc={quote(wopi_src, safe='')}"
-            f"&access_token={quote(token, safe='')}"
+            f"{edit_base}WOPISrc={quote(wopi_src, safe='')}&access_token={quote(token, safe='')}"
         )
 
         return render_template(
@@ -286,7 +335,9 @@ def rename(doc_id):
             return jsonify({"error": "not found"}), 404
         cache_db.rename_document(conn, doc_id, name)
         sharing.update_shares_on_rename(doc_id, name)
-        resync_svc.inject_metadata_from_doc_row(user_id, account_id, cache_db.get_document(conn, doc_id))
+        resync_svc.inject_metadata_from_doc_row(
+            user_id, account_id, cache_db.get_document(conn, doc_id)
+        )
         return jsonify({"ok": True, "name": name})
     finally:
         conn.close()
@@ -316,7 +367,9 @@ def delete(doc_id):
         else:
             cache_db.soft_delete_document(conn, doc_id)
             sharing.revoke_shares_for_doc(doc_id)
-            resync_svc.inject_metadata_from_doc_row(user_id, account_id, cache_db.get_document(conn, doc_id))
+            resync_svc.inject_metadata_from_doc_row(
+                user_id, account_id, cache_db.get_document(conn, doc_id)
+            )
         return redirect(url_for("docs.index"))
     finally:
         conn.close()
@@ -340,7 +393,9 @@ def restore(doc_id):
         if not doc:
             return redirect(url_for("docs.index"))
         cache_db.restore_document(conn, doc_id)
-        resync_svc.inject_metadata_from_doc_row(user_id, account_id, cache_db.get_document(conn, doc_id))
+        resync_svc.inject_metadata_from_doc_row(
+            user_id, account_id, cache_db.get_document(conn, doc_id)
+        )
         return redirect(url_for("docs.index"))
     finally:
         conn.close()
@@ -392,7 +447,8 @@ def _target_doc_type(ext):
 
 def _get_user_emails(user_id):
     accounts = CustomerAccount.query.filter_by(
-        customer_id=user_id, is_active=True,
+        customer_id=user_id,
+        is_active=True,
     ).all()
     return [a.email_address.lower() for a in accounts]
 
@@ -460,26 +516,52 @@ def upload():
             folders_svc.ensure_folder_path(conn, account_id, folder)
         if ext in ("odt", "ods", "odp"):
             file_data = f.read()
-            cache_db.create_document(conn, doc_id, name, target_type, account_id, file_size=0, folder_path=folder)
-            metadata = resync_svc.build_doc_metadata(doc_id, name, target_type, account_id, folder_path=folder)
+            cache_db.create_document(
+                conn, doc_id, name, target_type, account_id, file_size=0, folder_path=folder
+            )
+            metadata = resync_svc.build_doc_metadata(
+                doc_id, name, target_type, account_id, folder_path=folder
+            )
             file_data = doc_meta.inject_metadata(file_data, metadata)
             storage.write_file(user_id, account_id, doc_id, file_data)
         elif ext in PANDOC_UPLOAD_EXTENSIONS:
-            from app.shared.pandoc_formats import convert_to_odf as pandoc_convert, PANDOC_EXTENSIONS
+            from app.shared.pandoc_formats import PANDOC_EXTENSIONS
+            from app.shared.pandoc_formats import convert_to_odf as pandoc_convert
+
             raw_data = f.read()
             pandoc_reader = PANDOC_EXTENSIONS.get(ext, {}).get("pandoc_reader", "plain")
             converted = pandoc_convert(raw_data, pandoc_reader, target_type)
             if not converted:
                 raise collabora.ConversionError(f"Could not convert .{ext} file with pandoc")
             file_data = converted
-            cache_db.create_document(conn, doc_id, name, target_type, account_id, file_size=0, folder_path=folder)
-            metadata = resync_svc.build_doc_metadata(doc_id, name, target_type, account_id, folder_path=folder)
+            cache_db.create_document(
+                conn, doc_id, name, target_type, account_id, file_size=0, folder_path=folder
+            )
+            metadata = resync_svc.build_doc_metadata(
+                doc_id, name, target_type, account_id, folder_path=folder
+            )
             file_data = doc_meta.inject_metadata(file_data, metadata)
             storage.write_file(user_id, account_id, doc_id, file_data)
         else:
             raw_data = f.read()
-            cache_db.create_document(conn, doc_id, name, target_type, account_id, file_size=0, original_format=original_format, folder_path=folder)
-            metadata = resync_svc.build_doc_metadata(doc_id, name, target_type, account_id, original_format=original_format, folder_path=folder)
+            cache_db.create_document(
+                conn,
+                doc_id,
+                name,
+                target_type,
+                account_id,
+                file_size=0,
+                original_format=original_format,
+                folder_path=folder,
+            )
+            metadata = resync_svc.build_doc_metadata(
+                doc_id,
+                name,
+                target_type,
+                account_id,
+                original_format=original_format,
+                folder_path=folder,
+            )
             storage.write_file(user_id, account_id, doc_id, raw_data)
             storage.write_sidecar(user_id, account_id, doc_id, metadata)
             file_data = raw_data
@@ -490,13 +572,19 @@ def upload():
         else:
             logger.error("Conversion failed for %s: %s", f.filename, exc)
         if ajax:
-            return jsonify({"error": f"Could not convert {f.filename}. Please try uploading an .odt file or try again later."}), 500
+            return jsonify(
+                {
+                    "error": f"Could not convert {f.filename}. Please try uploading an .odt file or try again later."
+                }
+            ), 500
         return redirect(url_for("docs.index"))
     finally:
         conn.close()
 
     if ajax:
-        return jsonify({"doc_id": doc_id, "editor_url": url_for("docs.editor", doc_id=doc_id, _external=False)})
+        return jsonify(
+            {"doc_id": doc_id, "editor_url": url_for("docs.editor", doc_id=doc_id, _external=False)}
+        )
     return redirect(url_for("docs.editor", doc_id=doc_id))
 
 
@@ -553,7 +641,9 @@ def convert(doc_id):
         target_type = target_odf_type(original_format) or doc["doc_type"]
 
         if original_format in PANDOC_UPLOAD_EXTENSIONS:
-            from app.shared.pandoc_formats import convert_to_odf as pandoc_convert, PANDOC_EXTENSIONS
+            from app.shared.pandoc_formats import PANDOC_EXTENSIONS
+            from app.shared.pandoc_formats import convert_to_odf as pandoc_convert
+
             pandoc_reader = PANDOC_EXTENSIONS.get(original_format, {}).get("pandoc_reader", "plain")
             converted = pandoc_convert(raw_data, pandoc_reader, target_type)
             if not converted:
@@ -561,18 +651,24 @@ def convert(doc_id):
             file_data = converted
         else:
             converted = collabora.convert_upload(
-                io.BytesIO(raw_data), f"{doc['name']}.{original_format}", target_type,
+                io.BytesIO(raw_data),
+                f"{doc['name']}.{original_format}",
+                target_type,
             )
             file_data = converted.read()
 
         new_doc_id = uuid.uuid4().hex
-        cache_db.create_document(conn, new_doc_id, doc["name"], target_type, account_id, file_size=0)
+        cache_db.create_document(
+            conn, new_doc_id, doc["name"], target_type, account_id, file_size=0
+        )
         metadata = resync_svc.build_doc_metadata(new_doc_id, doc["name"], target_type, account_id)
         file_data = doc_meta.inject_metadata(file_data, metadata)
         storage.write_file(user_id, account_id, new_doc_id, file_data)
         cache_db.update_file_size(conn, new_doc_id, len(file_data))
 
-        return jsonify({"doc_id": new_doc_id, "editor_url": url_for("docs.editor", doc_id=new_doc_id)})
+        return jsonify(
+            {"doc_id": new_doc_id, "editor_url": url_for("docs.editor", doc_id=new_doc_id)}
+        )
     except collabora.ConversionError as exc:
         logger.error("Conversion failed for doc_id=%s: %s", doc_id, exc)
         return jsonify({"error": f"Conversion failed: {exc}"}), 500
@@ -608,6 +704,7 @@ def sync():
 # Folders & tags
 # ---------------------------------------------------------------------------
 
+
 def _form_or_json(*keys):
     """Read values from form data, falling back to a JSON body. Returns a dict."""
     out = {}
@@ -641,7 +738,9 @@ def list_folders():
     account = _get_account(account_id, user_id)
     conn = _open_cache_for_account(account)
     if not conn:
-        return jsonify({"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}), 503
+        return jsonify(
+            {"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}
+        ), 503
     try:
         tree = folders_svc.list_tree(conn, account_id)
     finally:
@@ -669,13 +768,22 @@ def create_folder():
     account = _get_account(account_id, user_id)
     conn = _open_cache_for_account(account)
     if not conn:
-        return jsonify({"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}), 503
+        return jsonify(
+            {"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}
+        ), 503
     try:
         folders_svc.ensure_folder_path(conn, account_id, path)
         folder = cache_db.get_folder_by_path(conn, account_id, path)
     finally:
         conn.close()
-    return jsonify({"ok": True, "path": path, "name": folders_svc.leaf_name(path), "id": (folder or {}).get("id")})
+    return jsonify(
+        {
+            "ok": True,
+            "path": path,
+            "name": folders_svc.leaf_name(path),
+            "id": (folder or {}).get("id"),
+        }
+    )
 
 
 @docs_bp.route("/docs/folders/rename", methods=["POST"])
@@ -700,7 +808,9 @@ def rename_folder():
     account = _get_account(account_id, user_id)
     conn = _open_cache_for_account(account)
     if not conn:
-        return jsonify({"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}), 503
+        return jsonify(
+            {"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}
+        ), 503
     try:
         cache_db.rename_folder_subtree(conn, account_id, path, new_path)
         # Re-inject embedded metadata so the move survives a resync.
@@ -729,7 +839,9 @@ def delete_folder():
     account = _get_account(account_id, user_id)
     conn = _open_cache_for_account(account)
     if not conn:
-        return jsonify({"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}), 503
+        return jsonify(
+            {"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}
+        ), 503
     parent = folders_svc.parent_path(path)
     try:
         # Capture undo state before mutating.
@@ -775,7 +887,9 @@ def undo_delete_folder():
     account = _get_account(account_id, user_id)
     conn = _open_cache_for_account(account)
     if not conn:
-        return jsonify({"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}), 503
+        return jsonify(
+            {"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}
+        ), 503
     try:
         # Restore folder rows.
         for r in undo.get("deleted_rows", []):
@@ -788,7 +902,9 @@ def undo_delete_folder():
             doc = cache_db.get_document(conn, d["id"])
             if doc and not doc.get("deleted_at"):
                 cache_db.set_document_folder(conn, d["id"], d["old_path"])
-                resync_svc.inject_metadata_from_doc_row(user_id, account_id, cache_db.get_document(conn, d["id"]))
+                resync_svc.inject_metadata_from_doc_row(
+                    user_id, account_id, cache_db.get_document(conn, d["id"])
+                )
     finally:
         conn.close()
     return jsonify({"ok": True})
@@ -815,7 +931,9 @@ def move_document(doc_id):
     account = _get_account(account_id, user_id)
     conn = _open_cache_for_account(account)
     if not conn:
-        return jsonify({"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}), 503
+        return jsonify(
+            {"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}
+        ), 503
     try:
         doc = cache_db.get_document(conn, doc_id)
         if not doc or doc.get("deleted_at"):
@@ -823,7 +941,9 @@ def move_document(doc_id):
         if target:
             folders_svc.ensure_folder_path(conn, account_id, target)
         cache_db.set_document_folder(conn, doc_id, target)
-        resync_svc.inject_metadata_from_doc_row(user_id, account_id, cache_db.get_document(conn, doc_id))
+        resync_svc.inject_metadata_from_doc_row(
+            user_id, account_id, cache_db.get_document(conn, doc_id)
+        )
     finally:
         conn.close()
     return jsonify({"ok": True, "folder_path": target})
@@ -840,7 +960,9 @@ def get_tags(doc_id):
     account = _get_account(account_id, user_id)
     conn = _open_cache_for_account(account)
     if not conn:
-        return jsonify({"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}), 503
+        return jsonify(
+            {"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}
+        ), 503
     try:
         doc = cache_db.get_document(conn, doc_id)
         if not doc:
@@ -865,11 +987,17 @@ def update_tags(doc_id):
     if data.get("set") is not None:
         desired = data.get("set") or []
         if not isinstance(desired, list):
-            return jsonify({"error": {"code": "VALIDATION_ERROR", "message": "set must be a list"}}), 400
+            return jsonify(
+                {"error": {"code": "VALIDATION_ERROR", "message": "set must be a list"}}
+            ), 400
         add_raw = desired
         remove_raw = None
-    if not isinstance(add_raw, list) or (remove_raw is not None and not isinstance(remove_raw, list)):
-        return jsonify({"error": {"code": "VALIDATION_ERROR", "message": "add/remove must be lists"}}), 400
+    if not isinstance(add_raw, list) or (
+        remove_raw is not None and not isinstance(remove_raw, list)
+    ):
+        return jsonify(
+            {"error": {"code": "VALIDATION_ERROR", "message": "add/remove must be lists"}}
+        ), 400
 
     add_tags, remove_tags = [], remove_raw or []
     for t in add_raw:
@@ -880,7 +1008,9 @@ def update_tags(doc_id):
     account = _get_account(account_id, user_id)
     conn = _open_cache_for_account(account)
     if not conn:
-        return jsonify({"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}), 503
+        return jsonify(
+            {"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}
+        ), 503
     try:
         doc = cache_db.get_document(conn, doc_id)
         if not doc or doc.get("deleted_at"):
@@ -889,7 +1019,9 @@ def update_tags(doc_id):
             cache_db.set_document_tags(conn, doc_id, add_tags)
         else:
             cache_db.update_document_tags(conn, doc_id, add=add_tags, remove=remove_tags)
-        resync_svc.inject_metadata_from_doc_row(user_id, account_id, cache_db.get_document(conn, doc_id))
+        resync_svc.inject_metadata_from_doc_row(
+            user_id, account_id, cache_db.get_document(conn, doc_id)
+        )
         tags = cache_db.get_document_tags(conn, doc_id)
     finally:
         conn.close()

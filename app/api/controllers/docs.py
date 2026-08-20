@@ -76,7 +76,8 @@ logger = logging.getLogger(__name__)
 def _row_to_dict(row) -> dict:
     if row is None:
         return {}
-    return {k: row[k] for k in row.keys()}  # Row iteration yields values, not keys; .keys() is required
+    # Row iteration yields values, not keys; .keys() is required
+    return {k: row[k] for k in row.keys()}  # noqa: SIM118
 
 
 def _get_cache_conn(account_id, dek):
@@ -105,6 +106,7 @@ def _doc_to_dict(row):
         "updated_at": d.get("updated_at", ""),
         "folder_path": d.get("folder_path", ""),
         "tags": parse_tags(d.get("tags")),
+        "original_format": d.get("original_format"),
     }
 
 
@@ -417,6 +419,13 @@ def api_upload_document():
         "xlsx",
         "pptx",
         "pdf",
+        "jpg",
+        "jpeg",
+        "png",
+        "gif",
+        "svg",
+        "webp",
+        "bmp",
         "rtf",
         "epub",
         "html",
@@ -437,7 +446,7 @@ def api_upload_document():
     if ext not in allowed_exts:
         return api_error("VALIDATION_ERROR", f"Unsupported file type: {ext}", 400)
     doc_id = str(uuid.uuid4())
-    target_type = {"docx": "odt", "xlsx": "ods", "pptx": "odp"}.get(ext, ext)
+    target_type = target_odf_type(ext) or "odt"
     original_format = ext if ext not in ("odt", "ods", "odp") else None
     pandoc_exts = {
         "rtf",

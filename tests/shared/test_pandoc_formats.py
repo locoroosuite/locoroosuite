@@ -1,13 +1,12 @@
-from unittest.mock import patch, MagicMock
-
+from unittest.mock import MagicMock, patch
 
 from app.shared.pandoc_formats import (
-    get_attachment_actions,
-    convert_to_html,
-    convert_to_odf,
-    target_odf_type,
     PANDOC_EXTENSIONS,
     PANDOC_UPLOAD_EXTENSIONS,
+    convert_to_html,
+    convert_to_odf,
+    get_attachment_actions,
+    target_odf_type,
 )
 
 
@@ -80,22 +79,27 @@ class TestGetAttachmentActions:
         # only valid editable ODF target is odg (not odt).
         assert actions["target_type"] == "odg"
 
-    def test_image_jpg_native_view_only(self):
+    def test_image_jpg_native_view_and_docs(self):
+        # Images follow the PDF pattern: native browser view + Open in Docs
+        # as a non-ODF original whose editable target is an odg drawing.
         actions = get_attachment_actions("photo.jpg")
         assert actions["view"] is True
-        assert actions["open_in_docs"] is False
+        assert actions["open_in_docs"] is True
         assert actions.get("native_view") is True
+        assert actions["target_type"] == "odg"
 
-    def test_image_png_native_view_only(self):
+    def test_image_png_native_view_and_docs(self):
         actions = get_attachment_actions("image.png")
         assert actions["view"] is True
-        assert actions["open_in_docs"] is False
+        assert actions["open_in_docs"] is True
         assert actions.get("native_view") is True
+        assert actions["target_type"] == "odg"
 
-    def test_image_gif_native_view_only(self):
+    def test_image_gif_native_view_and_docs(self):
         actions = get_attachment_actions("animation.gif")
         assert actions["view"] is True
-        assert actions["open_in_docs"] is False
+        assert actions["open_in_docs"] is True
+        assert actions["target_type"] == "odg"
 
     def test_csv_view_and_docs(self):
         actions = get_attachment_actions("data.csv")
@@ -170,9 +174,11 @@ class TestTargetOdfType:
         for ext in ("rtf", "html", "txt", "md", "csv", "epub"):
             assert target_odf_type(ext) == "odt"
 
-    def test_images_have_no_odf_target(self):
-        for ext in ("jpg", "png", "gif", "svg", "webp"):
-            assert target_odf_type(ext) is None
+    def test_images_target_odg(self):
+        # Like PDFs, images import into LibreOffice/Collabora as Draw
+        # documents, so their editable ODF target is odg.
+        for ext in ("jpg", "jpeg", "png", "gif", "svg", "webp", "bmp"):
+            assert target_odf_type(ext) == "odg"
 
     def test_case_insensitive(self):
         assert target_odf_type("PDF") == "odg"
@@ -216,7 +222,11 @@ class TestConvertToHtml:
 
     def test_pandoc_timeout(self):
         import subprocess
-        with patch("app.shared.pandoc_formats.subprocess.run", side_effect=subprocess.TimeoutExpired("pandoc", 30)):
+
+        with patch(
+            "app.shared.pandoc_formats.subprocess.run",
+            side_effect=subprocess.TimeoutExpired("pandoc", 30),
+        ):
             result = convert_to_html(b"data", "plain")
         assert result is None
 
@@ -263,8 +273,20 @@ class TestPandocExtensionsConfig:
                 assert info.get("pandoc_reader"), f"Viewable .{ext} missing pandoc_reader"
 
     def test_upload_extensions_includes_all_pandoc(self):
-        assert PANDOC_UPLOAD_EXTENSIONS == set(PANDOC_EXTENSIONS.keys())
+        assert set(PANDOC_EXTENSIONS.keys()) == PANDOC_UPLOAD_EXTENSIONS
 
     def test_common_formats_present(self):
-        for ext in ["docx", "odt", "rtf", "html", "txt", "md", "xlsx", "pptx", "csv", "tsv", "ipynb"]:
+        for ext in [
+            "docx",
+            "odt",
+            "rtf",
+            "html",
+            "txt",
+            "md",
+            "xlsx",
+            "pptx",
+            "csv",
+            "tsv",
+            "ipynb",
+        ]:
             assert ext in PANDOC_EXTENSIONS, f"Missing .{ext}"

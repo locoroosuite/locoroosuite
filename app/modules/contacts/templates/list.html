@@ -1,8 +1,8 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="max-w-5xl mx-auto">
-  <div class="flex items-center justify-between mb-6">
-    <div class="flex items-center gap-3">
+  <div class="flex items-center justify-between mb-6 gap-3 flex-wrap">
+    <div class="flex items-center gap-3 min-w-0">
       <h1 class="text-xl font-semibold text-slate-900">Contacts</h1>
       {% include "_account_switcher.html" %}
     </div>
@@ -43,7 +43,31 @@
     </form>
   </div>
 
-  <div class="rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
+  <div class="rounded-2xl border border-slate-200/80 bg-white shadow-sm divide-y divide-slate-100 md:hidden">
+    {% for c in contacts %}
+    {% set contact_name = c.fn or c.first_name ~ ' ' ~ c.last_name %}
+    <div class="p-4" data-contact-card data-contact-name="{{ contact_name }}">
+      <a href="{{ url_for('contacts.contact_detail', account_id=account.id, uid=c.uid) }}" class="font-medium text-slate-900">{{ contact_name }}</a>
+      {% if c.email_work or c.email_home %}
+      <div class="mt-1 text-sm text-slate-600 truncate">{{ c.email_work or c.email_home }}</div>
+      {% endif %}
+      {% if c.tel_cell or c.tel_work or c.tel_home %}
+      <div class="text-sm text-slate-600">{{ c.tel_cell or c.tel_work or c.tel_home }}</div>
+      {% endif %}
+      <div class="mt-2 flex items-center justify-between gap-3">
+        <span class="text-xs text-slate-500 truncate">{{ c.org or '' }}</span>
+        <div class="flex items-center gap-3 flex-shrink-0">
+          <a href="{{ url_for('contacts.contact_edit', account_id=account.id, uid=c.uid) }}" class="py-1.5 text-slate-500 hover:text-slate-900 text-xs font-medium">Edit</a>
+          <form method="post" action="{{ url_for('contacts.contact_delete', account_id=account.id, uid=c.uid) }}" class="inline delete-contact-form">
+            <button type="button" class="py-1.5 text-slate-400 hover:text-rose-600 text-xs font-medium transition-colors delete-contact-btn">Delete</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="hidden md:block rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
     <table class="w-full text-sm">
       <thead class="border-b border-slate-100 bg-slate-50/50">
         <tr>
@@ -100,7 +124,9 @@ document.querySelectorAll('.delete-contact-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     var form = btn.closest('form');
     var row = btn.closest('tr');
-    var name = row ? row.querySelector('a')?.textContent?.trim() || 'this contact' : 'this contact';
+    var name = (row && row.querySelector('a') ? row.querySelector('a').textContent.trim() : '')
+      || (btn.closest('[data-contact-card]') ? btn.closest('[data-contact-card]').dataset.contactName : '')
+      || 'this contact';
     if (confirm('Delete ' + name + '?')) {
       btn.disabled = true;
       btn.textContent = 'Deleting...';

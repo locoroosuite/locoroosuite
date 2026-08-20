@@ -37,7 +37,13 @@
 </li>
 {% endmacro %}
 <div class="flex h-[calc(100vh-4rem)]">
-  <aside id="docs-sidebar" class="w-60 flex-shrink-0 border-r border-slate-200/80 bg-white flex flex-col overflow-y-auto">
+  <aside id="docs-sidebar" class="flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] -translate-x-full transition-transform duration-200 overflow-y-auto border-r border-slate-200/80 bg-white lg:static lg:z-auto lg:w-60 lg:max-w-none lg:translate-x-0">
+    <div class="flex items-center justify-between py-3 pl-4 pr-3 lg:hidden">
+      <span class="text-sm font-semibold text-slate-900">Documents</span>
+      <button type="button" id="docs-sidebar-close" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Close menu">
+        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
+      </button>
+    </div>
     <div class="p-4 space-y-5">
       {% include "_account_switcher.html" %}
       <div>
@@ -102,12 +108,18 @@
       </div>
     </div>
   </aside>
+  <div id="docs-sidebar-backdrop" class="hidden lg:hidden fixed inset-0 z-40 bg-slate-900/40" aria-hidden="true"></div>
 
   <div class="flex-1 overflow-y-auto">
     <div class="max-w-5xl mx-auto px-6 py-6">
       {% if section == 'shared' %}
-        <div class="flex items-center justify-between mb-6">
-          <h1 class="text-xl font-semibold text-slate-900">Shared with me</h1>
+        <div class="flex items-center justify-between mb-6 gap-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <button type="button" class="docs-sidebar-toggle lg:hidden -ml-1.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100" aria-label="Open menu" aria-controls="docs-sidebar" aria-expanded="false">
+              <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10zm0 5.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z" clip-rule="evenodd"/></svg>
+            </button>
+            <h1 class="text-xl font-semibold text-slate-900">Shared with me</h1>
+          </div>
         </div>
 
         {% if shared_docs | length == 0 %}
@@ -182,10 +194,15 @@
         {% endif %}
       </div>
       {% endif %}
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-xl font-semibold text-slate-900">
-          {% if current_folder %}{{ breadcrumbs[-1].name if breadcrumbs else 'Folder' }}{% else %}My Documents{% endif %}
-        </h1>
+      <div class="flex items-center justify-between mb-6 gap-2 flex-wrap">
+        <div class="flex items-center gap-2 min-w-0">
+          <button type="button" class="docs-sidebar-toggle lg:hidden -ml-1.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100" aria-label="Open menu" aria-controls="docs-sidebar" aria-expanded="false">
+            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10zm0 5.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z" clip-rule="evenodd"/></svg>
+          </button>
+          <h1 class="text-xl font-semibold text-slate-900">
+            {% if current_folder %}{{ breadcrumbs[-1].name if breadcrumbs else 'Folder' }}{% else %}My Documents{% endif %}
+          </h1>
+        </div>
         <div class="flex items-center gap-3">
           <form method="post" action="{{ url_for('docs.sync') }}" class="inline">
             <button type="submit" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50 cursor-pointer transition-colors">
@@ -496,6 +513,33 @@
 </div>
 
 <script>
+(() => {
+  // U24.2/U13.60m: docs sidebar is an off-canvas drawer below lg.
+  const docsSidebar = document.getElementById('docs-sidebar');
+  const docsBackdrop = document.getElementById('docs-sidebar-backdrop');
+  const docsClose = document.getElementById('docs-sidebar-close');
+  const docsToggles = document.querySelectorAll('.docs-sidebar-toggle');
+  const isDocsDrawerOpen = () => docsSidebar && !docsSidebar.classList.contains('-translate-x-full');
+  const setDocsDrawerOpen = (open) => {
+    if (!docsSidebar || !docsBackdrop) return;
+    docsSidebar.classList.toggle('-translate-x-full', !open);
+    docsBackdrop.classList.toggle('hidden', !open);
+    document.body.style.overflow = open ? 'hidden' : '';
+    docsToggles.forEach((t) => t.setAttribute('aria-expanded', open ? 'true' : 'false'));
+  };
+  docsToggles.forEach((t) => t.addEventListener('click', () => setDocsDrawerOpen(!isDocsDrawerOpen())));
+  if (docsClose) docsClose.addEventListener('click', () => setDocsDrawerOpen(false));
+  if (docsBackdrop) docsBackdrop.addEventListener('click', () => setDocsDrawerOpen(false));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isDocsDrawerOpen()) setDocsDrawerOpen(false);
+  });
+  window.addEventListener('resize', () => {
+    if (window.matchMedia('(min-width: 1024px)').matches && isDocsDrawerOpen()) {
+      setDocsDrawerOpen(false);
+    }
+  });
+})();
+
 (() => {
   const btn = document.getElementById('new-doc-button');
   const panel = document.getElementById('new-doc-panel');

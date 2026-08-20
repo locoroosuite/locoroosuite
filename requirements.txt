@@ -10,12 +10,15 @@ dnspython
 tinycss2
 gunicorn
 gevent
+packaging
 dotenv
 markdown
-mcp
+mcp>=1.27,<2
 uvicorn
+httpx
 authlib
 PyJWT
 pyotp
 qrcode
 Pillow
+pywebpush

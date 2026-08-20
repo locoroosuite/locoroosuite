@@ -4,82 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ title or "LocoRooSuite" }}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <script>
-    window.tailwind = window.tailwind || {};
-    window.tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Manrope', 'ui-sans-serif', 'system-ui']
-          }
-        }
-      }
-    };
-  </script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    :root {
-      color-scheme: light;
-    }
-    body {
-      font-family: "Manrope", ui-sans-serif, system-ui;
-      background:
-        radial-gradient(900px at 10% -10%, rgba(226, 232, 240, 0.9), rgba(248, 250, 252, 0) 60%),
-        radial-gradient(700px at 90% 0%, rgba(224, 242, 254, 0.9), rgba(248, 250, 252, 0) 55%),
-        #f8fafc;
-    }
-    .line-clamp-2 {
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-    .lr-spinner {
-      display: inline-flex;
-      align-items: center;
-    }
-    .message-row.is-dragging {
-      opacity: 0.45;
-    }
-    .message-row[data-overlay-locked] > [data-message-actions] {
-      opacity: 1 !important;
-      pointer-events: auto !important;
-    }
-    .message-row[data-overlay-locked] [data-message-actions-toggle] {
-      display: none !important;
-    }
-    .folder-drop.is-drag-over {
-      background-color: rgba(219, 234, 254, 0.9);
-      box-shadow: inset 3px 0 0 0 #3b82f6;
-    }
-    .folder-drop.is-drag-invalid {
-      opacity: 0.35;
-      pointer-events: none;
-    }
-    .folder-drop.is-drag-active:not(.is-drag-over):not(.is-drag-invalid) {
-      transition: background-color 0.15s;
-    }
-    .lr-spinner svg {
-      animation: lr-spin 0.9s linear infinite;
-    }
-    @keyframes lr-spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-    .skeleton-shimmer {
-      background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
-      background-size: 200% 100%;
-      animation: lr-shimmer 1.5s ease-in-out infinite;
-    }
-    @keyframes lr-shimmer {
-      0% { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='img/icons/icon-192.png') }}" />
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/icons/apple-touch-icon.png') }}" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="LocoRooSuite" />
   <script>
     (function() {
       try {
@@ -171,12 +104,17 @@
         </a>
         <div class="flex-1">
           {% if session.get("role") == "customer" %}
-          <form method="post" action="{{ url_for('mail.search') }}">
+          <form method="post" action="{{ url_for('mail.search') }}" class="hidden sm:block">
             <input type="hidden" name="account_id" value="{{ session.get('active_account_id', 0) }}" />
             <input name="q" type="search" placeholder="Search mail" class="w-full rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
           </form>
           {% endif %}
         </div>
+        {% if session.get("role") == "customer" %}
+        <button type="button" id="mobile-search-toggle" class="sm:hidden h-9 w-9 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors" aria-label="Search mail" aria-expanded="false" aria-controls="mobile-search">
+          <svg class="h-5 w-5 text-slate-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd"/></svg>
+        </button>
+        {% endif %}
         {% if user_menu %}
         <div class="flex items-center gap-1.5">
           <div class="relative" id="app-launcher">
@@ -235,6 +173,12 @@
         {% else %}
         <a href="{{ url_for('auth.login') }}" class="text-sm text-slate-600 hover:text-slate-900">Domain Management</a>
         {% endif %}
+      </div>
+      <div id="mobile-search" class="sm:hidden hidden px-4 pb-3">
+        <form method="post" action="{{ url_for('mail.search') }}">
+          <input type="hidden" name="account_id" value="{{ session.get('active_account_id', 0) }}" />
+          <input name="q" type="search" placeholder="Search mail" aria-label="Search mail" class="w-full rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+        </form>
       </div>
     </header>
     <main class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -315,6 +259,21 @@
       };
       setupDropdown('user-menu-button', 'user-menu-panel');
       setupDropdown('app-launcher-button', 'app-launcher-panel');
+    })();
+
+    (() => {
+      const toggle = document.getElementById('mobile-search-toggle');
+      const panel = document.getElementById('mobile-search');
+      if (!toggle || !panel) return;
+      toggle.addEventListener('click', () => {
+        const willShow = panel.classList.contains('hidden');
+        panel.classList.toggle('hidden', !willShow);
+        toggle.setAttribute('aria-expanded', willShow ? 'true' : 'false');
+        if (willShow) {
+          const input = panel.querySelector('input[name="q"]');
+          if (input) input.focus();
+        }
+      });
     })();
 
     (() => {
@@ -510,6 +469,14 @@
       loadStatus();
       pollTimer = setInterval(loadStatus, 1000);
     })();
+  </script>
+  <script>
+    if ('serviceWorker' in navigator &&
+        (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
   </script>
 </body>
 </html>

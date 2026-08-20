@@ -1,4 +1,6 @@
+import contextlib
 import email
+import email.message
 import logging
 import time
 from datetime import UTC, datetime, timedelta
@@ -11,6 +13,7 @@ from app.modules.mail.services.cache_db import (
     get_folder_state,
     list_cached_folders,
     list_message_uids,
+    list_messages,
     list_uids_missing_internal_date_ts,
     open_cache,
     update_flags_bulk,
@@ -137,9 +140,7 @@ def _is_attachment_part(part):
         return False
     if content_type in ("text/plain", "text/html"):
         return False
-    if part.get_filename():
-        return True
-    return False
+    return bool(part.get_filename())
 
 
 def _extract_message_texts(message):
@@ -172,10 +173,7 @@ def _build_snippet(text_plain, text_html):
 def _has_attachments(message):
     if not message.is_multipart():
         return False
-    for part in message.walk():
-        if _is_attachment_part(part):
-            return True
-    return False
+    return any(_is_attachment_part(part) for part in message.walk())
 
 
 def _extract_attachment_list(message):
@@ -348,7 +346,7 @@ def _backfill_missing_date_ts(client, conn, folder):
         return
     logger.info("backfill missing internal_date_ts folder=%s count=%s", folder, len(missing_uids))
     for uid in missing_uids:
-        msg, flags, internal_date = fetch_message_with_flags(client, uid)
+        _msg, _flags, internal_date = fetch_message_with_flags(client, uid)
         if internal_date:
             ts = _date_to_unix(internal_date)
             if ts:
@@ -408,10 +406,7 @@ def _sync_initial_folder(
         new_added += 1
         last_new_at = datetime.now(UTC).isoformat()
     unseen = status_info.get("UNSEEN")
-    if unseen is None:
-        unseen = len(unread_uids)
-    else:
-        unseen = int(unseen)
+    unseen = len(unread_uids) if unseen is None else int(unseen)
     upsert_folder(conn, folder, unseen)
     return len(combined), new_added, last_new_at
 
@@ -517,16 +512,13 @@ def _sync_incremental_folder(
             flags_map = fetch_flags(client, uid_set)
             if flags_map:
                 update_flags_bulk(conn, folder, flags_map)
-            existing = set(_to_uid_str(uid) for uid in fetch_message_uids(client, f"UID {uid_set}"))
+            existing = {_to_uid_str(uid) for uid in fetch_message_uids(client, f"UID {uid_set}")}
             missing = [uid for uid in chunk if _to_uid_str(uid) not in existing]
             if missing:
                 delete_messages_by_uids(conn, folder, missing)
 
     unseen = status_info.get("UNSEEN")
-    if unseen is None:
-        unseen = len(fetch_message_uids(client, "UNSEEN"))
-    else:
-        unseen = int(unseen)
+    unseen = len(fetch_message_uids(client, "UNSEEN")) if unseen is None else int(unseen)
     upsert_folder(conn, folder, unseen)
     return total_new, new_added, last_new_at
 
@@ -625,10 +617,8 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
             account.auth_type,
         )
         emit("error", folder="INBOX", message="imap login failed")
-        try:
+        with contextlib.suppress(Exception):
             client.logout()
-        except Exception:
-            pass
         return False
 
     any_error = False
@@ -692,6 +682,30 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
                         account=account,
                     )
                 cached_in_folder = added
+                # U24.17: notify new INBOX mail (incremental syncs only; the
+                # initial sync must not blast a notification for old mail).
+                if added > 0 and sync_path == "incremental" and folder.upper() == "INBOX":
+                    newest = None
+                    try:
+                        rows = list_messages(conn, folder, 1)
+                        if rows:
+                            newest = {"subject": rows[0][1], "sender": rows[0][2]}
+                    except Exception:
+                        logger.exception(
+                            "new_mail summary failed account_id=%s customer_id=%s",
+                            account.id,
+                            account.customer_id,
+                        )
+                    push_event(
+                        account.customer_id,
+                        "new_mail",
+                        {
+                            "account_id": account.id,
+                            "folder": folder,
+                            "count": added,
+                            "newest": newest,
+                        },
+                    )
                 _backfill_missing_date_ts(client, conn, folder)
                 emit("syncing", folder=folder, done=cached_in_folder, total=total)
                 upsert_folder_state(
@@ -738,7 +752,9 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
     finally:
         safe_logout(client)
 
-    folder_counts = {name: count for name, count in list_cached_folders(conn)}
+    folder_counts: dict = {}
+    for name, unread in list_cached_folders(conn):
+        folder_counts[name] = unread
     push_event(
         account.customer_id,
         "counts_updated",

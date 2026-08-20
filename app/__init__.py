@@ -36,6 +36,8 @@ def create_app():
     from app.modules.mail import register as register_mail
     from app.provisioning import register as register_provisioning
     from app.shared.oauth import register as register_oauth
+    from app.shared.push import register_push
+    from app.shared.pwa import register as register_pwa
 
     register_mail(app)
     register_contacts(app)
@@ -45,6 +47,8 @@ def create_app():
     register_api(app)
     register_oauth(app)
     register_provisioning(app)
+    register_pwa(app)
+    register_push(app)
 
     @app.before_request
     def _set_session_lifetime():

@@ -1,8 +1,14 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="max-w-screen-2xl mx-auto flex gap-5">
-  <aside class="w-56 flex-shrink-0 hidden lg:block">
+  <aside id="cal-sidebar" class="flex-shrink-0 fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] -translate-x-full transition-transform duration-200 overflow-y-auto bg-white border-r border-slate-200/80 p-4 shadow-xl lg:static lg:z-auto lg:w-56 lg:max-w-none lg:translate-x-0 lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:rounded-none">
     <div class="sticky top-24">
+      <div class="flex items-center justify-between mb-3 lg:hidden">
+        <span class="text-sm font-semibold text-slate-900">Calendars</span>
+        <button type="button" id="cal-sidebar-close" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Close menu">
+          <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
+        </button>
+      </div>
       {% include "_account_switcher.html" %}
       <div id="mini-calendar" class="mb-4"></div>
 
@@ -38,6 +44,7 @@
       </div>
     </div>
   </aside>
+  <div id="cal-sidebar-backdrop" class="hidden lg:hidden fixed inset-0 z-40 bg-slate-900/40" aria-hidden="true"></div>
 
   <div class="flex-1 min-w-0">
     {% if not caldav_configured %}
@@ -64,11 +71,14 @@
     </div>
     {% endif %}
 
-    <div class="flex items-center justify-between mb-4">
-      <div class="flex items-center gap-3">
-        <h1 id="cal-header-date" class="text-lg font-semibold text-slate-900"></h1>
+    <div class="flex items-center justify-between mb-4 gap-2 flex-wrap">
+      <div class="flex items-center gap-2 min-w-0">
+        <button type="button" id="cal-sidebar-toggle" class="lg:hidden -ml-1.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100" aria-label="Open calendars" aria-controls="cal-sidebar" aria-expanded="false">
+          <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10zm0 5.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z" clip-rule="evenodd"/></svg>
+        </button>
+        <h1 id="cal-header-date" class="text-lg font-semibold text-slate-900 truncate"></h1>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
         <button id="cal-today" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 shadow-sm hover:bg-slate-50">Today</button>
         <button id="cal-prev" class="h-8 w-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:bg-slate-50 shadow-sm">
           <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
@@ -96,7 +106,7 @@
       </div>
     </div>
 
-    <div id="calendar-grid" class="rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden min-h-[600px]"></div>
+    <div class="overflow-x-auto"><div id="calendar-grid" class="rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden min-h-[600px]"></div></div>
     {% endif %}
   </div>
 </div>
@@ -139,6 +149,43 @@
   let currentView = INITIAL_VIEW;
   let currentDate = new Date(INITIAL_DATE + "T00:00:00");
   let eventsCache = {};
+
+  // U24.6: phones default to the Day view; persisted view is unchanged for desktop.
+  const isPhoneViewport = () => window.matchMedia("(max-width: 767px)").matches;
+  if (isPhoneViewport()) currentView = "day";
+
+  // U24.2: calendar sidebar is an off-canvas drawer below lg.
+  const calSidebar = document.getElementById("cal-sidebar");
+  const calSidebarBackdrop = document.getElementById("cal-sidebar-backdrop");
+  const calSidebarToggle = document.getElementById("cal-sidebar-toggle");
+  const calSidebarClose = document.getElementById("cal-sidebar-close");
+  const isCalDrawerOpen = () => calSidebar && !calSidebar.classList.contains("-translate-x-full");
+  const setCalDrawerOpen = (open) => {
+    if (!calSidebar || !calSidebarBackdrop) return;
+    calSidebar.classList.toggle("-translate-x-full", !open);
+    calSidebarBackdrop.classList.toggle("hidden", !open);
+    document.body.style.overflow = open ? "hidden" : "";
+    if (calSidebarToggle) {
+      calSidebarToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+  };
+  if (calSidebarToggle) {
+    calSidebarToggle.addEventListener("click", () => setCalDrawerOpen(!isCalDrawerOpen()));
+  }
+  if (calSidebarClose) {
+    calSidebarClose.addEventListener("click", () => setCalDrawerOpen(false));
+  }
+  if (calSidebarBackdrop) {
+    calSidebarBackdrop.addEventListener("click", () => setCalDrawerOpen(false));
+  }
+  document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape" && isCalDrawerOpen()) setCalDrawerOpen(false);
+  });
+  window.addEventListener("resize", function() {
+    if (window.matchMedia("(min-width: 1024px)").matches && isCalDrawerOpen()) {
+      setCalDrawerOpen(false);
+    }
+  });
 
   const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   const DAYS_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -504,6 +551,12 @@
     else if (view === "day") renderDay();
     else renderAgenda();
 
+    // U24.6: week/month scroll horizontally on narrow screens.
+    var grid = document.getElementById("calendar-grid");
+    if (grid) {
+      grid.classList.toggle("min-w-[768px]", view === "week" || view === "month");
+    }
+
     const url = new URL(window.location);
     url.searchParams.set("view", view);
     url.searchParams.set("date", toISO(currentDate));
@@ -757,7 +810,21 @@
     if (e.key === "Escape") hideQuickCreatePopover();
   });
 
-  navigateTo(INITIAL_VIEW);
+  // U24.6: on touch devices, tapping an empty time slot opens quick-create
+  // with that hour pre-filled (drag quick-create stays desktop-only).
+  if (window.matchMedia("(pointer: coarse)").matches) {
+    document.addEventListener("click", function(e) {
+      var cell = e.target.closest(".time-cell");
+      if (!cell || e.target.closest("a")) return;
+      hideQuickCreatePopover();
+      cell.classList.add("qc-highlighted");
+      var rect = cell.getBoundingClientRect();
+      var startHour = parseInt(cell.dataset.hour);
+      showQuickCreatePopover(rect, cell.dataset.date, startHour, Math.min(24, startHour + 1), false);
+    });
+  }
+
+  navigateTo(currentView);
 
   var sseSource = new EventSource('/events/stream');
   sseSource.addEventListener('ui_change', function(evt) {

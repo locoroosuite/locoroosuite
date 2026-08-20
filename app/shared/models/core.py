@@ -1,10 +1,10 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.shared.db import db
 
 
 def _utcnow():
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class User(db.Model):
@@ -87,6 +87,7 @@ class CustomerSettings(db.Model):
     protected_folders = db.Column(db.Text, nullable=True)
     protect_starred = db.Column(db.Boolean, default=True, nullable=False)
     locked_keyword_prefs = db.Column(db.Text, nullable=True)
+    push_detailed = db.Column(db.Boolean, default=False, nullable=False)
 
 
 class AuditLog(db.Model):
@@ -195,3 +196,28 @@ class TrustedDevice(db.Model):
     last_used_at = db.Column(db.DateTime, nullable=True)
     expires_at = db.Column(db.DateTime, nullable=False)
     revoked_at = db.Column(db.DateTime, nullable=True)
+
+
+class PushSubscription(db.Model):
+    """Web Push subscription for one browser/device (U24.16)."""
+
+    __tablename__ = "push_subscriptions"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    endpoint = db.Column(db.String(512), nullable=False, unique=True)
+    p256dh = db.Column(db.String(255), nullable=False)
+    auth = db.Column(db.String(255), nullable=False)
+    user_agent = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=_utcnow, nullable=False)
+    last_used_at = db.Column(db.DateTime, nullable=True)
+    disabled_at = db.Column(db.DateTime, nullable=True)
+
+
+class PushVapidKey(db.Model):
+    """Server VAPID keypair for Web Push (U24.19); auto-generated, env-overridable."""
+
+    __tablename__ = "push_vapid_keys"
+    id = db.Column(db.Integer, primary_key=True)
+    public_key = db.Column(db.String(255), nullable=False, unique=True)
+    private_key = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=_utcnow, nullable=False)

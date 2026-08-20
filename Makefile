@@ -11,7 +11,7 @@ REMOTE_LC_PATH ?=
 
 .PHONY: start stop restart rebuild ssh deploy dev-up dev-down dev-build logs mail-api-shell \
         prod-up prod-down prod-build prod-restart prod-logs dev-setup npm-publish migrate-status push \
-        lint format typecheck typecheck-mcp typecheck-ratchet check
+        lint format typecheck typecheck-mcp typecheck-ratchet check css
 
 # --- Development environment ---
 
@@ -129,6 +129,13 @@ push:
 		fi; \
 	done
 	@echo "==> Push complete"
+
+# --- CSS build (U24.9) ---
+# Rebuild the precompiled Tailwind stylesheet. Required after adding new
+# utility classes to templates or app/static/js. Output is committed:
+# app/static/css/tailwind.css (no CDN at runtime).
+css:
+	npx --yes tailwindcss@3.4.17 -c tailwind.config.js -i app/static/css/tailwind.src.css -o app/static/css/tailwind.css --minify
 
 # --- Static checks (scoped to files touched vs BASE_REF, default: master) ---
 # See AGENTS.md -> "Static Checks (last step)" for the policy these enforce.

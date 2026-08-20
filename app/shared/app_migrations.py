@@ -52,7 +52,9 @@ def _customer_settings_protection(conn) -> None:
     if "protected_folders" not in cols:
         conn.execute("ALTER TABLE customer_settings ADD COLUMN protected_folders TEXT")
     if "protect_starred" not in cols:
-        conn.execute("ALTER TABLE customer_settings ADD COLUMN protect_starred BOOLEAN NOT NULL DEFAULT 1")
+        conn.execute(
+            "ALTER TABLE customer_settings ADD COLUMN protect_starred BOOLEAN NOT NULL DEFAULT 1"
+        )
     if "locked_keyword_prefs" not in cols:
         conn.execute("ALTER TABLE customer_settings ADD COLUMN locked_keyword_prefs TEXT")
 
@@ -66,11 +68,17 @@ def _import_request_takeout(conn) -> None:
     if "upload_filename" not in cols:
         conn.execute("ALTER TABLE import_requests ADD COLUMN upload_filename VARCHAR(255)")
     if "upload_size_bytes" not in cols:
-        conn.execute("ALTER TABLE import_requests ADD COLUMN upload_size_bytes INTEGER NOT NULL DEFAULT 0")
+        conn.execute(
+            "ALTER TABLE import_requests ADD COLUMN upload_size_bytes INTEGER NOT NULL DEFAULT 0"
+        )
     if "uploaded_bytes" not in cols:
-        conn.execute("ALTER TABLE import_requests ADD COLUMN uploaded_bytes INTEGER NOT NULL DEFAULT 0")
+        conn.execute(
+            "ALTER TABLE import_requests ADD COLUMN uploaded_bytes INTEGER NOT NULL DEFAULT 0"
+        )
     if "upload_status" not in cols:
-        conn.execute("ALTER TABLE import_requests ADD COLUMN upload_status VARCHAR(32) NOT NULL DEFAULT 'none'")
+        conn.execute(
+            "ALTER TABLE import_requests ADD COLUMN upload_status VARCHAR(32) NOT NULL DEFAULT 'none'"
+        )
     if "upload_completed_at" not in cols:
         conn.execute("ALTER TABLE import_requests ADD COLUMN upload_completed_at DATETIME")
 
@@ -104,7 +112,9 @@ def _api_columns(conn) -> None:
         return
     cols = table_columns(conn, "customer_accounts")
     if "api_enabled" not in cols:
-        conn.execute("ALTER TABLE customer_accounts ADD COLUMN api_enabled BOOLEAN NOT NULL DEFAULT 0")
+        conn.execute(
+            "ALTER TABLE customer_accounts ADD COLUMN api_enabled BOOLEAN NOT NULL DEFAULT 0"
+        )
     if "dek_wrapped_cred" not in cols:
         conn.execute("ALTER TABLE customer_accounts ADD COLUMN dek_wrapped_cred BLOB")
 
@@ -142,9 +152,13 @@ def _domain_dns_config(conn) -> None:
         return
     cols = table_columns(conn, "domain_dns_config")
     if "dkim_selector" not in cols:
-        conn.execute("ALTER TABLE domain_dns_config ADD COLUMN dkim_selector VARCHAR(64) NOT NULL DEFAULT 'default'")
+        conn.execute(
+            "ALTER TABLE domain_dns_config ADD COLUMN dkim_selector VARCHAR(64) NOT NULL DEFAULT 'default'"
+        )
     if "dmarc_policy" not in cols:
-        conn.execute("ALTER TABLE domain_dns_config ADD COLUMN dmarc_policy VARCHAR(16) NOT NULL DEFAULT 'none'")
+        conn.execute(
+            "ALTER TABLE domain_dns_config ADD COLUMN dmarc_policy VARCHAR(16) NOT NULL DEFAULT 'none'"
+        )
     if "dmarc_rua" not in cols:
         conn.execute("ALTER TABLE domain_dns_config ADD COLUMN dmarc_rua VARCHAR(255)")
 
@@ -161,6 +175,43 @@ def _user_totp(conn) -> None:
         conn.execute("ALTER TABLE users ADD COLUMN backup_codes TEXT")
 
 
+def _push_notifications(conn) -> None:
+    if not has_table(conn, "push_subscriptions"):
+        conn.execute(
+            """
+            CREATE TABLE push_subscriptions (
+                id INTEGER NOT NULL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                endpoint VARCHAR(512) NOT NULL UNIQUE,
+                p256dh VARCHAR(255) NOT NULL,
+                auth VARCHAR(255) NOT NULL,
+                user_agent VARCHAR(255),
+                created_at DATETIME NOT NULL,
+                last_used_at DATETIME,
+                disabled_at DATETIME
+            )
+            """
+        )
+        conn.execute("CREATE INDEX ix_push_subscriptions_user_id ON push_subscriptions (user_id)")
+    if not has_table(conn, "push_vapid_keys"):
+        conn.execute(
+            """
+            CREATE TABLE push_vapid_keys (
+                id INTEGER NOT NULL PRIMARY KEY,
+                public_key VARCHAR(255) NOT NULL UNIQUE,
+                private_key TEXT NOT NULL,
+                created_at DATETIME NOT NULL
+            )
+            """
+        )
+    if has_table(conn, "customer_settings") and "push_detailed" not in table_columns(
+        conn, "customer_settings"
+    ):
+        conn.execute(
+            "ALTER TABLE customer_settings ADD COLUMN push_detailed BOOLEAN NOT NULL DEFAULT 0"
+        )
+
+
 APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_domain_status", _domain_status),
     Migration("0002_customer_settings_spam_action", _customer_settings_spam_action),
@@ -174,4 +225,5 @@ APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0010_domain_mail_api", _domain_mail_api),
     Migration("0011_domain_dns_config", _domain_dns_config),
     Migration("0012_user_totp", _user_totp),
+    Migration("0013_push_notifications", _push_notifications),
 )

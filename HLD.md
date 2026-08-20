@@ -1770,3 +1770,43 @@ U23.4 - The per-user SSE event queue is bounded (`MAX_QUEUE_SIZE`, default 200).
 U23.5 - The web server (gunicorn) runs with access logging enabled (`--access-logfile -`) so every HTTP request line is captured alongside the application logs.
 
 U23.6 - Every log line that references a user-scoped operation includes an identifier (`user_id`, `account_id`, `folder`, and/or `message_id`/`uid` as applicable). Structured error responses never return a bare "INTERNAL SERVER ERROR"; they include a `request_id` or actionable guidance (per the global Error Handling rules).
+
+# Use Case U24 – Mobile Experience & PWA
+
+## Overview
+
+The application is fully usable on mobile browsers and can be installed as a Progressive Web App (PWA) on Android, iOS, and desktop. Mobile support covers the customer-facing modules (Mail, Calendar, Contacts, Docs); the admin back office remains desktop-first.
+
+## Responsive Layout
+
+U24.1 - All customer-facing pages are usable at a 360px viewport width: no horizontal overflow, tap targets >= 40px in the dominant dimension (44px preferred), and hover-revealed actions always have a touch fallback.
+U24.2 - Off-canvas drawer pattern: on viewports below the `lg` breakpoint (1024px), the mail folder sidebar, calendar sidebar, and docs sidebar render as an off-canvas drawer with a dimmed backdrop. The drawer opens via a hamburger button in the content header, and closes on backdrop tap, Escape, folder/section navigation, or window resize to desktop. On desktop (`lg:` and up) the sidebars remain inline and existing collapse behavior is unchanged.
+U24.3 - Preview pane (U4.10) is desktop-only: below `lg` the preview pane is disabled and message row taps open the full message page (U4.10a semantics). If the user enables preview while on a desktop and then resizes below `lg`, the pane is hidden until the viewport is desktop-sized again.
+U24.4 - Header global search (U7.2): on phones the search input collapses into an icon in the header; tapping it expands a full-width search row under the header.
+U24.5 - Mail compose: a floating action button (FAB) is visible on mobile (`lg:hidden`) linking to compose; on desktop the existing header compose entry point remains.
+U24.6 - Calendar on phones (`< md`): the default view is Day view regardless of the persisted last view (U12.10 persistence is unchanged for desktop); Week and Month views remain selectable and scroll horizontally with a minimum width. Click-and-drag quick-create is desktop-only; on touch, tapping an empty time slot opens the create form with that time pre-filled.
+U24.7 - Contacts list: below `md` the table renders as a stacked card list (name, primary email, primary phone); alphabetical sorting and search are unchanged.
+U24.8 - Docs list follows U13.60m: sidebar collapsible (drawer) on mobile, always visible on desktop.
+
+## Styling Infrastructure
+
+U24.9 - Tailwind CSS is precompiled at build time via the Tailwind CLI (`make css`); the compiled stylesheet is committed at `app/static/css/tailwind.css`. The runtime CDN script (`cdn.tailwindcss.com`) is removed from all templates. Rebuild is required when adding new utility classes (documented in the Makefile target).
+U24.10 - Fonts (Manrope) are self-hosted from `app/static/fonts/` with `font-display: swap`. No third-party font or style CDN requests remain.
+U24.11 - Classes injected by JavaScript that Tailwind's scanner cannot see are covered by an explicit safelist in `tailwind.config.js`.
+
+## PWA – Installability & Offline Shell
+
+U24.12 - The app exposes a web app manifest at `/manifest.webmanifest` (name "LocoRooSuite", standalone display, theme `#0f172a`, `start_url: /app/mail/`) with PNG icons (192, 512, maskable variants) and an apple-touch icon, plus `theme-color` and `apple-mobile-web-app-*` meta tags. Scope is `/`.
+U24.13 - A service worker is served at `/sw.js` (root scope). It precaches the app shell (compiled CSS, self-hosted fonts, icons, manifest, offline page) using an explicit versioned cache list, serves `/static/` assets cache-first, and handles document navigations network-first with the offline page as fallback. SSE (`/events/`), `/api/`, and all authenticated JSON/form endpoints are never cached and always go to the network.
+U24.14 - Offline scope is intentionally limited to the shell: no offline mail reading, composing, or caching of message content in the service worker. Attempting a cached navigation offline shows the offline page with a retry button.
+U24.15 - New versions activate via `skipWaiting` + `clients.claim`; the shell cache version is bumped when shell assets change.
+
+## PWA – Web Push Notifications
+
+U24.16 - Customers can receive Web Push (VAPID) notifications for new mail on devices where they have installed/enabled notifications. Push subscription endpoints are stored per-user in the main app database (table `push_subscriptions`: id, user_id, endpoint (unique), p256dh, auth, user_agent, created_at, last_used_at, disabled_at). Users can view and remove their registered devices in Settings.
+U24.17 - The push sender subscribes to the existing shared event bus (the same new-mail events that feed SSE) and sends a notification to each active subscription of the target user. Push delivery failures mark the subscription per RFC 8291/8030 guidance: 404/410 disables the subscription; repeated transient errors are logged. Push sending must never block or break the sync/SSE path (fire-and-forget with its own error handling).
+U24.18 - Notification content is privacy-first: by default the notification shows a generic "New email" title with no sender or subject. A per-user opt-in setting (`push_detailed`) enables sender and subject in the notification. Message bodies are never included.
+U24.19 - VAPID keys are auto-generated on first use and persisted in the main app database, with env overrides (`PUSH_VAPID_PUBLIC_KEY` + `PUSH_VAPID_PRIVATE_KEY` pair and `PUSH_VAPID_SUBJECT`) for production deployments. Setting only one of the key pair is a fail-early configuration error. Misconfiguration returns a clear fail-early error (no silent no-op) per the global config rules.
+U24.20 - The service worker handles `push` (display notification; empty payload = generic message) and `notificationclick` (focus an existing window or open `/app/mail/`). On platforms requiring it, the SW shows the notification even when a payload is absent.
+U24.21 - In-app toast notifications remain out of scope (U4.6 unchanged); device-level push is additive and does not alter the SSE path.
+U24.22 - Settings gains a "Notifications" section: enable/disable push for the current browser (subscribe/unsubscribe), list of registered devices with remove buttons, and the detailed-content toggle. Push toggle requires notifications permission; if denied, the UI shows remediation guidance (browser settings).

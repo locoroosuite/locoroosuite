@@ -4,27 +4,48 @@ import uuid as _uuid
 
 from flask import g
 
-from app.api.openapi import create_api_blueprint
-from app.api.schemas.common import ErrorResponse, AccountIdQuery
-from app.api.schemas.calendar import (
-    CalendarListResponse, CalendarPath,
-    DeleteCalendarBody, CreateCalendarBody, UpdateCalendarBody,
-    EventListResponse, EventDetailResponse, EventPath,
-    ListEventsQuery, SearchEventsQuery, CreateEventBody, UpdateEventBody,
-    FreeBusyBody, FreeBusyResponse,
-)
 from app.api.controllers.helpers import (
-    api_response, api_paginated, api_error, require_api_token, require_scope,
-    get_api_account_id, ApiError,
+    ApiError,
+    api_error,
+    api_paginated,
+    api_response,
+    get_api_account_id,
+    require_api_token,
+    require_scope,
 )
-from app.shared.models.core import CustomerAccount
+from app.api.openapi import create_api_blueprint
+from app.api.schemas.calendar import (
+    CalendarListResponse,
+    CalendarPath,
+    CreateCalendarBody,
+    CreateEventBody,
+    DeleteCalendarBody,
+    EventDetailResponse,
+    EventListResponse,
+    EventPath,
+    FreeBusyBody,
+    FreeBusyResponse,
+    ListEventsQuery,
+    SearchEventsQuery,
+    UpdateCalendarBody,
+    UpdateEventBody,
+)
+from app.api.schemas.common import AccountIdQuery, ErrorResponse
 from app.modules.calendar.services.cache import get_cache_path
 from app.modules.calendar.services.cache_db import (
-    open_cache, get_all_calendars, get_calendar,
-    delete_calendar_by_id, get_event, get_events_range,
-    search_events as db_search_events, get_conflicting_events,
+    delete_calendar_by_id,
+    get_all_calendars,
+    get_calendar,
+    get_conflicting_events,
+    get_event,
+    get_events_range,
+    open_cache,
 )
-from app.shared.icalendar import parse_icalendar, generate_icalendar, extract_uid
+from app.modules.calendar.services.cache_db import (
+    search_events as db_search_events,
+)
+from app.shared.icalendar import extract_uid, generate_icalendar, parse_icalendar
+from app.shared.models.core import CustomerAccount
 from app.shared.ui_events import push_ui_event
 
 bp = create_api_blueprint("calendar", "Calendar management")
@@ -33,7 +54,8 @@ bp = create_api_blueprint("calendar", "Calendar management")
 def _row_to_dict(row):
     if row is None:
         return None
-    return {k: row[k] for k in row.keys()}
+    keys = row.keys()
+    return {k: row[k] for k in keys}
 
 
 def _get_cache_conn(account_id, dek):
@@ -45,7 +67,7 @@ def _get_cache_conn(account_id, dek):
 
 
 def _calendar_to_dict(row):
-    d = _row_to_dict(row)
+    d = _row_to_dict(row) or {}
     return {
         "id": d["id"],
         "uid": d.get("uid"),
@@ -56,7 +78,7 @@ def _calendar_to_dict(row):
 
 
 def _event_to_dict(row):
-    d = _row_to_dict(row)
+    d = _row_to_dict(row) or {}
     ical_raw = d.get("raw_ical") or d.get("ical_text")
     parsed = {}
     if ical_raw:
@@ -69,7 +91,9 @@ def _event_to_dict(row):
         "location": parsed.get("location", "") or d.get("location", ""),
         "start": parsed.get("dtstart") or d.get("dtstart"),
         "end": parsed.get("dtend") or d.get("dtend"),
-        "is_all_day": parsed.get("is_all_day", False) if parsed.get("is_all_day") is not None else bool(d.get("all_day")),
+        "is_all_day": parsed.get("all_day")
+        if parsed.get("all_day") is not None
+        else bool(d.get("all_day")),
         "status": parsed.get("status", "") or d.get("status", ""),
         "calendar_id": d.get("calendar_id"),
     }
@@ -98,7 +122,7 @@ def api_list_calendars(query: AccountIdQuery):
 @bp.delete(
     "/calendar/calendars/<int:calendar_id>",
     summary="Delete calendar",
-    description="Deletes a calendar by ID from the local cache. Confirmation body `{\"confirm\": true}` is required. Requires `calendar:write` scope.",
+    description='Deletes a calendar by ID from the local cache. Confirmation body `{"confirm": true}` is required. Requires `calendar:write` scope.',
     responses={"200": CalendarListResponse, "401": ErrorResponse},
 )
 @require_api_token(scopes=["calendar:write"])
@@ -108,14 +132,19 @@ def api_delete_calendar(path: CalendarPath, body: DeleteCalendarBody):
     account_id = get_api_account_id()
     dek = g.api_context["dek"]
     if not body.confirm:
-        return api_error("VALIDATION_ERROR", "Confirmation required: {\"confirm\": true}", 400)
+        return api_error("VALIDATION_ERROR", 'Confirmation required: {"confirm": true}', 400)
     conn = _get_cache_conn(account_id, dek)
     try:
         cal = get_calendar(conn, calendar_id)
         if not cal:
             return api_error("NOT_FOUND", "Calendar not found", 404)
         delete_calendar_by_id(conn, calendar_id)
-        push_ui_event(g.api_context["customer_id"], "calendar", "calendar_deleted", {"account_id": account_id, "calendar_id": calendar_id})
+        push_ui_event(
+            g.api_context["customer_id"],
+            "calendar",
+            "calendar_deleted",
+            {"account_id": account_id, "calendar_id": calendar_id},
+        )
         return api_response(None, 204)
     finally:
         conn.close()
@@ -231,8 +260,9 @@ def api_free_busy(body: FreeBusyBody):
 
 
 def _get_caldav_session(account):
-    from app.shared.models.core import Domain
     from app.modules.mail.services.secrets import decrypt_with_key
+    from app.shared.models.core import Domain
+
     domain = Domain.query.filter_by(id=account.domain_id).first()
     if not domain or not domain.caldav_host:
         raise ApiError("NOT_CONFIGURED", "CalDAV is not configured for this domain", 400)
@@ -241,6 +271,7 @@ def _get_caldav_session(account):
     dek = g.api_context["dek"]
     password = decrypt_with_key(account.encrypted_secret, dek)
     from app.modules.calendar.services import caldav
+
     s, calendars = caldav.discover_calendars(base_url, account.username, password)
     return s, calendars, base_url, password
 
@@ -264,8 +295,9 @@ def api_create_calendar(body: CreateCalendarBody):
         return api_error("VALIDATION_ERROR", "'name' is required", 400)
     color = body.color
     try:
-        s, _, base_url, password = _get_caldav_session(account)
+        s, _, base_url, _password = _get_caldav_session(account)
         from app.modules.calendar.services import caldav
+
         cal_url = caldav.create_calendar(s, base_url, account.username, name, color)
     except ApiError:
         raise
@@ -275,12 +307,22 @@ def api_create_calendar(body: CreateCalendarBody):
     conn = _get_cache_conn(account_id, dek)
     try:
         from app.modules.calendar.services.cache_db import upsert_calendar
+
         cal_db_id = upsert_calendar(conn, cal_uid, cal_url, displayname=name, color=color)
         cal_row = get_calendar(conn, cal_db_id)
-        result = _calendar_to_dict(cal_row) if cal_row else {"uid": cal_uid, "name": name, "color": color}
+        result = (
+            _calendar_to_dict(cal_row)
+            if cal_row
+            else {"uid": cal_uid, "name": name, "color": color}
+        )
     finally:
         conn.close()
-    push_ui_event(g.api_context["customer_id"], "calendar", "calendar_created", {"account_id": account_id, "uid": cal_uid})
+    push_ui_event(
+        g.api_context["customer_id"],
+        "calendar",
+        "calendar_created",
+        {"account_id": account_id, "uid": cal_uid},
+    )
     return api_response(result, 201)
 
 
@@ -308,18 +350,25 @@ def api_update_calendar(path: CalendarPath, body: UpdateCalendarBody):
         new_name = body.name
         new_color = body.color
         from app.modules.calendar.services.cache_db import update_calendar as db_update_cal
+
         db_update_cal(conn, calendar_id, displayname=new_name, color=new_color)
     finally:
         conn.close()
     try:
         s, _, _, _ = _get_caldav_session(account)
         from app.modules.calendar.services import caldav
+
         caldav.update_calendar_props(s, cal.get("href", ""), displayname=new_name, color=new_color)
     except ApiError:
         raise
     except Exception:
         pass
-    push_ui_event(g.api_context["customer_id"], "calendar", "calendar_updated", {"account_id": account_id, "calendar_id": calendar_id})
+    push_ui_event(
+        g.api_context["customer_id"],
+        "calendar",
+        "calendar_updated",
+        {"account_id": account_id, "calendar_id": calendar_id},
+    )
     conn = _get_cache_conn(account_id, dek)
     try:
         cal_row = get_calendar(conn, calendar_id)
@@ -364,13 +413,15 @@ def api_create_event(body: CreateEventBody):
         "location": body.location,
         "dtstart": body.start,
         "dtend": body.end,
-        "is_all_day": body.is_all_day,
+        "all_day": body.is_all_day,
         "timezone": body.timezone,
         "attendees": body.attendees,
         "alarms": [],
     }
     for r in body.reminders:
-        event_data["alarms"].append({"action": r.get("type", "DISPLAY"), "trigger": r.get("trigger_minutes", "-PT15M")})
+        event_data["alarms"].append(
+            {"action": r.get("type", "DISPLAY"), "trigger": r.get("trigger_minutes", "-PT15M")}
+        )
     if body.recurrence:
         event_data["rrule"] = body.recurrence
     ical_text = generate_icalendar(event_data, uid=event_data["uid"])
@@ -378,6 +429,7 @@ def api_create_event(body: CreateEventBody):
     try:
         s, _, _, _ = _get_caldav_session(account)
         from app.modules.calendar.services import caldav
+
         href, etag = caldav.create_event(s, cal["href"], ical_text, uid=uid)
     except ApiError:
         raise
@@ -386,13 +438,20 @@ def api_create_event(body: CreateEventBody):
     conn = _get_cache_conn(account_id, dek)
     try:
         from app.modules.calendar.services.cache_db import upsert_event
+
         upsert_event(conn, uid, href, etag, calendar_id, ical_text)
     finally:
         conn.close()
-    push_ui_event(g.api_context["customer_id"], "calendar", "event_created", {"account_id": account_id, "uid": uid})
+    push_ui_event(
+        g.api_context["customer_id"],
+        "calendar",
+        "event_created",
+        {"account_id": account_id, "uid": uid},
+    )
     conn = _get_cache_conn(account_id, dek)
     try:
         from app.modules.calendar.services.cache_db import get_event_by_uid
+
         evt_row = get_event_by_uid(conn, uid, calendar_id=calendar_id)
         result = _event_to_dict(evt_row) if evt_row else {"uid": uid, "summary": summary}
     finally:
@@ -430,11 +489,13 @@ def api_update_event(path: EventPath, body: UpdateEventBody):
     event_data = {
         "uid": d.get("uid"),
         "summary": body.summary if body.summary is not None else parsed.get("summary", ""),
-        "description": body.description if body.description is not None else parsed.get("description", ""),
+        "description": body.description
+        if body.description is not None
+        else parsed.get("description", ""),
         "location": body.location if body.location is not None else parsed.get("location", ""),
         "dtstart": body.start if body.start is not None else parsed.get("dtstart"),
         "dtend": body.end if body.end is not None else parsed.get("dtend"),
-        "is_all_day": body.is_all_day if body.is_all_day is not None else parsed.get("is_all_day", False),
+        "all_day": body.is_all_day if body.is_all_day is not None else parsed.get("all_day", False),
         "timezone": body.timezone if body.timezone is not None else parsed.get("timezone"),
         "attendees": body.attendees if body.attendees is not None else parsed.get("attendees", []),
         "sequence": parsed.get("sequence", 0) + 1,
@@ -445,15 +506,17 @@ def api_update_event(path: EventPath, body: UpdateEventBody):
     try:
         s, _, _, _ = _get_caldav_session(account)
         from app.modules.calendar.services import caldav
+
         href = d.get("href")
+        new_etag = ""
         if href:
-            caldav.update_event(s, href, ical_text, d.get("etag"))
+            new_etag = caldav.update_event(s, href, ical_text, d.get("etag"))
         else:
             conn2 = _get_cache_conn(account_id, dek)
             cal = get_calendar(conn2, calendar_id)
             cal = _row_to_dict(cal)
             conn2.close()
-            href, etag = caldav.create_event(s, cal["href"], ical_text, uid=event_data["uid"])
+            href, new_etag = caldav.create_event(s, cal["href"], ical_text, uid=event_data["uid"])
     except ApiError:
         raise
     except Exception as e:
@@ -461,15 +524,33 @@ def api_update_event(path: EventPath, body: UpdateEventBody):
     conn = _get_cache_conn(account_id, dek)
     try:
         from app.modules.calendar.services.cache_db import upsert_event
-        upsert_event(conn, event_data["uid"], href or d.get("href"), d.get("etag"), calendar_id, ical_text)
+
+        upsert_event(
+            conn,
+            event_data["uid"],
+            href or d.get("href"),
+            new_etag or d.get("etag"),
+            calendar_id,
+            ical_text,
+        )
     finally:
         conn.close()
-    push_ui_event(g.api_context["customer_id"], "calendar", "event_updated", {"account_id": account_id, "uid": event_data["uid"]})
+    push_ui_event(
+        g.api_context["customer_id"],
+        "calendar",
+        "event_updated",
+        {"account_id": account_id, "uid": event_data["uid"]},
+    )
     conn = _get_cache_conn(account_id, dek)
     try:
         from app.modules.calendar.services.cache_db import get_event_by_uid
+
         evt_row = get_event_by_uid(conn, event_data["uid"], calendar_id=calendar_id)
-        result = _event_to_dict(evt_row) if evt_row else {"uid": event_data["uid"], "summary": event_data["summary"]}
+        result = (
+            _event_to_dict(evt_row)
+            if evt_row
+            else {"uid": event_data["uid"], "summary": event_data["summary"]}
+        )
     finally:
         conn.close()
     return api_response(result)
@@ -503,6 +584,7 @@ def api_delete_event(path: EventPath):
     try:
         s, _, _, _ = _get_caldav_session(account)
         from app.modules.calendar.services import caldav
+
         if d.get("href"):
             caldav.delete_event(s, d["href"], d.get("etag"))
     except ApiError:
@@ -512,8 +594,14 @@ def api_delete_event(path: EventPath):
     conn = _get_cache_conn(account_id, dek)
     try:
         from app.modules.calendar.services.cache_db import delete_event_by_uid
+
         delete_event_by_uid(conn, uid, calendar_id=cal_id)
     finally:
         conn.close()
-    push_ui_event(g.api_context["customer_id"], "calendar", "event_deleted", {"account_id": account_id, "uid": uid})
+    push_ui_event(
+        g.api_context["customer_id"],
+        "calendar",
+        "event_deleted",
+        {"account_id": account_id, "uid": uid},
+    )
     return api_response(None, 204)

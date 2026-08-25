@@ -2,7 +2,7 @@ import json
 import logging
 import re
 
-from app.shared.icalendar import parse_icalendar, extract_uid
+from app.shared.icalendar import _fold_lines, _unfold_lines, extract_uid, parse_icalendar
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,9 @@ def process_incoming_reply(calendar_cache_conn, ical_text, sender_email, account
         except Exception:
             logger.warning(
                 "reply caldav push failed uid=%s attendee=%s (cache updated)",
-                uid, reply_email, exc_info=True,
+                uid,
+                reply_email,
+                exc_info=True,
             )
 
     return True
@@ -106,15 +108,19 @@ def _patch_raw_ical_attendee(raw_ical, email, partstat):
             )
         return line
 
-    return pattern.sub(_replace, raw_ical)
+    # Content lines may be folded (RFC 5545 §3.1); the regex must operate on
+    # unfolded logical lines, then the result is re-folded on output.
+    logical_lines = _unfold_lines(raw_ical.splitlines())
+    patched = [pattern.sub(_replace, line) for line in logical_lines]
+    return "\r\n".join(_fold_lines(patched))
 
 
 def _push_to_caldav(account, event, patched_ical):
-    from app.shared.db import db
-    from app.shared.models.core import Domain
-    from app.shared.keys import get_user_key
-    from app.modules.mail.services.secrets import decrypt_with_key
     from app.modules.calendar.services import caldav
+    from app.modules.mail.services.secrets import decrypt_with_key
+    from app.shared.db import db
+    from app.shared.keys import get_user_key
+    from app.shared.models.core import Domain
 
     domain = db.session.get(Domain, account.domain_id)
     if not domain or not domain.caldav_host:
@@ -127,7 +133,6 @@ def _push_to_caldav(account, event, patched_ical):
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     if not secret:
         return
-
 
     s = caldav._make_session(account.username, secret)
     caldav.update_event(s, event["href"], patched_ical, event.get("etag"))

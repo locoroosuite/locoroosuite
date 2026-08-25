@@ -1,4 +1,4 @@
-from app.modules.calendar.services.icalendar import parse_icalendar, generate_icalendar, extract_uid
+from app.modules.calendar.services.icalendar import extract_uid, generate_icalendar, parse_icalendar
 
 
 def test_parse_basic_event():
@@ -237,3 +237,122 @@ def test_generate_vtimezone_with_dst():
     assert "BEGIN:DAYLIGHT" in result
     assert "TZOFFSETFROM" in result
     assert "TZOFFSETTO" in result
+
+
+RICH_DESCRIPTION = (
+    "Recruitment conversation with Gemma Agnew (a&co Recruitment Partners) re: "
+    "Software Engineering Manager role in Adelaide.\n\n"
+    "Teams join: https://teams.microsoft.com/meet/450750393784079?p=qqdbYs1PzmBEDZYrhK\n"
+    "Meeting ID: 450 750 393 784 079\n"
+    "Passcode: gK2Sn3Ys\n\n"
+    "Gemma Agnew\n"
+    "Senior Recruitment Partner, a&co Recruitment Partners\n"
+    "+61 425 275 210\ngemma.agnew@aandco.au"
+)
+
+
+def _logical_lines(ical):
+    """Unfold physical CRLF-separated lines into logical content lines."""
+    out = []
+    for raw in ical.split("\r\n"):
+        if raw.startswith((" ", "\t")) and out:
+            out[-1] += raw[1:]
+        else:
+            out.append(raw)
+    return out
+
+
+def test_generate_escapes_rich_description():
+    data = {
+        "summary": "Teams call: Gemma Agnew - Recruitment Conversation",
+        "description": RICH_DESCRIPTION,
+        "location": "Microsoft Teams",
+        "dtstart": "2026-08-27T12:00:00+09:30",
+        "dtend": "2026-08-27T12:30:00+09:30",
+    }
+    result = generate_icalendar(data, uid="esc-rich")
+    # No raw newlines inside content lines (each physical line is complete)
+    for line in result.split("\r\n"):
+        assert "\n" not in line and "\r" not in line
+    desc_lines = [ln for ln in _logical_lines(result) if ln.startswith("DESCRIPTION:")]
+    assert len(desc_lines) == 1
+    desc_value = desc_lines[0][len("DESCRIPTION:") :]
+    # Newlines are literal \n escapes; the URL stays on one logical line
+    assert "\\n" in desc_value
+    assert "https://teams.microsoft.com/meet/450750393784079?p=qqdbYs1PzmBEDZYrhK" in desc_value
+    # Commas in TEXT values are escaped
+    assert "Senior Recruitment Partner\\, a&co" in desc_value
+    assert "&" in desc_value and "+" in desc_value and "|" not in desc_value
+
+
+def test_generate_escapes_semicolon_comma_backslash():
+    data = {
+        "summary": "Semi; colon, back\\slash",
+        "description": "a;b,c\\d",
+        "location": "Room 5; B2, F1",
+        "dtstart": "2026-08-27T12:00:00+09:30",
+        "dtend": "2026-08-27T12:30:00+09:30",
+    }
+    result = generate_icalendar(data, uid="esc-chars")
+    logical = _logical_lines(result)
+    assert "SUMMARY:Semi\\; colon\\, back\\\\slash" in logical
+    assert "DESCRIPTION:a\\;b\\,c\\\\d" in logical
+    assert "LOCATION:Room 5\\; B2\\, F1" in logical
+
+
+def test_generate_folds_long_lines_at_75_octets():
+    data = {
+        "summary": "Folding test " + "x" * 150,
+        "description": RICH_DESCRIPTION,
+        "dtstart": "2026-08-27T12:00:00+09:30",
+        "dtend": "2026-08-27T12:30:00+09:30",
+    }
+    result = generate_icalendar(data, uid="fold-1")
+    for line in result.split("\r\n"):
+        assert len(line.encode("utf-8")) <= 75, line
+    parsed = parse_icalendar(result)
+    assert parsed["summary"] == "Folding test " + "x" * 150
+    assert parsed["description"] == RICH_DESCRIPTION
+
+
+def test_roundtrip_rich_description():
+    data = {
+        "summary": "Teams call",
+        "description": RICH_DESCRIPTION,
+        "location": "Microsoft Teams",
+        "dtstart": "2026-08-27T12:00:00+09:30",
+        "dtend": "2026-08-27T12:30:00+09:30",
+    }
+    ical = generate_icalendar(data, uid="rt-rich")
+    parsed = parse_icalendar(ical)
+    assert parsed["description"] == RICH_DESCRIPTION
+    # Idempotent: re-serializing the parsed description must not double-escape
+    ical2 = generate_icalendar({**data, "description": parsed["description"]}, uid="rt-rich")
+    parsed2 = parse_icalendar(ical2)
+    assert parsed2["description"] == RICH_DESCRIPTION
+
+
+def test_parse_unescapes_folded_description():
+    ical = (
+        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:un-1\r\n"
+        "DTSTART:20260827T023000Z\r\nDTEND:20260827T030000Z\r\n"
+        "DESCRIPTION:First line\\nSecond line\\, comma\\; semi https://exam\r\n"
+        " ple.com/path?a=1&b=2+3\r\n"
+        "END:VEVENT\r\nEND:VCALENDAR\r\n"
+    )
+    result = parse_icalendar(ical)
+    assert result["description"] == (
+        "First line\nSecond line, comma; semi https://example.com/path?a=1&b=2+3"
+    )
+
+
+def test_parse_unescapes_alarm_description():
+    ical = (
+        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:un-2\r\n"
+        "DTSTART:20260827T023000Z\r\nDTEND:20260827T030000Z\r\n"
+        "BEGIN:VALARM\r\nTRIGGER:-PT15M\r\nACTION:DISPLAY\r\n"
+        "DESCRIPTION:Wake\\, up\\nnow\r\nEND:VALARM\r\n"
+        "END:VEVENT\r\nEND:VCALENDAR\r\n"
+    )
+    result = parse_icalendar(ical)
+    assert result["alarms"][0]["description"] == "Wake, up\nnow"

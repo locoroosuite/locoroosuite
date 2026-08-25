@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from tests.api.conftest import setup_cache_db, cleanup_cache_db, create_api_token, auth_header
+from tests.api.conftest import auth_header, cleanup_cache_db, create_api_token, setup_cache_db
 
 
 @pytest.fixture()
@@ -71,14 +71,14 @@ def _seed_calendar_cache(cache_path, dek="a" * 64):
 
 class TestListCalendars:
     def test_empty_list(self, app, calendar_api):
-        client, token, account_id, _ = calendar_api
+        client, token, _account_id, _ = calendar_api
         resp = client.get("/api/v1/calendar/calendars", headers=auth_header(token))
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert data["data"] == []
 
     def test_returns_seeded_calendars(self, app, calendar_api):
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, cache_path = calendar_api
         _seed_calendar_cache(cache_path)
         resp = client.get("/api/v1/calendar/calendars", headers=auth_header(token))
         assert resp.status_code == 200
@@ -90,7 +90,7 @@ class TestListCalendars:
         assert cal["is_default"] is True
 
     def test_calendar_has_expected_fields(self, app, calendar_api):
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, cache_path = calendar_api
         _seed_calendar_cache(cache_path)
         resp = client.get("/api/v1/calendar/calendars", headers=auth_header(token))
         data = json.loads(resp.data)
@@ -101,12 +101,12 @@ class TestListCalendars:
 
 class TestListEvents:
     def test_calendar_not_found(self, app, calendar_api):
-        client, token, account_id, _ = calendar_api
+        client, token, _account_id, _ = calendar_api
         resp = client.get("/api/v1/calendar/calendars/99999/events", headers=auth_header(token))
         assert resp.status_code == 404
 
     def test_returns_events_for_calendar(self, app, calendar_api):
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, cache_path = calendar_api
         cal_id = _seed_calendar_cache(cache_path)
         resp = client.get(
             f"/api/v1/calendar/calendars/{cal_id}/events?since=2026-05-01T00:00:00Z&until=2026-07-01T00:00:00Z",
@@ -120,7 +120,7 @@ class TestListEvents:
         assert "Project Review" in summaries
 
     def test_event_has_expected_fields(self, app, calendar_api):
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, cache_path = calendar_api
         cal_id = _seed_calendar_cache(cache_path)
         resp = client.get(
             f"/api/v1/calendar/calendars/{cal_id}/events?since=2026-05-01T00:00:00Z&until=2026-07-01T00:00:00Z",
@@ -142,7 +142,7 @@ class TestListEvents:
             assert key in event, f"Missing field: {key}"
 
     def test_events_with_date_range(self, app, calendar_api):
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, cache_path = calendar_api
         cal_id = _seed_calendar_cache(cache_path)
         resp = client.get(
             f"/api/v1/calendar/calendars/{cal_id}/events?since=2026-06-01T00:00:00Z&until=2026-06-02T00:00:00Z",
@@ -156,12 +156,12 @@ class TestListEvents:
 
 class TestGetEvent:
     def test_not_found(self, app, calendar_api):
-        client, token, account_id, _ = calendar_api
+        client, token, _account_id, _ = calendar_api
         resp = client.get("/api/v1/calendar/events/99999", headers=auth_header(token))
         assert resp.status_code == 404
 
     def test_returns_event_detail(self, app, calendar_api):
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, cache_path = calendar_api
         _seed_calendar_cache(cache_path)
         list_resp = client.get("/api/v1/calendar/search?q=Team+Meeting", headers=auth_header(token))
         event_id = json.loads(list_resp.data)["data"][0]["id"]
@@ -175,12 +175,12 @@ class TestGetEvent:
 
 class TestSearchEvents:
     def test_missing_query_returns_422(self, app, calendar_api):
-        client, token, account_id, _ = calendar_api
+        client, token, _account_id, _ = calendar_api
         resp = client.get("/api/v1/calendar/search", headers=auth_header(token))
         assert resp.status_code == 422
 
     def test_search_returns_matching(self, app, calendar_api):
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, cache_path = calendar_api
         _seed_calendar_cache(cache_path)
         resp = client.get("/api/v1/calendar/search?q=Meeting", headers=auth_header(token))
         assert resp.status_code == 200
@@ -189,7 +189,7 @@ class TestSearchEvents:
         assert data["data"][0]["summary"] == "Team Meeting"
 
     def test_search_no_results(self, app, calendar_api):
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, cache_path = calendar_api
         _seed_calendar_cache(cache_path)
         resp = client.get("/api/v1/calendar/search?q=nonexistent", headers=auth_header(token))
         assert resp.status_code == 200
@@ -198,7 +198,7 @@ class TestSearchEvents:
 
 class TestFreeBusy:
     def test_missing_params_returns_422(self, app, calendar_api):
-        client, token, account_id, _ = calendar_api
+        client, token, _account_id, _ = calendar_api
         resp = client.post(
             "/api/v1/calendar/free-busy",
             json={},
@@ -207,7 +207,7 @@ class TestFreeBusy:
         assert resp.status_code == 422
 
     def test_returns_busy_periods(self, app, calendar_api):
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, cache_path = calendar_api
         _seed_calendar_cache(cache_path)
         resp = client.post(
             "/api/v1/calendar/free-busy",
@@ -224,7 +224,7 @@ class TestFreeBusy:
 
 class TestDeleteCalendar:
     def test_not_found(self, app, calendar_api):
-        client, token, account_id, _ = calendar_api
+        client, token, _account_id, _ = calendar_api
         resp = client.delete(
             "/api/v1/calendar/calendars/99999",
             json={"confirm": True},
@@ -233,7 +233,7 @@ class TestDeleteCalendar:
         assert resp.status_code == 404
 
     def test_missing_confirm_returns_400(self, app, calendar_api):
-        client, token, account_id, _ = calendar_api
+        client, token, _account_id, _ = calendar_api
         resp = client.delete(
             "/api/v1/calendar/calendars/1",
             json={"confirm": False},
@@ -244,9 +244,9 @@ class TestDeleteCalendar:
 
 class TestUpdateEvent:
     def test_update_event_uses_raw_ical_column(self, app, calendar_api):
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, cache_path = calendar_api
         _seed_calendar_cache(cache_path)
         list_resp = client.get("/api/v1/calendar/search?q=Team+Meeting", headers=auth_header(token))
         event_id = json.loads(list_resp.data)["data"][0]["id"]
@@ -273,6 +273,61 @@ class TestUpdateEvent:
             body = body.decode("utf-8")
         assert "DTSTART" in body
         assert "DTEND" in body
+
+    def test_update_event_refreshes_etag_and_escapes_description(self, app, calendar_api):
+        from unittest.mock import MagicMock, patch
+
+        client, token, _account_id, cache_path = calendar_api
+        _seed_calendar_cache(cache_path)
+        list_resp = client.get("/api/v1/calendar/search?q=Team+Meeting", headers=auth_header(token))
+        event_id = json.loads(list_resp.data)["data"][0]["id"]
+
+        mock_session = MagicMock()
+        mock_session.put.side_effect = [
+            MagicMock(status_code=204, headers={"ETag": "etag-updated-1"}),
+            MagicMock(status_code=204, headers={"ETag": "etag-updated-2"}),
+        ]
+        with (
+            patch(
+                "app.api.controllers.calendar._get_caldav_session",
+                return_value=(mock_session, [], "http://localhost:5232", "pass"),
+            ),
+        ):
+            resp = client.put(
+                f"/api/v1/calendar/events/{event_id}",
+                json={"location": "Microsoft Teams"},
+                headers=auth_header(token),
+            )
+            assert resp.status_code == 200
+            rich_description = (
+                "Recruitment conversation (a&co Partners)\n\n"
+                "Teams join: https://teams.microsoft.com/meet/450750393784079?p=qqdbYs1PzmBEDZYrhK\n"
+                "Passcode: gK2Sn3Ys\n+61 425 275 210"
+            )
+            resp = client.put(
+                f"/api/v1/calendar/events/{event_id}",
+                json={"description": rich_description},
+                headers=auth_header(token),
+            )
+            assert resp.status_code == 200
+            data = json.loads(resp.data)["data"]
+            assert data["description"] == rich_description
+
+        first_put, second_put = mock_session.put.call_args_list
+        # First PUT uses the etag seeded in the cache
+        assert first_put[1]["headers"]["If-Match"] == "etag-1"
+        # Second PUT must use the etag returned by the first response — the
+        # regression for the 412 Precondition Failed on follow-up updates
+        assert second_put[1]["headers"]["If-Match"] == "etag-updated-1"
+
+        body = second_put[1]["data"].decode("utf-8")
+        for line in body.split("\r\n"):
+            assert "\n" not in line
+            assert len(line.encode("utf-8")) <= 75, line
+        assert (
+            "DESCRIPTION:Recruitment conversation (a&co Partners)\\n\\nTeams join:"
+            in body.replace("\r\n ", "")
+        )
 
 
 class TestTimezoneConversion:
@@ -303,7 +358,7 @@ class TestTimezoneConversion:
 
 class TestListEventsNoDateRange:
     def test_list_events_without_date_range(self, app, calendar_api):
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, cache_path = calendar_api
         cal_id = _seed_calendar_cache(cache_path)
         resp = client.get(
             f"/api/v1/calendar/calendars/{cal_id}/events",
@@ -319,7 +374,7 @@ class TestListEventsNoDateRange:
     def test_list_events_empty_calendar(self, app, calendar_api):
         from app.modules.calendar.services.cache_db import open_cache, upsert_calendar
 
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, cache_path = calendar_api
         conn = open_cache(cache_path, "a" * 64)
         cal_id = upsert_calendar(conn, uid="empty-cal", href="/caldav/empty/", displayname="Empty")
         conn.close()
@@ -336,7 +391,7 @@ class TestFreeBusyCalendarFilter:
     def test_calendar_ids_filter(self, app, calendar_api):
         from app.modules.calendar.services.cache_db import open_cache, upsert_calendar, upsert_event
 
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, cache_path = calendar_api
         dek = "a" * 64
         conn = open_cache(cache_path, dek)
         cal1_id = upsert_calendar(
@@ -416,9 +471,9 @@ class TestFreeBusyCalendarFilter:
 
 class TestCreateCalendarSchema:
     def test_create_returns_full_object(self, app, calendar_api):
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, _cache_path = calendar_api
 
         mock_session = MagicMock()
         with (
@@ -447,9 +502,9 @@ class TestCreateCalendarSchema:
 
 class TestUpdateCalendarSchema:
     def test_update_returns_full_object(self, app, calendar_api):
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, cache_path = calendar_api
         cal_id = _seed_calendar_cache(cache_path)
 
         mock_session = MagicMock()
@@ -476,9 +531,9 @@ class TestUpdateCalendarSchema:
 
 class TestCreateEventSchema:
     def test_create_returns_full_object(self, app, calendar_api):
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, cache_path = calendar_api
 
         from app.modules.calendar.services.cache_db import open_cache, upsert_calendar
 
@@ -531,11 +586,117 @@ class TestCreateEventSchema:
         assert data["is_all_day"] is False
 
 
+class TestAllDayEvents:
+    def test_create_all_day_event_uses_value_date(self, app, calendar_api):
+        from unittest.mock import MagicMock, patch
+
+        client, token, _account_id, cache_path = calendar_api
+
+        from app.modules.calendar.services.cache_db import open_cache, upsert_calendar
+
+        conn = open_cache(cache_path, "a" * 64)
+        cal_id = upsert_calendar(
+            conn, uid="ad-cal", href="/caldav/ad-cal/", displayname="All Day Cal"
+        )
+        conn.close()
+
+        mock_session = MagicMock()
+        mock_session.put.return_value = MagicMock(status_code=204, headers={})
+        with (
+            patch(
+                "app.api.controllers.calendar._get_caldav_session",
+                return_value=(mock_session, [], "http://localhost:5232", "pass"),
+            ),
+            patch(
+                "app.modules.calendar.services.caldav.create_event",
+                return_value=("/caldav/ad-cal/ad.ics", "etag-ad"),
+            ) as mock_create,
+        ):
+            resp = client.post(
+                "/api/v1/calendar/events",
+                json={
+                    "calendar_id": cal_id,
+                    "summary": "All Day Event",
+                    "start": "2026-09-01",
+                    "end": "2026-09-02",
+                    "is_all_day": True,
+                },
+                headers=auth_header(token),
+            )
+        assert resp.status_code == 201, resp.data
+        data = json.loads(resp.data)["data"]
+        assert data["is_all_day"] is True
+        ical_text = mock_create.call_args[0][2]
+        # The all-day flag must reach the iCalendar body (regression: the
+        # controller used to pass "is_all_day", which generate_icalendar
+        # ignored — silently producing a timed event).
+        assert "DTSTART;VALUE=DATE:20260901" in ical_text
+        assert "DTEND;VALUE=DATE:20260902" in ical_text
+
+    def test_update_preserves_all_day_flag(self, app, calendar_api):
+        from unittest.mock import MagicMock, patch
+
+        client, token, _account_id, cache_path = calendar_api
+
+        from app.modules.calendar.services.cache_db import open_cache, upsert_calendar, upsert_event
+
+        conn = open_cache(cache_path, "a" * 64)
+        cal_id = upsert_calendar(
+            conn, uid="ad-cal-2", href="/caldav/ad-cal-2/", displayname="All Day Cal 2"
+        )
+        upsert_event(
+            conn,
+            uid="all-day-evt",
+            href="/caldav/ad-cal-2/all-day-evt.ics",
+            etag="etag-ad-1",
+            calendar_id=cal_id,
+            ical_text=(
+                "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n"
+                "BEGIN:VEVENT\r\n"
+                "UID:all-day-evt\r\n"
+                "DTSTART;VALUE=DATE:20260901\r\n"
+                "DTEND;VALUE=DATE:20260902\r\n"
+                "SUMMARY:Holiday\r\n"
+                "END:VEVENT\r\n"
+                "END:VCALENDAR\r\n"
+            ),
+        )
+        conn.close()
+
+        list_resp = client.get("/api/v1/calendar/search?q=Holiday", headers=auth_header(token))
+        event_id = json.loads(list_resp.data)["data"][0]["id"]
+        detail = json.loads(
+            client.get(f"/api/v1/calendar/events/{event_id}", headers=auth_header(token)).data
+        )["data"]
+        assert detail["is_all_day"] is True
+
+        mock_session = MagicMock()
+        mock_session.put.return_value = MagicMock(status_code=204, headers={"ETag": "etag-ad-2"})
+        with (
+            patch(
+                "app.api.controllers.calendar._get_caldav_session",
+                return_value=(mock_session, [], "http://localhost:5232", "pass"),
+            ),
+        ):
+            # Update an unrelated field; the all-day flag must survive the merge
+            resp = client.put(
+                f"/api/v1/calendar/events/{event_id}",
+                json={"location": "Beach"},
+                headers=auth_header(token),
+            )
+        assert resp.status_code == 200, resp.data
+        data = json.loads(resp.data)["data"]
+        assert data["is_all_day"] is True
+        body = mock_session.put.call_args[1]["data"].decode("utf-8")
+        assert "DTSTART;VALUE=DATE:20260901" in body
+        assert "DTEND;VALUE=DATE:20260902" in body
+
+
 class TestUpdateEventSchema:
     def test_update_returns_full_object(self, app, calendar_api):
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, cache_path = calendar_api
         _seed_calendar_cache(cache_path)
         list_resp = client.get("/api/v1/calendar/search?q=Team+Meeting", headers=auth_header(token))
         event_id = json.loads(list_resp.data)["data"][0]["id"]
@@ -574,9 +735,9 @@ class TestUpdateEventSchema:
 
 class TestEventLifecycle:
     def test_create_list_get_delete(self, app, calendar_api):
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
-        client, token, account_id, cache_path = calendar_api
+        client, token, _account_id, cache_path = calendar_api
 
         from app.modules.calendar.services.cache_db import open_cache, upsert_calendar
 

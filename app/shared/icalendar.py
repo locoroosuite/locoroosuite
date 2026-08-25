@@ -1,5 +1,78 @@
 import uuid
-from datetime import datetime, timezone, timedelta, date
+from datetime import UTC, date, datetime, timedelta
+
+
+def _escape_text(value):
+    """Escape a TEXT property value per RFC 5545 §3.3.11."""
+    text = value.replace("\\", "\\\\")
+    text = text.replace(";", "\\;")
+    text = text.replace(",", "\\,")
+    text = text.replace("\r\n", "\\n")
+    text = text.replace("\r", "\\n")
+    text = text.replace("\n", "\\n")
+    return text
+
+
+def _unescape_text(value):
+    """Unescape a TEXT property value per RFC 5545 §3.3.11."""
+    if "\\" not in value:
+        return value
+    result = []
+    i = 0
+    length = len(value)
+    while i < length:
+        ch = value[i]
+        if ch == "\\" and i + 1 < length:
+            nxt = value[i + 1]
+            if nxt in ("n", "N"):
+                result.append("\n")
+                i += 2
+                continue
+            if nxt in ("\\", ";", ","):
+                result.append(nxt)
+                i += 2
+                continue
+        result.append(ch)
+        i += 1
+    return "".join(result)
+
+
+def _fold_line(line, first_limit=75, continuation_limit=74):
+    """Fold one content line into ≤75-octet segments per RFC 5545 §3.1.
+
+    Continuation segments get a leading space appended by the caller, so
+    their budget is one octet smaller. Folding never splits a multi-byte
+    UTF-8 character.
+    """
+    if len(line.encode("utf-8")) <= first_limit:
+        return [line]
+    segments = []
+    current = []
+    current_len = 0
+    limit = first_limit
+    for ch in line:
+        ch_len = len(ch.encode("utf-8"))
+        if current_len + ch_len > limit:
+            segments.append("".join(current))
+            current = [ch]
+            current_len = ch_len
+            limit = continuation_limit
+        else:
+            current.append(ch)
+            current_len += ch_len
+    if current:
+        segments.append("".join(current))
+    return segments
+
+
+def _fold_lines(lines):
+    folded = []
+    for line in lines:
+        segments = _fold_line(line)
+        folded.append(segments[0])
+        for seg in segments[1:]:
+            folded.append(" " + seg)
+    return folded
 
 
 def parse_icalendar(text):
@@ -35,9 +108,8 @@ def _extract_vevent_lines(lines):
         if upper == "BEGIN:VEVENT":
             in_vevent = True
             continue
-        if upper == "END:VEVENT":
-            if in_vevent:
-                return vevent_lines
+        if upper == "END:VEVENT" and in_vevent:
+            return vevent_lines
         if in_vevent:
             vevent_lines.append(line)
     return vevent_lines if in_vevent else None
@@ -71,11 +143,11 @@ def _parse_vevent(lines):
         name, params, value = _parse_property(stripped)
         key = name.upper()
         if key == "SUMMARY":
-            props.setdefault("summary", value)
+            props.setdefault("summary", _unescape_text(value))
         elif key == "DESCRIPTION":
-            props.setdefault("description", value)
+            props.setdefault("description", _unescape_text(value))
         elif key == "LOCATION":
-            props.setdefault("location", value)
+            props.setdefault("location", _unescape_text(value))
         elif key == "UID":
             props.setdefault("uid", value)
         elif key == "DTSTART":
@@ -130,14 +202,14 @@ def _parse_vevent(lines):
 
 
 def _parse_alarm_prop(alarm, line):
-    name, params, value = _parse_property(line)
+    name, _params, value = _parse_property(line)
     key = name.upper()
     if key == "TRIGGER":
         alarm["trigger"] = value
     elif key == "ACTION":
         alarm["action"] = value.upper()
     elif key == "DESCRIPTION":
-        alarm["description"] = value
+        alarm["description"] = _unescape_text(value)
 
 
 def _parse_organizer(value, params):
@@ -168,14 +240,14 @@ def _parse_datetime(params, value):
         value = value[:-1]
         try:
             dt = datetime.strptime(value, "%Y%m%dT%H%M%S")
-            return dt.replace(tzinfo=timezone.utc).isoformat(), False
+            return dt.replace(tzinfo=UTC).isoformat(), False
         except ValueError:
             return value, False
     try:
         dt = datetime.strptime(value, "%Y%m%dT%H%M%S")
         if tzid:
             return dt.isoformat(), False
-        return dt.replace(tzinfo=timezone.utc).isoformat(), False
+        return dt.replace(tzinfo=UTC).isoformat(), False
     except ValueError:
         return value, False
 
@@ -193,6 +265,7 @@ def _parse_date_list(params, value):
 def _generate_vtimezone_lines(tzid):
     try:
         from zoneinfo import ZoneInfo as _ZI
+
         tz = _ZI(tzid)
     except Exception:
         return []
@@ -204,7 +277,7 @@ def _generate_vtimezone_lines(tzid):
         return dt.utcoffset(), dt.dst() or timedelta(0)
 
     jan_off, jan_dst = _offset_at(1)
-    jul_off, jul_dst = _offset_at(7)
+    jul_off, _ = _offset_at(7)
 
     def fmt(td):
         total = int(td.total_seconds())
@@ -262,15 +335,15 @@ def generate_icalendar(data, uid=None):
     lines.append("BEGIN:VEVENT")
     lines.append(f"UID:{uid}")
     lines.append(f"DTSTAMP:{_format_utc_now()}")
-    summary = data.get("summary", "").strip()
+    summary = (data.get("summary") or "").strip()
     if summary:
-        lines.append(f"SUMMARY:{summary}")
+        lines.append(f"SUMMARY:{_escape_text(summary)}")
     description = (data.get("description") or "").strip()
     if description:
-        lines.append(f"DESCRIPTION:{description}")
+        lines.append(f"DESCRIPTION:{_escape_text(description)}")
     location = (data.get("location") or "").strip()
     if location:
-        lines.append(f"LOCATION:{location}")
+        lines.append(f"LOCATION:{_escape_text(location)}")
     tzid = data.get("timezone")
     dtstart = data.get("dtstart")
     if dtstart:
@@ -335,12 +408,12 @@ def generate_icalendar(data, uid=None):
         action = alarm.get("action", "DISPLAY")
         lines.append(f"TRIGGER:{trigger}")
         lines.append(f"ACTION:{action}")
-        alarm_desc = alarm.get("description", summary or "Reminder")
-        lines.append(f"DESCRIPTION:{alarm_desc}")
+        alarm_desc = alarm.get("description") or summary or "Reminder"
+        lines.append(f"DESCRIPTION:{_escape_text(alarm_desc)}")
         lines.append("END:VALARM")
     lines.append("END:VEVENT")
     lines.append("END:VCALENDAR")
-    return "\r\n".join(lines)
+    return "\r\n".join(_fold_lines(lines))
 
 
 def extract_uid(ical_text):
@@ -357,7 +430,7 @@ def _format_dt(dt_str, all_day=False, utc=True):
     try:
         dt = datetime.fromisoformat(dt_str)
         if utc and dt.tzinfo is not None:
-            dt = dt.astimezone(timezone.utc)
+            dt = dt.astimezone(UTC)
         fmt = "%Y%m%dT%H%M%SZ" if utc else "%Y%m%dT%H%M%S"
         return dt.strftime(fmt)
     except (ValueError, TypeError):
@@ -365,7 +438,7 @@ def _format_dt(dt_str, all_day=False, utc=True):
 
 
 def _format_utc_now():
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
 
 def _unfold_lines(raw_lines):
@@ -411,7 +484,7 @@ def _parse_property(line):
     if colon_idx == -1:
         return line.upper(), {}, ""
     left = line[:colon_idx]
-    value = line[colon_idx + 1:]
+    value = line[colon_idx + 1 :]
     parts = left.split(";")
     name = parts[0].split(".", 1)[-1].upper()
     params = {}

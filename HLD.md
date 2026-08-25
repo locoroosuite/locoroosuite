@@ -291,6 +291,10 @@ U9.2 - Language: English only for MVP.
 U9.3 - Theme: light/dark toggle.
 U9.5 - Customer settings include a per-account toggle for the Spam action (enable/disable). Default is enabled; if the server rejects the \\Junk flag, auto-disable and inform the user per U5.13.
 U9.6 - Customer settings include an "API Access" section (see U14) where the customer can enable/disable API access and manage API tokens. This section requires password confirmation for all state-changing actions.
+U9.7 - Settings page information architecture: controls are grouped into scannable sections with a sticky in-page section nav — General (timezone, theme), Mail (sort order, preview pane, sync frequency), Protection (protect-starred policy plus per-account Spam action and Message lock toggles grouped under one row per account), Notifications (U24.22), Security & API Access (links to the U22/U14 pages), and Danger zone (Reset Cache). Per-account toggles must not be split into separate lists.
+U9.8 - Auto-save: every settings control saves immediately via a per-control JSON request (no page-level Save button). Each control shows inline saving/saved/error feedback; on failure the control reverts to its previous value and shows a retry message. All state-changing settings endpoints validate input server-side and return structured errors (`{"error": {"code", "message"}}`).
+U9.9 - Polling interval is chosen from preset values (30 seconds to 30 minutes) and validated server-side against the preset list; a free-text seconds input is not offered.
+U9.10 - Reset Cache requires an explicit inline confirmation step before executing and reports the result in place (no redirect/refresh).
 
 # Use Case U10 – Mailbox Import / Migration
 U10.1 - The product supports mailbox import requests initiated by admins. For MVP, supported source types are Google (Gmail / Google Workspace) and Google Takeout mail export; future source types IMAP and O365 are planned but out of scope for implementation.

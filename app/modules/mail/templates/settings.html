@@ -1,125 +1,233 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="max-w-2xl mx-auto bg-white/90 border border-slate-200/80 rounded-2xl p-6 shadow-sm">
-  <h1 class="text-xl font-semibold mb-4 text-slate-900">Settings</h1>
-  {% if request.args.get("cache_reset") %}
-  <div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-    Cache reset. Fresh sync will start when you open a folder.
-  </div>
-  {% endif %}
-  <form method="post" class="space-y-4">
-    <div>
-      <label class="block text-sm font-medium">Polling interval (seconds)</label>
-      <input name="polling_interval" value="{{ settings.polling_interval }}" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
-    </div>
-    <div>
-      <label class="block text-sm font-medium">Preview pane default</label>
-      <input name="preview_pane_default" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-slate-900" {% if settings.preview_pane_default %}checked{% endif %} />
-    </div>
-    <div>
-      <label class="block text-sm font-medium">Sort order</label>
-      <select name="sort_order" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">
-        <option value="date_desc" {% if settings.sort_order == "date_desc" %}selected{% endif %}>Newest first</option>
-        <option value="date_asc" {% if settings.sort_order == "date_asc" %}selected{% endif %}>Oldest first</option>
-      </select>
-    </div>
-    <div>
-      <label class="block text-sm font-medium">Timezone</label>
-      <select name="timezone" id="tz-select" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">
-        <option value="browser" {{ 'selected' if settings.timezone == 'browser' or not settings.timezone }}>Browser (detected: <span id="browser-tz-label"></span>)</option>
-        {% for tz in timezone_options %}
-        <option value="{{ tz }}" {{ 'selected' if settings.timezone == tz }}>{{ tz }}</option>
+<div class="mx-auto max-w-3xl">
+  <h1 class="mb-4 text-xl font-semibold text-slate-900">Settings</h1>
+
+  <nav class="mb-6 flex flex-wrap gap-2" aria-label="Settings sections">
+    <a href="#general" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">General</a>
+    <a href="#mail" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">Mail</a>
+    <a href="#protection" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">Protection</a>
+    <a href="#notifications" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">Notifications</a>
+    <a href="#security" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">Security &amp; API</a>
+    <a href="#danger" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50">Danger zone</a>
+  </nav>
+
+  <div class="space-y-6">
+
+    <section id="general" class="bg-white/90 border border-slate-200/80 rounded-2xl shadow-sm">
+      <div class="border-b border-slate-100 px-6 py-4">
+        <h2 class="text-sm font-semibold text-slate-900">General</h2>
+        <p class="mt-0.5 text-xs text-slate-500">How the app looks and what timezone it uses.</p>
+      </div>
+      <div class="divide-y divide-slate-100 px-6">
+        <div class="flex items-center justify-between gap-4 py-4">
+          <div>
+            <div class="text-sm font-medium text-slate-800">Timezone</div>
+            <p class="mt-0.5 text-xs text-slate-500">Dates and times are shown in this timezone.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="pref-status text-xs" aria-live="polite"></span>
+            <select data-pref="timezone" id="tz-select" class="w-56 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">
+              <option value="browser" {{ 'selected' if settings.timezone == 'browser' or not settings.timezone }}>Browser (detected: <span id="browser-tz-label"></span>)</option>
+              {% for tz in timezone_options %}
+              <option value="{{ tz }}" {{ 'selected' if settings.timezone == tz }}>{{ tz }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="flex items-center justify-between gap-4 py-4">
+          <div>
+            <div class="text-sm font-medium text-slate-800">Theme</div>
+            <p class="mt-0.5 text-xs text-slate-500">Colour scheme of the interface.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="pref-status text-xs" aria-live="polite"></span>
+            <select data-pref="theme" class="w-56 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">
+              <option value="light" {% if settings.theme == "light" %}selected{% endif %}>Light</option>
+              <option value="dark" {% if settings.theme == "dark" %}selected{% endif %}>Dark</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="mail" class="bg-white/90 border border-slate-200/80 rounded-2xl shadow-sm">
+      <div class="border-b border-slate-100 px-6 py-4">
+        <h2 class="text-sm font-semibold text-slate-900">Mail</h2>
+        <p class="mt-0.5 text-xs text-slate-500">How your mailbox behaves.</p>
+      </div>
+      <div class="divide-y divide-slate-100 px-6">
+        <div class="flex items-center justify-between gap-4 py-4">
+          <div>
+            <div class="text-sm font-medium text-slate-800">Sort order</div>
+            <p class="mt-0.5 text-xs text-slate-500">Default ordering of the message list.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="pref-status text-xs" aria-live="polite"></span>
+            <select data-pref="sort_order" class="w-56 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">
+              <option value="date_desc" {% if settings.sort_order == "date_desc" %}selected{% endif %}>Newest first</option>
+              <option value="date_asc" {% if settings.sort_order == "date_asc" %}selected{% endif %}>Oldest first</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex items-center justify-between gap-4 py-4">
+          <div>
+            <div class="text-sm font-medium text-slate-800">Preview pane</div>
+            <p class="mt-0.5 text-xs text-slate-500">Open the reading pane next to the message list by default.</p>
+          </div>
+          <label class="relative inline-flex cursor-pointer items-center">
+            <input type="checkbox" data-pref="preview_pane_default" class="peer sr-only" {% if settings.preview_pane_default %}checked{% endif %} />
+            <span class="pref-status absolute -left-16 text-xs" aria-live="polite"></span>
+            <span class="h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
+          </label>
+        </div>
+        <div class="flex items-center justify-between gap-4 py-4">
+          <div>
+            <div class="text-sm font-medium text-slate-800">Sync frequency</div>
+            <p class="mt-0.5 text-xs text-slate-500">How often to check for new mail when the app is open.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="pref-status text-xs" aria-live="polite"></span>
+            <select data-pref="polling_interval" class="w-56 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">
+              {% for value, label in polling_choices %}
+              <option value="{{ value }}" {% if settings.polling_interval == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="protection" class="bg-white/90 border border-slate-200/80 rounded-2xl shadow-sm">
+      <div class="border-b border-slate-100 px-6 py-4">
+        <h2 class="text-sm font-semibold text-slate-900">Protection</h2>
+        <p class="mt-0.5 text-xs text-slate-500">Guard rails that stop mail from being deleted by accident — or by an AI agent.</p>
+      </div>
+      <div class="divide-y divide-slate-100 px-6">
+        <div class="flex items-center justify-between gap-4 py-4">
+          <div>
+            <div class="text-sm font-medium text-slate-800">Protect starred emails</div>
+            <p class="mt-0.5 text-xs text-slate-500">Starred emails refuse delete or move-to-Trash until they are un-starred.</p>
+          </div>
+          <label class="relative inline-flex cursor-pointer items-center">
+            <input type="checkbox" data-pref="protect_starred" class="peer sr-only" {% if settings.protect_starred %}checked{% endif %} />
+            <span class="pref-status absolute -left-16 text-xs" aria-live="polite"></span>
+            <span class="h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
+          </label>
+        </div>
+        {% if accounts %}
+        {% for account in accounts %}
+        {% set spam_enabled = spam_action_prefs.get(account.id ~ '', True) %}
+        {% set lock_enabled = locked_keyword_prefs.get(account.id ~ '', True) %}
+        <div class="py-4">
+          <div class="text-sm font-medium text-slate-800">{{ account.email_address }}</div>
+          <div class="mt-2 space-y-1">
+            <div class="flex items-center justify-between gap-4 rounded-lg bg-slate-50/70 px-3 py-2.5">
+              <div>
+                <div class="text-sm text-slate-700">Spam reporting</div>
+                <p class="mt-0.5 text-xs text-slate-500">Show the “report spam” action for this account.</p>
+              </div>
+              <label class="relative inline-flex cursor-pointer items-center">
+                <input type="checkbox" data-pref="spam_action_{{ account.id }}" class="peer sr-only" {% if spam_enabled %}checked{% endif %} />
+                <span class="pref-status absolute -left-16 text-xs" aria-live="polite"></span>
+                <span class="h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
+              </label>
+            </div>
+            <div class="flex items-center justify-between gap-4 rounded-lg bg-slate-50/70 px-3 py-2.5">
+              <div>
+                <div class="text-sm text-slate-700">Message lock</div>
+                <p class="mt-0.5 text-xs text-slate-500">Allow locking individual messages so they refuse delete.</p>
+              </div>
+              <label class="relative inline-flex cursor-pointer items-center">
+                <input type="checkbox" data-pref="locked_keyword_{{ account.id }}" class="peer sr-only" {% if lock_enabled %}checked{% endif %} />
+                <span class="pref-status absolute -left-16 text-xs" aria-live="polite"></span>
+                <span class="h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
+              </label>
+            </div>
+          </div>
+        </div>
         {% endfor %}
-      </select>
-    </div>
-    <div>
-      <label class="block text-sm font-medium">Theme</label>
-      <select name="theme" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200">
-        <option value="light" {% if settings.theme == "light" %}selected{% endif %}>Light</option>
-        <option value="dark" {% if settings.theme == "dark" %}selected{% endif %}>Dark</option>
-      </select>
-    </div>
-    <div>
-      <label class="block text-sm font-medium">Spam action (per account)</label>
-      <p class="mt-1 text-xs text-slate-500">Disable to hide the Spam/Junk action for an account.</p>
-      <div class="mt-2 space-y-2">
-        {% if accounts %}
-          {% for account in accounts %}
-          {% set spam_enabled = spam_action_prefs.get(account.id ~ '', True) %}
-          <label class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-            <span class="text-slate-700">{{ account.email_address }}</span>
-            <input name="spam_action_{{ account.id }}" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-slate-900" {% if spam_enabled %}checked{% endif %} />
-          </label>
-          {% endfor %}
         {% else %}
-          <div class="text-xs text-slate-500">No active accounts yet.</div>
+        <div class="py-4 text-xs text-slate-500">No active accounts yet.</div>
         {% endif %}
       </div>
-    </div>
-    <div>
-      <label class="block text-sm font-medium">Protect starred emails from delete</label>
-      <p class="mt-1 text-xs text-slate-500">When on, starred (flagged) emails refuse delete/move-to-Trash until un-starred. Individual messages can also be locked explicitly.</p>
-      <label class="mt-2 flex items-center gap-2 text-sm text-slate-700">
-        <input name="protect_starred" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-slate-900" {% if settings.protect_starred %}checked{% endif %} />
-        Protect starred emails by default
-      </label>
-    </div>
-    <div>
-      <label class="block text-sm font-medium">Message lock (per account)</label>
-      <p class="mt-1 text-xs text-slate-500">Enable the per-message delete-protection lock for an account. Auto-disables if your mail server doesn't support custom flags.</p>
-      <div class="mt-2 space-y-2">
-        {% if accounts %}
-          {% for account in accounts %}
-          {% set lock_enabled = locked_keyword_prefs.get(account.id ~ '', True) %}
-          <label class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-            <span class="text-slate-700">{{ account.email_address }}</span>
-            <input name="locked_keyword_{{ account.id }}" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-slate-900" {% if lock_enabled %}checked{% endif %} />
-          </label>
-          {% endfor %}
-        {% else %}
-          <div class="text-xs text-slate-500">No active accounts yet.</div>
-        {% endif %}
+    </section>
+
+    <section id="notifications" class="bg-white/90 border border-slate-200/80 rounded-2xl shadow-sm">
+      <div class="border-b border-slate-100 px-6 py-4">
+        <h2 class="text-sm font-semibold text-slate-900">Notifications</h2>
+        <p class="mt-0.5 text-xs text-slate-500">Get a device notification when new mail arrives.</p>
       </div>
-    </div>
-    <button class="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm">Save</button>
-  </form>
-  <div class="mt-6 border-t border-slate-200/80 pt-5" id="notifications-section">
-    <div class="text-sm font-semibold text-slate-900">Notifications</div>
-    <p class="mt-1 text-sm text-slate-500">Get a device notification when new mail arrives.</p>
-    <div id="push-status" class="mt-2 text-xs"></div>
-    <div class="mt-3 flex flex-wrap items-center gap-3">
-      <button type="button" id="push-enable-btn" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60">Enable notifications</button>
-      <button type="button" id="push-disable-btn" class="hidden rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60">Disable on this device</button>
-    </div>
-    <div class="mt-4">
-      <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Registered devices</div>
-      <ul id="push-device-list" class="space-y-2 text-sm text-slate-700"></ul>
-      <p id="push-no-devices" class="hidden text-xs text-slate-500">No devices registered yet.</p>
-    </div>
-    <label class="mt-4 flex items-center gap-2 text-sm text-slate-700">
-      <input type="checkbox" id="push-detailed-toggle" class="h-4 w-4 rounded border-slate-300 text-slate-900" {% if settings.push_detailed %}checked{% endif %} />
-      Show sender and subject in notifications
-    </label>
-    <p class="mt-1 text-xs text-slate-500">Off by default: notifications only say "New email" so your mail stays private on the lock screen. Message bodies are never included.</p>
-  </div>
-  <div class="mt-6 border-t border-slate-200/80 pt-5">
-    <div class="text-sm font-semibold text-slate-900">API Access</div>
-    <p class="mt-1 text-sm text-slate-500">Manage API tokens for integrating with AI agents and external tools.</p>
-    <a href="{{ url_for('mail.api_settings') }}" class="inline-block mt-3 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Manage API Access</a>
-  </div>
-  <div class="mt-6 border-t border-slate-200/80 pt-5">
-    <div class="text-sm font-semibold text-slate-900">Security</div>
-    <p class="mt-1 text-sm text-slate-500">Enable two-factor authentication and manage trusted devices.</p>
-    <a href="{{ url_for('mail.twofa_settings') }}" class="inline-block mt-3 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Manage Security</a>
-  </div>
-  <div class="mt-6 border-t border-slate-200/80 pt-5">
-    <div class="text-sm font-semibold text-slate-900">Reset Cache</div>
-    <p class="mt-1 text-sm text-slate-500">Clears the local cached mail for your active account. IMAP is untouched.</p>
-    <form method="post" action="{{ url_for('mail.settings_reset_cache') }}" class="mt-3">
-      <button class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700 hover:bg-rose-100">
-        Reset Cache
-      </button>
-    </form>
+      <div class="px-6 py-4">
+        <div id="push-status" class="text-xs"></div>
+        <div class="mt-3 flex flex-wrap items-center gap-3">
+          <button type="button" id="push-enable-btn" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60">Enable notifications</button>
+          <button type="button" id="push-disable-btn" class="hidden rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60">Disable on this device</button>
+        </div>
+        <div class="mt-4">
+          <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Registered devices</div>
+          <ul id="push-device-list" class="space-y-2 text-sm text-slate-700"></ul>
+          <p id="push-no-devices" class="hidden text-xs text-slate-500">No devices registered yet.</p>
+        </div>
+        <div class="mt-4 flex items-center justify-between gap-4 rounded-lg bg-slate-50/70 px-3 py-2.5">
+          <div>
+            <div class="text-sm text-slate-700">Show sender and subject</div>
+            <p class="mt-0.5 text-xs text-slate-500">Off by default: notifications only say “New email” so your mail stays private on the lock screen. Message bodies are never included.</p>
+          </div>
+          <label class="relative inline-flex cursor-pointer items-center">
+            <input type="checkbox" data-pref="push_detailed" class="peer sr-only" {% if settings.push_detailed %}checked{% endif %} />
+            <span class="pref-status absolute -left-16 text-xs" aria-live="polite"></span>
+            <span class="h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <section id="security" class="bg-white/90 border border-slate-200/80 rounded-2xl shadow-sm">
+      <div class="border-b border-slate-100 px-6 py-4">
+        <h2 class="text-sm font-semibold text-slate-900">Security &amp; API</h2>
+      </div>
+      <div class="divide-y divide-slate-100">
+        <a href="{{ url_for('mail.twofa_settings') }}" class="flex items-center justify-between gap-4 px-6 py-4 hover:bg-slate-50">
+          <div>
+            <div class="text-sm font-medium text-slate-800">Two-factor authentication</div>
+            <p class="mt-0.5 text-xs text-slate-500">Enable 2FA and manage trusted devices.</p>
+          </div>
+          <span class="text-slate-400">&rarr;</span>
+        </a>
+        <a href="{{ url_for('mail.api_settings') }}" class="flex items-center justify-between gap-4 px-6 py-4 hover:bg-slate-50">
+          <div>
+            <div class="text-sm font-medium text-slate-800">API access</div>
+            <p class="mt-0.5 text-xs text-slate-500">Manage API tokens for AI agents and external tools.</p>
+          </div>
+          <span class="text-slate-400">&rarr;</span>
+        </a>
+      </div>
+    </section>
+
+    <section id="danger" class="border border-rose-200/80 bg-rose-50/40 rounded-2xl shadow-sm">
+      <div class="border-b border-rose-100 px-6 py-4">
+        <h2 class="text-sm font-semibold text-rose-900">Danger zone</h2>
+      </div>
+      <div class="px-6 py-4">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <div class="text-sm font-medium text-slate-800">Reset mail cache</div>
+            <p class="mt-0.5 text-xs text-slate-500">Clears the locally cached mail for your active account and re-syncs from the server. Nothing is deleted from your mailbox.</p>
+          </div>
+          <button type="button" id="reset-cache-btn" class="shrink-0 rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-60">Reset cache</button>
+        </div>
+        <div id="reset-cache-confirm" class="hidden mt-3 rounded-lg border border-rose-200 bg-white px-4 py-3">
+          <p class="text-sm text-slate-700">Clear the cached mail and re-sync from the server?</p>
+          <div class="mt-3 flex items-center gap-3">
+            <button type="button" id="reset-cache-confirm-btn" class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-60">Yes, reset cache</button>
+            <button type="button" id="reset-cache-cancel-btn" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Cancel</button>
+          </div>
+        </div>
+        <div id="reset-cache-status" class="mt-3 hidden rounded-lg border px-3 py-2 text-sm" aria-live="polite"></div>
+      </div>
+    </section>
+
   </div>
 </div>
 <script>
@@ -138,17 +246,118 @@
 </script>
 <script>
 (function() {
+  var STATUS_CLASSES = 'pref-status absolute -left-16 text-xs';
+
+  var findStatus = function(control) {
+    return control.closest('label, div').querySelector('.pref-status');
+  };
+
+  var setStatus = function(control, kind, text) {
+    var el = findStatus(control);
+    if (!el) return;
+    el.textContent = text;
+    el.className = STATUS_CLASSES + (kind === 'error' ? ' text-rose-600' : (kind === 'ok' ? ' text-emerald-600' : ' text-slate-400'));
+    if (kind === 'ok' && el._fadeTimer) clearTimeout(el._fadeTimer);
+    if (kind === 'ok') {
+      el._fadeTimer = setTimeout(function() { el.textContent = ''; }, 2500);
+    }
+  };
+
+  var revert = function(control) {
+    if (control.type === 'checkbox') control.checked = !control.checked;
+    else if (control.tagName === 'SELECT' && control.dataset.savedValue) control.value = control.dataset.savedValue;
+  };
+
+  var savePref = function(control) {
+    var key = control.getAttribute('data-pref');
+    var value = control.type === 'checkbox' ? control.checked : control.value;
+    control.disabled = true;
+    setStatus(control, 'busy', 'Saving…');
+    fetch('/app/mail/settings/pref', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ key: key, value: value })
+    }).then(function(r) {
+      if (!r.ok) return r.json().then(function(err) { throw new Error((err && err.error && err.error.message) || 'Save failed'); });
+      return r.json();
+    }).then(function() {
+      control.dataset.savedValue = value;
+      setStatus(control, 'ok', 'Saved');
+    }).catch(function(err) {
+      revert(control);
+      setStatus(control, 'error', err.message || 'Could not save. Please retry.');
+    }).finally(function() {
+      control.disabled = false;
+    });
+  };
+
+  document.addEventListener('change', function(e) {
+    var control = e.target;
+    if (control && control.matches && control.matches('[data-pref]')) savePref(control);
+  });
+
+  var resetBtn = document.getElementById('reset-cache-btn');
+  var confirmBox = document.getElementById('reset-cache-confirm');
+  var confirmBtn = document.getElementById('reset-cache-confirm-btn');
+  var cancelBtn = document.getElementById('reset-cache-cancel-btn');
+  var statusBox = document.getElementById('reset-cache-status');
+
+  var showResetStatus = function(kind, text) {
+    statusBox.className = 'mt-3 rounded-lg border px-3 py-2 text-sm ' + (kind === 'error'
+      ? 'border-rose-200 bg-rose-50 text-rose-700'
+      : 'border-emerald-200 bg-emerald-50 text-emerald-800');
+    statusBox.textContent = text;
+  };
+
+  if (resetBtn && confirmBox) {
+    resetBtn.addEventListener('click', function() {
+      confirmBox.classList.remove('hidden');
+      statusBox.classList.add('hidden');
+      resetBtn.disabled = true;
+    });
+    cancelBtn.addEventListener('click', function() {
+      confirmBox.classList.add('hidden');
+      resetBtn.disabled = false;
+    });
+    confirmBtn.addEventListener('click', function() {
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Resetting…';
+      fetch('/app/mail/settings/reset-cache', { method: 'POST', credentials: 'same-origin' })
+        .then(function(r) {
+          if (!r.ok) return r.json().then(function(err) { throw new Error((err && err.error && err.error.message) || 'Reset failed'); });
+          return r.json();
+        })
+        .then(function(data) {
+          confirmBox.classList.add('hidden');
+          resetBtn.disabled = false;
+          showResetStatus('ok', 'Cache cleared for ' + (data.account || 'your account') + '. Fresh sync will start when you open a folder.');
+          statusBox.classList.remove('hidden');
+        })
+        .catch(function(err) {
+          showResetStatus('error', err.message || 'Could not reset the cache. Please retry, or refresh the page.');
+          statusBox.classList.remove('hidden');
+        })
+        .finally(function() {
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Yes, reset cache';
+        });
+    });
+  }
+})();
+</script>
+<script>
+(function() {
   var statusEl = document.getElementById('push-status');
   var enableBtn = document.getElementById('push-enable-btn');
   var disableBtn = document.getElementById('push-disable-btn');
   var deviceList = document.getElementById('push-device-list');
   var noDevices = document.getElementById('push-no-devices');
-  var detailedToggle = document.getElementById('push-detailed-toggle');
   if (!statusEl || !enableBtn) return;
 
   var setStatus = function(kind, text) {
     statusEl.textContent = text;
-    statusEl.className = 'mt-2 text-xs ' + (kind === 'error' ? 'text-rose-600' : (kind === 'ok' ? 'text-emerald-700' : 'text-slate-500'));
+    statusEl.className = 'text-xs ' + (kind === 'error' ? 'text-rose-600' : (kind === 'ok' ? 'text-emerald-700' : 'text-slate-500'));
   };
 
   var describeAgent = function(ua) {
@@ -268,21 +477,6 @@
     }).catch(function() {
       setStatus('error', 'Could not disable notifications. Please retry.');
     }).finally(function() { disableBtn.disabled = false; });
-  });
-
-  detailedToggle.addEventListener('change', function() {
-    detailedToggle.disabled = true;
-    fetch('/app/mail/push/detailed', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ enabled: detailedToggle.checked })
-    }).then(function(r) {
-      if (!r.ok) throw new Error('save failed');
-    }).catch(function() {
-      detailedToggle.checked = !detailedToggle.checked;
-      setStatus('error', 'Could not save the notification setting. Please retry.');
-    }).finally(function() { detailedToggle.disabled = false; });
   });
 
   refreshState();

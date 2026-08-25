@@ -62,15 +62,24 @@ _CALENDAR_QUERY_RANGE = """<?xml version="1.0" encoding="UTF-8"?>
   </c:filter>
 </c:calendar-query>"""
 
+_PROPFIND_ETAG = """<?xml version="1.0" encoding="UTF-8"?>
+<d:propfind xmlns:d="DAV:">
+  <d:prop>
+    <d:getetag />
+  </d:prop>
+</d:propfind>"""
+
 
 def _make_session(username, password):
     s = requests.Session()
     if password:
         s.auth = (username, password)
-    s.headers.update({
-        "User-Agent": "LocoRooSuite/1.0",
-        "X-Remote-User": username,
-    })
+    s.headers.update(
+        {
+            "User-Agent": "LocoRooSuite/1.0",
+            "X-Remote-User": username,
+        }
+    )
     return s
 
 
@@ -103,12 +112,14 @@ def discover_calendars(base_url, username, password):
                 color = color_elem.text if color_elem is not None else "#4285f4"
                 sync_token_elem = resp_elem.find(f".//{{{DAV_NS}}}sync-token")
                 sync_token = sync_token_elem.text if sync_token_elem is not None else None
-                calendars.append({
-                    "url": cal_url,
-                    "displayname": displayname,
-                    "color": color,
-                    "sync_token": sync_token,
-                })
+                calendars.append(
+                    {
+                        "url": cal_url,
+                        "displayname": displayname,
+                        "color": color,
+                        "sync_token": sync_token,
+                    }
+                )
     return s, calendars
 
 
@@ -183,8 +194,33 @@ def create_event(session, calendar_url, ical_text, uid=None):
         timeout=15,
     )
     resp.raise_for_status()
-    etag = resp.headers.get("ETag", "")
+    # Some CalDAV servers omit the ETag header on PUT; fall back to PROPFIND
+    # so the cache never stores a missing/stale etag (which would break the
+    # next If-Match precondition).
+    etag = resp.headers.get("ETag", "") or _fetch_etag(session, href)
     return href, etag
+
+
+def _fetch_etag(session, href):
+    """Return the current ETag for a resource via PROPFIND (Depth 0)."""
+    try:
+        resp = session.request(
+            "PROPFIND",
+            href,
+            headers={
+                "Content-Type": "application/xml; charset=utf-8",
+                "Depth": "0",
+            },
+            data=_PROPFIND_ETAG,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        root = ET.fromstring(resp.content)
+        etag_elem = root.find(f".//{{{DAV_NS}}}getetag")
+        return (etag_elem.text or "").strip() if etag_elem is not None else ""
+    except Exception:
+        logger.warning("etag PROPFIND failed href=%s", href, exc_info=True)
+        return ""
 
 
 def update_event(session, href, ical_text, etag=None):
@@ -192,8 +228,17 @@ def update_event(session, href, ical_text, etag=None):
     if etag:
         headers["If-Match"] = etag
     resp = session.put(href, data=ical_text.encode("utf-8"), headers=headers, timeout=15)
+    if resp.status_code == 412 and etag:
+        # Stale precondition (e.g. cached etag from before a write whose
+        # response carried no usable ETag). Refetch the current etag and
+        # retry exactly once.
+        fresh = _fetch_etag(session, href)
+        headers = {"Content-Type": "text/calendar; charset=utf-8"}
+        if fresh:
+            headers["If-Match"] = fresh
+        resp = session.put(href, data=ical_text.encode("utf-8"), headers=headers, timeout=15)
     resp.raise_for_status()
-    return resp.headers.get("ETag", "")
+    return resp.headers.get("ETag", "") or _fetch_etag(session, href)
 
 
 def delete_event(session, href, etag=None):
@@ -201,6 +246,10 @@ def delete_event(session, href, etag=None):
     if etag:
         headers["If-Match"] = etag
     resp = session.delete(href, headers=headers, timeout=15)
+    if resp.status_code == 412 and etag:
+        fresh = _fetch_etag(session, href)
+        headers = {"If-Match": fresh} if fresh else {}
+        resp = session.delete(href, headers=headers, timeout=15)
     if resp.status_code == 404:
         return True
     resp.raise_for_status()

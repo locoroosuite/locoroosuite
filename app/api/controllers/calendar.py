@@ -529,7 +529,7 @@ def api_update_event(path: EventPath, body: UpdateEventBody):
             conn,
             event_data["uid"],
             href or d.get("href"),
-            new_etag or d.get("etag"),
+            new_etag,
             calendar_id,
             ical_text,
         )

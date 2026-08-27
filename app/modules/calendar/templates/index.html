@@ -149,6 +149,24 @@
   let currentView = INITIAL_VIEW;
   let currentDate = new Date(INITIAL_DATE + "T00:00:00");
   let eventsCache = {};
+  let nowTimer = null;
+
+  // U12.12/U12.13: red current-time indicator. Repositions every 30s; the timer
+  // stops itself once the line is no longer in the DOM (view switched/re-rendered).
+  function stopNowTimer() { if (nowTimer) { clearInterval(nowTimer); nowTimer = null; } }
+  function positionNowLine() {
+    const line = document.getElementById("cal-now-line");
+    if (!line || !line.isConnected) { stopNowTimer(); return; }
+    const now = new Date();
+    const pxPerHour = parseFloat(line.dataset.pxPerHour || "48");
+    const topOffset = parseFloat(line.dataset.topOffset || "0");
+    line.style.top = (topOffset + (now.getHours() + now.getMinutes()/60) * pxPerHour) + "px";
+  }
+  function startNowTimer() {
+    stopNowTimer();
+    positionNowLine();
+    nowTimer = setInterval(positionNowLine, 30000);
+  }
 
   // U24.6: phones default to the Day view; persisted view is unchanged for desktop.
   const isPhoneViewport = () => window.matchMedia("(max-width: 767px)").matches;
@@ -386,10 +404,10 @@
       }
 
       for (let h = 0; h < 24; h++) {
-        html += '<div class="h-12 border-b border-slate-50 text-[10px] text-slate-400 text-right pr-2 pt-0.5">' + pad(h) + ':00</div>';
+        html += '<div class="h-12 border-b border-slate-100 text-[10px] text-slate-400 text-right pr-2 pt-0.5">' + pad(h) + ':00</div>';
         for (let d = 0; d < 7; d++) {
           const dd = new Date(sw); dd.setDate(dd.getDate()+d);
-          html += '<div class="h-12 border-b border-l border-slate-50 relative time-cell" data-date="' + toISO(dd) + '" data-hour="' + h + '"></div>';
+          html += '<div class="h-12 border-b border-slate-100 border-l border-slate-200 relative time-cell" data-date="' + toISO(dd) + '" data-hour="' + h + '"></div>';
         }
       }
 
@@ -407,6 +425,18 @@
         const height = duration * 48;
         html += '<a href="/app/calendar/events/' + ev.id + '" style="position:absolute;pointer-events:auto;left:calc(' + (dayIdx*14.28+0.5) + '% + 48px);width:calc(14.28% - 4px);top:' + top + 'px;height:' + Math.max(height,16) + 'px;background-color:' + (ev.calendar_color||'#4285f4') + '" class="rounded px-1.5 py-0.5 text-[11px] font-medium text-white overflow-hidden hover:opacity-80">' + (ev.summary||'(no title)') + '</a>';
       });
+      const nowDate = new Date();
+      const nowISO = toISO(nowDate);
+      let nowDayIdx = -1;
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(sw); d.setDate(d.getDate()+i);
+        if (toISO(d) === nowISO) { nowDayIdx = i; break; }
+      }
+      if (nowDayIdx >= 0) {
+        html += '<div id="cal-now-line" data-px-per-hour="48" data-top-offset="' + gridTopOffset + '" style="position:absolute;left:calc(' + (nowDayIdx*14.28) + '% + 50px);width:calc(14.28% - 6px);height:2px;background-color:#ef4444;border-radius:1px;">';
+        html += '<span style="position:absolute;left:-3px;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background-color:#ef4444;"></span>';
+        html += '</div>';
+      }
       html += '</div>';
 
       html += '</div></div>';
@@ -417,6 +447,7 @@
         const now = new Date();
         scrollContainer.scrollTop = Math.max(0, (now.getHours() - 1) * 48);
       }
+      startNowTimer();
       setupQuickCreate();
     });
   }
@@ -444,8 +475,8 @@
       }
 
       for (let h = 0; h < 24; h++) {
-        html += '<div class="h-14 border-b border-slate-50 text-[10px] text-slate-400 text-right pr-2 pt-1">' + pad(h) + ':00</div>';
-        html += '<div class="h-14 border-b border-l border-slate-50 time-cell" data-date="' + iso + '" data-hour="' + h + '"></div>';
+        html += '<div class="h-14 border-b border-slate-100 text-[10px] text-slate-400 text-right pr-2 pt-1">' + pad(h) + ':00</div>';
+        html += '<div class="h-14 border-b border-slate-100 border-l border-slate-200 time-cell" data-date="' + iso + '" data-hour="' + h + '"></div>';
       }
       html += '</div></div>';
       grid.innerHTML = html;
@@ -470,8 +501,19 @@
           innerGrid.appendChild(a);
         });
         const now = new Date();
+        if (toISO(now) === iso) {
+          const line = document.createElement('div');
+          line.id = 'cal-now-line';
+          line.dataset.pxPerHour = '56';
+          line.style.cssText = 'position:absolute;left:60px;right:4px;height:2px;background-color:#ef4444;border-radius:1px';
+          const dot = document.createElement('span');
+          dot.style.cssText = 'position:absolute;left:-3px;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background-color:#ef4444';
+          line.appendChild(dot);
+          innerGrid.appendChild(line);
+        }
         scrollContainer.scrollTop = Math.max(0, (now.getHours()-1)*56);
       }
+      startNowTimer();
       setupQuickCreate();
     });
   }

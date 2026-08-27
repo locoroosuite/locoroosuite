@@ -256,9 +256,10 @@
       return { start: s, end: new Date(s.getTime() + 86400000) };
     }
     var s, e;
-    if (ev.timezone) {
-      s = parseTZAware(ev.dtstart, ev.timezone);
-      e = ev.dtend ? parseTZAware(ev.dtend, ev.timezone) : new Date(s.getTime() + 3600000);
+    var tzName = ev.timezone_resolved || ev.timezone;
+    if (tzName) {
+      s = parseTZAware(ev.dtstart, tzName);
+      e = ev.dtend ? parseTZAware(ev.dtend, tzName) : new Date(s.getTime() + 3600000);
     } else {
       s = new Date(ev.dtstart);
       e = ev.dtend ? new Date(ev.dtend) : new Date(s.getTime() + 3600000);
@@ -271,6 +272,8 @@
     if (isoStr.indexOf("+") !== -1 || isoStr.indexOf("Z") !== -1) {
       return new Date(isoStr);
     }
+    var d = new Date(isoStr);
+    var utcGuess = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds());
     try {
       var formatter = new Intl.DateTimeFormat("en-US", {
         timeZone: tzName,
@@ -278,16 +281,17 @@
         hour: "2-digit", minute: "2-digit", second: "2-digit",
         hour12: false
       });
-      var now = new Date();
-      var localOffset = now.getTimezoneOffset();
-      var tzDate = new Date(isoStr);
-      var tzParts = formatter.format(tzDate).match(/(\d+)\/(\d+)\/(\d+),?\s+(\d+):(\d+):(\d+)/);
-      if (tzParts) {
-        var tzInLocal = new Date(+tzParts[3], +tzParts[1]-1, +tzParts[2], +tzParts[4], +tzParts[5], +tzParts[6]);
+      function tzOffset(instant) {
+        var parts = formatter.format(new Date(instant)).match(/(\d+)\/(\d+)\/(\d+),?\s+(\d+):(\d+):(\d+)/);
+        if (!parts) return 0;
+        var asUTC = Date.UTC(+parts[3], +parts[1]-1, +parts[2], +parts[4], +parts[5], +parts[6]);
+        return asUTC - instant;
       }
-      return new Date(isoStr);
+      var offset = tzOffset(utcGuess);
+      offset = tzOffset(utcGuess - offset);
+      return new Date(utcGuess - offset);
     } catch(ex) {
-      return new Date(isoStr);
+      return d;
     }
   }
 

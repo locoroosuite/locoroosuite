@@ -1,22 +1,23 @@
-import logging
+import contextlib
 import json
-from datetime import datetime, timezone as dt_timezone
+import logging
+from datetime import UTC, datetime
 
-from flask import render_template, redirect, url_for, session, request
+from flask import redirect, render_template, request, session, url_for
 
-from app.shared.auth import require_customer
-from app.shared.db import db
-from app.shared.models.core import CustomerSettings
-from app.shared.timezone import COMMON_TIMEZONES, resolve_user_timezone
 from app.modules.calendar.controllers.helpers import (
-    calendar_bp,
+    _caldav_base_url,
     _get_account,
     _get_caldav_config,
     _get_credentials,
     _open_cache_for_account,
-    _caldav_base_url,
+    calendar_bp,
 )
-from app.modules.calendar.services import caldav, cache_db
+from app.modules.calendar.services import cache_db, caldav
+from app.shared.auth import require_customer
+from app.shared.db import db
+from app.shared.models.core import CustomerSettings
+from app.shared.timezone import COMMON_TIMEZONES, resolve_user_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ def _split_datetime(val, event_tz=None):
         if dt.tzinfo is not None and event_tz:
             try:
                 from zoneinfo import ZoneInfo
+
                 dt = dt.astimezone(ZoneInfo(event_tz))
             except Exception:
                 pass
@@ -67,7 +69,7 @@ def _attendees_json_for_template(form_or_event, field_name="attendees"):
     return "[]"
 
 
-def _format_event_time(dt_str, user_tz_name, event_tz=None):
+def _format_event_time(dt_str, user_tz_name, event_tz=None, vtimezones=None):
     if not dt_str:
         return ""
     try:
@@ -76,20 +78,35 @@ def _format_event_time(dt_str, user_tz_name, event_tz=None):
         return dt_str
     if dt.tzinfo is None:
         if event_tz:
-            try:
-                from zoneinfo import ZoneInfo
-                dt = dt.replace(tzinfo=ZoneInfo(event_tz))
-            except Exception:
-                dt = dt.replace(tzinfo=dt_timezone.utc)
+            from app.shared.tzid_resolver import resolve_tzid
+
+            tz = resolve_tzid(event_tz, vtimezones=vtimezones, dt=dt)
+            if tz is not None:
+                dt = dt.replace(tzinfo=tz)
+            else:
+                logger.warning("unresolvable TZID %r on event; assuming UTC", event_tz)
+                dt = dt.replace(tzinfo=UTC)
         else:
-            dt = dt.replace(tzinfo=dt_timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
     try:
         from zoneinfo import ZoneInfo
+
         target_tz = ZoneInfo(user_tz_name)
     except Exception:
-        target_tz = dt_timezone.utc
+        target_tz = UTC
     local_dt = dt.astimezone(target_tz)
     return local_dt.strftime("%a, %b %d, %Y at %I:%M %p")
+
+
+def _event_vtimezones(event):
+    """Extract parsed VTIMEZONE definitions from an event's raw iCalendar."""
+    raw_ical = (event or {}).get("raw_ical") or ""
+    if not raw_ical:
+        return None
+    from app.shared.icalendar import parse_icalendar
+
+    parsed = parse_icalendar(raw_ical)
+    return parsed.get("vtimezones")
 
 
 def _format_event_date_range(event, user_tz_name):
@@ -97,10 +114,12 @@ def _format_event_date_range(event, user_tz_name):
         start = (event.get("dtstart") or "")[:10]
         end_raw = (event.get("dtend") or "")[:10]
         if end_raw and end_raw != start:
-            return f"{start} – {end_raw}"
+            return f"{start} \u2013 {end_raw}"
         return start
-    start_str = _format_event_time(event.get("dtstart"), user_tz_name, event.get("timezone"))
-    end_str = _format_event_time(event.get("dtend"), user_tz_name, event.get("timezone"))
+    vtimezones = _event_vtimezones(event)
+    event_tz = event.get("timezone")
+    start_str = _format_event_time(event.get("dtstart"), user_tz_name, event_tz, vtimezones)
+    end_str = _format_event_time(event.get("dtend"), user_tz_name, event_tz, vtimezones)
     if end_str:
         if start_str and end_str:
             start_date = start_str.split(" at ")[0]
@@ -108,8 +127,8 @@ def _format_event_date_range(event, user_tz_name):
             if start_date == end_date:
                 start_time = start_str.split(" at ")[1]
                 end_time = end_str.split(" at ")[1]
-                return f"{start_date} at {start_time} – {end_time}"
-        return f"{start_str} – {end_str}"
+                return f"{start_date} at {start_time} \u2013 {end_time}"
+        return f"{start_str} \u2013 {end_str}"
     return start_str
 
 
@@ -138,7 +157,9 @@ def event_new():
                 event=None,
                 calendars=[],
                 account=account,
-                errors={"_server": "No calendars available. Please sync or create a calendar first."},
+                errors={
+                    "_server": "No calendars available. Please sync or create a calendar first."
+                },
                 dtstart_date="",
                 dtstart_time="09:00",
                 dtend_date="",
@@ -161,13 +182,15 @@ def event_new():
             prefill_attendee = request.args.get("attendee", "")
             attendees_prefill = []
             if prefill_attendee:
-                attendees_prefill.append({
-                    "email": prefill_attendee,
-                    "cn": prefill_attendee,
-                    "role": "REQ-PARTICIPANT",
-                    "partstat": "NEEDS-ACTION",
-                    "rsvp": "TRUE",
-                })
+                attendees_prefill.append(
+                    {
+                        "email": prefill_attendee,
+                        "cn": prefill_attendee,
+                        "role": "REQ-PARTICIPANT",
+                        "partstat": "NEEDS-ACTION",
+                        "rsvp": "TRUE",
+                    }
+                )
             event_prefill = None
             if prefill_summary or prefill_description:
                 event_prefill = {"summary": prefill_summary, "description": prefill_description}
@@ -212,13 +235,14 @@ def event_new():
         if data.get("attendees") and not data.get("organizer"):
             data["organizer"] = {"cn": account.email_address, "email": account.email_address}
         from app.modules.calendar.services.icalendar import generate_icalendar
+
         ical_text = generate_icalendar(data)
 
         password = _get_credentials(account)
         if not password:
             return redirect(url_for("mail.login"))
 
-        cal_id = int(request.form.get("calendar_id"))
+        cal_id = int(request.form.get("calendar_id") or 0)
         cal = cache_db.get_calendar(conn, cal_id)
         if not cal:
             return redirect(url_for("calendar.index"))
@@ -227,6 +251,7 @@ def event_new():
             s, _ = caldav.discover_calendars(_caldav_base_url(config), account.username, password)
             href, etag = caldav.create_event(s, cal["href"], ical_text, uid=data.get("uid"))
             from app.modules.calendar.services.icalendar import extract_uid
+
             uid = extract_uid(ical_text)
             cache_db.upsert_event(conn, uid, href, etag, cal_id, ical_text)
         except Exception:
@@ -250,7 +275,11 @@ def event_new():
             )
 
         if data.get("attendees"):
-            return redirect(url_for("calendar.event_detail", event_id=cache_db.get_event_by_uid(conn, uid)["id"], send_updates="1"))
+            saved = cache_db.get_event_by_uid(conn, uid)
+            if saved:
+                return redirect(
+                    url_for("calendar.event_detail", event_id=saved["id"], send_updates="1")
+                )
         return redirect(url_for("calendar.index"))
     finally:
         conn.close()
@@ -308,7 +337,16 @@ def event_detail(event_id):
                         is_invitee = True
                         my_rsvp_status = att.get("partstat", "NEEDS-ACTION")
                         break
-        return render_template("event_detail.html", event=event, account=account, source_email=source_email, user_timezone=user_tz_name, event_timezone=event_tz, is_invitee=is_invitee, my_rsvp_status=my_rsvp_status)
+        return render_template(
+            "event_detail.html",
+            event=event,
+            account=account,
+            source_email=source_email,
+            user_timezone=user_tz_name,
+            event_timezone=event_tz,
+            is_invitee=is_invitee,
+            my_rsvp_status=my_rsvp_status,
+        )
     finally:
         conn.close()
 
@@ -390,14 +428,13 @@ def event_edit(event_id):
         data["uid"] = event["uid"]
         data["sequence"] = event.get("sequence", 0) + 1
         if isinstance(event.get("organizer"), str):
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 data["organizer"] = json.loads(event["organizer"])
-            except (ValueError, TypeError):
-                pass
         if data.get("attendees") and not data.get("organizer"):
             data["organizer"] = {"cn": account.email_address, "email": account.email_address}
 
         from app.modules.calendar.services.icalendar import generate_icalendar
+
         ical_text = generate_icalendar(data, uid=event["uid"])
 
         config = _get_caldav_config(account)
@@ -412,9 +449,13 @@ def event_edit(event_id):
                 etag = caldav.update_event(s, event["href"], ical_text, event.get("etag"))
             else:
                 cal = cache_db.get_calendar(conn, cal_id)
+                if not cal:
+                    raise RuntimeError(f"calendar {cal_id} not found for event update")
                 href, etag = caldav.create_event(s, cal["href"], ical_text, uid=event["uid"])
                 event["href"] = href
-            cache_db.upsert_event(conn, event["uid"], event.get("href", ""), etag, cal_id, ical_text)
+            cache_db.upsert_event(
+                conn, event["uid"], event.get("href", ""), etag, cal_id, ical_text
+            )
         except Exception:
             logger.exception("failed to update event on CalDAV")
             form_dict = request.form.to_dict()
@@ -476,6 +517,7 @@ def event_delete(event_id):
             try:
                 from app.modules.calendar.services.imip import send_imip_email
                 from app.shared.models.core import Domain
+
                 domain = db.session.get(Domain, account.domain_id)
                 if domain and domain.is_active:
                     event_data = {
@@ -492,7 +534,9 @@ def event_delete(event_id):
                         "organizer": {"cn": account.email_address, "email": account.email_address},
                         "attendees": attendees,
                     }
-                    send_imip_email(domain, account, event_data, "CANCEL", attendees, uid=event.get("uid"))
+                    send_imip_email(
+                        domain, account, event_data, "CANCEL", attendees, uid=event.get("uid")
+                    )
             except Exception:
                 logger.exception("failed to send cancellation imip event_id=%s", event_id)
 
@@ -500,7 +544,9 @@ def event_delete(event_id):
         password = _get_credentials(account)
         if config and password and event.get("href"):
             try:
-                s, _ = caldav.discover_calendars(_caldav_base_url(config), account.username, password)
+                s, _ = caldav.discover_calendars(
+                    _caldav_base_url(config), account.username, password
+                )
                 caldav.delete_event(s, event["href"], event.get("etag"))
             except Exception:
                 logger.exception("failed to delete event from CalDAV")
@@ -544,7 +590,9 @@ def _form_to_event_data(form, user_id=None):
         dtstart = None
 
     if all_day and dtend_date:
-        from datetime import date as date_cls, timedelta as timedelta_cls
+        from datetime import date as date_cls
+        from datetime import timedelta as timedelta_cls
+
         try:
             end_d = date_cls.fromisoformat(dtend_date) + timedelta_cls(days=1)
             dtend = end_d.isoformat()
@@ -558,11 +606,13 @@ def _form_to_event_data(form, user_id=None):
     reminders = []
     reminder_trigger = form.get("reminder_trigger", "").strip()
     if reminder_trigger:
-        reminders.append({
-            "trigger": reminder_trigger,
-            "action": "DISPLAY",
-            "description": form.get("summary", "").strip(),
-        })
+        reminders.append(
+            {
+                "trigger": reminder_trigger,
+                "action": "DISPLAY",
+                "description": form.get("summary", "").strip(),
+            }
+        )
 
     attendees = []
     raw = form.get("attendees", "").strip()
@@ -571,16 +621,24 @@ def _form_to_event_data(form, user_id=None):
             parsed = json.loads(raw)
             if isinstance(parsed, list):
                 for att in parsed:
-                    email = att.get("email", "").strip() if isinstance(att, dict) else str(att).strip()
+                    email = (
+                        att.get("email", "").strip() if isinstance(att, dict) else str(att).strip()
+                    )
                     if not email:
                         continue
-                    attendees.append({
-                        "email": email,
-                        "cn": att.get("cn", email) if isinstance(att, dict) else email,
-                        "role": att.get("role", "REQ-PARTICIPANT") if isinstance(att, dict) else "REQ-PARTICIPANT",
-                        "partstat": att.get("partstat", "NEEDS-ACTION") if isinstance(att, dict) else "NEEDS-ACTION",
-                        "rsvp": att.get("rsvp", "TRUE") if isinstance(att, dict) else "TRUE",
-                    })
+                    attendees.append(
+                        {
+                            "email": email,
+                            "cn": att.get("cn", email) if isinstance(att, dict) else email,
+                            "role": att.get("role", "REQ-PARTICIPANT")
+                            if isinstance(att, dict)
+                            else "REQ-PARTICIPANT",
+                            "partstat": att.get("partstat", "NEEDS-ACTION")
+                            if isinstance(att, dict)
+                            else "NEEDS-ACTION",
+                            "rsvp": att.get("rsvp", "TRUE") if isinstance(att, dict) else "TRUE",
+                        }
+                    )
         except (ValueError, TypeError):
             pass
 

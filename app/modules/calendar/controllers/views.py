@@ -1,20 +1,21 @@
+import contextlib
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from flask import render_template, redirect, url_for, session, request, jsonify
+from flask import jsonify, redirect, render_template, request, session, url_for
 
-from app.shared.auth import require_customer
-from app.shared.models.core import CustomerSettings
-from app.shared.timezone import resolve_user_timezone
 from app.modules.calendar.controllers.helpers import (
-    calendar_bp,
+    _caldav_base_url,
     _get_account,
     _get_caldav_config,
     _get_credentials,
     _open_cache_for_account,
-    _caldav_base_url,
+    calendar_bp,
 )
-from app.modules.calendar.services import caldav, cache_db
+from app.modules.calendar.services import cache_db, caldav
+from app.shared.auth import require_customer
+from app.shared.models.core import CustomerSettings
+from app.shared.timezone import resolve_user_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +56,10 @@ def index():
             user_tz_name = resolve_user_timezone(settings.timezone if settings else "browser")
             try:
                 from zoneinfo import ZoneInfo
+
                 user_tz = ZoneInfo(user_tz_name)
             except Exception:
-                user_tz = timezone.utc
+                user_tz = UTC
             selected_date = datetime.now(user_tz).strftime("%Y-%m-%d")
         return render_template(
             "index.html",
@@ -98,10 +100,8 @@ def api_events():
 
         calendar_ids = None
         if cal_ids:
-            try:
+            with contextlib.suppress(ValueError):
                 calendar_ids = [int(x) for x in cal_ids.split(",") if x.strip()]
-            except ValueError:
-                pass
 
         events = cache_db.get_events_range(conn, start, end, calendar_ids)
         return jsonify(_serialize_events(events))
@@ -213,7 +213,9 @@ def new_calendar():
         errors["name"] = "Calendar name is required."
 
     if errors:
-        return render_template("calendar_form.html", calendar=request.form.to_dict(), account=account, errors=errors)
+        return render_template(
+            "calendar_form.html", calendar=request.form.to_dict(), account=account, errors=errors
+        )
 
     password = _get_credentials(account)
     if not password:
@@ -221,10 +223,15 @@ def new_calendar():
 
     try:
         s, _ = caldav.discover_calendars(_caldav_base_url(config), account.username, password)
-        cal_url = caldav.create_calendar(s, _caldav_base_url(config), account.username, name=name, color=color)
+        cal_url = caldav.create_calendar(
+            s, _caldav_base_url(config), account.username, name=name, color=color
+        )
         conn = _open_cache_for_account(account)
+        if conn is None:
+            raise RuntimeError(f"calendar cache unavailable for account {account.id}")
         try:
             import uuid as _uuid
+
             uid = str(_uuid.uuid4())
             cache_db.upsert_calendar(conn, uid, cal_url, displayname=name, color=color)
         finally:
@@ -235,7 +242,9 @@ def new_calendar():
             "calendar_form.html",
             calendar=request.form.to_dict(),
             account=account,
-            errors={"_server": "Failed to create calendar. Please check your connection and retry."},
+            errors={
+                "_server": "Failed to create calendar. Please check your connection and retry."
+            },
         )
 
     return redirect(url_for("calendar.index"))
@@ -269,13 +278,17 @@ def edit_calendar(calendar_id):
             errors["name"] = "Calendar name is required."
         if errors:
             cal.update(request.form.to_dict())
-            return render_template("calendar_form.html", calendar=cal, account=account, errors=errors)
+            return render_template(
+                "calendar_form.html", calendar=cal, account=account, errors=errors
+            )
 
         config = _get_caldav_config(account)
         password = _get_credentials(account)
         if config and password and cal.get("href"):
             try:
-                s, _ = caldav.discover_calendars(_caldav_base_url(config), account.username, password)
+                s, _ = caldav.discover_calendars(
+                    _caldav_base_url(config), account.username, password
+                )
                 caldav.update_calendar_props(s, cal["href"], displayname=name, color=color)
             except Exception:
                 logger.exception("failed to update calendar props on CalDAV")
@@ -311,7 +324,9 @@ def delete_calendar(calendar_id):
         password = _get_credentials(account)
         if config and password and cal.get("href"):
             try:
-                s, _ = caldav.discover_calendars(_caldav_base_url(config), account.username, password)
+                s, _ = caldav.discover_calendars(
+                    _caldav_base_url(config), account.username, password
+                )
                 caldav.delete_calendar(s, cal["href"])
             except Exception:
                 logger.exception("failed to delete calendar from CalDAV")
@@ -382,6 +397,7 @@ def api_quick_create():
             return jsonify({"ok": False, "error": "Calendar not found."}), 404
 
         from app.modules.calendar.controllers.events import _get_user_timezone
+
         tz = browser_tz or _get_user_timezone(user_id)
 
         event_data = {
@@ -392,7 +408,8 @@ def api_quick_create():
             "timezone": tz or None,
         }
 
-        from app.modules.calendar.services.icalendar import generate_icalendar, extract_uid
+        from app.modules.calendar.services.icalendar import extract_uid, generate_icalendar
+
         ical_text = generate_icalendar(event_data)
         uid = extract_uid(ical_text)
 
@@ -400,13 +417,9 @@ def api_quick_create():
         if not password:
             return jsonify({"ok": False, "error": "Credentials unavailable."}), 401
 
-        s, _ = caldav.discover_calendars(
-            _caldav_base_url(config), account.username, password
-        )
+        s, _ = caldav.discover_calendars(_caldav_base_url(config), account.username, password)
         href, etag = caldav.create_event(s, cal["href"], ical_text, uid=uid)
-        event_id = cache_db.upsert_event(
-            conn, uid, href, etag, int(calendar_id), ical_text
-        )
+        event_id = cache_db.upsert_event(conn, uid, href, etag, int(calendar_id), ical_text)
 
         return jsonify({"ok": True, "event_id": event_id})
     except Exception:
@@ -431,12 +444,15 @@ def _sync_calendars_and_events(conn, account, config):
             cal_url = caldav.create_calendar(
                 s, _caldav_base_url(config), account.username, name=cal_name, color="#4285f4"
             )
-            remote_calendars = [{"url": cal_url, "displayname": cal_name, "color": "#4285f4", "sync_token": None}]
+            remote_calendars = [
+                {"url": cal_url, "displayname": cal_name, "color": "#4285f4", "sync_token": None}
+            ]
         except Exception:
             logger.exception("failed to auto-create default calendar for %s", account.username)
             return
 
     import uuid as _uuid
+
     from app.modules.calendar.services.icalendar import extract_uid
 
     local_cal_uids = set()
@@ -462,7 +478,9 @@ def _sync_calendars_and_events(conn, account, config):
                     remote_uids.add(uid)
                     cache_db.upsert_event(conn, uid, href, etag, cal_id, ical_text)
 
-            local_rows = conn.execute("SELECT uid FROM calendar_events WHERE calendar_id = ?", (cal_id,)).fetchall()
+            local_rows = conn.execute(
+                "SELECT uid FROM calendar_events WHERE calendar_id = ?", (cal_id,)
+            ).fetchall()
             for (local_uid,) in local_rows:
                 if local_uid not in remote_uids:
                     cache_db.delete_event_by_uid(conn, local_uid, cal_id)
@@ -485,6 +503,29 @@ def _derive_default_calendar_name(username):
     return local_part.capitalize()
 
 
+def _resolve_event_tz_name(event) -> str:
+    """Best-effort IANA name for an event's TZID for browser-side rendering."""
+    tzid = event.get("timezone") or ""
+    if not tzid:
+        return ""
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    try:
+        ZoneInfo(tzid)
+        return tzid
+    except (ZoneInfoNotFoundError, ValueError):
+        pass
+    vtimezones = None
+    raw_ical = event.get("raw_ical") or ""
+    if raw_ical:
+        from app.shared.icalendar import parse_icalendar
+
+        vtimezones = parse_icalendar(raw_ical).get("vtimezones")
+    from app.shared.tzid_resolver import resolve_tzid_name
+
+    return resolve_tzid_name(tzid, vtimezones=vtimezones) or tzid
+
+
 def _serialize_events(events):
     result = []
     for e in events:
@@ -492,6 +533,7 @@ def _serialize_events(events):
         if isinstance(attendees, str):
             try:
                 import json
+
                 attendees = json.loads(attendees)
             except (ValueError, TypeError):
                 attendees = None
@@ -499,26 +541,30 @@ def _serialize_events(events):
         if isinstance(organizer, str):
             try:
                 import json
+
                 organizer = json.loads(organizer)
             except (ValueError, TypeError):
                 organizer = None
-        result.append({
-            "id": e["id"],
-            "uid": e["uid"],
-            "summary": e.get("summary", ""),
-            "description": e.get("description") or "",
-            "location": e.get("location") or "",
-            "dtstart": e.get("dtstart", ""),
-            "dtend": e.get("dtend") or "",
-            "all_day": bool(e.get("all_day")),
-            "rrule": e.get("rrule") or "",
-            "status": e.get("status", "CONFIRMED"),
-            "calendar_id": e.get("calendar_id"),
-            "calendar_color": e.get("calendar_color", "#4285f4"),
-            "calendar_name": e.get("calendar_name", ""),
-            "organizer": organizer,
-            "attendees": attendees or [],
-            "href": e.get("href", ""),
-            "timezone": e.get("timezone") or "",
-        })
+        result.append(
+            {
+                "id": e["id"],
+                "uid": e["uid"],
+                "summary": e.get("summary", ""),
+                "description": e.get("description") or "",
+                "location": e.get("location") or "",
+                "dtstart": e.get("dtstart", ""),
+                "dtend": e.get("dtend") or "",
+                "all_day": bool(e.get("all_day")),
+                "rrule": e.get("rrule") or "",
+                "status": e.get("status", "CONFIRMED"),
+                "calendar_id": e.get("calendar_id"),
+                "calendar_color": e.get("calendar_color", "#4285f4"),
+                "calendar_name": e.get("calendar_name", ""),
+                "organizer": organizer,
+                "attendees": attendees or [],
+                "href": e.get("href", ""),
+                "timezone": e.get("timezone") or "",
+                "timezone_resolved": _resolve_event_tz_name(e),
+            }
+        )
     return result

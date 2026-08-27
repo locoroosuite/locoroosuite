@@ -84,9 +84,63 @@ def parse_icalendar(text):
     if vevent_lines is None:
         return {}
     result = _parse_vevent(vevent_lines)
+    vtimezones = _extract_vtimezones(lines)
+    if vtimezones:
+        result["vtimezones"] = vtimezones
     if method and "method" not in result:
         result["method"] = method
     return result
+
+
+def _extract_vtimezones(lines):
+    """Parse VTIMEZONE components into {tzid: [observance, ...]} dicts.
+
+    Each observance carries the keys needed by
+    app.shared.tzid_resolver to compute a fixed offset: type, dtstart,
+    tzoffsetfrom, tzoffsetto, rrule, rdates.
+    """
+    vtimezones = {}
+    tzid = ""
+    obs: dict | None = None
+    in_vtimezone = False
+    for line in lines:
+        stripped = line.strip()
+        upper = stripped.upper()
+        if upper == "BEGIN:VTIMEZONE":
+            in_vtimezone = True
+            tzid = ""
+            continue
+        if upper == "END:VTIMEZONE":
+            in_vtimezone = False
+            continue
+        if not in_vtimezone:
+            continue
+        if upper.startswith(("BEGIN:STANDARD", "BEGIN:DAYLIGHT")):
+            obs = {"type": "STANDARD" if upper.startswith("BEGIN:STANDARD") else "DAYLIGHT"}
+            continue
+        if upper.startswith(("END:STANDARD", "END:DAYLIGHT")):
+            if obs is not None:
+                vtimezones.setdefault(tzid, []).append(obs)
+            obs = None
+            continue
+        if obs is not None:
+            name, params, value = _parse_property(stripped)
+            key = name.upper()
+            if key == "DTSTART":
+                obs["dtstart"] = value
+            elif key == "TZOFFSETFROM":
+                obs["tzoffsetfrom"] = value
+            elif key == "TZOFFSETTO":
+                obs["tzoffsetto"] = value
+            elif key == "RRULE":
+                obs["rrule"] = value
+            elif key == "RDATE":
+                obs.setdefault("rdates", []).extend(_parse_date_list(params, value))
+            continue
+        name, _params, value = _parse_property(stripped)
+        if name.upper() == "TZID":
+            tzid = value
+    return vtimezones
 
 
 def _extract_method(lines):

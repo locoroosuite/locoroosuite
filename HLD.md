@@ -278,6 +278,7 @@ U8.1 - External images are blocked by default; user can choose to show external 
 U8.2 - Sanitize HTML content on display (strip scripts/unsafe elements).
 U8.3 - No S/MIME or PGP support in MVP.
 U8.4 - Calendar invite handling: .ics attachments are detected and rendered as inline preview cards in the email view. See U12.34–U12.39c for full .ics import, invitation handling, cancellation, conflict warnings, and create-event-from-email.
+U8.9 - TZID resolution: event times carried in iCalendar data (inline invite cards, calendar event detail, calendar grid) must be interpreted using the event's own timezone before conversion to the user's configured timezone. TZIDs that are not IANA names (e.g. Microsoft Exchange's "Cen. Australia Standard Time") must be resolved via a Windows/Exchange TZID to IANA map or, failing that, computed from the invite's embedded VTIMEZONE definition (STANDARD/DAYLIGHT offsets and transition rules). An unresolvable TZID must never silently default to UTC: log a warning with the TZID and only then fall back to UTC.
 U8.5 - Allow downloading a message as .eml.
 U8.6 - Allow printing a message.
 U8.7 - No server-side filtering/rules in MVP.

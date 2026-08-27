@@ -1,3 +1,4 @@
+import contextlib
 import imaplib
 import json
 import logging
@@ -8,7 +9,6 @@ import time
 import uuid
 from datetime import UTC, datetime, timedelta
 from email.utils import getaddresses, parsedate_to_datetime
-from zoneinfo import ZoneInfo
 
 from flask import Blueprint, current_app, request, session, url_for
 
@@ -75,6 +75,8 @@ _UNDO_SECONDS = 8
 
 def _imap_for_account(account, secret, domain=None):
     domain = domain or db.session.get(Domain, account.domain_id)
+    if domain is None:
+        raise ValueError(f"IMAP domain {account.domain_id} not found for account {account.id}")
     client = connect_imap(domain.imap_host, domain.imap_port, domain.imap_tls)
     login_imap(client, account.username, password=secret)
     return client, domain
@@ -83,7 +85,8 @@ def _imap_for_account(account, secret, domain=None):
 def _get_or_create_settings(user_id):
     settings = CustomerSettings.query.filter_by(customer_id=user_id).first()
     if not settings:
-        settings = CustomerSettings(customer_id=user_id)
+        settings = CustomerSettings()
+        settings.customer_id = user_id
         db.session.add(settings)
         db.session.commit()
     return settings
@@ -233,9 +236,7 @@ def _is_attachment_part(part):
         return False
     if content_type in ("text/plain", "text/html"):
         return False
-    if part.get_filename():
-        return True
-    return False
+    return bool(part.get_filename())
 
 
 def _fetch_attachment_bytes(account, message_id, index):
@@ -657,7 +658,7 @@ def _send_status_snapshot(send_token, payload, now_ts=None):
     now_ts = now_ts or time.time()
     state = payload.get("status") or "unknown"
     send_after = payload.get("send_after") or now_ts
-    remaining_seconds = max(0, int(math.ceil(send_after - now_ts))) if state == "countdown" else 0
+    remaining_seconds = max(0, math.ceil(send_after - now_ts)) if state == "countdown" else 0
     return {
         "token": send_token,
         "state": state,
@@ -692,7 +693,7 @@ def _consume_send_failure_notice(customer_id):
 
 
 def _start_send_worker(send_token, delay_seconds=0):
-    app = current_app._get_current_object()
+    app = current_app._get_current_object()  # pyright: ignore[reportAttributeAccessIssue]
     threading.Thread(
         target=_send_worker,
         args=(app, send_token, delay_seconds),
@@ -754,10 +755,8 @@ def _send_worker(app, send_token, delay_seconds=0):
                 smtp_send(server, payload["from_addr"], recipients, payload["msg"])
             finally:
                 if server:
-                    try:
+                    with contextlib.suppress(Exception):
                         server.quit()
-                    except Exception:
-                        pass
 
             warning = None
             imap_client = None
@@ -989,13 +988,16 @@ def _format_ics_dates(ics_attachments, settings_timezone):
         dtend_str = parsed.get("dtend")
         all_day = parsed.get("all_day", False)
         event_tzid = parsed.get("timezone")
+        vtimezones = parsed.get("vtimezones")
         if all_day:
             ics["formatted_date"] = _format_allday_range(dtstart_str, dtend_str)
         else:
-            ics["formatted_date"] = _format_timed_range(dtstart_str, dtend_str, event_tzid, user_tz)
+            ics["formatted_date"] = _format_timed_range(
+                dtstart_str, dtend_str, event_tzid, user_tz, vtimezones=vtimezones
+            )
 
 
-def _parse_ics_dt(dt_str, fallback_tzid=None):
+def _parse_ics_dt(dt_str, fallback_tzid=None, vtimezones=None):
     if not dt_str:
         return None
     try:
@@ -1003,9 +1005,13 @@ def _parse_ics_dt(dt_str, fallback_tzid=None):
     except (ValueError, TypeError):
         return None
     if dt.tzinfo is None and fallback_tzid:
-        try:
-            dt = dt.replace(tzinfo=ZoneInfo(fallback_tzid))
-        except Exception:
+        from app.shared.tzid_resolver import resolve_tzid
+
+        tz = resolve_tzid(fallback_tzid, vtimezones=vtimezones, dt=dt)
+        if tz is not None:
+            dt = dt.replace(tzinfo=tz)
+        else:
+            logger.warning("unresolvable TZID %r in invite; assuming UTC", fallback_tzid)
             dt = dt.replace(tzinfo=UTC)
     elif dt.tzinfo is None:
         dt = dt.replace(tzinfo=UTC)
@@ -1021,27 +1027,25 @@ def _format_allday_range(dtstart_str, dtend_str):
         return dtstart_str or ""
     end = None
     if dtend_str:
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             end = date_type.fromisoformat(dtend_str[:10])
-        except (ValueError, TypeError):
-            pass
     if end and end != start:
-        return f"{start.strftime('%a %d %b %Y')} – {end.strftime('%a %d %b %Y')}"
+        return f"{start.strftime('%a %d %b %Y')} \u2013 {end.strftime('%a %d %b %Y')}"
     return start.strftime("%a %d %b %Y")
 
 
-def _format_timed_range(dtstart_str, dtend_str, event_tzid, user_tz):
-    start = _parse_ics_dt(dtstart_str, event_tzid)
+def _format_timed_range(dtstart_str, dtend_str, event_tzid, user_tz, vtimezones=None):
+    start = _parse_ics_dt(dtstart_str, event_tzid, vtimezones=vtimezones)
     if not start:
         return dtstart_str or ""
     start_local = start.astimezone(user_tz)
-    end = _parse_ics_dt(dtend_str, event_tzid)
+    end = _parse_ics_dt(dtend_str, event_tzid, vtimezones=vtimezones)
     end_local = end.astimezone(user_tz) if end else None
     tz_abbr = start_local.strftime("%Z")
     if end_local:
         if start_local.date() == end_local.date():
-            return f"{start_local.strftime('%a %d %b %Y, %I:%M %p')} – {end_local.strftime('%I:%M %p')} {tz_abbr}"
-        return f"{start_local.strftime('%a %d %b %Y, %I:%M %p')} – {end_local.strftime('%a %d %b %Y, %I:%M %p')} {tz_abbr}"
+            return f"{start_local.strftime('%a %d %b %Y, %I:%M %p')} \u2013 {end_local.strftime('%I:%M %p')} {tz_abbr}"
+        return f"{start_local.strftime('%a %d %b %Y, %I:%M %p')} \u2013 {end_local.strftime('%a %d %b %Y, %I:%M %p')} {tz_abbr}"
     return f"{start_local.strftime('%a %d %b %Y, %I:%M %p')} {tz_abbr}"
 
 
@@ -1167,7 +1171,8 @@ def _build_reply_forward_prefill(account, message_id, reply_all=False, forward=F
 
 
 def _thread_sort_ts(row):
-    sort_ts = row["sort_ts"] if "sort_ts" in row.keys() else None
+    # row is sqlite3.Row: bare `in` checks values, not keys, and Row has no .get().
+    sort_ts = row["sort_ts"] if "sort_ts" in row.keys() else None  # noqa: SIM118
     if sort_ts and isinstance(sort_ts, (int, float)) and sort_ts > 0:
         return sort_ts
     return _message_date_ts(row["date"]) or 0

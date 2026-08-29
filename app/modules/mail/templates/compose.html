@@ -122,6 +122,8 @@
     maxFileBytes: {{ config.MAIL_ATTACHMENT_MAX_FILE_BYTES }},
     maxTotalBytes: {{ config.MAIL_ATTACHMENT_MAX_TOTAL_BYTES }},
     totalLabel: document.querySelector('[data-attachments-total-label]'),
+    sessionId: {{ ((prefill.compose_session_id if prefill else None) or '') | tojson }} || null,
+    initialAttachments: {{ ((prefill.attachments if prefill else None) or []) | tojson }} || [],
   }) : null;
 
   var form = document.getElementById('compose-form');

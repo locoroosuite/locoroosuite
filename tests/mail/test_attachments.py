@@ -1,7 +1,7 @@
 import io
 import shutil
 from email import message_from_bytes
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -38,7 +38,7 @@ def _stage(client, data=None, raw=b"hello world", name="test.txt", sid=SID):
 
 class TestStageAttachment:
     def test_stage_success(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, user_id, _account_id = authed_client
         resp = _stage(client, raw=b"hello world", name="note.txt")
         assert resp.status_code == 200
         body = resp.get_json()
@@ -51,7 +51,9 @@ class TestStageAttachment:
     def test_stage_invalid_session(self, app, authed_client):
         client, _, _ = authed_client
         data = {"compose_session_id": "bad", "file": (io.BytesIO(b"x"), "a.txt")}
-        resp = client.post("/app/mail/attachments/stage", data=data, content_type="multipart/form-data")
+        resp = client.post(
+            "/app/mail/attachments/stage", data=data, content_type="multipart/form-data"
+        )
         assert resp.status_code == 400
         assert resp.get_json()["error"]["code"] == "invalid_session"
 
@@ -92,7 +94,7 @@ class TestStageAttachment:
             app.config["MAIL_ATTACHMENT_MAX_TOTAL_BYTES"] = original
 
     def test_stage_filename_sanitized(self, app, authed_client):
-        client, user_id, _ = authed_client
+        client, _user_id, _ = authed_client
         # Path components and control chars must be stripped from the stored name.
         resp = _stage(client, raw=b"x", name="../../etc/passwd")
         assert resp.status_code == 200
@@ -105,19 +107,19 @@ class TestDeleteAndList:
         client, _, _ = authed_client
         staged = _stage(client, raw=b"remove-me", name="r.txt").get_json()
         resp = client.delete(
-            "/app/mail/attachments/%s?compose_session_id=%s" % (staged["id"], SID)
+            "/app/mail/attachments/{}?compose_session_id={}".format(staged["id"], SID)
         )
         assert resp.status_code == 200
         assert resp.get_json()["ok"] is True
         # Listing now empty
-        lst = client.get("/app/mail/attachments?compose_session_id=%s" % SID).get_json()
+        lst = client.get(f"/app/mail/attachments?compose_session_id={SID}").get_json()
         assert lst["attachments"] == []
 
     def test_list_attachments(self, app, authed_client):
         client, _, _ = authed_client
         _stage(client, raw=b"one", name="a.txt")
         _stage(client, raw=b"twotwo", name="b.txt")
-        body = client.get("/app/mail/attachments?compose_session_id=%s" % SID).get_json()
+        body = client.get(f"/app/mail/attachments?compose_session_id={SID}").get_json()
         names = sorted(d["name"] for d in body["attachments"])
         assert names == ["a.txt", "b.txt"]
         assert body["used"] == 3 + 6
@@ -134,17 +136,22 @@ class TestSendWithStagedAttachments:
         staged = _stage(client, raw=b"ATTACHBYTES", name="report.pdf").get_json()
         captured = None
         try:
-            with patch("app.modules.mail.controllers.compose.decrypt_with_key"), \
-                 patch("app.modules.mail.controllers.compose._start_send_worker"), \
-                 patch("app.modules.mail.controllers.compose._cleanup_pending_sends"):
-                resp = client.post("/app/mail/send", data={
-                    "account_id": account_id,
-                    "to": "dest@example.com",
-                    "subject": "With attachment",
-                    "body_html": "<p>hi</p>",
-                    "compose_session_id": SID,
-                    "attachment_ids": staged["id"],
-                })
+            with (
+                patch("app.modules.mail.controllers.compose.decrypt_with_key"),
+                patch("app.modules.mail.controllers.compose._start_send_worker"),
+                patch("app.modules.mail.controllers.compose._cleanup_pending_sends"),
+            ):
+                resp = client.post(
+                    "/app/mail/send",
+                    data={
+                        "account_id": account_id,
+                        "to": "dest@example.com",
+                        "subject": "With attachment",
+                        "body_html": "<p>hi</p>",
+                        "compose_session_id": SID,
+                        "attachment_ids": staged["id"],
+                    },
+                )
             assert resp.status_code == 302
             with _pending_sends_lock:
                 tokens = [t for t in _pending_sends if _pending_sends[t].get("user_id") == user_id]
@@ -174,17 +181,22 @@ class TestSendWithStagedAttachments:
         original = app.config.get("MAIL_ATTACHMENT_MAX_TOTAL_BYTES")
         app.config["MAIL_ATTACHMENT_MAX_TOTAL_BYTES"] = 1
         try:
-            with patch("app.modules.mail.controllers.compose.decrypt_with_key"), \
-                 patch("app.modules.mail.controllers.compose._start_send_worker"), \
-                 patch("app.modules.mail.controllers.compose._cleanup_pending_sends"):
-                resp = client.post("/app/mail/send", data={
-                    "account_id": account_id,
-                    "to": "dest@example.com",
-                    "subject": "Over",
-                    "body_html": "<p>hi</p>",
-                    "compose_session_id": SID,
-                    "attachment_ids": "",  # will be empty, so not over limit
-                })
+            with (
+                patch("app.modules.mail.controllers.compose.decrypt_with_key"),
+                patch("app.modules.mail.controllers.compose._start_send_worker"),
+                patch("app.modules.mail.controllers.compose._cleanup_pending_sends"),
+            ):
+                resp = client.post(
+                    "/app/mail/send",
+                    data={
+                        "account_id": account_id,
+                        "to": "dest@example.com",
+                        "subject": "Over",
+                        "body_html": "<p>hi</p>",
+                        "compose_session_id": SID,
+                        "attachment_ids": "",  # will be empty, so not over limit
+                    },
+                )
             # No attachment_ids => no attachments => sends fine (302)
             assert resp.status_code == 302
         finally:
@@ -197,15 +209,20 @@ class TestSendWithStagedAttachments:
     def test_send_without_attachments_still_works(self, app, authed_client):
         client, user_id, account_id = authed_client
         try:
-            with patch("app.modules.mail.controllers.compose.decrypt_with_key"), \
-                 patch("app.modules.mail.controllers.compose._start_send_worker"), \
-                 patch("app.modules.mail.controllers.compose._cleanup_pending_sends"):
-                resp = client.post("/app/mail/send", data={
-                    "account_id": account_id,
-                    "to": "dest@example.com",
-                    "subject": "Plain",
-                    "body_html": "<p>hi</p>",
-                })
+            with (
+                patch("app.modules.mail.controllers.compose.decrypt_with_key"),
+                patch("app.modules.mail.controllers.compose._start_send_worker"),
+                patch("app.modules.mail.controllers.compose._cleanup_pending_sends"),
+            ):
+                resp = client.post(
+                    "/app/mail/send",
+                    data={
+                        "account_id": account_id,
+                        "to": "dest@example.com",
+                        "subject": "Plain",
+                        "body_html": "<p>hi</p>",
+                    },
+                )
             assert resp.status_code == 302
             with _pending_sends_lock:
                 tokens = [t for t in _pending_sends if _pending_sends[t].get("user_id") == user_id]
@@ -229,19 +246,27 @@ class TestSaveDraftWithStagedAttachments:
             captured = raw_bytes
             return ("OK", None)
 
-        with patch("app.modules.mail.controllers.compose.decrypt_with_key"), \
-             patch("app.modules.mail.controllers.compose._imap_for_account") as mock_imap, \
-             patch("app.modules.mail.controllers.compose.ensure_folder_and_append", side_effect=capture_append), \
-             patch("app.modules.mail.controllers.compose.safe_logout"):
+        with (
+            patch("app.modules.mail.controllers.compose.decrypt_with_key"),
+            patch("app.modules.mail.controllers.compose._imap_for_account") as mock_imap,
+            patch(
+                "app.modules.mail.controllers.compose.ensure_folder_and_append",
+                side_effect=capture_append,
+            ),
+            patch("app.modules.mail.controllers.compose.safe_logout"),
+        ):
             mock_imap.return_value = (mock_imap_client, MagicMock())
-            resp = client.post("/app/mail/draft", data={
-                "account_id": account_id,
-                "to": "dest@example.com",
-                "subject": "Draft w/ attachment",
-                "body_html": "<p>draft</p>",
-                "compose_session_id": SID,
-                "attachment_ids": staged["id"],
-            })
+            resp = client.post(
+                "/app/mail/draft",
+                data={
+                    "account_id": account_id,
+                    "to": "dest@example.com",
+                    "subject": "Draft w/ attachment",
+                    "body_html": "<p>draft</p>",
+                    "compose_session_id": SID,
+                    "attachment_ids": staged["id"],
+                },
+            )
         assert resp.status_code == 302
         assert captured is not None
         parsed = message_from_bytes(captured)
@@ -250,5 +275,7 @@ class TestSaveDraftWithStagedAttachments:
             for p in parsed.walk()
         )
         assert found
-        # Staging cleaned after successful draft save
-        assert staging.read_bytes(user_id, SID, staged["id"]) is None
+        # Staging intentionally kept after manual draft save (U6.16): auto-save
+        # and draft re-edit must not silently strip attachments. Cleanup happens
+        # on send and via the 24h staging GC.
+        assert staging.read_bytes(user_id, SID, staged["id"]) == b"DRAFTFILE"

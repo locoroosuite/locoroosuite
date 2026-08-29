@@ -1,14 +1,34 @@
 import logging
 import re
-import uuid
 import time
+import uuid
+from email import message_from_bytes
+from email.utils import formatdate
 
-from flask import session, request, redirect, url_for, render_template, jsonify, current_app
+from flask import current_app, jsonify, redirect, render_template, request, session, url_for
 
-from app.shared.db import db
-from app.shared.models.core import CustomerAccount, Domain
-from app.shared.keys import get_user_key
-from app.modules.mail.services.secrets import decrypt_with_key
+from app.modules.mail.controllers.helpers import (
+    _UNDO_SECONDS,
+    _build_reply_forward_prefill,
+    _cleanup_pending_sends,
+    _extract_message_bodies,
+    _get_or_create_settings,
+    _imap_for_account,
+    _pending_sends,
+    _pending_sends_lock,
+    _send_failure_notice,
+    _send_status_snapshot,
+    _start_send_worker,
+    mail_bp,
+)
+from app.modules.mail.services import attachments as _staging
+from app.modules.mail.services.cache_db import delete_messages_by_uids, open_cache
+from app.modules.mail.services.compose_attachments import (
+    apply_inline_content_ids,
+    build_message_root,
+    rewrite_cid_srcs,
+    stage_mime_attachments,
+)
 from app.modules.mail.services.imap_client import (
     delete_message_by_uid,
     ensure_folder_and_append,
@@ -17,31 +37,12 @@ from app.modules.mail.services.imap_client import (
     safe_logout,
     select_folder,
 )
+from app.modules.mail.services.secrets import decrypt_with_key
 from app.modules.mail.utils.sanitize import html_to_text_lines
-from app.modules.mail.services.cache_db import open_cache, delete_messages_by_uids
 from app.shared.auth import require_customer
-
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
-from email.utils import formatdate
-
-from app.modules.mail.controllers.helpers import (
-    mail_bp,
-    _pending_sends,
-    _pending_sends_lock,
-    _send_failure_notice,
-    _UNDO_SECONDS,
-    _cleanup_pending_sends,
-    _send_status_snapshot,
-    _start_send_worker,
-    _imap_for_account,
-    _build_reply_forward_prefill,
-    _extract_message_bodies,
-)
-from app.modules.mail.services import attachments as _staging
-
+from app.shared.db import db
+from app.shared.keys import get_user_key
+from app.shared.models.core import CustomerAccount, Domain
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,9 @@ def _collect_staged_attachments(user_id):
     if not _staging.is_valid_id(compose_session_id):
         return [], False
     try:
-        max_total = int(current_app.config.get("MAIL_ATTACHMENT_MAX_TOTAL_BYTES", _DEFAULT_MAX_TOTAL))
+        max_total = int(
+            current_app.config.get("MAIL_ATTACHMENT_MAX_TOTAL_BYTES", _DEFAULT_MAX_TOTAL)
+        )
     except (TypeError, ValueError):
         max_total = _DEFAULT_MAX_TOTAL
     collected = []
@@ -87,17 +90,22 @@ def _collect_staged_attachments(user_id):
         if meta is None or data is None:
             logger.warning(
                 "staged attachment missing user_id=%s sid=%s id=%s",
-                user_id, compose_session_id, aid,
+                user_id,
+                compose_session_id,
+                aid,
             )
             continue
         total += len(data)
         if total > max_total:
             return collected, True
-        collected.append({
-            "name": meta.get("name", aid),
-            "mime": meta.get("mime", "application/octet-stream"),
-            "data": data,
-        })
+        collected.append(
+            {
+                "name": meta.get("name", aid),
+                "mime": meta.get("mime", "application/octet-stream"),
+                "data": data,
+                "content_id": meta.get("content_id") or None,
+            }
+        )
     return collected, False
 
 
@@ -128,7 +136,9 @@ def _load_draft_prefill(account, draft_uid):
     except Exception:
         if client:
             safe_logout(client)
-        logger.warning("draft prefill IMAP failed account_id=%s uid=%s", account.id, uid, exc_info=True)
+        logger.warning(
+            "draft prefill IMAP failed account_id=%s uid=%s", account.id, uid, exc_info=True
+        )
         return None
     if not raw_msg:
         return None
@@ -140,8 +150,9 @@ def _load_draft_prefill(account, draft_uid):
     body_html = text_html or ""
     if not body_html and text_plain:
         from app.modules.mail.utils.sanitize import plain_text_to_html
+
         body_html = plain_text_to_html(text_plain, cleaned=True)
-    return {
+    prefill = {
         "to_addrs": to_addrs,
         "cc_addrs": cc_addrs,
         "bcc_addrs": bcc_addrs,
@@ -149,6 +160,14 @@ def _load_draft_prefill(account, draft_uid):
         "body_html": body_html,
         "draft_uid": draft_uid,
     }
+    staged = stage_mime_attachments(session.get("user_id"), raw_msg)
+    if staged["compose_session_id"]:
+        prefill["body_html"] = rewrite_cid_srcs(prefill["body_html"], staged["cid_data_urls"])
+        prefill["compose_session_id"] = staged["compose_session_id"]
+        prefill["attachments"] = staged["attachments"]
+    if staged["notices"]:
+        prefill["attachment_notice"] = " ".join(staged["notices"])
+    return prefill
 
 
 @mail_bp.route("/mail/compose", methods=["GET"])
@@ -174,7 +193,28 @@ def compose():
                     "body_html": payload.get("body_html") or "",
                     "request_receipt": bool(payload.get("request_receipt")),
                 }
-                if int(payload.get("attachments_count") or 0) > 0:
+                restored = False
+                msg_bytes = payload.get("msg")
+                if msg_bytes:
+                    try:
+                        raw = message_from_bytes(msg_bytes)
+                        staged = stage_mime_attachments(user_id, raw)
+                        if staged["compose_session_id"]:
+                            prefill["body_html"] = rewrite_cid_srcs(
+                                prefill["body_html"], staged["cid_data_urls"]
+                            )
+                            prefill["compose_session_id"] = staged["compose_session_id"]
+                            prefill["attachments"] = staged["attachments"]
+                            restored = True
+                        if staged["notices"]:
+                            prefill["attachment_notice"] = " ".join(staged["notices"])
+                    except Exception:
+                        logger.warning(
+                            "undo-send attachment restore failed token=%s",
+                            prefill_token,
+                            exc_info=True,
+                        )
+                if int(payload.get("attachments_count") or 0) > 0 and not restored:
                     compose_notice = "Attachments are not restored automatically. Re-attach files before sending."
     draft_uid_param = (request.args.get("draft_uid") or "").strip()
     if not prefill and draft_uid_param:
@@ -190,9 +230,16 @@ def compose():
         if reply_to_id and reply_to_id.isdigit():
             account = CustomerAccount.query.filter_by(id=account_id, customer_id=user_id).first()
             if account:
+                settings = _get_or_create_settings(user_id)
                 prefill = _build_reply_forward_prefill(
-                    account, int(reply_to_id), reply_all=is_reply_all, forward=is_forward
+                    account,
+                    int(reply_to_id),
+                    reply_all=is_reply_all,
+                    forward=is_forward,
+                    timezone_name=settings.timezone,
                 )
+    if prefill and prefill.get("attachment_notice") and not compose_notice:
+        compose_notice = prefill.pop("attachment_notice")
     return render_template(
         "compose.html",
         account_id=account_id,
@@ -214,7 +261,9 @@ def discard_draft(account_id, draft_uid):
         select_folder(client, "Drafts")
         delete_message_by_uid(client, draft_uid)
     except Exception:
-        logger.warning("discard draft failed account_id=%s uid=%s", account_id, draft_uid, exc_info=True)
+        logger.warning(
+            "discard draft failed account_id=%s uid=%s", account_id, draft_uid, exc_info=True
+        )
     finally:
         if client:
             safe_logout(client)
@@ -222,7 +271,12 @@ def discard_draft(account_id, draft_uid):
         conn = open_cache(account.cache_db_path, key)
         delete_messages_by_uids(conn, "Drafts", [draft_uid])
     except Exception:
-        logger.warning("discard draft cache cleanup failed account_id=%s uid=%s", account_id, draft_uid, exc_info=True)
+        logger.warning(
+            "discard draft cache cleanup failed account_id=%s uid=%s",
+            account_id,
+            draft_uid,
+            exc_info=True,
+        )
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify({"status": "ok"})
     return redirect(url_for("mail.folder_view", account_id=account_id, folder="INBOX"))
@@ -286,25 +340,8 @@ def send_mail():
     cc_addrs = request.form.get("cc", "")
     bcc_addrs = request.form.get("bcc", "")
     subject = request.form.get("subject", "")
-    body_html = request.form.get("body_html", "")
-    body = html_to_text_lines(body_html)
+    body_html_form = request.form.get("body_html", "")
     request_receipt = request.form.get("read_receipt") == "on"
-
-    msg_root = MIMEMultipart("mixed")
-    msg_root["From"] = from_addr
-    msg_root["To"] = to_addrs
-    if cc_addrs:
-        msg_root["Cc"] = cc_addrs
-    msg_root["Subject"] = subject
-    msg_root["Date"] = formatdate(localtime=True)
-    if request_receipt:
-        msg_root["Disposition-Notification-To"] = from_addr
-
-    alt = MIMEMultipart("alternative")
-    alt.attach(MIMEText(body or "", "plain"))
-    if body_html:
-        alt.attach(MIMEText(body_html, "html"))
-    msg_root.attach(alt)
 
     staged_files, over_limit = _collect_staged_attachments(user_id)
     if over_limit:
@@ -317,39 +354,40 @@ def send_mail():
                 "cc_addrs": cc_addrs,
                 "bcc_addrs": bcc_addrs,
                 "subject": subject,
-                "body_html": body_html,
+                "body_html": body_html_form,
                 "request_receipt": request_receipt,
             },
         )
     attachments_count = len(staged_files)
-    for f in staged_files:
-        part = MIMEBase("application", "octet-stream")
-        part.set_payload(f["data"])
-        encoders.encode_base64(part)
-        part.add_header("Content-Disposition", "attachment", filename=f["name"])
-        msg_root.attach(part)
+    body_html = apply_inline_content_ids(body_html_form, staged_files)
+    body = html_to_text_lines(body_html)
+
+    base_headers = [
+        ("From", from_addr),
+        ("To", to_addrs),
+        ("Cc", cc_addrs),
+        ("Subject", subject),
+        ("Date", formatdate(localtime=True)),
+    ]
+    if request_receipt:
+        base_headers.append(("Disposition-Notification-To", from_addr))
+    msg_root = build_message_root(base_headers, body, body_html, staged_files)
 
     msg = msg_root.as_bytes()
 
     sent_msg = msg
     if bcc_addrs:
-        sent_root = MIMEMultipart("mixed")
-        sent_root["From"] = from_addr
-        sent_root["To"] = to_addrs
-        if cc_addrs:
-            sent_root["Cc"] = cc_addrs
-        sent_root["Bcc"] = bcc_addrs
-        sent_root["Subject"] = subject
-        sent_root["Date"] = msg_root["Date"]
+        sent_headers = [
+            ("From", from_addr),
+            ("To", to_addrs),
+            ("Cc", cc_addrs),
+            ("Bcc", bcc_addrs),
+            ("Subject", subject),
+            ("Date", msg_root["Date"]),
+        ]
         if request_receipt:
-            sent_root["Disposition-Notification-To"] = from_addr
-        sent_root.attach(alt)
-        for f in staged_files:
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(f["data"])
-            encoders.encode_base64(part)
-            part.add_header("Content-Disposition", "attachment", filename=f["name"])
-            sent_root.attach(part)
+            sent_headers.append(("Disposition-Notification-To", from_addr))
+        sent_root = build_message_root(sent_headers, body, body_html, staged_files)
         sent_msg = sent_root.as_bytes()
     send_token = uuid.uuid4().hex
     now_ts = time.time()
@@ -442,7 +480,11 @@ def undo_send():
     user_id = session.get("user_id")
     with _pending_sends_lock:
         payload = _pending_sends.get(token)
-        if payload and payload.get("user_id") == user_id and payload.get("status") in ("countdown", "queued"):
+        if (
+            payload
+            and payload.get("user_id") == user_id
+            and payload.get("status") in ("countdown", "queued")
+        ):
             payload["status"] = "cancelled"
             payload["updated_at"] = time.time()
             payload["error"] = None
@@ -489,24 +531,33 @@ def auto_save_draft():
     cc_addrs = request.form.get("cc", "")
     bcc_addrs = request.form.get("bcc", "")
     subject = request.form.get("subject", "")
-    body = html_to_text_lines(body_html)
+    body_html = request.form.get("body_html", "")
     old_draft_uid = (request.form.get("draft_uid") or "").strip()
 
-    msg_root = MIMEMultipart("mixed")
-    msg_root["From"] = from_addr
-    msg_root["To"] = to_addrs
-    if cc_addrs:
-        msg_root["Cc"] = cc_addrs
-    if bcc_addrs:
-        msg_root["Bcc"] = bcc_addrs
-    msg_root["Subject"] = subject
-    msg_root["Date"] = formatdate(localtime=True)
+    staged_files, over_limit = _collect_staged_attachments(user_id)
+    if over_limit:
+        logger.warning(
+            "auto-save skipped attachment embed (over limit) user_id=%s account_id=%s",
+            user_id,
+            account.id,
+        )
+        staged_files = []
+    body_html = apply_inline_content_ids(body_html, staged_files)
+    body = html_to_text_lines(body_html)
 
-    alt = MIMEMultipart("alternative")
-    alt.attach(MIMEText(body or "", "plain"))
-    if body_html:
-        alt.attach(MIMEText(body_html, "html"))
-    msg_root.attach(alt)
+    msg_root = build_message_root(
+        [
+            ("From", from_addr),
+            ("To", to_addrs),
+            ("Cc", cc_addrs),
+            ("Bcc", bcc_addrs),
+            ("Subject", subject),
+            ("Date", formatdate(localtime=True)),
+        ],
+        body,
+        body_html,
+        staged_files,
+    )
 
     client = None
     try:
@@ -521,9 +572,13 @@ def auto_save_draft():
                 conn = open_cache(account.cache_db_path, key)
                 delete_messages_by_uids(conn, "Drafts", [old_draft_uid])
             except Exception:
-                logger.debug("failed to delete old draft from cache uid=%s", old_draft_uid, exc_info=True)
+                logger.debug(
+                    "failed to delete old draft from cache uid=%s", old_draft_uid, exc_info=True
+                )
 
-        status, data = ensure_folder_and_append(client, "Drafts", msg_root.as_bytes(), flags=["\\Draft"])
+        status, data = ensure_folder_and_append(
+            client, "Drafts", msg_root.as_bytes(), flags=["\\Draft"]
+        )
         if status != "OK":
             raise RuntimeError("Unable to save draft to Drafts folder.")
         new_uid = parse_append_uid(data)
@@ -555,24 +610,7 @@ def save_draft():
     bcc_addrs = request.form.get("bcc", "")
     subject = request.form.get("subject", "")
     body_html = request.form.get("body_html", "")
-    body = html_to_text_lines(body_html)
     old_draft_uid = (request.form.get("draft_uid") or "").strip()
-
-    msg_root = MIMEMultipart("mixed")
-    msg_root["From"] = from_addr
-    msg_root["To"] = to_addrs
-    if cc_addrs:
-        msg_root["Cc"] = cc_addrs
-    if bcc_addrs:
-        msg_root["Bcc"] = bcc_addrs
-    msg_root["Subject"] = subject
-    msg_root["Date"] = formatdate(localtime=True)
-
-    alt = MIMEMultipart("alternative")
-    alt.attach(MIMEText(body or "", "plain"))
-    if body_html:
-        alt.attach(MIMEText(body_html, "html"))
-    msg_root.attach(alt)
 
     staged_files, over_limit = _collect_staged_attachments(user_id)
     if over_limit:
@@ -589,12 +627,22 @@ def save_draft():
                 "request_receipt": request.form.get("read_receipt") == "on",
             },
         )
-    for f in staged_files:
-        part = MIMEBase("application", "octet-stream")
-        part.set_payload(f["data"])
-        encoders.encode_base64(part)
-        part.add_header("Content-Disposition", "attachment", filename=f["name"])
-        msg_root.attach(part)
+    body_html = apply_inline_content_ids(body_html, staged_files)
+    body = html_to_text_lines(body_html)
+
+    msg_root = build_message_root(
+        [
+            ("From", from_addr),
+            ("To", to_addrs),
+            ("Cc", cc_addrs),
+            ("Bcc", bcc_addrs),
+            ("Subject", subject),
+            ("Date", formatdate(localtime=True)),
+        ],
+        body,
+        body_html,
+        staged_files,
+    )
 
     client = None
     try:
@@ -609,12 +657,18 @@ def save_draft():
                 conn = open_cache(account.cache_db_path, key)
                 delete_messages_by_uids(conn, "Drafts", [old_draft_uid])
             except Exception:
-                logger.debug("failed to delete old draft from cache uid=%s", old_draft_uid, exc_info=True)
-        status, _data = ensure_folder_and_append(client, "Drafts", msg_root.as_bytes(), flags=["\\Draft"])
+                logger.debug(
+                    "failed to delete old draft from cache uid=%s", old_draft_uid, exc_info=True
+                )
+        status, _data = ensure_folder_and_append(
+            client, "Drafts", msg_root.as_bytes(), flags=["\\Draft"]
+        )
         if status != "OK":
             raise RuntimeError("Unable to save draft to Drafts folder.")
     except Exception:
-        logger.exception("save draft failed account_id=%s customer_id=%s", account.id, session.get("user_id"))
+        logger.exception(
+            "save draft failed account_id=%s customer_id=%s", account.id, session.get("user_id")
+        )
         return render_template(
             "compose.html",
             account_id=account_id,
@@ -631,5 +685,7 @@ def save_draft():
     finally:
         if client:
             safe_logout(client)
-    _delete_staging_session(user_id)
+    # Note: the staging session is intentionally kept so that auto-save and a
+    # later re-edit of this draft do not silently strip attachments. Cleanup
+    # happens on send and via the 24h staging GC.
     return redirect(url_for("mail.mailbox"))

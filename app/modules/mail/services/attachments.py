@@ -9,7 +9,6 @@ from flask import current_app
 
 from app.config import DATA_DIR
 
-
 logger = logging.getLogger(__name__)
 
 # Safe identifier for compose_session_id and file_id. Rejects path separators,
@@ -51,11 +50,13 @@ def _meta_path(user_id, compose_session_id, file_id):
     return _file_dir(user_id, compose_session_id, file_id) / "meta.json"
 
 
-def stage_file(user_id, compose_session_id, file_id, data, name, mime):
+def stage_file(user_id, compose_session_id, file_id, data, name, mime, content_id=None):
     raw = data if isinstance(data, bytes) else data.read()
     size = len(raw)
     _content_path(user_id, compose_session_id, file_id).write_bytes(raw)
     meta = {"name": name, "mime": mime or "application/octet-stream", "size": size}
+    if content_id:
+        meta["content_id"] = content_id
     _meta_path(user_id, compose_session_id, file_id).write_text(
         json.dumps(meta, ensure_ascii=False)
     )
@@ -91,12 +92,14 @@ def list_staged(user_id, compose_session_id):
         meta = read_meta(user_id, compose_session_id, file_id)
         if not meta:
             continue
-        items.append({
-            "id": file_id,
-            "name": meta.get("name", file_id),
-            "mime": meta.get("mime", "application/octet-stream"),
-            "size": meta.get("size", 0),
-        })
+        items.append(
+            {
+                "id": file_id,
+                "name": meta.get("name", file_id),
+                "mime": meta.get("mime", "application/octet-stream"),
+                "size": meta.get("size", 0),
+            }
+        )
     return items
 
 

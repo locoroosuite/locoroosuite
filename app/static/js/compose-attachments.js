@@ -64,10 +64,20 @@
   function ComposeAttachments(mount, options) {
     this.mount = mount;
     this.opts = options || {};
-    this.sessionId = uuid();
+    var seededId = this.opts.sessionId;
+    this.sessionId =
+      seededId && /^[A-Za-z0-9_-]{8,128}$/.test(seededId) ? seededId : uuid();
     this.used = 0;
     this.items = {}; // id -> {name, size, mime}
     this._build();
+    var pre = this.opts.initialAttachments;
+    if (pre && pre.length) {
+      pre.forEach(
+        function (a) {
+          this._addPrefilled(a);
+        }.bind(this)
+      );
+    }
   }
 
   ComposeAttachments.prototype._build = function () {
@@ -266,6 +276,19 @@
     arr.forEach(function (file) {
       self._uploadFile(file, { name: file.name, size: file.size, mime: file.type });
     });
+  };
+
+  ComposeAttachments.prototype._addPrefilled = function (a) {
+    var ui = this._makeCard(a.name || a.id, a.size || 0);
+    ui.status.classList.remove("hidden");
+    ui.status.textContent = "Attached";
+    ui.status.className = "mt-0.5 text-xs text-emerald-600";
+    ui.removeBtn.disabled = false;
+    this.list.appendChild(ui.card);
+    this.items[a.id] = { name: a.name || a.id, size: a.size || 0, mime: a.mime || "application/octet-stream" };
+    this._bindRemove(ui.removeBtn, a.id);
+    this._syncIds();
+    this._updateTotal();
   };
 
   ComposeAttachments.prototype._validate = function (size, name) {

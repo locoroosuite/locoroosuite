@@ -18,6 +18,12 @@ from app.modules.mail.services.cache_db import (
     open_cache,
     update_flags,
 )
+from app.modules.mail.services.compose_attachments import (
+    is_attachment_part,
+    rewrite_cid_srcs,
+    stage_mime_attachments,
+    strip_cid_imgs,
+)
 from app.modules.mail.services.folder_sort import build_folder_sections
 from app.modules.mail.services.imap_client import (
     connect_imap,
@@ -228,15 +234,7 @@ def _decode_part(part):
 
 
 def _is_attachment_part(part):
-    disposition = part.get_content_disposition()
-    if disposition == "attachment":
-        return True
-    content_type = part.get_content_type()
-    if content_type.startswith("multipart/"):
-        return False
-    if content_type in ("text/plain", "text/html"):
-        return False
-    return bool(part.get_filename())
+    return is_attachment_part(part)
 
 
 def _fetch_attachment_bytes(account, message_id, index):
@@ -1063,30 +1061,44 @@ def _spam_destination(client):
     return None
 
 
+def _escape_html_text(value):
+    return (value or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _quoted_body_html(text_plain, text_html):
+    """Quoted body for reply/forward: prefer the sanitized original HTML
+    (Gmail behavior), falling back to escaped plain text."""
+    if text_html:
+        return sanitize_html(text_html, allow_images=False)
+    if text_plain:
+        escaped = _escape_html_text(text_plain)
+        return "<br>".join(escaped.split("\n"))
+    return ""
+
+
+def _quote_label_style():
+    return "color:#5f6368;"
+
+
 def _build_quote_html(from_addr, to_addr, cc_addr, date_str, text_plain, text_html):
     header_lines = []
     if from_addr:
-        header_lines.append(f"From: {from_addr}")
+        header_lines.append(f"From: {_escape_html_text(from_addr)}")
     if date_str:
-        header_lines.append(f"Date: {date_str}")
+        header_lines.append(f"Date: {_escape_html_text(date_str)}")
     if to_addr:
-        header_lines.append(f"To: {to_addr}")
+        header_lines.append(f"To: {_escape_html_text(to_addr)}")
     if cc_addr:
-        header_lines.append(f"Cc: {cc_addr}")
+        header_lines.append(f"Cc: {_escape_html_text(cc_addr)}")
     header_html = "<br>".join(header_lines)
-    if text_plain:
-        escaped = text_plain.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-        body = "<br>".join(escaped.split("\n"))
-    elif text_html:
-        body = text_html
-    else:
-        body = ""
+    body = _quoted_body_html(text_plain, text_html)
     if from_addr and date_str:
         summary = f"On {date_str}, {from_addr} wrote:"
     elif from_addr:
         summary = f"{from_addr} wrote:"
     else:
         summary = "Quoted text"
+    summary = _escape_html_text(summary)
     return (
         '<div data-quote-block style="margin-top:12px;padding-left:12px;border-left:3px solid #cbd5e1;color:#64748b;">'
         '<div data-quote-summary style="display:none;font-size:12px;margin-bottom:4px;">'
@@ -1101,8 +1113,56 @@ def _build_quote_html(from_addr, to_addr, cc_addr, date_str, text_plain, text_ht
     )
 
 
-def _build_reply_forward_prefill(account, message_id, reply_all=False, forward=False):
-    key = get_user_key(session.get("user_id"))
+def _build_forward_quote_html(
+    from_addr, date_str, subject, to_addr, cc_addr, text_plain, text_html
+):
+    """Gmail-style forward quote: dashed header block + quoted body."""
+    rows = []
+    for label, value in (
+        ("From", from_addr),
+        ("Date", date_str),
+        ("Subject", subject),
+        ("To", to_addr),
+        ("Cc", cc_addr),
+    ):
+        if value:
+            rows.append(
+                f'<div><span style="{_quote_label_style()}">{label}:</span>'
+                f" {_escape_html_text(value)}</div>"
+            )
+    header_html = "".join(rows)
+    body = _quoted_body_html(text_plain, text_html)
+    label_style = _quote_label_style()
+    return (
+        '<div data-quote-block style="margin-top:12px;color:#64748b;">'
+        f'<div style="{label_style}margin-bottom:4px;">---------- Forwarded message ---------</div>'
+        '<div data-quote-summary style="display:none;font-size:12px;margin-bottom:4px;">Forwarded message</div>'
+        '<div data-quote-header style="margin-bottom:8px;">'
+        + header_html
+        + "</div>"
+        + (body if body else "")
+        + "</div>"
+    )
+
+
+def _format_quote_date(date_str, timezone_name=None):
+    """Format a message date header in the user's timezone for quote headers."""
+    dt = _parse_message_datetime(date_str)
+    if not dt:
+        return date_str or ""
+    try:
+        local_dt = dt.astimezone(_resolve_timezone(timezone_name))
+    except Exception:
+        logger.warning("quote date timezone conversion failed tz=%s", timezone_name)
+        return date_str or ""
+    return local_dt.strftime("%a, %d %b %Y at %H:%M")
+
+
+def _build_reply_forward_prefill(
+    account, message_id, reply_all=False, forward=False, timezone_name=None
+):
+    user_id = session.get("user_id")
+    key = get_user_key(user_id)
     conn = open_cache(account.cache_db_path, key)
     msg = get_message(conn, message_id)
     if not msg:
@@ -1116,6 +1176,7 @@ def _build_reply_forward_prefill(account, message_id, reply_all=False, forward=F
     text_plain = ""
     text_html = ""
     cc_header = ""
+    raw_msg = None
     try:
         secret = (
             decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
@@ -1138,17 +1199,27 @@ def _build_reply_forward_prefill(account, message_id, reply_all=False, forward=F
         text_plain = msg["snippet"] or ""
     cc_display = decode_address_header(cc_header) if cc_header else ""
     my_email = account.email_address.lower()
+    date_display = _format_quote_date(date_str, timezone_name)
     if forward:
         fwd_subject = subject if subject.lower().startswith("fwd:") else f"Fwd: {subject}"
-        quote = _build_quote_html(sender, recipients, cc_display, date_str, text_plain, text_html)
-        body_html = f"<br><br>{quote}"
-        return {
+        quote = _build_forward_quote_html(
+            sender, date_display, subject, recipients, cc_display, text_plain, text_html
+        )
+        prefill = {
             "to_addrs": "",
             "cc_addrs": "",
             "bcc_addrs": "",
             "subject": fwd_subject,
-            "body_html": body_html,
+            "body_html": f"<br><br>{quote}",
         }
+        staged = stage_mime_attachments(user_id, raw_msg)
+        if staged["compose_session_id"]:
+            prefill["body_html"] = rewrite_cid_srcs(prefill["body_html"], staged["cid_data_urls"])
+            prefill["compose_session_id"] = staged["compose_session_id"]
+            prefill["attachments"] = staged["attachments"]
+        if staged["notices"]:
+            prefill["attachment_notice"] = " ".join(staged["notices"])
+        return prefill
     re_subject = subject if subject.lower().startswith("re:") else f"Re: {subject}"
     cc_addrs = ""
     if reply_all:
@@ -1160,7 +1231,8 @@ def _build_reply_forward_prefill(account, message_id, reply_all=False, forward=F
             if addr and addr.lower() != my_email:
                 all_cc.append(addr)
         cc_addrs = ", ".join(all_cc)
-    quote = _build_quote_html(sender, recipients, cc_display, date_str, text_plain, text_html)
+    quote = _build_quote_html(sender, recipients, cc_display, date_display, text_plain, text_html)
+    quote = strip_cid_imgs(quote)
     return {
         "to_addrs": sender,
         "cc_addrs": cc_addrs,

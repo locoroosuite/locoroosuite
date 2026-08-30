@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+import contextlib
+import json
+import logging
 import os
 
 import httpx
@@ -15,6 +19,18 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from app import create_app as _create_flask_app
 
 _FLASK_BACKEND_URL = os.environ.get("FLASK_BACKEND_URL", "http://localhost:5001")
+
+logger = logging.getLogger(__name__)
+
+# Connect/write/pool timeouts apply, but reads never time out: proxied SSE
+# streams (mail /events/stream, chat /app/chat/api/stream) stay idle between
+# events, and the chat stream long-polls Matrix for up to 25s per cycle.
+_PROXY_TIMEOUT = httpx.Timeout(10.0, read=None)
+
+# Hop-by-hop or length/framing headers that must not be forwarded: the body is
+# relayed decoded and re-chunked, so upstream lengths and encodings no longer
+# describe what we send.
+_STRIPPED_RESPONSE_HEADERS = ("transfer-encoding", "content-encoding", "content-length")
 
 
 class ContentTypeNormalizeMiddleware:
@@ -109,11 +125,30 @@ def _build_transport_security() -> TransportSecuritySettings:
     return TransportSecuritySettings(enable_dns_rebinding_protection=False)
 
 
+async def _wait_for_disconnect(receive: Receive) -> None:
+    """Block until the downstream client disconnects."""
+    while True:
+        message = await receive()
+        if message["type"] == "http.disconnect":
+            return
+
+
 class FlaskProxyMiddleware:
-    def __init__(self, app: ASGIApp, backend_url: str) -> None:
+    """Reverse-proxies non-MCP requests to the Flask backend.
+
+    Responses are relayed incrementally (headers first, then body chunks as
+    they arrive) so Server-Sent Events reach the browser in real time. An
+    optional ``client`` (e.g. ``httpx.MockTransport`` in tests) can be
+    injected; injected clients are owned by the caller and never closed here.
+    """
+
+    def __init__(
+        self, app: ASGIApp, backend_url: str, client: httpx.AsyncClient | None = None
+    ) -> None:
         self.app = app
         self._backend_url = backend_url.rstrip("/")
         self._handled_prefixes = ("/mcp", "/.well-known/oauth-protected-resource")
+        self._client = client
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -155,37 +190,106 @@ class FlaskProxyMiddleware:
                 continue
             headers[key] = value.decode()
 
-        async with httpx.AsyncClient() as client:
-            resp = await client.request(
+        client = self._client or httpx.AsyncClient(timeout=_PROXY_TIMEOUT)
+        response_started = False
+        try:
+            async with client.stream(
                 method,
                 url,
                 headers=headers,
                 content=body,
                 follow_redirects=False,
+            ) as resp:
+                response_headers: list[tuple[bytes, bytes]] = []
+                for key, value in resp.headers.multi_items():
+                    if key.lower() in _STRIPPED_RESPONSE_HEADERS:
+                        continue
+                    response_headers.append((key.encode(), value.encode()))
+                await send(
+                    {
+                        "type": "http.response.start",
+                        "status": resp.status_code,
+                        "headers": response_headers,
+                    }
+                )
+                response_started = True
+                await self._relay_body(resp, receive, send, path)
+        except httpx.RequestError:
+            logger.warning(
+                "proxy backend request failed path=%s method=%s url=%s",
+                path,
+                method,
+                url,
+                exc_info=True,
             )
+            if not response_started:
+                payload = json.dumps(
+                    {
+                        "error": {
+                            "code": "BAD_GATEWAY",
+                            "message": "App server unreachable; retry or check that the web app is running.",
+                        }
+                    }
+                ).encode()
+                await send(
+                    {
+                        "type": "http.response.start",
+                        "status": 502,
+                        "headers": [
+                            (b"content-type", b"application/json"),
+                            (b"content-length", str(len(payload)).encode()),
+                        ],
+                    }
+                )
+                await send({"type": "http.response.body", "body": payload})
+        except Exception:
+            # Most often the browser went away mid-stream (send on a closed
+            # connection); nothing further can be delivered either way.
+            logger.warning(
+                "proxy relay aborted path=%s method=%s response_started=%s",
+                path,
+                method,
+                response_started,
+                exc_info=True,
+            )
+        finally:
+            if client is not self._client:
+                await client.aclose()
 
-        response_headers: list[tuple[bytes, bytes]] = []
-        for key, value in resp.headers.multi_items():
-            if key.lower() in ("transfer-encoding", "content-encoding", "content-length"):
-                continue
-            response_headers.append((key.encode(), value.encode()))
+    async def _relay_body(
+        self,
+        resp: httpx.Response,
+        receive: Receive,
+        send: Send,
+        path: str,
+    ) -> None:
+        """Stream the upstream body to the client; abort on disconnect.
 
-        body = resp.content
-        response_headers.append((b"content-length", str(len(body)).encode()))
+        The relay task and a disconnect watcher race; whichever finishes first
+        cancels the other. Cancelling the relay closes the upstream response
+        (via the caller's stream context), releasing backend resources held by
+        long-lived SSE generators.
+        """
 
-        await send(
-            {
-                "type": "http.response.start",
-                "status": resp.status_code,
-                "headers": response_headers,
-            }
-        )
-        await send(
-            {
-                "type": "http.response.body",
-                "body": body,
-            }
-        )
+        async def pump() -> None:
+            async for chunk in resp.aiter_bytes():
+                await send({"type": "http.response.body", "body": chunk, "more_body": True})
+            await send({"type": "http.response.body", "body": b"", "more_body": False})
+
+        relay = asyncio.create_task(pump())
+        watcher = asyncio.create_task(_wait_for_disconnect(receive))
+        try:
+            done, _pending = await asyncio.wait(
+                {relay, watcher}, return_when=asyncio.FIRST_COMPLETED
+            )
+            if watcher in done and relay not in done:
+                logger.info("proxy client disconnected mid-stream path=%s", path)
+        finally:
+            for task in (relay, watcher):
+                task.cancel()
+        for task in (relay, watcher):
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
 
 
 def create_asgi_app():

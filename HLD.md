@@ -1105,6 +1105,8 @@ U17.20 - Unauthenticated MCP requests receive `401 Unauthorized` with a `WWW-Aut
 WWW-Authenticate: Bearer resource_metadata="https://{host}/.well-known/oauth-protected-resource"
 ```
 
+U17.21 - Single-port deployments (dev, ngrok tunnels): when no front proxy splits traffic, the MCP ASGI server (port 8001) also serves the web UI by reverse-proxying all non-`/mcp` paths to the Flask backend (`FLASK_BACKEND_URL`). The proxy must relay responses incrementally — response headers are forwarded as soon as they arrive and body chunks stream through — so Server-Sent Events (`/events/stream` for mail, `/app/chat/api/stream` for chat, U25.7) reach the browser in real time. Buffered proxying is a defect: an SSE response never completes, so the browser's `EventSource` never receives headers and real-time updates break. Requirements: no read timeout on proxied streams (SSE connections idle between events, chat long-polls up to 25s), hop-by-hop headers (`content-length`, `content-encoding`, `transfer-encoding`) are not forwarded, and a client disconnect aborts the upstream request so backend sync loops (DB connections, Matrix long-polls) are released. An unreachable backend yields a structured `502` JSON error, never a bare 500.
+
 ## Out of Scope
 
 U17.50 - No stdio transport (the TypeScript package handles this, see U16).

@@ -1,7 +1,7 @@
 import time
 from functools import wraps
 
-from flask import request, g, current_app
+from flask import current_app, g, request
 
 from app.shared.db import db
 from app.shared.models.core import ApiRateLimitConfig
@@ -47,9 +47,10 @@ def _authenticate_bearer(raw_token):
         return token, ctx
 
     import jwt as pyjwt
+
     from app.shared.oauth import get_public_key
 
-    app = current_app._get_current_object()
+    app = current_app
     public_key_pem = get_public_key(app)
     if not public_key_pem:
         raise ApiError("AUTH_INVALID", "OAuth not configured", 401)
@@ -58,8 +59,8 @@ def _authenticate_bearer(raw_token):
         unverified = pyjwt.decode(raw_token, options={"verify_signature": False})
         audience = unverified.get("aud")
         payload = pyjwt.decode(raw_token, public_key_pem, algorithms=["RS256"], audience=audience)
-    except pyjwt.InvalidTokenError:
-        raise ApiError("AUTH_INVALID", "Invalid or expired token", 401)
+    except pyjwt.InvalidTokenError as exc:
+        raise ApiError("AUTH_INVALID", "Invalid or expired token", 401) from exc
 
     exp = payload.get("exp")
     if exp and exp < time.time():
@@ -78,14 +79,19 @@ def _authenticate_bearer(raw_token):
     dek_hex = None
     if jti:
         from app.shared.models.oauth import OAuthAccessToken
+
         token_record = OAuthAccessToken.query.filter_by(jti=jti, revoked=False).first()
         if token_record and token_record.wrapped_dek:
             from app.api.token_service import unwrap_dek_from_token
+
             try:
                 dek_hex = unwrap_dek_from_token(token_record.wrapped_dek, raw_token.encode())
-            except Exception:
-                raise ApiError("DEK_MISMATCH", "Failed to decrypt data encryption key. Please create a new API token or reset API access in Settings.", 401)
-
+            except Exception as exc:
+                raise ApiError(
+                    "DEK_MISMATCH",
+                    "Failed to decrypt data encryption key. Please create a new API token or reset API access in Settings.",
+                    401,
+                ) from exc
     ctx = {
         "dek": dek_hex,
         "scopes": scopes,
@@ -99,7 +105,7 @@ def _normalize_scopes(raw_scopes):
     for s in raw_scopes:
         if "." in s:
             normalized.append(s.replace(".", ":"))
-        elif s in ("mail", "contacts", "calendar", "docs"):
+        elif s in ("mail", "contacts", "calendar", "chat", "docs"):
             normalized.append(f"{s}:read")
             normalized.append(f"{s}:write")
         else:
@@ -113,7 +119,9 @@ def require_api_token(scopes=None):
         def wrapper(*args, **kwargs):
             auth_header = request.headers.get("Authorization", "")
             if not auth_header.startswith("Bearer "):
-                return api_error("AUTH_MISSING", "Authorization header with Bearer token required", 401)
+                return api_error(
+                    "AUTH_MISSING", "Authorization header with Bearer token required", 401
+                )
             raw_token = auth_header[7:]
 
             try:
@@ -123,13 +131,17 @@ def require_api_token(scopes=None):
 
             g.api_token = token_obj
             g.api_context = ctx
+            if ctx is None:
+                return api_error("AUTH_INVALID", "Invalid or expired token", 401)
 
             if scopes:
                 token_scopes = ctx.get("scopes", [])
                 for required in scopes:
                     module = required.split(":")[0]
                     access = required.split(":")[1] if ":" in required else None
-                    has_module = any(s.startswith(module + ":") or s == module for s in token_scopes)
+                    has_module = any(
+                        s.startswith(module + ":") or s == module for s in token_scopes
+                    )
                     if not has_module:
                         return api_error(
                             "SCOPE_DENIED",
@@ -149,7 +161,9 @@ def require_api_token(scopes=None):
                 return api_error("RATE_LIMITED", "Rate limit exceeded", 429)
 
             return f(*args, **kwargs)
+
         return wrapper
+
     end_decorator = decorator
     return end_decorator
 
@@ -163,9 +177,7 @@ def require_scope(module, access="read"):
             if access == "write":
                 has_access = any(s == f"{module}:write" for s in token_scopes)
             else:
-                has_access = any(
-                    s.startswith(f"{module}:") for s in token_scopes
-                )
+                has_access = any(s.startswith(f"{module}:") for s in token_scopes)
             if not has_access:
                 scope_name = f"{module}:{access}"
                 return api_error(
@@ -174,7 +186,9 @@ def require_scope(module, access="read"):
                     403,
                 )
             return f(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -191,9 +205,7 @@ def _check_rate_limit(token):
         bucket = {"start": now, "count": 0}
         _rate_limit_store[key] = bucket
     bucket["count"] += 1
-    if bucket["count"] > rate_limit:
-        return False
-    return True
+    return bucket["count"] <= rate_limit
 
 
 def _get_rate_limit():
@@ -218,10 +230,9 @@ def get_api_account_id():
     if account_id:
         return int(account_id)
     from app.shared.models.core import CustomerAccount
+
     customer_id = g.api_context["customer_id"]
-    account = CustomerAccount.query.filter_by(
-        customer_id=customer_id, is_active=True
-    ).first()
+    account = CustomerAccount.query.filter_by(customer_id=customer_id, is_active=True).first()
     if not account:
         raise ApiError("NO_ACCOUNT", "No active account found", 404)
     return account.id

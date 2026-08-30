@@ -2,9 +2,9 @@ import logging
 from typing import Any
 
 from flask import Flask
-from flask_openapi3.openapi import OpenAPI as _OpenAPI
 from flask_openapi3.blueprint import APIBlueprint as _APIBlueprint
 from flask_openapi3.models.tag import Tag
+from flask_openapi3.openapi import OpenAPI as _OpenAPI
 
 from app.api.schemas.common import ErrorResponse
 
@@ -22,9 +22,10 @@ class _ApiMiddleware:
         path = environ.get("PATH_INFO", "")
         if any(path.startswith(p) or path == p.rstrip("/") for p in _API_PREFIXES):
             environ["SCRIPT_NAME"] = "/api"
-            environ["PATH_INFO"] = path[len("/api"):]
+            environ["PATH_INFO"] = path[len("/api") :]
             return self._api(environ, start_response)
         return self._main(environ, start_response)
+
 
 _info: Any = {
     "title": "LocoRoomail API",
@@ -96,19 +97,24 @@ def register_api_app(main_app: Flask) -> None:
     db._app_engines[api_app] = {None: shared_engine}
 
     if not hasattr(api_app, "_api_registered"):
-        from app.api.controllers import accounts, tokens, mail, contacts, calendar, docs
+        from app.api.controllers import accounts, calendar, chat, contacts, docs, mail, tokens
+
         api_app.register_api(accounts.bp)
         api_app.register_api(tokens.bp)
         api_app.register_api(mail.bp)
         api_app.register_api(contacts.bp)
         api_app.register_api(calendar.bp)
+        api_app.register_api(chat.bp)
         api_app.register_api(docs.bp)
-        setattr(api_app, "_api_registered", True)
+        # OpenAPI declares neither attribute; assign through Any for the type checker.
+        api_app_ext: Any = api_app
+        api_app_ext._api_registered = True
 
     @main_app.before_request
     def _propagate_sync_manager():
         sync_mgr = getattr(main_app, "sync_manager", None)
         if sync_mgr is not None:
-            setattr(api_app, "sync_manager", sync_mgr)
+            api_app_ext: Any = api_app
+            api_app_ext.sync_manager = sync_mgr
 
     main_app.wsgi_app = _ApiMiddleware(main_app.wsgi_app, api_app.wsgi_app)

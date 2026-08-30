@@ -60,7 +60,7 @@ def _normalize_scopes(raw_scopes: list[str]) -> list[str]:
     for s in raw_scopes:
         if "." in s:
             normalized.append(s.replace(".", ":"))
-        elif s in ("mail", "contacts", "calendar", "docs"):
+        elif s in ("mail", "contacts", "calendar", "chat", "docs"):
             normalized.append(f"{s}:read")
             normalized.append(f"{s}:write")
         else:
@@ -131,6 +131,7 @@ def _resolve_jwt(token_str: str, flask_app: Flask) -> dict[str, Any]:
                 )
 
             from app.shared.models.core import User
+
             user = db.session.get(User, customer_id)
             if not user or not user.is_active:
                 raise McpAuthError("AUTH_INVALID", "User not found or inactive")
@@ -143,12 +144,12 @@ def _resolve_jwt(token_str: str, flask_app: Flask) -> dict[str, Any]:
         }
 
     except pyjwt.InvalidTokenError as e:
-        raise McpAuthError("AUTH_INVALID", f"Invalid OAuth token: {e}")
+        raise McpAuthError("AUTH_INVALID", f"Invalid OAuth token: {e}") from e
     except McpAuthError:
         raise
-    except Exception:
+    except Exception as exc:
         _logger.exception("unexpected error resolving JWT")
-        raise McpAuthError("AUTH_INVALID", "Token verification failed")
+        raise McpAuthError("AUTH_INVALID", "Token verification failed") from exc
 
 
 def get_account_id(context: dict[str, Any], flask_app: Flask, account_id: int | None = None) -> int:
@@ -192,10 +193,11 @@ def get_dek(context: dict[str, Any], flask_app: Flask) -> str:
             raise McpAuthError("NO_DEK", "No DEK stored for this OAuth token")
 
         from app.api.token_service import unwrap_dek_from_token
+
         try:
             dek_hex = unwrap_dek_from_token(token_record.wrapped_dek, raw_token.encode())
-        except Exception:
-            raise McpAuthError("NO_DEK", "Failed to unwrap DEK")
+        except Exception as exc:
+            raise McpAuthError("NO_DEK", "Failed to unwrap DEK") from exc
 
         return dek_hex
 
@@ -219,6 +221,7 @@ def require_scope(context: dict[str, Any], module: str, access: str = "read") ->
 class _FlaskAppContext:
     def __init__(self):
         from app import create_app
+
         self._app = create_app()
         self._ctx = self._app.app_context()
 

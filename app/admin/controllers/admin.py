@@ -1,25 +1,39 @@
-from datetime import datetime, timedelta, timezone
 import logging
 import secrets
+from datetime import UTC, datetime, timedelta
 
-from flask import current_app, jsonify, render_template, request, redirect, url_for, session, flash
+from flask import current_app, flash, jsonify, redirect, render_template, request, session, url_for
 from markupsafe import Markup
 from werkzeug.security import generate_password_hash
 
-from app.shared.db import db
-from app.shared.models.core import User, Domain, ManagerDomain, CustomerAccount, PlatformDnsConfig, PlatformServiceConfig, DomainDnsConfig
-from app.shared.models.imports import ImportRequest, ImportRun
+from app.admin import admin_bp
 from app.admin.services.domain_discovery import discover_domain_settings
-from app.admin.services.import_security import build_import_token, encrypt_import_secret, new_link_key
+from app.admin.services.import_security import (
+    build_import_token,
+    encrypt_import_secret,
+    new_link_key,
+)
+from app.modules.mail.services.cache import purge_cache
 from app.shared.audit import log_audit
 from app.shared.auth import require_role
-from app.modules.mail.services.cache import purge_cache
-from app.admin import admin_bp
+from app.shared.db import db
+from app.shared.models.core import (
+    CustomerAccount,
+    Domain,
+    DomainDnsConfig,
+    ManagerDomain,
+    PlatformDnsConfig,
+    PlatformServiceConfig,
+    User,
+)
+from app.shared.models.imports import ImportRequest, ImportRun
 
 logger = logging.getLogger(__name__)
 
 
-def _customer_accounts_map(customer_ids: list[int] | None = None) -> dict[int, list[CustomerAccount]]:
+def _customer_accounts_map(
+    customer_ids: list[int] | None = None,
+) -> dict[int, list[CustomerAccount]]:
     query = CustomerAccount.query
     if customer_ids is not None:
         query = query.filter(CustomerAccount.customer_id.in_(customer_ids))
@@ -63,7 +77,10 @@ def dismiss_setup_banner():
 def domains():
     domains = Domain.query.all()
     dns_configs: dict[int, DomainDnsConfig] = {
-        c.domain_id: c for c in DomainDnsConfig.query.filter(DomainDnsConfig.domain_id.in_([d.id for d in domains])).all()
+        c.domain_id: c
+        for c in DomainDnsConfig.query.filter(
+            DomainDnsConfig.domain_id.in_([d.id for d in domains])
+        ).all()
     }
     return render_template(
         "admin/domains.html",
@@ -117,6 +134,7 @@ def customers():
     customer_accounts = _customer_accounts_map([c.id for c in customers])
 
     admin_user = db.session.get(User, session.get("user_id"))
+    print("DEBUG_ADMIN:", session.get("user_id"), admin_user)
     admin_account = None
     if admin_user and admin_user.role == "admin":
         admin_account = CustomerAccount.query.filter_by(customer_id=admin_user.id).first()
@@ -150,7 +168,9 @@ def customers():
 @admin_bp.route("/imports")
 @require_role("admin")
 def imports():
-    import_requests = ImportRequest.query.order_by(ImportRequest.created_at.desc(), ImportRequest.id.desc()).all()
+    import_requests = ImportRequest.query.order_by(
+        ImportRequest.created_at.desc(), ImportRequest.id.desc()
+    ).all()
     google_ready = bool(
         current_app.config.get("GOOGLE_IMPORT_CLIENT_ID")
         and current_app.config.get("GOOGLE_IMPORT_CLIENT_SECRET")
@@ -211,15 +231,29 @@ def create_domain():
     db.session.add(domain)
     db.session.commit()
 
-    is_dev_localhost = current_app.config.get("APP_ENV") == "development" and name.endswith(".localhost")
+    is_dev_localhost = current_app.config.get("APP_ENV") == "development" and name.endswith(
+        ".localhost"
+    )
     if not is_dev_localhost:
         discovery = discover_domain_settings(name)
         _apply_discovery(domain, discovery)
         db.session.commit()
     else:
-        discovery = {"imap_primary": None, "smtp_primary": None, "imap_candidates": [], "smtp_candidates": []}
+        discovery = {
+            "imap_primary": None,
+            "smtp_primary": None,
+            "imap_candidates": [],
+            "smtp_candidates": [],
+        }
 
-    log_audit(session.get("user_id"), "admin", "domain_create", name, request.remote_addr, request.headers.get("User-Agent"))
+    log_audit(
+        session.get("user_id"),
+        "admin",
+        "domain_create",
+        name,
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
     _sync_domain_to_mail_api(domain)
     if not is_dev_localhost and _needs_review(discovery, domain):
         return redirect(url_for("admin.review_domain_mail", domain_id=domain.id))
@@ -298,11 +332,7 @@ def review_domain_selfhosted(domain_id):
 @require_role("admin")
 def review_domain_accounts(domain_id):
     domain = db.get_or_404(Domain, domain_id)
-    accounts = (
-        CustomerAccount.query
-        .filter_by(domain_id=domain_id)
-        .all()
-    )
+    accounts = CustomerAccount.query.filter_by(domain_id=domain_id).all()
     dns_config = DomainDnsConfig.query.filter_by(domain_id=domain_id).first()
     return render_template(
         "admin/domain_review_accounts.html",
@@ -324,8 +354,27 @@ def create_manager():
     db.session.add(manager)
     db.session.commit()
 
-    log_audit(session.get("user_id"), "admin", "manager_create", email, request.remote_addr, request.headers.get("User-Agent"))
+    log_audit(
+        session.get("user_id"),
+        "admin",
+        "manager_create",
+        email,
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
     return redirect(url_for("admin.managers"))
+
+
+def _provision_chat_identity(account):
+    """Create the Matrix chat identity for a new account (best-effort, non-fatal)."""
+    from app.modules.chat.services.provisioning import best_effort_provision
+
+    try:
+        best_effort_provision(account)
+    except Exception:
+        logger.warning(
+            "chat provisioning failed for %s (non-fatal)", account.email_address, exc_info=True
+        )
 
 
 @admin_bp.route("/customers/new", methods=["POST"])
@@ -358,6 +407,7 @@ def create_customer():
 
     if create_mode == "invite":
         from app.admin.services.mail_server import get_mail_client_for_domain
+
         client = get_mail_client_for_domain(domain)
         if client and client.check_user(email):
             _flash_mailbox_exists(email, domain)
@@ -379,6 +429,7 @@ def create_customer():
         db.session.flush()
 
         from app.admin.services.mail_server import get_mail_client_for_domain
+
         client = get_mail_client_for_domain(domain)
         if client:
             try:
@@ -390,8 +441,21 @@ def create_customer():
                 return redirect(url_for("admin.customers"))
 
         db.session.commit()
-        log_audit(session.get("user_id"), "admin", "customer_create", f"email={email},mode=password", request.remote_addr, request.headers.get("User-Agent"))
-        flash(Markup(f'Customer {email} created with password. To log in as a customer, <a href="{url_for("mail.login")}" class="underline font-medium">click here</a>.'), "success")
+        _provision_chat_identity(account)
+        log_audit(
+            session.get("user_id"),
+            "admin",
+            "customer_create",
+            f"email={email},mode=password",
+            request.remote_addr,
+            request.headers.get("User-Agent"),
+        )
+        flash(
+            Markup(
+                f'Customer {email} created with password. To log in as a customer, <a href="{url_for("mail.login")}" class="underline font-medium">click here</a>.'
+            ),
+            "success",
+        )
         return redirect(url_for("admin.customers"))
 
     if create_mode == "external":
@@ -404,7 +468,15 @@ def create_customer():
         )
         db.session.add(account)
         db.session.commit()
-        log_audit(session.get("user_id"), "admin", "customer_create", f"email={email},mode=external", request.remote_addr, request.headers.get("User-Agent"))
+        _provision_chat_identity(account)
+        log_audit(
+            session.get("user_id"),
+            "admin",
+            "customer_create",
+            f"email={email},mode=external",
+            request.remote_addr,
+            request.headers.get("User-Agent"),
+        )
         flash(f"Customer {email} created as external mailbox.", "success")
         return redirect(url_for("admin.customers"))
 
@@ -416,13 +488,21 @@ def create_customer():
         auth_type="password",
         username=email,
         signup_token=token,
-        signup_expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+        signup_expires_at=datetime.now(UTC) + timedelta(days=7),
     )
     db.session.add(account)
     db.session.commit()
+    _provision_chat_identity(account)
 
     signup_url = f"{current_app.config['APP_URL'].rstrip('/')}/signup/{token}"
-    log_audit(session.get("user_id"), "admin", "customer_create", f"email={email},mode=invite", request.remote_addr, request.headers.get("User-Agent"))
+    log_audit(
+        session.get("user_id"),
+        "admin",
+        "customer_create",
+        f"email={email},mode=invite",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
     all_customers = User.query.filter_by(role="customer").all()
     return render_template(
         "admin/customers.html",
@@ -451,7 +531,15 @@ def create_import_request():
 
     if source_type not in {"google", "google_takeout"}:
         return redirect(url_for("admin.imports"))
-    if not all((customer_email, destination_email, destination_imap_host, destination_username, destination_secret)):
+    if not all(
+        (
+            customer_email,
+            destination_email,
+            destination_imap_host,
+            destination_username,
+            destination_secret,
+        )
+    ):
         return redirect(url_for("admin.imports"))
 
     import_request = ImportRequest(
@@ -465,7 +553,7 @@ def create_import_request():
         destination_username=destination_username,
         encrypted_destination_secret=b"pending",
         link_key=new_link_key(),
-        expires_at=datetime.now(timezone.utc) + timedelta(days=max(1, min(expiry_days, 90))),
+        expires_at=datetime.now(UTC) + timedelta(days=max(1, min(expiry_days, 90))),
         status="pending_auth" if source_type == "google" else "pending_upload",
         upload_status="none" if source_type == "google" else "pending_upload",
     )
@@ -515,13 +603,20 @@ def toggle_import_request(import_request_id):
 @admin_bp.route("/assign-manager", methods=["POST"])
 @require_role("admin")
 def assign_manager():
-    manager_id = int(request.form.get("manager_id"))
-    domain_id = int(request.form.get("domain_id"))
+    manager_id = int(request.form.get("manager_id") or 0)
+    domain_id = int(request.form.get("domain_id") or 0)
     link = ManagerDomain(manager_id=manager_id, domain_id=domain_id)
     db.session.add(link)
     db.session.commit()
 
-    log_audit(session.get("user_id"), "admin", "manager_assign", f"manager={manager_id},domain={domain_id}", request.remote_addr, request.headers.get("User-Agent"))
+    log_audit(
+        session.get("user_id"),
+        "admin",
+        "manager_assign",
+        f"manager={manager_id},domain={domain_id}",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
     return redirect(url_for("admin.assignments"))
 
 
@@ -531,7 +626,14 @@ def toggle_domain(domain_id):
     domain = db.get_or_404(Domain, domain_id)
     domain.is_active = not domain.is_active
     db.session.commit()
-    log_audit(session.get("user_id"), "admin", "domain_toggle", f"domain={domain.name},active={domain.is_active}", request.remote_addr, request.headers.get("User-Agent"))
+    log_audit(
+        session.get("user_id"),
+        "admin",
+        "domain_toggle",
+        f"domain={domain.name},active={domain.is_active}",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
     _sync_domain_to_mail_api(domain)
     return redirect(url_for("admin.domains"))
 
@@ -557,7 +659,14 @@ def delete_domain(domain_id):
     db.session.delete(domain)
     db.session.commit()
 
-    log_audit(session.get("user_id"), "admin", "domain_delete", f"domain={domain_name}", request.remote_addr, request.headers.get("User-Agent"))
+    log_audit(
+        session.get("user_id"),
+        "admin",
+        "domain_delete",
+        f"domain={domain_name}",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
     flash(f"Domain {domain_name} deleted.", "success")
     return redirect(url_for("admin.domains"))
 
@@ -583,7 +692,14 @@ def update_domain(domain_id):
     domain.mail_api_key = request.form.get("mail_api_key", "").strip() or None
     domain.status = _compute_domain_status(domain)
     db.session.commit()
-    log_audit(session.get("user_id"), "admin", "domain_update", domain.name, request.remote_addr, request.headers.get("User-Agent"))
+    log_audit(
+        session.get("user_id"),
+        "admin",
+        "domain_update",
+        domain.name,
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
     _sync_domain_to_mail_api(domain)
     return redirect(url_for("admin.domains"))
 
@@ -595,7 +711,14 @@ def unassign_manager(domain_id, manager_id):
     if link:
         db.session.delete(link)
         db.session.commit()
-    log_audit(session.get("user_id"), "admin", "manager_unassign", f"manager={manager_id},domain={domain_id}", request.remote_addr, request.headers.get("User-Agent"))
+    log_audit(
+        session.get("user_id"),
+        "admin",
+        "manager_unassign",
+        f"manager={manager_id},domain={domain_id}",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
     return redirect(url_for("admin.assignments"))
 
 
@@ -605,7 +728,14 @@ def toggle_customer(customer_id):
     customer = db.get_or_404(User, customer_id)
     customer.is_active = not customer.is_active
     db.session.commit()
-    log_audit(session.get("user_id"), "admin", "customer_toggle", f"customer={customer.email},active={customer.is_active}", request.remote_addr, request.headers.get("User-Agent"))
+    log_audit(
+        session.get("user_id"),
+        "admin",
+        "customer_toggle",
+        f"customer={customer.email},active={customer.is_active}",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
     return redirect(url_for("admin.customers"))
 
 
@@ -617,7 +747,14 @@ def purge_customer(customer_id):
         purge_cache(account.cache_db_path)
         account.cache_db_path = None
     db.session.commit()
-    log_audit(session.get("user_id"), "admin", "customer_cache_reset", f"customer={customer_id}", request.remote_addr, request.headers.get("User-Agent"))
+    log_audit(
+        session.get("user_id"),
+        "admin",
+        "customer_cache_reset",
+        f"customer={customer_id}",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
     return redirect(url_for("admin.customers"))
 
 
@@ -656,7 +793,11 @@ def add_customer_account(customer_id):
 
     _mail_api_call(
         "create_mailbox",
-        lambda c: _upsert_user(c, email, password) if password else c.add_user(email, password or secrets.token_urlsafe(16)),
+        lambda c: (
+            _upsert_user(c, email, password)
+            if password
+            else c.add_user(email, password or secrets.token_urlsafe(16))
+        ),
         domain=domain,
     )
     db.session.commit()
@@ -684,11 +825,18 @@ def reset_customer_password(customer_id):
 
     token = secrets.token_urlsafe(32)
     account.signup_token = token
-    account.signup_expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    account.signup_expires_at = datetime.now(UTC) + timedelta(days=7)
     db.session.commit()
 
     signup_url = f"{current_app.config['APP_URL'].rstrip('/')}/signup/{token}"
-    log_audit(session.get("user_id"), "admin", "customer_password_reset", f"email={customer.email}", request.remote_addr, request.headers.get("User-Agent"))
+    log_audit(
+        session.get("user_id"),
+        "admin",
+        "customer_password_reset",
+        f"email={customer.email}",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
     all_customers = User.query.filter_by(role="customer").all()
     return render_template(
         "admin/customers.html",
@@ -732,7 +880,14 @@ def set_customer_password(customer_id):
         domain=domain,
     )
 
-    log_audit(session.get("user_id"), "admin", "customer_password_set", f"email={customer.email}", request.remote_addr, request.headers.get("User-Agent"))
+    log_audit(
+        session.get("user_id"),
+        "admin",
+        "customer_password_set",
+        f"email={customer.email}",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
     flash(f"Password updated for {customer.email}.", "success")
     return redirect(url_for("admin.customers"))
 
@@ -771,7 +926,14 @@ def toggle_customer_external(customer_id):
         label = "hosted"
 
     db.session.commit()
-    log_audit(session.get("user_id"), "admin", "customer_toggle_external", f"email={customer.email},mode={label}", request.remote_addr, request.headers.get("User-Agent"))
+    log_audit(
+        session.get("user_id"),
+        "admin",
+        "customer_toggle_external",
+        f"email={customer.email},mode={label}",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
     flash(f"{customer.email} is now {label}.", "success")
     return redirect(url_for("admin.customers"))
 
@@ -783,7 +945,14 @@ def reset_manager_password(manager_id):
     password = request.form.get("password", "")
     manager.password_hash = generate_password_hash(password)
     db.session.commit()
-    log_audit(session.get("user_id"), "admin", "manager_password_reset", f"manager={manager.email}", request.remote_addr, request.headers.get("User-Agent"))
+    log_audit(
+        session.get("user_id"),
+        "admin",
+        "manager_password_reset",
+        f"manager={manager.email}",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
     return redirect(url_for("admin.managers"))
 
 
@@ -812,7 +981,14 @@ def save_mail_config(domain_id):
     domain.smtp_auth_methods = request.form.get("smtp_auth_methods", "").strip() or None
     domain.status = _compute_domain_status(domain)
     db.session.commit()
-    log_audit(session.get("user_id"), "admin", "domain_mail_config", domain.name, request.remote_addr, request.headers.get("User-Agent"))
+    log_audit(
+        session.get("user_id"),
+        "admin",
+        "domain_mail_config",
+        domain.name,
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
     _sync_domain_to_mail_api(domain)
     return jsonify({"ok": True}), 200
 
@@ -827,8 +1003,19 @@ def save_dav_config(domain_id):
     domain.carddav_host = request.form.get("carddav_host", "").strip() or None
     domain.carddav_port = _parse_int(request.form.get("carddav_port"), domain.carddav_port)
     domain.carddav_use_tls = request.form.get("carddav_use_tls") == "1"
+    domain.matrix_host = request.form.get("matrix_host", "").strip() or None
+    domain.matrix_port = _parse_int(request.form.get("matrix_port"), domain.matrix_port)
+    domain.matrix_use_tls = request.form.get("matrix_use_tls") == "1"
+    domain.matrix_shared_secret = request.form.get("matrix_shared_secret", "").strip() or None
     db.session.commit()
-    log_audit(session.get("user_id"), "admin", "domain_dav_config", domain.name, request.remote_addr, request.headers.get("User-Agent"))
+    log_audit(
+        session.get("user_id"),
+        "admin",
+        "domain_dav_config",
+        domain.name,
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
     return jsonify({"ok": True}), 200
 
 
@@ -836,21 +1023,19 @@ def save_dav_config(domain_id):
 @require_role("admin")
 def domain_accounts(domain_id):
     db.get_or_404(Domain, domain_id)
-    accounts = (
-        CustomerAccount.query
-        .filter_by(domain_id=domain_id)
-        .all()
-    )
+    accounts = CustomerAccount.query.filter_by(domain_id=domain_id).all()
     rows = []
     for a in accounts:
         user = db.session.get(User, a.customer_id)
-        rows.append({
-            "id": a.id,
-            "email": a.email_address,
-            "auth_type": a.auth_type,
-            "is_active": a.is_active,
-            "user_active": user.is_active if user else False,
-        })
+        rows.append(
+            {
+                "id": a.id,
+                "email": a.email_address,
+                "auth_type": a.auth_type,
+                "is_active": a.is_active,
+                "user_active": user.is_active if user else False,
+            }
+        )
     return jsonify({"accounts": rows}), 200
 
 
@@ -861,7 +1046,14 @@ def save_mail_api_config(domain_id):
     domain.mail_api_url = request.form.get("mail_api_url", "").strip() or None
     domain.mail_api_key = request.form.get("mail_api_key", "").strip() or None
     db.session.commit()
-    log_audit(session.get("user_id"), "admin", "domain_mail_api_config", domain.name, request.remote_addr, request.headers.get("User-Agent"))
+    log_audit(
+        session.get("user_id"),
+        "admin",
+        "domain_mail_api_config",
+        domain.name,
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
     _sync_domain_to_mail_api(domain)
     return jsonify({"ok": True}), 200
 
@@ -875,6 +1067,7 @@ def test_mail_api_connection(domain_id):
     if not url:
         return jsonify({"ok": False, "error": "No mail API URL configured."}), 200
     from app.admin.services.mail_server.http_client import MailApiClient
+
     client = MailApiClient(url, key)
     try:
         available = client.is_available()
@@ -890,6 +1083,7 @@ def test_mail_api_connection(domain_id):
 def sync_preview(domain_id):
     domain = db.get_or_404(Domain, domain_id)
     from app.admin.services.mail_server import get_mail_client_for_domain
+
     client = get_mail_client_for_domain(domain)
     if client is None:
         return jsonify({"error": "No mail API configured for this domain."}), 400
@@ -907,11 +1101,13 @@ def sync_preview(domain_id):
     local_only = sorted(local_emails - remote_emails)
     in_sync = sorted(remote_emails & local_emails)
 
-    return jsonify({
-        "remote_only": remote_only,
-        "local_only": local_only,
-        "in_sync": in_sync,
-    })
+    return jsonify(
+        {
+            "remote_only": remote_only,
+            "local_only": local_only,
+            "in_sync": in_sync,
+        }
+    )
 
 
 @admin_bp.route("/domains/<int:domain_id>/sync-apply", methods=["POST"])
@@ -929,7 +1125,9 @@ def sync_apply(domain_id):
     for email in create_locally:
         user = User.query.filter_by(email=email).first()
         if user:
-            existing_acc = CustomerAccount.query.filter_by(customer_id=user.id, domain_id=domain_id).first()
+            existing_acc = CustomerAccount.query.filter_by(
+                customer_id=user.id, domain_id=domain_id
+            ).first()
             if existing_acc:
                 continue
         if not user:
@@ -953,7 +1151,9 @@ def sync_apply(domain_id):
         for email in create_remotely:
             try:
                 client.add_user(email, secrets.token_urlsafe(16))
-                acc = CustomerAccount.query.filter_by(email_address=email, domain_id=domain_id).first()
+                acc = CustomerAccount.query.filter_by(
+                    email_address=email, domain_id=domain_id
+                ).first()
                 if acc:
                     acc.is_active = True
                 created_remote.append(email)
@@ -978,11 +1178,13 @@ def sync_apply(domain_id):
         request.headers.get("User-Agent"),
     )
 
-    return jsonify({
-        "created_locally": created,
-        "created_remotely": created_remote,
-        "soft_deleted_locally": deactivated,
-    })
+    return jsonify(
+        {
+            "created_locally": created,
+            "created_remotely": created_remote,
+            "soft_deleted_locally": deactivated,
+        }
+    )
 
 
 @admin_bp.route("/domains/<int:domain_id>/sync", methods=["GET"])
@@ -1001,7 +1203,9 @@ def domain_sync(domain_id):
     )
 
 
-@admin_bp.route("/domains/<int:domain_id>/accounts/<int:account_id>/reset-password", methods=["POST"])
+@admin_bp.route(
+    "/domains/<int:domain_id>/accounts/<int:account_id>/reset-password", methods=["POST"]
+)
 @require_role("admin")
 def account_reset_password(domain_id, account_id):
     domain = db.get_or_404(Domain, domain_id)
@@ -1034,8 +1238,12 @@ def account_reset_password(domain_id, account_id):
     db.session.commit()
 
     log_audit(
-        session.get("user_id"), "admin", "account_password_reset",
-        f"email={account.email_address}", request.remote_addr, request.headers.get("User-Agent"),
+        session.get("user_id"),
+        "admin",
+        "account_password_reset",
+        f"email={account.email_address}",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
     )
     return jsonify({"ok": True, "email": account.email_address})
 
@@ -1054,13 +1262,17 @@ def account_login_link(domain_id, account_id):
 
     token = secrets.token_urlsafe(32)
     account.signup_token = token
-    account.signup_expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    account.signup_expires_at = datetime.now(UTC) + timedelta(days=7)
     db.session.commit()
 
     login_url = f"{current_app.config['APP_URL'].rstrip('/')}/signup/{token}"
     log_audit(
-        session.get("user_id"), "admin", "account_login_link",
-        f"email={account.email_address}", request.remote_addr, request.headers.get("User-Agent"),
+        session.get("user_id"),
+        "admin",
+        "account_login_link",
+        f"email={account.email_address}",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
     )
     return jsonify({"ok": True, "login_url": login_url, "email": account.email_address})
 
@@ -1090,8 +1302,12 @@ def account_delete(domain_id, account_id):
     db.session.commit()
 
     log_audit(
-        session.get("user_id"), "admin", "account_delete",
-        f"email={account.email_address}", request.remote_addr, request.headers.get("User-Agent"),
+        session.get("user_id"),
+        "admin",
+        "account_delete",
+        f"email={account.email_address}",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
     )
     return jsonify({"ok": True, "email": account.email_address})
 
@@ -1104,7 +1320,9 @@ def import_token_filter(import_request):
 @admin_bp.route("/platform-dns")
 @require_role("admin")
 def platform_dns():
-    entries = PlatformDnsConfig.query.order_by(PlatformDnsConfig.mx_priority, PlatformDnsConfig.id).all()
+    entries = PlatformDnsConfig.query.order_by(
+        PlatformDnsConfig.mx_priority, PlatformDnsConfig.id
+    ).all()
     svc = PlatformServiceConfig.query.first()
     return render_template(
         "admin/platform_dns.html",
@@ -1166,7 +1384,10 @@ def save_platform_dns():
         request.remote_addr,
         request.headers.get("User-Agent"),
     )
-    flash(f"Platform configuration saved ({len(entries)} MX server{'s' if len(entries) != 1 else ''}).", "success")
+    flash(
+        f"Platform configuration saved ({len(entries)} MX server{'s' if len(entries) != 1 else ''}).",
+        "success",
+    )
     return redirect(url_for("admin.platform_dns"))
 
 
@@ -1177,6 +1398,7 @@ def validate_platform_dns():
     if not hostname:
         return jsonify({"ok": False, "error": "Hostname is required."}), 200
     from app.admin.services.dns_checks import validate_mx_hostname
+
     try:
         result = validate_mx_hostname(hostname)
         return jsonify({"ok": True, "result": result}), 200
@@ -1194,14 +1416,25 @@ def save_self_hosted(domain_id):
     dmarc_rua = request.form.get("dmarc_rua", "").strip() or None
 
     if is_self_hosted and not domain.mail_api_url:
-        return jsonify({"ok": False, "error": "Mail API URL is required for self-hosted domains. Configure it in the Mail API section above."}), 200
+        return jsonify(
+            {
+                "ok": False,
+                "error": "Mail API URL is required for self-hosted domains. Configure it in the Mail API section above.",
+            }
+        ), 200
 
     if dmarc_policy not in ("none", "quarantine", "reject"):
         dmarc_policy = "none"
 
     import re
-    if not re.match(r'^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$', dkim_selector):
-        return jsonify({"ok": False, "error": "DKIM selector must be 1-63 characters, lowercase alphanumeric and hyphens only."}), 200
+
+    if not re.match(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$", dkim_selector):
+        return jsonify(
+            {
+                "ok": False,
+                "error": "DKIM selector must be 1-63 characters, lowercase alphanumeric and hyphens only.",
+            }
+        ), 200
 
     config = DomainDnsConfig.query.filter_by(domain_id=domain_id).first()
     if config is None:
@@ -1231,13 +1464,21 @@ def get_dkim_key(domain_id):
     domain = db.get_or_404(Domain, domain_id)
     config = DomainDnsConfig.query.filter_by(domain_id=domain_id).first()
     from app.admin.services.mail_server import get_mail_client_for_domain
+
     client = get_mail_client_for_domain(domain)
     if client is None:
         return jsonify({"has_key": False}), 200
     try:
         selector = config.dkim_selector if config else None
         dkim_data = client.get_dkim_key(domain.name, selector=selector)
-        return jsonify({"has_key": True, "public_key": dkim_data.get("public_key"), "selector": dkim_data.get("selector"), "txt_record": dkim_data.get("txt_record")}), 200
+        return jsonify(
+            {
+                "has_key": True,
+                "public_key": dkim_data.get("public_key"),
+                "selector": dkim_data.get("selector"),
+                "txt_record": dkim_data.get("txt_record"),
+            }
+        ), 200
     except Exception:
         return jsonify({"has_key": False}), 200
 
@@ -1250,13 +1491,28 @@ def generate_dkim_key(domain_id):
     if not config or not config.is_self_hosted:
         return jsonify({"ok": False, "error": "Self-hosted must be enabled first."}), 200
     from app.admin.services.mail_server import get_mail_client_for_domain
+
     client = get_mail_client_for_domain(domain)
     if client is None:
         return jsonify({"ok": False, "error": "Mail API is not configured."}), 200
     try:
         dkim_data = client.generate_dkim_key(domain.name, selector=config.dkim_selector)
-        log_audit(session.get("user_id"), "admin", "dkim_generate", domain.name, request.remote_addr, request.headers.get("User-Agent"))
-        return jsonify({"ok": True, "public_key": dkim_data.get("public_key"), "selector": dkim_data.get("selector"), "txt_record": dkim_data.get("txt_record")}), 200
+        log_audit(
+            session.get("user_id"),
+            "admin",
+            "dkim_generate",
+            domain.name,
+            request.remote_addr,
+            request.headers.get("User-Agent"),
+        )
+        return jsonify(
+            {
+                "ok": True,
+                "public_key": dkim_data.get("public_key"),
+                "selector": dkim_data.get("selector"),
+                "txt_record": dkim_data.get("txt_record"),
+            }
+        ), 200
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 200
 
@@ -1272,7 +1528,9 @@ def dns_check(domain_id):
 
     platform_entries = PlatformDnsConfig.query.order_by(PlatformDnsConfig.mx_priority).all()
     if not platform_entries:
-        return jsonify({"error": "No platform MX servers configured. Set up Platform DNS first."}), 200
+        return jsonify(
+            {"error": "No platform MX servers configured. Set up Platform DNS first."}
+        ), 200
 
     mx_servers = [{"host": e.mx_hostname, "priority": e.mx_priority} for e in platform_entries]
     dkim_selector = config.dkim_selector
@@ -1289,6 +1547,7 @@ def dns_check(domain_id):
             pass
 
     from app.admin.services.dns_checks import run_all_dns_checks
+
     try:
         results = run_all_dns_checks(
             domain_name=domain.name,
@@ -1319,7 +1578,10 @@ def _apply_discovery(domain: Domain, discovery):
     if _missing_domain_fields(domain):
         domain.status = "review"
         return
-    if len(discovery.get("imap_candidates", [])) > 1 or len(discovery.get("smtp_candidates", [])) > 1:
+    if (
+        len(discovery.get("imap_candidates", [])) > 1
+        or len(discovery.get("smtp_candidates", [])) > 1
+    ):
         domain.status = "review"
         return
     domain.status = "complete"
@@ -1349,9 +1611,7 @@ def _needs_review(discovery, domain: Domain) -> bool:
         return True
     if len(discovery.get("imap_candidates", [])) > 1:
         return True
-    if len(discovery.get("smtp_candidates", [])) > 1:
-        return True
-    return False
+    return len(discovery.get("smtp_candidates", [])) > 1
 
 
 def _apply_domain_form(domain: Domain, form):
@@ -1411,18 +1671,30 @@ def _sync_link(domain):
 
 def _flash_user_exists(email, domain):
     from app.admin.services.mail_server import get_mail_client_for_domain
+
     client = get_mail_client_for_domain(domain)
     if client:
-        flash(Markup(f"User {email} already exists. Use {_sync_link(domain)} to import them."), "error")
+        flash(
+            Markup(f"User {email} already exists. Use {_sync_link(domain)} to import them."),
+            "error",
+        )
     else:
         flash(f"User {email} already exists.", "error")
 
 
 def _flash_mailbox_exists(email, domain, exc=None):
     if exc:
-        flash(Markup(f"Failed to create mailbox: {exc}. Use {_sync_link(domain)} to import it."), "error")
+        flash(
+            Markup(f"Failed to create mailbox: {exc}. Use {_sync_link(domain)} to import it."),
+            "error",
+        )
     else:
-        flash(Markup(f"Mailbox {email} already exists on the mail server. Use {_sync_link(domain)} to import it."), "error")
+        flash(
+            Markup(
+                f"Mailbox {email} already exists on the mail server. Use {_sync_link(domain)} to import it."
+            ),
+            "error",
+        )
 
 
 def _upsert_user(client, email, password):
@@ -1434,6 +1706,7 @@ def _upsert_user(client, email, password):
 
 def _mail_api_call(action_label, func, domain=None):
     from app.admin.services.mail_server import get_mail_client_for_domain
+
     client = get_mail_client_for_domain(domain)
     if client is None:
         return

@@ -7,7 +7,7 @@ import logging
 import os
 import secrets
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -26,12 +26,12 @@ from flask import (
 )
 
 from app.shared.db import db
+from app.shared.models.core import CustomerAccount
 from app.shared.models.oauth import (
     OAuthAccessToken,
     OAuthAuthorizationCode,
     OAuthClient,
 )
-from app.shared.models.core import CustomerAccount
 
 _logger = logging.getLogger(__name__)
 
@@ -198,6 +198,9 @@ _SCOPE_DESCRIPTIONS = {
     "calendar.read": "View your calendar events",
     "calendar.write": "Create and modify calendar events",
     "calendar": "Full access to your calendar",
+    "chat.read": "Read your chat rooms and messages",
+    "chat.write": "Send chat messages and manage rooms",
+    "chat": "Full access to your chat",
     "docs.read": "View your documents",
     "docs.write": "Create and modify documents",
     "docs": "Full access to your documents",
@@ -211,6 +214,7 @@ def _get_issuer(app: Flask) -> str:
     if not host:
         try:
             from flask import request
+
             host = request.host
         except RuntimeError:
             host = "localhost"
@@ -244,12 +248,16 @@ def _is_valid_redirect_uri(uri: str) -> bool:
 
 def get_or_create_key_pair(app: Flask) -> rsa.RSAPrivateKey:
     key_path = app.config.get("OAUTH_SIGNING_KEY_PATH", str(Path("data/oauth_signing_key.pem")))
-    pub_path = key_path.replace(".pem", "_pub.pem") if key_path.endswith(".pem") else key_path + ".pub"
+    pub_path = (
+        key_path.replace(".pem", "_pub.pem") if key_path.endswith(".pem") else key_path + ".pub"
+    )
 
     if os.path.exists(key_path):
         with open(key_path, "rb") as f:
-            private_key = serialization.load_pem_private_key(f.read(), password=None)
-        return private_key
+            loaded = serialization.load_pem_private_key(f.read(), password=None)
+        if not isinstance(loaded, rsa.RSAPrivateKey):
+            raise ValueError(f"OAuth signing key at {key_path} is not an RSA key")
+        return loaded
 
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     priv_pem = private_key.private_bytes(
@@ -280,7 +288,9 @@ def get_private_key(app: Flask) -> bytes:
 
 def get_public_key(app: Flask) -> bytes:
     key_path = app.config.get("OAUTH_SIGNING_KEY_PATH", str(Path("data/oauth_signing_key.pem")))
-    pub_path = key_path.replace(".pem", "_pub.pem") if key_path.endswith(".pem") else key_path + ".pub"
+    pub_path = (
+        key_path.replace(".pem", "_pub.pem") if key_path.endswith(".pem") else key_path + ".pub"
+    )
     with open(pub_path, "rb") as f:
         return f.read()
 
@@ -288,6 +298,9 @@ def get_public_key(app: Flask) -> bytes:
 def get_jwks(app: Flask) -> dict:
     pub_bytes = get_public_key(app)
     pub_key = serialization.load_pem_public_key(pub_bytes)
+    if not isinstance(pub_key, rsa.RSAPublicKey):
+        _logger.error("OAuth signing key is not RSA; JWKS is unavailable")
+        return {"keys": []}
     numbers = pub_key.public_numbers()
     e_bytes = numbers.e.to_bytes((numbers.e.bit_length() + 7) // 8, byteorder="big")
     n_bytes = numbers.n.to_bytes((numbers.n.bit_length() + 7) // 8, byteorder="big")
@@ -311,6 +324,7 @@ def _scope_groups(scope_str: str) -> list[dict[str, Any]]:
         "mail": "Email",
         "contacts": "Contacts",
         "calendar": "Calendar",
+        "chat": "Chat",
         "docs": "Documents",
         "openid": "Identity",
     }
@@ -321,19 +335,23 @@ def _scope_groups(scope_str: str) -> list[dict[str, Any]]:
         if module not in groups:
             groups[module] = []
             order.append(module)
-        groups[module].append({
-            "name": s,
-            "description": _SCOPE_DESCRIPTIONS.get(s, f"Access: {s}"),
-            "checked": True,
-            "required": s == "openid",
-        })
+        groups[module].append(
+            {
+                "name": s,
+                "description": _SCOPE_DESCRIPTIONS.get(s, f"Access: {s}"),
+                "checked": True,
+                "required": s == "openid",
+            }
+        )
     result: list[dict[str, Any]] = []
     for module in order:
-        result.append({
-            "module": module,
-            "label": _MODULE_LABELS.get(module, module.title()),
-            "scopes": groups[module],
-        })
+        result.append(
+            {
+                "module": module,
+                "label": _MODULE_LABELS.get(module, module.title()),
+                "scopes": groups[module],
+            }
+        )
     return result
 
 
@@ -409,7 +427,8 @@ def authorize():
     if not server_name and not is_dev:
         _logger.error("OAuth authorize called but SERVER_NAME is not configured")
         return render_template_string(
-            _MISCONFIG_TEMPLATE, title="Configuration Required",
+            _MISCONFIG_TEMPLATE,
+            title="Configuration Required",
             message=(
                 "OAuth is not available because SERVER_NAME is not configured. "
                 "Set the SERVER_NAME environment variable to your public domain "
@@ -431,18 +450,24 @@ def authorize():
             client_id, redirect_uri, response_type, code_challenge, code_challenge_method, resource
         )
         if errors:
-            return jsonify({"error": "invalid_request", "error_description": "; ".join(errors)}), 400
+            return jsonify(
+                {"error": "invalid_request", "error_description": "; ".join(errors)}
+            ), 400
 
         if session.get("role") != "customer" or not session.get("user_id"):
             return redirect(url_for("mail.login", next=request.url))
 
         client = OAuthClient.query.filter_by(client_id=client_id).first()
         if not client:
-            return jsonify({"error": "invalid_client", "error_description": "Unknown client_id"}), 400
+            return jsonify(
+                {"error": "invalid_client", "error_description": "Unknown client_id"}
+            ), 400
 
         allowed_uris = json.loads(client.redirect_uris)
         if redirect_uri not in allowed_uris:
-            return jsonify({"error": "invalid_request", "error_description": "redirect_uri not registered"}), 400
+            return jsonify(
+                {"error": "invalid_request", "error_description": "redirect_uri not registered"}
+            ), 400
 
         return render_template_string(
             _CONSENT_TEMPLATE,
@@ -474,12 +499,16 @@ def authorize():
 
     selected_scopes = request.form.getlist("scopes")
     if not selected_scopes:
-        return jsonify({"error": "invalid_request", "error_description": "At least one scope must be selected"}), 400
+        return jsonify(
+            {"error": "invalid_request", "error_description": "At least one scope must be selected"}
+        ), 400
 
     requested_set = set(requested_scope.split())
     granted_scopes = list(dict.fromkeys(s for s in selected_scopes if s in requested_set))
     if not granted_scopes:
-        return jsonify({"error": "invalid_request", "error_description": "At least one scope must be selected"}), 400
+        return jsonify(
+            {"error": "invalid_request", "error_description": "At least one scope must be selected"}
+        ), 400
 
     scope = " ".join(granted_scopes)
 
@@ -492,6 +521,7 @@ def authorize():
     customer_id = session.get("user_id")
 
     from app.shared.keys import get_user_key, set_user_key
+
     credential_key = get_user_key(customer_id)
     if not credential_key:
         credential_key = session.get("user_key")
@@ -499,11 +529,12 @@ def authorize():
             set_user_key(customer_id, credential_key)
     if credential_key:
         from app.api.token_service import ensure_api_enabled
+
         ensure_api_enabled(customer_id, credential_key)
 
     code = _generate_code()
     code_hash = _hash_code(code)
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    expires_at = datetime.now(UTC) + timedelta(minutes=10)
 
     auth_code = OAuthAuthorizationCode(
         code_hash=code_hash,
@@ -564,31 +595,43 @@ def token():
         return jsonify({"error": "unsupported_grant_type"}), 400
 
     if not all([code, redirect_uri, client_id]):
-        return jsonify({"error": "invalid_request", "error_description": "Missing required parameters"}), 400
+        return jsonify(
+            {"error": "invalid_request", "error_description": "Missing required parameters"}
+        ), 400
 
     code_hash = _hash_code(code)
     auth_code = OAuthAuthorizationCode.query.filter_by(code_hash=code_hash).first()
 
     if not auth_code:
-        return jsonify({"error": "invalid_grant", "error_description": "Invalid authorization code"}), 400
+        return jsonify(
+            {"error": "invalid_grant", "error_description": "Invalid authorization code"}
+        ), 400
 
     if auth_code.used:
-        return jsonify({"error": "invalid_grant", "error_description": "Authorization code already used"}), 400
+        return jsonify(
+            {"error": "invalid_grant", "error_description": "Authorization code already used"}
+        ), 400
 
-    if auth_code.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
-        return jsonify({"error": "invalid_grant", "error_description": "Authorization code expired"}), 400
+    if auth_code.expires_at.replace(tzinfo=UTC) < datetime.now(UTC):
+        return jsonify(
+            {"error": "invalid_grant", "error_description": "Authorization code expired"}
+        ), 400
 
     if auth_code.client_id != client_id:
         return jsonify({"error": "invalid_grant", "error_description": "client_id mismatch"}), 400
 
     if auth_code.redirect_uri != redirect_uri:
-        return jsonify({"error": "invalid_grant", "error_description": "redirect_uri mismatch"}), 400
+        return jsonify(
+            {"error": "invalid_grant", "error_description": "redirect_uri mismatch"}
+        ), 400
 
     if not code_verifier or not _verify_pkce(code_verifier, auth_code.code_challenge):
-        return jsonify({"error": "invalid_grant", "error_description": "PKCE verification failed"}), 400
+        return jsonify(
+            {"error": "invalid_grant", "error_description": "PKCE verification failed"}
+        ), 400
 
     issuer = _get_issuer(app)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     jti = _generate_jti()
     expires_in = 3600
 
@@ -603,13 +646,17 @@ def token():
     }
 
     priv_key = get_private_key(app)
-    access_token = pyjwt.encode(payload, priv_key, algorithm="RS256", headers={"kid": "oauth-signing-key"})
+    access_token = pyjwt.encode(
+        payload, priv_key, algorithm="RS256", headers={"kid": "oauth-signing-key"}
+    )
 
     wrapped_dek = None
     from app.shared.keys import get_user_key
+
     dek_hex = get_user_key(auth_code.customer_id)
     if dek_hex:
         from app.api.token_service import wrap_dek_with_token
+
         wrapped_dek = wrap_dek_with_token(dek_hex, access_token.encode())
 
     access_token_record = OAuthAccessToken(
@@ -646,7 +693,9 @@ def token():
         }
         if user:
             id_token_claims["email"] = user.email_address
-        id_token = pyjwt.encode(id_token_claims, priv_key, algorithm="RS256", headers={"kid": "oauth-signing-key"})
+        id_token = pyjwt.encode(
+            id_token_claims, priv_key, algorithm="RS256", headers={"kid": "oauth-signing-key"}
+        )
         response_body["id_token"] = id_token
 
     return jsonify(response_body)
@@ -659,14 +708,24 @@ def register_client():
     redirect_uris = data.get("redirect_uris")
 
     if not client_name or not redirect_uris:
-        return jsonify({"error": "invalid_client_metadata", "error_description": "client_name and redirect_uris are required"}), 400
+        return jsonify(
+            {
+                "error": "invalid_client_metadata",
+                "error_description": "client_name and redirect_uris are required",
+            }
+        ), 400
 
     if isinstance(redirect_uris, str):
         redirect_uris = [redirect_uris]
 
     for uri in redirect_uris:
         if not _is_valid_redirect_uri(uri):
-            return jsonify({"error": "invalid_redirect_uri", "error_description": f"redirect_uri not allowed: {uri}"}), 400
+            return jsonify(
+                {
+                    "error": "invalid_redirect_uri",
+                    "error_description": f"redirect_uri not allowed: {uri}",
+                }
+            ), 400
 
     client_id = secrets.token_urlsafe(32)
     client = OAuthClient(

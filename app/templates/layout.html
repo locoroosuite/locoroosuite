@@ -4,11 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ title or "LocoRooSuite" }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}?v={{ static_v('css/tailwind.css') }}" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
-  <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='img/icons/icon-192.png') }}" />
-  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/icons/apple-touch-icon.png') }}" />
+  <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='img/icons/icon-192.png') }}?v={{ static_v('img/icons/icon-192.png') }}" />
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/icons/apple-touch-icon.png') }}?v={{ static_v('img/icons/apple-touch-icon.png') }}" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -138,6 +138,12 @@
               <a href="{{ url_for('calendar.index') }}" class="flex items-center gap-3 px-3 py-2.5 text-slate-700 hover:bg-slate-50">
                 <svg class="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1.5 3.5c-.69 0-1.25.56-1.25 1.25v.25h12v-.25c0-.69-.56-1.25-1.25-1.25H4.25zM3.5 8.75v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5h-12z" clip-rule="evenodd"/></svg>
                 Calendar
+              </a>
+              {% endif %}
+              {% if user_menu.show_chat %}
+              <a href="{{ url_for('chat.index') }}" class="flex items-center gap-3 px-3 py-2.5 text-slate-700 hover:bg-slate-50">
+                <svg class="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3.43 2.524A49.19 49.19 0 0110 2c1.657 0 3.28.088 4.86.262.897.1 1.69.757 1.69 1.654v6.168c0 .897-.793 1.554-1.69 1.654a38.53 38.53 0 01-2.34.196l-2.975 2.942a.75.75 0 01-1.28-.53v-2.39a42.36 42.36 0 01-2.835-.178c-.897-.1-1.69-.757-1.69-1.654V4.178c0-.897.793-1.554 1.69-1.654z" clip-rule="evenodd"/></svg>
+                Chat
               </a>
               {% endif %}
               {% if user_menu.show_docs %}

@@ -1,0 +1,42 @@
+# Dev-only Synapse homeserver configuration (seeded into /data on first start).
+# Dev secrets are intentionally fixed; production must generate its own.
+server_name: "locoroo.test"
+pid_file: /data/homeserver.pid
+signing_key_path: /data/homeserver.signing.key
+
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true
+    bind_addresses: ["0.0.0.0"]
+    resources:
+      - names: [client]
+        compress: false
+
+database:
+  name: sqlite3
+  args:
+    database: /data/homeserver.db
+
+registration_shared_secret: "dev-matrix-shared-secret"
+enable_registration: false
+enable_registration_without_verification: false
+
+# No federation resource on any listener -> inbound federation disabled.
+# Empty federation whitelist disables outbound federation.
+federation_domain_whitelist: []
+
+macaroon_secret_key: "dev_macaroon_secret_key_locoroo_0123456789abcdef"
+form_secret: "dev_form_secret_locoroo_0123456789abcdef"
+
+media_store_path: /data/media_store
+max_upload_size: 50M
+report_stats: false
+trusted_key_servers: []
+enable_room_list_search: true
+
+# Required by the chat module: user discovery (direct messages, invites) must
+# find any local user, not only users sharing a room with the searcher.
+user_directory:
+  search_all_users: true

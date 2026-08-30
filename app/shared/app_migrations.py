@@ -107,6 +107,24 @@ def _domain_carddav(conn) -> None:
         conn.execute("ALTER TABLE domains ADD COLUMN carddav_use_tls BOOLEAN DEFAULT 0")
 
 
+def _domain_matrix(conn) -> None:
+    if not has_table(conn, "domains"):
+        return
+    cols = table_columns(conn, "domains")
+    if "matrix_host" not in cols:
+        conn.execute("ALTER TABLE domains ADD COLUMN matrix_host VARCHAR(255)")
+    if "matrix_port" not in cols:
+        conn.execute("ALTER TABLE domains ADD COLUMN matrix_port INTEGER DEFAULT 8008")
+    if "matrix_use_tls" not in cols:
+        conn.execute("ALTER TABLE domains ADD COLUMN matrix_use_tls BOOLEAN DEFAULT 0")
+    if "matrix_shared_secret" not in cols:
+        conn.execute("ALTER TABLE domains ADD COLUMN matrix_shared_secret VARCHAR(255)")
+    if has_table(conn, "customer_accounts") and "chat_encrypted_secret" not in table_columns(
+        conn, "customer_accounts"
+    ):
+        conn.execute("ALTER TABLE customer_accounts ADD COLUMN chat_encrypted_secret BLOB")
+
+
 def _api_columns(conn) -> None:
     if not has_table(conn, "customer_accounts"):
         return
@@ -226,4 +244,5 @@ APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0011_domain_dns_config", _domain_dns_config),
     Migration("0012_user_totp", _user_totp),
     Migration("0013_push_notifications", _push_notifications),
+    Migration("0014_domain_matrix", _domain_matrix),
 )

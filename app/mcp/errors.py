@@ -4,14 +4,15 @@ import functools
 import json
 import logging
 import uuid
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from app.mcp.auth import McpAuthError
 from app.shared.cache_errors import CacheKeyMismatchError
 
 _logger = logging.getLogger(__name__)
 
-EXPECTED_TOOL_COUNT = 50
+EXPECTED_TOOL_COUNT = 60
 
 _AUTH_ERROR_CODES = {
     "AUTH_INVALID",
@@ -23,6 +24,15 @@ _AUTH_ERROR_CODES = {
     "FORBIDDEN",
     "NOT_CONFIGURED",
 }
+
+
+def _matrix_error_type() -> type[Exception]:
+    try:
+        from app.modules.chat.services.matrix import MatrixError
+
+        return MatrixError
+    except ImportError:
+        return ImportError
 
 
 def _build_known_error_map():
@@ -52,71 +62,83 @@ def _build_known_error_map():
             "A required service module could not be loaded. The server may need to be restarted or reconfigured.",
             None,
         ),
+        (
+            _matrix_error_type(),
+            "MATRIX_ERROR",
+            "The chat server returned an error. It may be misconfigured, unreachable, or the account "
+            "is not provisioned yet. Open the Chat page once in the web app to provision the account.",
+            "Open the Chat page once in the web app, then retry. If it persists, check the domain's "
+            "Matrix settings in the admin area.",
+        ),
     ]
 
     if InvalidToken is not None:
-        mapping.append((
-            InvalidToken,
-            "DEK_MISMATCH",
-            "Your encryption key does not match the stored credentials. "
-            "Reset your API access: go to Settings \u2192 API \u2192 Disable, then re-enable and create a new token.",
-            "Disable API access in Settings, re-enable it, and create a new API token.",
-        ))
+        mapping.append(
+            (
+                InvalidToken,
+                "DEK_MISMATCH",
+                "Your encryption key does not match the stored credentials. "
+                "Reset your API access: go to Settings \u2192 API \u2192 Disable, then re-enable and create a new token.",
+                "Disable API access in Settings, re-enable it, and create a new API token.",
+            )
+        )
 
-    mapping.extend([
-        (
-            imaplib.IMAP4.error,
-            "IMAP_ERROR",
-            "The mail server returned an error. "
-            "Your password may have changed, or the server rejected the operation. "
-            "Try resetting your API access in Settings.",
-            None,
-        ),
-        (
-            smtplib.SMTPAuthenticationError,
-            "SMTP_AUTH_FAILED",
-            "Mail server authentication failed when sending. Your password may have changed. "
-            "Reset your API access in Settings to update stored credentials.",
-            None,
-        ),
-        (
-            smtplib.SMTPRecipientsRefused,
-            "SMTP_RECIPIENT_REFUSED",
-            "The mail server rejected one or more recipients. Check that all email addresses are valid.",
-            None,
-        ),
-        (
-            smtplib.SMTPException,
-            "SMTP_ERROR",
-            "Failed to send email through the mail server. The server may be temporarily unavailable.",
-            None,
-        ),
-        (
-            ConnectionRefusedError,
-            "SERVICE_UNAVAILABLE",
-            "Could not connect to the server. The service may be down or the connection is blocked.",
-            None,
-        ),
-        (
-            socket.timeout,
-            "SERVICE_UNAVAILABLE",
-            "Connection to the server timed out. The service may be slow or temporarily unavailable.",
-            None,
-        ),
-        (
-            ssl.SSLError,
-            "TLS_ERROR",
-            "Could not establish a secure connection to the server. "
-            "There may be a certificate or configuration issue.",
-            None,
-        ),
-        (
-            ConnectionResetError,
-            "SERVICE_UNAVAILABLE",
-            "The connection to the server was reset. The service may be restarting.",
-            None,
-        ),
-    ])
+    mapping.extend(
+        [
+            (
+                imaplib.IMAP4.error,
+                "IMAP_ERROR",
+                "The mail server returned an error. "
+                "Your password may have changed, or the server rejected the operation. "
+                "Try resetting your API access in Settings.",
+                None,
+            ),
+            (
+                smtplib.SMTPAuthenticationError,
+                "SMTP_AUTH_FAILED",
+                "Mail server authentication failed when sending. Your password may have changed. "
+                "Reset your API access in Settings to update stored credentials.",
+                None,
+            ),
+            (
+                smtplib.SMTPRecipientsRefused,
+                "SMTP_RECIPIENT_REFUSED",
+                "The mail server rejected one or more recipients. Check that all email addresses are valid.",
+                None,
+            ),
+            (
+                smtplib.SMTPException,
+                "SMTP_ERROR",
+                "Failed to send email through the mail server. The server may be temporarily unavailable.",
+                None,
+            ),
+            (
+                ConnectionRefusedError,
+                "SERVICE_UNAVAILABLE",
+                "Could not connect to the server. The service may be down or the connection is blocked.",
+                None,
+            ),
+            (
+                socket.timeout,
+                "SERVICE_UNAVAILABLE",
+                "Connection to the server timed out. The service may be slow or temporarily unavailable.",
+                None,
+            ),
+            (
+                ssl.SSLError,
+                "TLS_ERROR",
+                "Could not establish a secure connection to the server. "
+                "There may be a certificate or configuration issue.",
+                None,
+            ),
+            (
+                ConnectionResetError,
+                "SERVICE_UNAVAILABLE",
+                "The connection to the server was reset. The service may be restarting.",
+                None,
+            ),
+        ]
+    )
 
     return mapping
 
@@ -149,7 +171,10 @@ def _auth_error(exc: McpAuthError, tool_name: str) -> str:
     code = exc.code if exc.code in _AUTH_ERROR_CODES else "AUTH_ERROR"
     _logger.warning(
         "auth error in tool %s request_id=%s code=%s: %s",
-        tool_name, request_id, code, exc.message,
+        tool_name,
+        request_id,
+        code,
+        exc.message,
     )
     return structured_error(code, exc.message, request_id=request_id)
 
@@ -158,14 +183,20 @@ def _resolve_known_error(exc: Exception, tool_name: str, request_id: str) -> str
     if type(exc).__name__ == "_ServiceConnectionError":
         _logger.exception(
             "service connection error in tool %s request_id=%s: %s",
-            tool_name, request_id, exc,
+            tool_name,
+            request_id,
+            exc,
         )
         svc = getattr(exc, "service", "server")
         host = getattr(exc, "host", "unknown")
         orig = getattr(exc, "original", exc)
         orig_type = type(orig).__name__
         message = f"Could not connect to the {svc} server at {host} ({orig_type}: {orig}). "
-        if "AUTH" in str(orig).upper() or "LOGIN" in str(orig).upper() or "auth" in orig_type.lower():
+        if (
+            "AUTH" in str(orig).upper()
+            or "LOGIN" in str(orig).upper()
+            or "auth" in orig_type.lower()
+        ):
             message += "Authentication failed — your password may have changed. Reset your API access in Settings."
         else:
             message += "The server may be down, unreachable, or refusing connections."
@@ -174,7 +205,10 @@ def _resolve_known_error(exc: Exception, tool_name: str, request_id: str) -> str
         if isinstance(exc, exc_type):
             _logger.exception(
                 "known error in tool %s request_id=%s code=%s: %s",
-                tool_name, request_id, code, exc,
+                tool_name,
+                request_id,
+                code,
+                exc,
             )
             return structured_error(code, message, details=details, request_id=request_id)
     return None
@@ -202,6 +236,7 @@ def resilient_tool(func: Callable) -> Callable:
                 "Please retry. If the problem persists, contact support and quote this request_id.",
                 request_id=request_id,
             )
+
     return wrapper
 
 

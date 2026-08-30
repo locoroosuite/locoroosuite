@@ -28,9 +28,22 @@ def create_app():
 
     db.init_app(app)
 
+    @app.template_global("static_v")
+    def _static_version(filename: str) -> str:
+        """Cache-busting version for static assets (mtime-based).
+
+        Templates must append ?v={{ static_v('...') }} to every static URL so
+        browsers pick up new JS/CSS after each deploy (see AGENTS.md).
+        """
+        try:
+            return str(int(os.path.getmtime(os.path.join(app.static_folder or "static", filename))))
+        except OSError:
+            return "0"
+
     from app.admin import register as register_admin
     from app.api import register as register_api
     from app.modules.calendar import register as register_calendar
+    from app.modules.chat import register as register_chat
     from app.modules.contacts import register as register_contacts
     from app.modules.docs import register as register_docs
     from app.modules.mail import register as register_mail
@@ -42,6 +55,7 @@ def create_app():
     register_mail(app)
     register_contacts(app)
     register_calendar(app)
+    register_chat(app)
     register_docs(app)
     register_admin(app)
     register_api(app)
@@ -107,6 +121,7 @@ def create_app():
                 "show_mail": role == "customer",
                 "show_contacts": role == "customer",
                 "show_calendar": role == "customer",
+                "show_chat": role == "customer",
                 "show_docs": role == "customer",
                 "show_admin": role in ("admin", "manager"),
             },

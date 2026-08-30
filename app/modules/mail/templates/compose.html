@@ -101,8 +101,8 @@
     </div>
   </form>
 
-<script src="{{ url_for('static', filename='js/recipient-chips.js') }}"></script>
-<script src="{{ url_for('static', filename='js/compose-attachments.js') }}"></script>
+<script src="{{ url_for('static', filename='js/recipient-chips.js') }}?v={{ static_v('js/recipient-chips.js') }}"></script>
+<script src="{{ url_for('static', filename='js/compose-attachments.js') }}?v={{ static_v('js/compose-attachments.js') }}"></script>
 <script>
 (function () {
   var SEARCH_URL = "{{ url_for('contacts.api_search') }}";

@@ -3,15 +3,14 @@ from __future__ import annotations
 import os
 
 import httpx
+from flask import Flask
+from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Scope, Send
-
-from flask import Flask
-from mcp.server.fastmcp import FastMCP
-from mcp.server.transport_security import TransportSecuritySettings
 
 from app import create_app as _create_flask_app
 
@@ -39,7 +38,7 @@ class ContentTypeNormalizeMiddleware:
 
 class BearerTokenMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        from app.mcp.auth import set_current_token, set_current_request_host
+        from app.mcp.auth import set_current_request_host, set_current_token
 
         auth_header = request.headers.get("authorization", "")
         if auth_header.startswith("Bearer "):
@@ -68,14 +67,16 @@ def create_mcp_app() -> tuple[FastMCP, Flask]:
         json_response=True,
     )
 
-    from app.mcp.tools.mail import register as register_mail
-    from app.mcp.tools.contacts import register as register_contacts
     from app.mcp.tools.calendar import register as register_calendar
+    from app.mcp.tools.chat import register as register_chat
+    from app.mcp.tools.contacts import register as register_contacts
     from app.mcp.tools.docs import register as register_docs
+    from app.mcp.tools.mail import register as register_mail
 
     register_mail(mcp, flask_app)
     register_contacts(mcp, flask_app)
     register_calendar(mcp, flask_app)
+    register_chat(mcp, flask_app)
     register_docs(mcp, flask_app)
 
     return mcp, flask_app
@@ -92,12 +93,15 @@ def _issuer_from_request(request: Request) -> str:
 def _make_well_known_handler(scopes: list[str]):
     async def _protected_resource_metadata(request: Request) -> JSONResponse:
         issuer = _issuer_from_request(request)
-        return JSONResponse({
-            "resource": issuer,
-            "authorization_servers": [issuer],
-            "bearer_methods_supported": ["header"],
-            "scopes_supported": scopes,
-        })
+        return JSONResponse(
+            {
+                "resource": issuer,
+                "authorization_servers": [issuer],
+                "bearer_methods_supported": ["header"],
+                "scopes_supported": scopes,
+            }
+        )
+
     return _protected_resource_metadata
 
 
@@ -153,7 +157,10 @@ class FlaskProxyMiddleware:
 
         async with httpx.AsyncClient() as client:
             resp = await client.request(
-                method, url, headers=headers, content=body,
+                method,
+                url,
+                headers=headers,
+                content=body,
                 follow_redirects=False,
             )
 
@@ -166,15 +173,19 @@ class FlaskProxyMiddleware:
         body = resp.content
         response_headers.append((b"content-length", str(len(body)).encode()))
 
-        await send({
-            "type": "http.response.start",
-            "status": resp.status_code,
-            "headers": response_headers,
-        })
-        await send({
-            "type": "http.response.body",
-            "body": body,
-        })
+        await send(
+            {
+                "type": "http.response.start",
+                "status": resp.status_code,
+                "headers": response_headers,
+            }
+        )
+        await send(
+            {
+                "type": "http.response.body",
+                "body": body,
+            }
+        )
 
 
 def create_asgi_app():
@@ -182,6 +193,7 @@ def create_asgi_app():
 
     with flask_app.app_context():
         from app.shared.oauth import _SCOPE_DESCRIPTIONS
+
         scopes = list(_SCOPE_DESCRIPTIONS.keys())
 
     mcp.settings.transport_security = _build_transport_security()
@@ -194,15 +206,24 @@ def create_asgi_app():
 
     async def _mcp_status(request: Request) -> JSONResponse:
         from app.mcp.errors import health_check
+
         return JSONResponse(health_check(mcp))
 
     mcp_starlette.router.routes.insert(0, Route("/mcp/status", _mcp_status))
-    mcp_starlette.router.routes.insert(0, Route(
-        "/mcp/.well-known/oauth-protected-resource", protected_resource,
-    ))
-    mcp_starlette.router.routes.insert(0, Route(
-        "/.well-known/oauth-protected-resource", protected_resource,
-    ))
+    mcp_starlette.router.routes.insert(
+        0,
+        Route(
+            "/mcp/.well-known/oauth-protected-resource",
+            protected_resource,
+        ),
+    )
+    mcp_starlette.router.routes.insert(
+        0,
+        Route(
+            "/.well-known/oauth-protected-resource",
+            protected_resource,
+        ),
+    )
 
     wrapped = FlaskProxyMiddleware(mcp_starlette, _FLASK_BACKEND_URL)
     return wrapped

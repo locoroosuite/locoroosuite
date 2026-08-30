@@ -45,6 +45,11 @@ class Domain(db.Model):
     caldav_port = db.Column(db.Integer, default=5232, nullable=True)
     caldav_use_tls = db.Column(db.Boolean, default=False, nullable=True)
 
+    matrix_host = db.Column(db.String(255), nullable=True)
+    matrix_port = db.Column(db.Integer, default=8008, nullable=True)
+    matrix_use_tls = db.Column(db.Boolean, default=False, nullable=True)
+    matrix_shared_secret = db.Column(db.String(255), nullable=True)
+
     mail_api_url = db.Column(db.String(512), nullable=True)
     mail_api_key = db.Column(db.String(255), nullable=True)
 
@@ -69,6 +74,7 @@ class CustomerAccount(db.Model):
     created_at = db.Column(db.DateTime, default=_utcnow, nullable=False)
     api_enabled = db.Column(db.Boolean, default=False, nullable=False)
     dek_wrapped_cred = db.Column(db.LargeBinary, nullable=True)
+    chat_encrypted_secret = db.Column(db.LargeBinary, nullable=True)
     signup_token = db.Column(db.String(128), nullable=True, unique=True)
     signup_expires_at = db.Column(db.DateTime, nullable=True)
 

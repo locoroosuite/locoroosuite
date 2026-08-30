@@ -32,10 +32,29 @@
       Use TLS
     </label>
   </div>
+  <div class="grid gap-2 sm:grid-cols-3">
+    <h2 class="text-sm font-semibold text-slate-700 sm:col-span-3">Matrix (Chat)</h2>
+    <label class="text-xs font-semibold text-slate-600">
+      Matrix host
+      <input name="matrix_host" value="{{ domain.matrix_host or '' }}" class="mt-1 w-full border rounded px-2 py-1" placeholder="e.g. synapse" />
+    </label>
+    <label class="text-xs font-semibold text-slate-600">
+      Matrix port
+      <input name="matrix_port" value="{{ domain.matrix_port or '' }}" class="mt-1 w-full border rounded px-2 py-1" placeholder="8008" />
+    </label>
+    <label class="text-xs font-semibold text-slate-600 flex items-center gap-2 mt-5">
+      <input type="checkbox" name="matrix_use_tls" value="1" {{ 'checked' if domain.matrix_use_tls else '' }} />
+      Use TLS
+    </label>
+    <label class="text-xs font-semibold text-slate-600 sm:col-span-3">
+      Registration shared secret
+      <input name="matrix_shared_secret" type="password" value="{{ domain.matrix_shared_secret or '' }}" class="mt-1 w-full border rounded px-2 py-1 font-mono" placeholder="Synapse registration_shared_secret" autocomplete="new-password" />
+    </label>
+  </div>
   <div class="flex items-center gap-3">
     <button type="submit" id="btn-save-dav" class="inline-flex items-center gap-1.5 bg-slate-900 text-white rounded px-4 py-2 text-sm hover:bg-slate-800 disabled:opacity-50">
       <svg class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-      Save contacts &amp; calendar settings
+      Save contacts, calendar &amp; chat settings
     </button>
     <span id="dav-save-result" class="text-xs"></span>
   </div>
@@ -60,7 +79,7 @@
     fetch('/admin/domains/' + domainId + '/dav-config', { method: 'POST', body: fd })
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      result.textContent = data.ok ? 'Contacts & calendar settings saved.' : (data.error || 'Failed to save.');
+      result.textContent = data.ok ? 'Contacts, calendar & chat settings saved.' : (data.error || 'Failed to save.');
       result.className = 'text-xs ' + (data.ok ? 'text-emerald-600' : 'text-red-600');
     })
     .catch(function(e) {

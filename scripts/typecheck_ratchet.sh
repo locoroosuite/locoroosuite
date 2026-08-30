@@ -84,7 +84,9 @@ fi
 # pyright error+warning count for a file at its real path (keeps project context).
 count() {
     local summary e w
-    summary="$("$PYRIGHT" "$1" 2>/dev/null | tail -n1 || true)"
+    # Grab the "N errors, M warnings, K informations" summary line explicitly:
+    # pyright may print an update-check notice on stdout, so tail -n1 is unsafe.
+    summary="$("$PYRIGHT" "$1" 2>/dev/null | grep -E '[0-9]+ errors?, [0-9]+ warnings?, [0-9]+ informations' | tail -n1 || true)"
     if [ -z "$summary" ]; then
         echo "ERR"
         return

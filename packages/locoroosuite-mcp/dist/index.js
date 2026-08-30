@@ -5,6 +5,7 @@ import { ApiClient } from "./client.js";
 import { registerMailTools } from "./tools/mail.js";
 import { registerContactsTools } from "./tools/contacts.js";
 import { registerCalendarTools } from "./tools/calendar.js";
+import { registerChatTools } from "./tools/chat.js";
 import { registerDocsTools } from "./tools/docs.js";
 function parseArgs(argv) {
     const result = {};
@@ -54,6 +55,7 @@ async function main() {
     registerMailTools(server, client);
     registerContactsTools(server, client);
     registerCalendarTools(server, client);
+    registerChatTools(server, client);
     registerDocsTools(server, client);
     const transport = new StdioServerTransport();
     await server.connect(transport);

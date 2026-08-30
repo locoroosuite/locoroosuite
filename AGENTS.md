@@ -134,6 +134,17 @@ The test suite treats new warnings as failures (`filterwarnings = ["error", ...]
 - TailwindCSS — professional, Big Tech quality.
 - Module switcher in header: Mail, Contacts, Calendar.
 
+### Static Asset Versioning (cache busting)
+
+Browsers cache JS/CSS heuristically; without versioning, users run **stale JS against new HTML** after a deploy (symptom: `TypeError: can't access property ... of null` on elements that exist in the new markup).
+
+- **Rule**: every static asset reference in a template MUST use the `static_v` template global:
+  `{{ url_for('static', filename='js/<mod>/foo.js') }}?v={{ static_v('js/<mod>/foo.js') }}`
+- `static_v` (registered in the app factory, `app/__init__.py`) returns the file's mtime. Deploys bake new files into the image with new mtimes → new URLs → cache miss. No config, no manifest.
+- Never hardcode `/static/...` paths or omit the `?v=` parameter.
+- After changing Tailwind classes, rebuild with `make css`; JS/CSS changes ship with the next `make restart` (image rebuild).
+
+
 ### Error Handling
 
 These rules apply to **all layers** (MCP tools, REST API controllers, Flask handlers).

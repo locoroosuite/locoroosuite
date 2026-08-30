@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ doc.name }} — LocoRooSuite Docs</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}?v={{ static_v('css/fonts.css') }}" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html { height: 100%; }

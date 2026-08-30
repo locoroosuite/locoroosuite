@@ -134,6 +134,25 @@ services:
     networks:
       - locoroomail-dev
 
+  synapse:
+    build:
+      context: ./dev-infra/synapse
+      dockerfile: Dockerfile
+    container_name: locoroomail-synapse
+    restart: unless-stopped
+    ports:
+      - "8008:8008"
+    volumes:
+      - synapse-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8008/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - locoroomail-dev
+
 volumes:
   dovecot-users:
   dovecot-sieve:
@@ -142,6 +161,7 @@ volumes:
   maildata:
   opendkim-keys:
   opendkim-config:
+  synapse-data:
 
 networks:
   locoroomail-dev:

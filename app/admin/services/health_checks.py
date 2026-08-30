@@ -16,6 +16,7 @@ SERVICE_LABELS: dict[str, str] = {
     "smtp": "Email (SMTP)",
     "carddav": "Contacts (CardDAV)",
     "caldav": "Calendar (CalDAV)",
+    "matrix": "Chat (Matrix)",
     "collabora": "Docs (Collabora)",
     "mail_api": "Mail API",
 }
@@ -25,7 +26,7 @@ def _tcp_check(host: str, port: int, timeout: int = TIMEOUT) -> bool:
     try:
         with socket.create_connection((host, port), timeout=timeout):
             return True
-    except (OSError, socket.timeout):
+    except (TimeoutError, OSError):
         return False
 
 
@@ -52,13 +53,31 @@ def _check_smtp(domain) -> str:
 def _check_carddav(domain) -> str:
     if not domain.carddav_host:
         return "not_configured"
-    return "connected" if _tcp_check(domain.carddav_host, domain.carddav_port or 5232) else "misconfigured"
+    return (
+        "connected"
+        if _tcp_check(domain.carddav_host, domain.carddav_port or 5232)
+        else "misconfigured"
+    )
 
 
 def _check_caldav(domain) -> str:
     if not domain.caldav_host:
         return "not_configured"
-    return "connected" if _tcp_check(domain.caldav_host, domain.caldav_port or 5232) else "misconfigured"
+    return (
+        "connected"
+        if _tcp_check(domain.caldav_host, domain.caldav_port or 5232)
+        else "misconfigured"
+    )
+
+
+def _check_matrix(domain) -> str:
+    if not domain.matrix_host:
+        return "not_configured"
+    return (
+        "connected"
+        if _tcp_check(domain.matrix_host, domain.matrix_port or 8008)
+        else "misconfigured"
+    )
 
 
 def _check_collabora(domain) -> str:
@@ -74,6 +93,7 @@ def _check_mail_api(domain) -> str:
     if not getattr(domain, "mail_api_url", None):
         return "not_configured"
     from app.admin.services.mail_server import get_mail_client_for_domain
+
     client = get_mail_client_for_domain(domain)
     if client is None:
         return "not_configured"
@@ -85,6 +105,7 @@ _CHECKS: list[tuple[str, Any]] = [
     ("smtp", _check_smtp),
     ("carddav", _check_carddav),
     ("caldav", _check_caldav),
+    ("matrix", _check_matrix),
     ("collabora", _check_collabora),
     ("mail_api", _check_mail_api),
 ]
@@ -96,6 +117,8 @@ def check_domain_services(domain) -> dict[str, str]:
         try:
             results[key] = fn(domain)
         except Exception:
-            logger.warning("Health check failed for %s on domain %s", key, domain.name, exc_info=True)
+            logger.warning(
+                "Health check failed for %s on domain %s", key, domain.name, exc_info=True
+            )
             results[key] = "misconfigured"
     return results

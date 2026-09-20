@@ -2,6 +2,7 @@ import contextlib
 import json
 import logging
 from pathlib import Path
+from typing import Any, cast
 
 from flask import current_app, jsonify, redirect, render_template, request, session, url_for
 
@@ -23,6 +24,7 @@ from app.modules.mail.services.cache_db import open_cache
 from app.modules.mail.services.imap_client import (
     create_folder,
     encode_mailbox_name,
+    list_folders,
     safe_logout,
     select_folder,
 )
@@ -37,6 +39,11 @@ from app.shared.models.core import CustomerAccount, CustomerSettings
 logger = logging.getLogger(__name__)
 
 
+def _sync_manager() -> Any:
+    # Attached by the app factory; not part of Flask's stub type.
+    return cast(Any, current_app).sync_manager
+
+
 @mail_bp.route("/mail/")
 @require_customer
 def mailbox():
@@ -49,8 +56,8 @@ def mailbox():
     if active_id not in [acct.id for acct in accounts]:
         active_id = accounts[0].id
     session["active_account_id"] = active_id
-    current_app.sync_manager.set_active_account(user_id, active_id)
-    current_app.sync_manager.set_active_folder(active_id, "INBOX")
+    _sync_manager().set_active_account(user_id, active_id)
+    _sync_manager().set_active_folder(active_id, "INBOX")
     return redirect(url_for("mail.folder_view", account_id=active_id, folder="INBOX"))
 
 
@@ -65,9 +72,9 @@ def folder_view(account_id, folder):
         session.clear()
         return render_template("login.html", error="Session expired. Please log in again.")
     session["active_account_id"] = account.id
-    current_app.sync_manager.set_active_account(user_id, account.id)
-    current_app.sync_manager.set_active_folder(account.id, folder)
-    initial_syncing = current_app.sync_manager.enqueue_sync(
+    _sync_manager().set_active_account(user_id, account.id)
+    _sync_manager().set_active_folder(account.id, folder)
+    initial_syncing = _sync_manager().enqueue_sync(
         account.id, folder=folder, reason="folder_open", priority=0
     )
     conn = open_cache(account.cache_db_path, key)
@@ -149,9 +156,7 @@ def reset_cache(account_id):
             )
         account.cache_db_path = None
         db.session.commit()
-    current_app.sync_manager.enqueue_sync(
-        account.id, folder="INBOX", reason="cache_reset", priority=0
-    )
+    _sync_manager().enqueue_sync(account.id, folder="INBOX", reason="cache_reset", priority=0)
     return redirect(url_for("mail.folder_view", account_id=account.id, folder="INBOX"))
 
 
@@ -220,21 +225,60 @@ def mark_all_read(account_id, folder):
 @mail_bp.route("/mail/folder/<int:account_id>/create", methods=["POST"])
 @require_customer
 def create_folder_route(account_id):
+    user_id = session.get("user_id")
     name = request.form.get("name", "").strip()
-    if not name:
+    is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+    def _create_failed(msg):
+        if is_xhr:
+            return jsonify({"status": "error", "error": msg}), 502
+        session["undo_error"] = msg
         return redirect(url_for("mail.folder_view", account_id=account_id, folder="INBOX"))
-    account = CustomerAccount.query.filter_by(
-        id=account_id, customer_id=session.get("user_id")
-    ).first_or_404()
+
+    if not name:
+        if is_xhr:
+            return jsonify({"status": "error", "error": "Folder name is required."}), 400
+        return redirect(url_for("mail.folder_view", account_id=account_id, folder="INBOX"))
+    account = CustomerAccount.query.filter_by(id=account_id, customer_id=user_id).first_or_404()
     secret = (
-        decrypt_with_key(account.encrypted_secret, get_user_key(session.get("user_id")))
+        decrypt_with_key(account.encrypted_secret, get_user_key(user_id))
         if account.encrypted_secret
         else None
     )
+    from app.modules.mail.services.cache_db import upsert_folder
+
     client, _domain = _imap_for_account(account, secret)
-    create_folder(client, name)
-    client.logout()
-    return redirect(url_for("mail.folder_view", account_id=account_id, folder=name))
+    try:
+        existing = [f.lower() for f in list_folders(client)]
+        if name.lower() not in existing:
+            status, _data = create_folder(client, encode_mailbox_name(name))
+            if status != "OK":
+                logger.error(
+                    "folder create refused account_id=%s folder=%s status=%s data=%s",
+                    account.id,
+                    name,
+                    status,
+                    _data,
+                )
+                return _create_failed(
+                    "Folder could not be created. Retry or check your connection."
+                )
+    except Exception:
+        logger.exception("folder create imap error account_id=%s folder=%s", account.id, name)
+        return _create_failed("Folder could not be created. Retry or check your connection.")
+    finally:
+        safe_logout(client)
+    conn = open_cache(account.cache_db_path, get_user_key(user_id))
+    try:
+        upsert_folder(conn, name, 0)
+    finally:
+        conn.close()
+    with contextlib.suppress(Exception):
+        _sync_manager().enqueue_sync(account.id, folder=name, reason="folder_created", priority=5)
+    redirect_url = url_for("mail.folder_view", account_id=account_id, folder=name)
+    if is_xhr:
+        return jsonify({"status": "ok", "redirect": redirect_url})
+    return redirect(redirect_url)
 
 
 @mail_bp.route("/mail/folder/<int:account_id>/<path:folder>/pin", methods=["POST"])
@@ -319,7 +363,7 @@ def rename_folder_route(account_id, folder):
     finally:
         conn.close()
     with contextlib.suppress(Exception):
-        current_app.sync_manager.enqueue_sync(
+        _sync_manager().enqueue_sync(
             account.id, folder=new_name, reason="folder_renamed", priority=5
         )
     return redirect(url_for("mail.folder_view", account_id=account_id, folder=new_name))
@@ -392,16 +436,14 @@ def remove_account(account_id):
 @require_customer
 def set_active_account():
     user_id = session.get("user_id")
-    account_id = int(request.form.get("account_id"))
+    account_id = int(request.form.get("account_id") or 0)
     account = CustomerAccount.query.filter_by(
         id=account_id, customer_id=user_id, is_active=True
     ).first_or_404()
     session["active_account_id"] = account.id
-    current_app.sync_manager.set_active_account(user_id, account.id)
-    current_app.sync_manager.set_active_folder(account.id, "INBOX")
-    current_app.sync_manager.enqueue_sync(
-        account.id, folder="INBOX", reason="account_switch", priority=0
-    )
+    _sync_manager().set_active_account(user_id, account.id)
+    _sync_manager().set_active_folder(account.id, "INBOX")
+    _sync_manager().enqueue_sync(account.id, folder="INBOX", reason="account_switch", priority=0)
     next_url = request.form.get("next")
     if next_url and next_url.startswith("/"):
         return redirect(next_url)

@@ -394,29 +394,29 @@
       const formData = new FormData(createFolderForm);
       fetch(createFolderForm.action, {
         method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
         body: new URLSearchParams(formData)
-      }).then(response => {
-        if (!response.ok) {
-          throw new Error('Create folder failed');
-        }
-        if (response.redirected) {
-          window.location.assign(response.url);
-        } else {
-          window.location.reload();
-        }
-      }).catch(() => {
-        if (createFolderError) {
-          createFolderError.classList.remove('hidden');
-        }
-      }).finally(() => {
-        createFolderSubmit.disabled = false;
-        if (createFolderSpinner) {
-          createFolderSpinner.classList.add('hidden');
-        }
-        if (createFolderInput) {
-          createFolderInput.removeAttribute('disabled');
-        }
-      });
+      }).then(response => response.json().then(data => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok || !data || data.status === 'error' || data.error) {
+            const msg = (data && (data.error || data.message)) || 'Unable to create folder. Retry or refresh.';
+            throw new Error(msg);
+          }
+          window.location.assign(data.redirect || window.location.href);
+        }).catch((err) => {
+          if (createFolderError) {
+            createFolderError.textContent = (err && err.message) || 'Unable to create folder. Retry or refresh.';
+            createFolderError.classList.remove('hidden');
+          }
+        }).finally(() => {
+          createFolderSubmit.disabled = false;
+          if (createFolderSpinner) {
+            createFolderSpinner.classList.add('hidden');
+          }
+          if (createFolderInput) {
+            createFolderInput.removeAttribute('disabled');
+          }
+        });
     });
   }
 

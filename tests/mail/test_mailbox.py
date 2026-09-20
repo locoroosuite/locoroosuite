@@ -1,4 +1,5 @@
 import json
+from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 
@@ -96,8 +97,29 @@ def test_mark_all_read(authed_client):
     mock_client.logout.assert_called_once()
 
 
-def test_create_folder(authed_client):
-    client, _user_id, account_id = authed_client
+def _set_real_cache_path(app, account_id, tmp_path):
+    from app.shared.db import db as _db
+    from app.shared.models.core import CustomerAccount
+
+    with app.app_context():
+        account = _db.session.get(CustomerAccount, account_id)
+        assert account is not None
+        account.cache_db_path = str(tmp_path / "cache.db")
+        _db.session.commit()
+
+
+def _cached_folder_names(cache_path, key="0" * 64):
+    from app.modules.mail.services.cache_db import list_cached_folders, open_cache
+
+    conn = open_cache(cache_path, key)
+    try:
+        return {name for name, _unread in list_cached_folders(conn)}
+    finally:
+        conn.close()
+
+
+@contextmanager
+def _create_folder_patches(existing_folders, create_return=None, create_side_effect=None):
     mock_client = MagicMock()
     with (
         patch("app.modules.mail.controllers.mailbox.decrypt_with_key", return_value="secret"),
@@ -105,11 +127,141 @@ def test_create_folder(authed_client):
             "app.modules.mail.controllers.mailbox._imap_for_account",
             return_value=(mock_client, MagicMock()),
         ),
-        patch("app.modules.mail.controllers.mailbox.create_folder"),
+        patch(
+            "app.modules.mail.controllers.mailbox.list_folders",
+            return_value=existing_folders,
+        ),
+        patch(
+            "app.modules.mail.controllers.mailbox.create_folder",
+            return_value=create_return,
+            side_effect=create_side_effect,
+        ) as mock_create,
     ):
-        resp = client.post(f"/app/mail/folder/{account_id}/create", data={"name": "Archive"})
+        yield mock_client, mock_create
+
+
+def test_create_folder(authed_client, app, tmp_path):
+    client, _user_id, account_id = authed_client
+    cache_path = str(tmp_path / "cache.db")
+    _set_real_cache_path(app, account_id, tmp_path)
+    with _create_folder_patches(["INBOX"], create_return=("OK", [b""])) as (
+        mock_client,
+        mock_create,
+    ):
+        resp = client.post(f"/app/mail/folder/{account_id}/create", data={"name": "Glasses"})
     assert resp.status_code == 302
+    assert "Glasses" in resp.headers["Location"]
     mock_client.logout.assert_called_once()
+    mock_create.assert_called_once()
+    # U5.4a: list_folders reflects the create immediately via the per-user cache.
+    assert _cached_folder_names(cache_path) == {"Glasses"}
+    app.sync_manager.enqueue_sync.assert_called_with(
+        account_id, folder="Glasses", reason="folder_created", priority=5
+    )
+
+
+def test_create_folder_xhr_returns_json(authed_client, app, tmp_path):
+    client, _user_id, account_id = authed_client
+    _set_real_cache_path(app, account_id, tmp_path)
+    with _create_folder_patches(["INBOX"], create_return=("OK", [b""])):
+        resp = client.post(
+            f"/app/mail/folder/{account_id}/create",
+            data={"name": "Glasses"},
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert data["status"] == "ok"
+    assert "Glasses" in data["redirect"]
+
+
+def test_create_folder_idempotent(authed_client, app, tmp_path):
+    client, _user_id, account_id = authed_client
+    cache_path = str(tmp_path / "cache.db")
+    _set_real_cache_path(app, account_id, tmp_path)
+    with _create_folder_patches(["INBOX", "Glasses"]) as (_mock_client, mock_create):
+        resp = client.post(f"/app/mail/folder/{account_id}/create", data={"name": "Glasses"})
+    assert resp.status_code == 302
+    assert "Glasses" in resp.headers["Location"]
+    # U5.4a: creating an existing mailbox is a success without an IMAP CREATE.
+    mock_create.assert_not_called()
+    assert _cached_folder_names(cache_path) == {"Glasses"}
+
+
+def test_create_folder_imap_refused_xhr(authed_client, app, tmp_path):
+    # Regression: the old route ignored the IMAP status and redirected as if
+    # the folder had been created, so server-side refusals vanished silently.
+    client, _user_id, account_id = authed_client
+    cache_path = str(tmp_path / "cache.db")
+    _set_real_cache_path(app, account_id, tmp_path)
+    with _create_folder_patches(["INBOX"], create_return=("NO", [b"CREATE: Permission denied"])):
+        resp = client.post(
+            f"/app/mail/folder/{account_id}/create",
+            data={"name": "Glasses"},
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+    assert resp.status_code == 502
+    data = json.loads(resp.data)
+    assert data["status"] == "error"
+    assert "could not be created" in data["error"].lower()
+    # A refused create must not pollute the cache folder list.
+    assert "Glasses" not in _cached_folder_names(cache_path)
+
+
+def test_create_folder_imap_refused_non_xhr(authed_client, app, tmp_path):
+    client, _user_id, account_id = authed_client
+    _set_real_cache_path(app, account_id, tmp_path)
+    with _create_folder_patches(["INBOX"], create_return=("NO", [b"CREATE: Permission denied"])):
+        resp = client.post(f"/app/mail/folder/{account_id}/create", data={"name": "Glasses"})
+    assert resp.status_code == 302
+    assert "INBOX" in resp.headers["Location"]
+    with client.session_transaction() as sess:
+        assert sess["undo_error"]
+
+
+def test_create_folder_imap_error_xhr(authed_client, app, tmp_path):
+    import imaplib
+
+    client, _user_id, account_id = authed_client
+    _set_real_cache_path(app, account_id, tmp_path)
+    with _create_folder_patches(
+        ["INBOX"], create_side_effect=imaplib.IMAP4.error("connection refused")
+    ):
+        resp = client.post(
+            f"/app/mail/folder/{account_id}/create",
+            data={"name": "Glasses"},
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+    assert resp.status_code == 502
+    data = json.loads(resp.data)
+    assert data["status"] == "error"
+
+
+def test_create_folder_encodes_non_ascii(authed_client, app, tmp_path):
+    # U5.4a: non-ASCII mailbox names must go through modified UTF-7 encoding.
+    from app.modules.mail.services.imap_client import encode_mailbox_name
+
+    client, _user_id, account_id = authed_client
+    _set_real_cache_path(app, account_id, tmp_path)
+    with _create_folder_patches(["INBOX"], create_return=("OK", [b""])) as (
+        mock_client,
+        mock_create,
+    ):
+        client.post(f"/app/mail/folder/{account_id}/create", data={"name": "Fächer"})
+    mock_create.assert_called_once_with(mock_client, encode_mailbox_name("Fächer"))
+
+
+def test_create_folder_requires_name(authed_client):
+    client, _user_id, account_id = authed_client
+    resp = client.post(
+        f"/app/mail/folder/{account_id}/create",
+        data={"name": "   "},
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    assert resp.status_code == 400
+    data = json.loads(resp.data)
+    assert data["status"] == "error"
+    assert "required" in data["error"].lower()
 
 
 def test_toggle_pin_folder(authed_client):

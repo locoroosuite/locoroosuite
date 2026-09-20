@@ -1,20 +1,18 @@
+import contextlib
 import json
 import os
-import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from app.shared.db import db
-from app.shared.models.core import User, Domain, CustomerAccount, DocShare
-from app.shared.keys import set_user_key, clear_user_key
+from app.shared.keys import clear_user_key, set_user_key
+from app.shared.models.core import CustomerAccount, DocShare, Domain, User
 
 
 def _safe_unlink(path):
-    try:
+    with contextlib.suppress(OSError):
         os.unlink(path)
-    except OSError:
-        pass
 
 
 def _setup_test_env(app, account_id):
@@ -38,39 +36,47 @@ def _create_doc(client, doc_type="odt"):
     return doc_id
 
 
+def _make_share(**fields) -> DocShare:
+    share = DocShare()
+    for key, value in fields.items():
+        setattr(share, key, value)
+    return share
+
+
 @pytest.fixture()
 def share_client(app, client):
     user_id = None
     account_id = None
     with app.app_context():
-        user = User(email="owner@example.com", role="customer", is_active=True)
+        user = User()
+        user.email = "owner@example.com"
+        user.role = "customer"
+        user.is_active = True
         user.password_hash = "x"
         db.session.add(user)
         db.session.flush()
         user_id = user.id
 
-        domain = Domain(
-            name="example.com",
-            is_active=True,
-            status="active",
-            imap_host="imap.example.com",
-            imap_port=993,
-            imap_tls=True,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "example.com"
+        domain.is_active = True
+        domain.status = "active"
+        domain.imap_host = "imap.example.com"
+        domain.imap_port = 993
+        domain.imap_tls = True
+        domain.smtp_host = "smtp.example.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.flush()
 
-        account = CustomerAccount(
-            customer_id=user.id,
-            domain_id=domain.id,
-            email_address="owner@example.com",
-            auth_type="password",
-            username="owner@example.com",
-            cache_db_path="",
-        )
+        account = CustomerAccount()
+        account.customer_id = user.id
+        account.domain_id = domain.id
+        account.email_address = "owner@example.com"
+        account.auth_type = "password"
+        account.username = "owner@example.com"
+        account.cache_db_path = ""
         db.session.add(account)
         db.session.commit()
         account_id = account.id
@@ -88,7 +94,7 @@ def share_client(app, client):
 
 
 def test_list_shares_empty(share_client, app):
-    client, user_id, account_id = share_client
+    client, _user_id, account_id = share_client
     paths = _setup_test_env(app, account_id)
     try:
         doc_id = _create_doc(client)
@@ -101,7 +107,7 @@ def test_list_shares_empty(share_client, app):
 
 
 def test_add_share(share_client, app):
-    client, user_id, account_id = share_client
+    client, _user_id, account_id = share_client
     paths = _setup_test_env(app, account_id)
     try:
         doc_id = _create_doc(client)
@@ -127,7 +133,7 @@ def test_add_share(share_client, app):
 
 
 def test_add_share_internal(share_client, app):
-    client, user_id, account_id = share_client
+    client, _user_id, account_id = share_client
     paths = _setup_test_env(app, account_id)
     try:
         doc_id = _create_doc(client)
@@ -152,7 +158,7 @@ def test_add_share_internal(share_client, app):
 
 
 def test_add_share_multiple_emails(share_client, app):
-    client, user_id, account_id = share_client
+    client, _user_id, account_id = share_client
     paths = _setup_test_env(app, account_id)
     try:
         doc_id = _create_doc(client)
@@ -175,7 +181,7 @@ def test_add_share_multiple_emails(share_client, app):
 
 
 def test_add_share_duplicate_skipped(share_client, app):
-    client, user_id, account_id = share_client
+    client, _user_id, account_id = share_client
     paths = _setup_test_env(app, account_id)
     try:
         doc_id = _create_doc(client)
@@ -209,7 +215,7 @@ def test_add_share_duplicate_skipped(share_client, app):
 
 
 def test_add_share_invalid_permission(share_client, app):
-    client, user_id, account_id = share_client
+    client, _user_id, account_id = share_client
     paths = _setup_test_env(app, account_id)
     try:
         doc_id = _create_doc(client)
@@ -230,7 +236,7 @@ def test_add_share_invalid_permission(share_client, app):
 
 
 def test_add_share_no_emails(share_client, app):
-    client, user_id, account_id = share_client
+    client, _user_id, account_id = share_client
     paths = _setup_test_env(app, account_id)
     try:
         doc_id = _create_doc(client)
@@ -251,7 +257,7 @@ def test_add_share_no_emails(share_client, app):
 
 
 def test_add_share_nonexistent_doc(share_client, app):
-    client, user_id, account_id = share_client
+    client, _user_id, account_id = share_client
     _setup_test_env(app, account_id)
     resp = client.post(
         "/app/docs/0000/shares",
@@ -268,7 +274,7 @@ def test_add_share_nonexistent_doc(share_client, app):
 
 
 def test_revoke_share(share_client, app):
-    client, user_id, account_id = share_client
+    client, _user_id, account_id = share_client
     paths = _setup_test_env(app, account_id)
     try:
         doc_id = _create_doc(client)
@@ -297,12 +303,12 @@ def test_revoke_share(share_client, app):
 
 
 def test_revoke_share_not_owner(share_client, app):
-    client, user_id, account_id = share_client
+    client, _user_id, account_id = share_client
     paths = _setup_test_env(app, account_id)
     try:
         doc_id = _create_doc(client)
         with app.app_context():
-            share = DocShare(
+            share = _make_share(
                 doc_id=doc_id,
                 owner_user_id=9999,
                 owner_account_id=9999,
@@ -329,7 +335,7 @@ def test_public_share_view(share_client, app):
     try:
         doc_id = _create_doc(client)
         with app.app_context():
-            share = DocShare(
+            share = _make_share(
                 doc_id=doc_id,
                 owner_user_id=user_id,
                 owner_account_id=account_id,
@@ -347,6 +353,14 @@ def test_public_share_view(share_client, app):
         assert resp.status_code == 200
         assert b"Test Doc" in resp.data
         assert b"Shared by" in resp.data or b"Can view" in resp.data
+        # Regression guard (HLD U13.20a): browser-level pinch-zoom must be
+        # disabled on the share host page so touch gestures reach Collabora
+        # instead of fighting the browser's page zoom on mobile.
+        assert (
+            b'name="viewport" content="width=device-width, initial-scale=1, '
+            b'maximum-scale=1.0, user-scalable=no"' in resp.data
+        )
+        assert b"display: block; touch-action: none; }" in resp.data
 
         cookie_headers = [v for k, v in resp.headers if k == "Set-Cookie"]
         assert any("share_access=pubtoken123" in c for c in cookie_headers)
@@ -363,7 +377,7 @@ def test_public_share_revoked(share_client, app):
     client, user_id, account_id = share_client
     _setup_test_env(app, account_id)
     with app.app_context():
-        share = DocShare(
+        share = _make_share(
             doc_id="fake",
             owner_user_id=user_id,
             owner_account_id=account_id,
@@ -373,7 +387,7 @@ def test_public_share_revoked(share_client, app):
             recipient_email="x@gmail.com",
             doc_name="Revoked",
             doc_type="odt",
-            revoked_at=datetime.now(timezone.utc),
+            revoked_at=datetime.now(UTC),
         )
         db.session.add(share)
         db.session.commit()
@@ -384,7 +398,7 @@ def test_public_share_revoked(share_client, app):
 
 
 def test_public_share_nonexistent(share_client, app):
-    client, user_id, account_id = share_client
+    client, _user_id, account_id = share_client
     _setup_test_env(app, account_id)
     resp = client.get("/app/docs/s/doesnotexist")
     assert resp.status_code == 404
@@ -396,7 +410,7 @@ def test_public_share_records_access(share_client, app):
     try:
         doc_id = _create_doc(client)
         with app.app_context():
-            share = DocShare(
+            share = _make_share(
                 doc_id=doc_id,
                 owner_user_id=user_id,
                 owner_account_id=account_id,
@@ -415,6 +429,7 @@ def test_public_share_records_access(share_client, app):
 
         with app.app_context():
             share = db.session.get(DocShare, share_id)
+            assert share is not None
             assert share.view_count == 1
             assert share.last_accessed_at is not None
     finally:
@@ -422,7 +437,7 @@ def test_public_share_records_access(share_client, app):
 
 
 def test_delete_doc_revokes_shares(share_client, app):
-    client, user_id, account_id = share_client
+    client, _user_id, account_id = share_client
     paths = _setup_test_env(app, account_id)
     try:
         doc_id = _create_doc(client)
@@ -453,7 +468,7 @@ def test_rename_updates_shares(share_client, app):
     try:
         doc_id = _create_doc(client)
         with app.app_context():
-            share = DocShare(
+            share = _make_share(
                 doc_id=doc_id,
                 owner_user_id=user_id,
                 owner_account_id=account_id,
@@ -472,13 +487,14 @@ def test_rename_updates_shares(share_client, app):
 
         with app.app_context():
             share = db.session.get(DocShare, share_id)
+            assert share is not None
             assert share.doc_name == "New Name"
     finally:
         _safe_unlink(paths["cache"])
 
 
 def test_docs_index_shows_sidebar(share_client, app):
-    client, user_id, account_id = share_client
+    client, _user_id, account_id = share_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.get("/app/docs/")
@@ -495,7 +511,7 @@ def test_docs_index_shared_section(share_client, app):
     try:
         doc_id = _create_doc(client)
         with app.app_context():
-            share = DocShare(
+            share = _make_share(
                 doc_id=doc_id,
                 owner_user_id=user_id,
                 owner_account_id=account_id,
@@ -523,7 +539,7 @@ def test_share_list_returns_stats(share_client, app):
     try:
         doc_id = _create_doc(client)
         with app.app_context():
-            share = DocShare(
+            share = _make_share(
                 doc_id=doc_id,
                 owner_user_id=user_id,
                 owner_account_id=account_id,

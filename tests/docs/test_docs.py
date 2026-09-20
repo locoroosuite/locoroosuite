@@ -116,6 +116,16 @@ def test_docs_editor_page(authed_client, app):
         assert b"scheduleHide" not in resp.data
         assert b"#editor-frame { width: 100%; flex: 1 1 auto" in resp.data
         assert b"display: flex; flex-direction: column" in resp.data
+        # Regression guard (HLD U13.20a): browser-level pinch-zoom must be
+        # disabled on the editor host page so touch gestures reach Collabora.
+        # Previously the browser zoomed the whole page while Collabora
+        # re-rendered at its own zoom, making the view jump to a random part
+        # of the document 1-2s after pinching on mobile.
+        assert (
+            b'name="viewport" content="width=device-width, initial-scale=1, '
+            b'maximum-scale=1.0, user-scalable=no"' in resp.data
+        )
+        assert b"display: block; touch-action: none; }" in resp.data
     finally:
         _safe_unlink(paths["cache"])
 

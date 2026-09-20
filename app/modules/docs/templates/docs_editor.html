@@ -2,7 +2,7 @@
 <html lang="en" class="h-full">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" />
   <title>{{ doc.name }} — LocoRooSuite Docs</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}?v={{ static_v('css/fonts.css') }}" />
   <style>
@@ -13,7 +13,9 @@
       font-family: 'Manrope', ui-sans-serif, system-ui;
       display: flex; flex-direction: column;
     }
-    #editor-frame { width: 100%; flex: 1 1 auto; min-height: 0; border: none; display: block; }
+    /* Browser-level pinch-zoom is disabled via the viewport meta so touch gestures
+       reach Collabora, which handles zoom/pan internally (HLD U13.20a). */
+    #editor-frame { width: 100%; flex: 1 1 auto; min-height: 0; border: none; display: block; touch-action: none; }
 
     #floating-bar {
       flex: 0 0 auto;

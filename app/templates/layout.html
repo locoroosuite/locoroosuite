@@ -243,6 +243,13 @@
       {% endwith %}
       {% block content %}{% endblock %}
     </main>
+    {% if session.get('user_id') %}
+    <footer class="border-t border-slate-200/80">
+      <div class="max-w-screen-2xl mx-auto px-3 sm:px-6 lg:px-8 py-4 text-xs text-slate-500">
+        LocoRooSuite v{{ app_version() }}
+      </div>
+    </footer>
+    {% endif %}
   </div>
   <div id="action-toast-success" class="hidden fixed bottom-5 right-5 max-w-sm rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow-lg">
     <div id="action-toast-label-success">Done.</div>

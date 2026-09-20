@@ -1,8 +1,10 @@
+import json
 import logging
 import os
 import re
 import time
 from datetime import timedelta
+from pathlib import Path
 
 from flask import Flask, g, redirect, render_template, request, session, url_for
 
@@ -39,6 +41,29 @@ def create_app():
             return str(int(os.path.getmtime(os.path.join(app.static_folder or "static", filename))))
         except OSError:
             return "0"
+
+    @app.template_global("app_version")
+    def _app_version() -> str:
+        """Application version from the root package.json (see HLD N7).
+
+        Single source of truth for releases: CONTRIBUTING.md bumps this file,
+        so the footer can never drift from the released version.
+        """
+        try:
+            manifest = json.loads(
+                Path(__file__).resolve().parent.parent.joinpath("package.json").read_text()
+            )
+        except (OSError, ValueError) as exc:
+            raise RuntimeError(
+                "Cannot read application version: package.json is missing or invalid "
+                "at the repository root. The deployment is broken — restore package.json."
+            ) from exc
+        version = manifest.get("version")
+        if not isinstance(version, str) or not version:
+            raise RuntimeError(
+                "Cannot read application version: package.json has no valid 'version' field."
+            )
+        return version
 
     from app.admin import register as register_admin
     from app.api import register as register_api

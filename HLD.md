@@ -107,6 +107,7 @@ N3 - Admin/manager login is at "/admin/login"; all admin/manager UI lives under 
 N4 - Header includes a top-right user area with: (1) a Gmail-style app launcher icon (waffle/grid) to the left of the user avatar that opens a dropdown panel showing available modules — Mail, Contacts, Calendar (future) for customers; Admin for admin/manager users; (2) the user avatar (initials) to the right of the launcher. The avatar dropdown menu items remain: Settings, Logout, and Domain Management when the logged-in email matches a local admin/manager account.
 N6 - Header logo ("LR" + "LocoRoomail") links to the role landing page: customer -> "/app/mail/", admin -> "/admin/", manager -> "/admin/manager/"; logged-out -> "/app/login".
 N5 - The same email address may be used for customer IMAP login even if it also has admin/manager credentials.
+N7 - Authenticated pages (customer/admin/manager) render a footer showing the application version, sourced from the root `package.json` (single source of truth for releases). The footer is not rendered on unauthenticated pages (login, signup, setup, 2FA) so build info is not exposed publicly.
 
 # Use Case U1 – Administration (General)
 

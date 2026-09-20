@@ -267,6 +267,14 @@ def create_app():
     setattr(app, "sync_manager", worker)  # noqa: B010
     setattr(app, "calendar_reminders", calendar_worker)  # noqa: B010
 
+    # API requests are dispatched straight to the shared api_app (WSGI
+    # middleware) and never run this app's before_request hooks, so seed
+    # sync_manager there immediately — a pure-API client (e.g. MCP tools)
+    # must not see None before the first web request happens to run.
+    from app.api.openapi import api_app as _shared_api_app
+
+    setattr(_shared_api_app, "sync_manager", worker)  # noqa: B010
+
     from app.shared.cli import register_cli
 
     register_cli(app)

@@ -73,11 +73,25 @@ def _check_caldav(domain) -> str:
 def _check_matrix(domain) -> str:
     if not domain.matrix_host:
         return "not_configured"
-    return (
-        "connected"
-        if _tcp_check(domain.matrix_host, domain.matrix_port or 8008)
-        else "misconfigured"
-    )
+    if not _tcp_check(domain.matrix_host, domain.matrix_port or 8008):
+        return "misconfigured"
+    from app.modules.chat.services.matrix import MatrixClient, MatrixError, homeserver_url
+
+    # Probe an authenticated endpoint with a throwaway token. A healthy
+    # homeserver answers 401 M_UNKNOWN_TOKEN; if token introspection is
+    # delegated to MAS and MAS is down, Synapse answers 503 and the client
+    # raises MATRIX_AUTH_BACKEND_DOWN — distinct from an unreachable
+    # homeserver (MATRIX_UNREACHABLE).
+    client = MatrixClient(homeserver_url(domain), access_token="locooro-health-probe")
+    try:
+        client.whoami(timeout=TIMEOUT)
+    except MatrixError as exc:
+        if exc.code == "MATRIX_AUTH_BACKEND_DOWN":
+            return "auth_backend_down"
+        if exc.code == "MATRIX_UNREACHABLE":
+            return "misconfigured"
+        return "connected"
+    return "connected"
 
 
 def _check_collabora(domain) -> str:

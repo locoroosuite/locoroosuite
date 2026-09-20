@@ -125,6 +125,17 @@ class MatrixClient:
                 errcode,
                 message,
             )
+            if resp.status_code == 503 and "introspect" in message.lower():
+                # Synapse delegates token introspection to the Matrix
+                # Authentication Service (MAS). When MAS is down, every
+                # authenticated request fails with 503 while unauthenticated
+                # endpoints stay healthy.
+                raise MatrixError(
+                    "MATRIX_AUTH_BACKEND_DOWN",
+                    "The chat server's authentication backend is down; contact the "
+                    "homeserver operator. Until it is restored, no one can use chat.",
+                    status=503,
+                )
             raise MatrixError(errcode, message, status=resp.status_code)
         if resp.status_code == 204 or not resp.content:
             return {}
@@ -179,8 +190,8 @@ class MatrixClient:
             },
         )
 
-    def whoami(self) -> dict:
-        return self._request("GET", "/account/whoami")
+    def whoami(self, timeout: float = DEFAULT_TIMEOUT) -> dict:
+        return self._request("GET", "/account/whoami", timeout=timeout)
 
     def get_displayname(self, user_id: str) -> str | None:
         try:

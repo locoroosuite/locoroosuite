@@ -131,6 +131,33 @@ class TestMobileContactsUi:
 
 
 @skip_if_no_services
+class TestMobileSettingsUi:
+    """Settings rows stack below sm (640px): no overflow, selects full width."""
+
+    def test_no_horizontal_overflow_on_settings(self, mobile_logged_in_page):
+        page = mobile_logged_in_page
+        page.goto("http://localhost:8001/app/mail/settings")
+        page.wait_for_load_state("load")
+        page.wait_for_selector("#tz-select", timeout=10000)
+        overflow = page.evaluate(
+            "() => document.documentElement.scrollWidth - document.documentElement.clientWidth"
+        )
+        assert overflow <= 1
+
+    def test_settings_selects_are_full_width_on_mobile(self, mobile_logged_in_page):
+        page = mobile_logged_in_page
+        page.goto("http://localhost:8001/app/mail/settings")
+        page.wait_for_load_state("load")
+        page.wait_for_selector("#tz-select", timeout=10000)
+        viewport_width = page.evaluate("() => document.documentElement.clientWidth")
+        # Stacked below sm: page gutter px-3 + card px-3 leave ~342px at 390px
+        # viewport, so a full-width select must span most of the viewport.
+        box = page.locator("#tz-select").bounding_box()
+        assert box is not None
+        assert box["width"] > viewport_width * 0.8
+
+
+@skip_if_no_services
 class TestMobileDensityUi:
     """U24.33-U24.36: edge-to-edge lists and compact spacing below md (768px)."""
 

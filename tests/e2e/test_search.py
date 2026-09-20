@@ -55,7 +55,9 @@ class TestSearchDataIntegrity:
         assert len(urls) == len(message_ids)
         for url in urls:
             assert "/mail/" in url
-            assert re.search(r"/mail/message/\d+/\d+", url), f"URL does not look like a message detail link: {url}"
+            assert re.search(r"/mail/message/\d+/\d+", url), (
+                f"URL does not look like a message detail link: {url}"
+            )
 
     def test_empty_search_shows_no_messages_found(self, app_url, user_session, user_account_id):
         html = self._search(user_session, app_url, "zzznonexistentquery12345xyz", user_account_id)

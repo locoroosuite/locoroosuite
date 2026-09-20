@@ -52,22 +52,32 @@ def wait_for(condition, timeout=10, interval=0.5):
     raise TimeoutError(f"Condition not met within {timeout}s")
 
 
-def login_session(email: str, password: str = None) -> requests.Session:
+def login_session(email: str, password: str | None = None) -> requests.Session:
     s = requests.Session()
-    r = s.post(f"{APP_URL}/app/login", data={"email": email, "password": password or _TEST_USERS[email]}, allow_redirects=True)
+    r = s.post(
+        f"{APP_URL}/app/login",
+        data={"email": email, "password": password or _TEST_USERS[email]},
+        allow_redirects=True,
+    )
     assert r.status_code == 200, f"Login failed for {email}: {r.status_code}"
-    assert "login" not in r.url or r.url.endswith("/mail/"), f"Login did not redirect to mail: {r.url}"
+    assert "login" not in r.url or r.url.endswith("/mail/"), (
+        f"Login did not redirect to mail: {r.url}"
+    )
     return s
 
 
-def admin_session(email: str = "admin@dev.test", password: str = E2E_DEFAULT_PASSWORD) -> requests.Session:
+def admin_session(
+    email: str = "admin@dev.test", password: str = E2E_DEFAULT_PASSWORD
+) -> requests.Session:
     s = requests.Session()
-    r = s.post(f"{APP_URL}/admin/login", data={"email": email, "password": password}, allow_redirects=True)
+    r = s.post(
+        f"{APP_URL}/admin/login", data={"email": email, "password": password}, allow_redirects=True
+    )
     assert r.status_code == 200, f"Admin login failed: {r.status_code}"
     return s
 
 
-def imap_connect(user: str = None, password: str = None):
+def imap_connect(user: str | None = None, password: str | None = None):
     if user is None:
         user = "e2e-test@test.localhost"
     if password is None:
@@ -108,7 +118,9 @@ def imap_fetch_subjects(user: str, password: str, folder: str, criteria: str = "
         conn.logout()
 
 
-def imap_folder_has_message(user: str, password: str, folder: str, subject_contains: str = None, timeout: int = 10):
+def imap_folder_has_message(
+    user: str, password: str, folder: str, subject_contains: str | None = None, timeout: int = 10
+):
     def check():
         conn = imap_connect(user, password)
         try:
@@ -127,6 +139,7 @@ def imap_folder_has_message(user: str, password: str, folder: str, subject_conta
             return False
         finally:
             conn.logout()
+
     return wait_for(check, timeout=timeout)
 
 
@@ -167,6 +180,25 @@ def mailapi_delete_user(email: str) -> bool:
     return r.status_code in (200, 204, 404)
 
 
+def ensure_mail_domains(domains: tuple[str, ...] = ("test.localhost", "dev.test")) -> None:
+    """Register e2e mail domains with mail-api so postfix accepts local delivery.
+
+    The postfix virtual_domains map lives in a docker volume and can drift
+    from the app DB (fresh volumes start empty): recipients then fall through
+    to postfix's default_transport and every send is rejected with
+    'delivery to external recipients is not available in development'.
+    Re-adding an existing domain is a no-op, so this is always safe to call.
+    """
+    for domain in domains:
+        r = requests.post(
+            f"{MAIL_API_URL}/api/domains",
+            headers={"Authorization": f"Bearer {MAIL_API_KEY}"},
+            json={"domain": domain},
+            timeout=5,
+        )
+        r.raise_for_status()
+
+
 def cleanup_e2e_users():
     for domain in ("test.localhost", "dev.test", "loco.localhost"):
         users = mailapi_get_users(domain)
@@ -192,7 +224,8 @@ def cleanup_e2e_users():
 def _cleanup_e2e_users_via_db():
     from app import create_app
     from app.shared.db import db as _db
-    from app.shared.models.core import User, CustomerAccount
+    from app.shared.models.core import CustomerAccount, User
+
     app = create_app()
     with app.app_context():
         e2e_users = User.query.filter(User.email.like("e2e-%")).all()
@@ -202,6 +235,7 @@ def _cleanup_e2e_users_via_db():
                 if acc.cache_db_path:
                     try:
                         import os
+
                         os.unlink(acc.cache_db_path)
                     except OSError:
                         pass
@@ -212,6 +246,7 @@ def _cleanup_e2e_users_via_db():
 
 def _cleanup_e2e_users_via_docker():
     import subprocess
+
     script = (
         "import os, sys\n"
         "sys.path.insert(0, '/app')\n"
@@ -231,14 +266,25 @@ def _cleanup_e2e_users_via_docker():
         "    print(f'Deleted {len(users)} e2e users from DB')\n"
     )
     subprocess.run(
-        ["docker", "compose", "-f", "docker-compose.dev.yml", "exec", "-T", "app",
-         "python", "/dev/stdin"],
+        [
+            "docker",
+            "compose",
+            "-f",
+            "docker-compose.dev.yml",
+            "exec",
+            "-T",
+            "app",
+            "python",
+            "/dev/stdin",
+        ],
         input=script,
-        capture_output=True, text=True, timeout=30,
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
 
 
-def cleanup_e2e_contacts(user: str = "e2e-test@test.localhost", password: str = None):
+def cleanup_e2e_contacts(user: str = "e2e-test@test.localhost", password: str | None = None):
     if password is None:
         password = _TEST_USERS.get(user, E2E_DEFAULT_PASSWORD)
     abooks = carddav_get_addressbooks(user, password)
@@ -256,7 +302,7 @@ def cleanup_e2e_contacts(user: str = "e2e-test@test.localhost", password: str = 
             pass
 
 
-def carddav_get_addressbooks(user: str, password: str = None) -> list[dict]:
+def carddav_get_addressbooks(user: str, password: str | None = None) -> list[dict]:
     if password is None:
         password = _TEST_USERS.get(user, E2E_DEFAULT_PASSWORD)
     r = requests.request(
@@ -273,7 +319,7 @@ def carddav_get_addressbooks(user: str, password: str = None) -> list[dict]:
     return [item for item in all_items if "addressbook" in item.get("resourcetype_types", [])]
 
 
-def carddav_report_contacts(user: str, password: str = None) -> list[str]:
+def carddav_report_contacts(user: str, password: str | None = None) -> list[str]:
     if password is None:
         password = _TEST_USERS.get(user, E2E_DEFAULT_PASSWORD)
     abooks = carddav_get_addressbooks(user, password)
@@ -294,7 +340,7 @@ def carddav_report_contacts(user: str, password: str = None) -> list[str]:
     return [item["href"] for item in results]
 
 
-def caldav_get_calendars(user: str, password: str = None) -> list[dict]:
+def caldav_get_calendars(user: str, password: str | None = None) -> list[dict]:
     if password is None:
         password = _TEST_USERS.get(user, E2E_DEFAULT_PASSWORD)
     r = requests.request(
@@ -310,7 +356,7 @@ def caldav_get_calendars(user: str, password: str = None) -> list[dict]:
     return _parse_multistatus(r.text)
 
 
-def caldav_get_events(user: str, calendar_href: str, password: str = None) -> list[dict]:
+def caldav_get_events(user: str, calendar_href: str, password: str | None = None) -> list[dict]:
     if password is None:
         password = _TEST_USERS.get(user, E2E_DEFAULT_PASSWORD)
     r = requests.request(
@@ -341,8 +387,7 @@ def _parse_multistatus(xml_text: str) -> list[dict]:
                 for child in prop:
                     tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
                     child_types = [
-                        ct.tag.split("}")[-1] if "}" in ct.tag else ct.tag
-                        for ct in child
+                        ct.tag.split("}")[-1] if "}" in ct.tag else ct.tag for ct in child
                     ]
                     if child_types:
                         item[tag] = child.text or ""
@@ -355,15 +400,14 @@ def _parse_multistatus(xml_text: str) -> list[dict]:
 
 def _extract_domain_id(html, domain_name):
     match = re.search(
-        r'data-domain-id="(\d+)"\s+data-domain-name="'
-        + re.escape(domain_name)
-        + r'"',
+        r'data-domain-id="(\d+)"\s+data-domain-name="' + re.escape(domain_name) + r'"',
         html,
     )
     return match.group(1) if match else None
 
 
 def setup_e2e_users(app_url: str = APP_URL):
+    ensure_mail_domains()
     admin = admin_session()
     r = admin.get(f"{app_url}/admin/customers")
     assert r.status_code == 200, f"Admin customer list failed: {r.status_code}"
@@ -374,7 +418,7 @@ def setup_e2e_users(app_url: str = APP_URL):
     for email, password in E2E_TEST_USERS.items():
         username = email.split("@")[0]
         existing = re.search(
-            rf'{re.escape(email)}.*?/admin/customers/(\d+)/',
+            rf"{re.escape(email)}.*?/admin/customers/(\d+)/",
             r.text,
         )
         if existing:
@@ -391,8 +435,8 @@ def setup_e2e_users(app_url: str = APP_URL):
         )
         assert resp.status_code == 200, f"Failed to create {email}: {resp.status_code}"
 
-    for email, password in E2E_TEST_USERS.items():
-        wait_for(lambda: mailapi_user_exists(email), timeout=15)
+    for email in E2E_TEST_USERS:
+        wait_for(lambda e=email: mailapi_user_exists(e), timeout=15)
 
     for email, password in E2E_TEST_USERS.items():
         login_session(email, password)
@@ -401,6 +445,6 @@ def setup_e2e_users(app_url: str = APP_URL):
 def get_account_id(app_url: str, session) -> str:
     r = session.get(f"{app_url}/app/mail/", allow_redirects=True)
     assert r.status_code == 200
-    match = re.search(r'/mail/folder/(\d+)/', r.text)
+    match = re.search(r"/mail/folder/(\d+)/", r.text)
     assert match, "Could not extract account_id from mail page"
     return match.group(1)

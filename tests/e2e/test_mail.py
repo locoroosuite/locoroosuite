@@ -5,23 +5,25 @@ import requests
 
 from tests.e2e.conftest import skip_if_no_services
 from tests.e2e.services import (
+    E2E_DEFAULT_PASSWORD,
     MAIL_API_KEY,
     MAIL_API_URL,
-    E2E_DEFAULT_PASSWORD,
+    _extract_domain_id,
     admin_session,
     get_account_id,
     imap_folder_has_message,
     mailapi_delete_user,
     mailapi_user_exists,
     wait_for,
-    _extract_domain_id,
 )
 
 
 @skip_if_no_services
 class TestFolderList:
     def test_folder_list_loads(self, app_url, user_session, user_account_id):
-        r = user_session.get(f"{app_url}/app/mail/folder/{user_account_id}/INBOX", allow_redirects=True)
+        r = user_session.get(
+            f"{app_url}/app/mail/folder/{user_account_id}/INBOX", allow_redirects=True
+        )
         assert r.status_code == 200
         for name in ("INBOX", "Sent", "Drafts", "Trash"):
             assert name in r.text
@@ -183,7 +185,9 @@ class TestDeleteProtection:
         assert msg_id is not None, f"Message '{subject}' not found in folder listing"
         return subject, msg_id
 
-    def test_starred_message_refuses_delete_then_unstar_deletes(self, app_url, user_session, user_account_id):
+    def test_starred_message_refuses_delete_then_unstar_deletes(
+        self, app_url, user_session, user_account_id
+    ):
         subject, msg_id = self._send_and_find(app_url, user_session, user_account_id, "starred")
 
         # Star the message via the app (round-trips through IMAP + cache).
@@ -207,8 +211,11 @@ class TestDeleteProtection:
         assert "unstar" in body["error"].lower()
         # Message must still be in INBOX (not moved).
         assert imap_folder_has_message(
-            "e2e-test@test.localhost", E2E_DEFAULT_PASSWORD, "INBOX",
-            subject_contains=subject, timeout=10,
+            "e2e-test@test.localhost",
+            E2E_DEFAULT_PASSWORD,
+            "INBOX",
+            subject_contains=subject,
+            timeout=10,
         )
 
         # Unstar, then delete succeeds.
@@ -221,11 +228,11 @@ class TestDeleteProtection:
             f"{app_url}/app/mail/message/{user_account_id}/{msg_id}/delete",
             headers={"X-Requested-With": "XMLHttpRequest"},
         )
-        self._assert_message_reaches_trash(
-            user_session, app_url, user_account_id, subject, msg_id
-        )
+        self._assert_message_reaches_trash(user_session, app_url, user_account_id, subject, msg_id)
 
-    def test_locked_message_refuses_delete_then_unlock_deletes(self, app_url, user_session, user_account_id):
+    def test_locked_message_refuses_delete_then_unlock_deletes(
+        self, app_url, user_session, user_account_id
+    ):
         subject, msg_id = self._send_and_find(app_url, user_session, user_account_id, "locked")
 
         # Lock the message via the app ($Locked keyword).
@@ -248,8 +255,11 @@ class TestDeleteProtection:
         assert "locked" in body["error"].lower()
         assert "unlock" in body["error"].lower()
         assert imap_folder_has_message(
-            "e2e-test@test.localhost", E2E_DEFAULT_PASSWORD, "INBOX",
-            subject_contains=subject, timeout=10,
+            "e2e-test@test.localhost",
+            E2E_DEFAULT_PASSWORD,
+            "INBOX",
+            subject_contains=subject,
+            timeout=10,
         )
 
         # Unlock, then delete succeeds.
@@ -262,18 +272,21 @@ class TestDeleteProtection:
             f"{app_url}/app/mail/message/{user_account_id}/{msg_id}/delete",
             headers={"X-Requested-With": "XMLHttpRequest"},
         )
-        self._assert_message_reaches_trash(
-            user_session, app_url, user_account_id, subject, msg_id
-        )
+        self._assert_message_reaches_trash(user_session, app_url, user_account_id, subject, msg_id)
 
-    def _assert_message_reaches_trash(self, user_session, app_url, user_account_id, subject, msg_id):
+    def _assert_message_reaches_trash(
+        self, user_session, app_url, user_account_id, subject, msg_id
+    ):
         """Move-to-Trash is flaky against the dev Dovecot (the existing
         TestMoveMessage test handles the same way): if the first move does not
         land in Trash within 60s, re-find the message and retry once."""
         try:
             assert imap_folder_has_message(
-                "e2e-test@test.localhost", E2E_DEFAULT_PASSWORD, "Trash",
-                subject_contains=subject, timeout=60,
+                "e2e-test@test.localhost",
+                E2E_DEFAULT_PASSWORD,
+                "Trash",
+                subject_contains=subject,
+                timeout=60,
             )
             return
         except (TimeoutError, AssertionError):
@@ -285,8 +298,11 @@ class TestDeleteProtection:
                 headers={"X-Requested-With": "XMLHttpRequest"},
             )
         assert imap_folder_has_message(
-            "e2e-test@test.localhost", E2E_DEFAULT_PASSWORD, "Trash",
-            subject_contains=subject, timeout=60,
+            "e2e-test@test.localhost",
+            E2E_DEFAULT_PASSWORD,
+            "Trash",
+            subject_contains=subject,
+            timeout=60,
         )
 
 
@@ -365,7 +381,9 @@ def _create_app_user(app_url, admin_sess, email, password=E2E_DEFAULT_PASSWORD):
         allow_redirects=True,
     )
     assert r.status_code == 200, f"Failed to create app user {email}: {r.status_code}"
-    assert email in r.text, f"User {email} not found in customer list after creation — form may have returned errors"
+    assert email in r.text, (
+        f"User {email} not found in customer list after creation — form may have returned errors"
+    )
 
 
 @skip_if_no_services
@@ -383,10 +401,15 @@ class TestSendingLimit:
             wait_for(lambda: mailapi_user_exists(sender), timeout=15)
             wait_for(lambda: mailapi_user_exists(recipient), timeout=15)
             import requests as _requests
+
             _test_sess = _requests.Session()
-            _login_r = _test_sess.post(f"{app_url}/app/login", data={"email": sender, "password": E2E_DEFAULT_PASSWORD}, allow_redirects=True)
+            _login_r = _test_sess.post(
+                f"{app_url}/app/login",
+                data={"email": sender, "password": E2E_DEFAULT_PASSWORD},
+                allow_redirects=True,
+            )
             if "login" in _login_r.url and not _login_r.url.endswith("/mail/"):
-                _error_msgs = re.findall(r'alert[^>]*>([^<]+)<', _login_r.text)
+                _error_msgs = re.findall(r"alert[^>]*>([^<]+)<", _login_r.text)
                 _has_dovecot = mailapi_user_exists(sender)
                 raise AssertionError(
                     f"Login failed for {sender}: url={_login_r.url} errors={_error_msgs} dovecot_exists={_has_dovecot}"

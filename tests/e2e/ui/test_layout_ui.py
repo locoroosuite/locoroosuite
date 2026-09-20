@@ -3,8 +3,8 @@ from tests.e2e.conftest import skip_if_no_services
 
 @skip_if_no_services
 class TestLayoutUI:
-    def test_header_shows_locoroomail_logo(self, logged_in_page):
-        logo = logged_in_page.query_selector("text=LocoRoomail")
+    def test_header_shows_locoroosuite_logo(self, logged_in_page):
+        logo = logged_in_page.query_selector("text=LocoRooSuite")
         assert logo is not None
 
     def test_app_launcher_button_exists(self, logged_in_page):

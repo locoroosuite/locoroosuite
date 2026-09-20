@@ -22,3 +22,4 @@ pyotp
 qrcode
 Pillow
 pywebpush
+tzdata

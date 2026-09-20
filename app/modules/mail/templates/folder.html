@@ -1134,11 +1134,10 @@
     if (prefersReducedMotion || existingRowCount > FLIP_MAX_ROWS) {
       container.innerHTML = newHtml;
       restoreExpandState();
-      const skeletonEl = document.getElementById('message-skeleton');
-      if (skeletonEl) {
-        skeletonEl.remove();
-        skeletonVisible = false;
-      }
+      // The skeleton lives inside the container, so innerHTML may have
+      // already destroyed it -- re-sync the flag from the DOM instead of
+      // probing for the (now detached) element.
+      skeletonVisible = !!document.getElementById('message-skeleton');
       return;
     }
     const oldRects = new Map();
@@ -1162,11 +1161,8 @@
     container.innerHTML = newHtml;
     restoreExpandState();
 
-    const skeleton = document.getElementById('message-skeleton');
-    if (skeleton) {
-      skeleton.remove();
-      skeletonVisible = false;
-    }
+    // Same flag re-sync as above: innerHTML already wiped the skeleton.
+    skeletonVisible = !!document.getElementById('message-skeleton');
 
     const newRows = container.querySelectorAll('.message-row');
     const newRowsById = new Map();

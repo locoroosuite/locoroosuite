@@ -1,19 +1,18 @@
+import contextlib
 import re
 
 import pytest
 
 from tests.e2e.conftest import skip_if_no_services
 from tests.e2e.services import (
+    E2E_DEFAULT_PASSWORD,
     mailapi_user_exists,
     wait_for,
-    E2E_DEFAULT_PASSWORD,
 )
 
 
 def _extract_domains(html):
-    return re.findall(
-        r'data-domain-id="(\d+)"\s+data-domain-name="([^"]+)"', html
-    )
+    return re.findall(r'data-domain-id="(\d+)"\s+data-domain-name="([^"]+)"', html)
 
 
 def _find_customer_id(html, email):
@@ -27,7 +26,9 @@ def _find_customer_id(html, email):
 
 @skip_if_no_services
 class TestMultiAccount:
-    def test_account_switcher_appears_everywhere(self, app_url, admin_sess, user_session, user_account_id):
+    def test_account_switcher_appears_everywhere(
+        self, app_url, admin_sess, user_session, user_account_id
+    ):
         r = admin_sess.get(f"{app_url}/admin/customers")
         assert r.status_code == 200
         domains = _extract_domains(r.text)
@@ -37,13 +38,13 @@ class TestMultiAccount:
         customer_id = _find_customer_id(r.text, "e2e-test@test.localhost")
         assert customer_id, "Could not find customer ID for e2e-test@test.localhost"
 
-        first_domain_id, first_domain_name = domains[0]
+        _first_domain_id, _first_domain_name = domains[0]
         second_domain_id, second_domain_name = domains[1]
-        test_username = "e2e-test@test.localhost".split("@")[0]
+        test_username = ["e2e-test", "test.localhost"][0]
         new_account_email = f"{test_username}@{second_domain_name}"
 
         existing_account = re.search(
-            rf'{re.escape(new_account_email)}.*?/admin/customers/(\d+)/',
+            rf"{re.escape(new_account_email)}.*?/admin/customers/(\d+)/",
             r.text,
         )
         if not existing_account:
@@ -55,13 +56,11 @@ class TestMultiAccount:
                 },
                 allow_redirects=True,
             )
-            try:
+            with contextlib.suppress(Exception):
                 wait_for(
                     lambda: mailapi_user_exists(new_account_email),
                     timeout=10,
                 )
-            except Exception:
-                pass
 
         r = user_session.get(f"{app_url}/app/mail/", allow_redirects=True)
         assert r.status_code == 200

@@ -1,7 +1,8 @@
-from unittest.mock import patch, MagicMock
+from datetime import UTC
+from unittest.mock import MagicMock, patch
 
 from app.shared.db import db
-from app.shared.models.core import Domain, User, DocShare
+from app.shared.models.core import DocShare, Domain, User
 
 
 def test_login_page_renders(client, app):
@@ -37,7 +38,11 @@ def test_login_post_success(client, app):
         patch("app.modules.mail.controllers.auth.encrypt_with_key", return_value=b"x"),
         patch("app.modules.mail.controllers.auth.build_cache_path", return_value="/tmp/test.db"),
     ):
-        resp = client.post("/app/login", data={"email": "user@example.com", "password": "secret"}, follow_redirects=False)
+        resp = client.post(
+            "/app/login",
+            data={"email": "user@example.com", "password": "secret"},
+            follow_redirects=False,
+        )
 
     assert resp.status_code == 302
 
@@ -150,7 +155,11 @@ class TestLoginNextParameter:
             try:
                 resp = client.post(
                     "/app/login",
-                    data={"email": "user@example.com", "password": "secret", "next": "https://evil.com/phish"},
+                    data={
+                        "email": "user@example.com",
+                        "password": "secret",
+                        "next": "https://evil.com/phish",
+                    },
                     follow_redirects=False,
                 )
             finally:
@@ -171,7 +180,11 @@ class TestLoginNextParameter:
             try:
                 resp = client.post(
                     "/app/login",
-                    data={"email": "user@example.com", "password": "secret", "next": "//evil.com/phish"},
+                    data={
+                        "email": "user@example.com",
+                        "password": "secret",
+                        "next": "//evil.com/phish",
+                    },
                     follow_redirects=False,
                 )
             finally:
@@ -185,7 +198,11 @@ class TestLoginNextParameter:
     def test_login_post_error_preserves_next_in_form(self, client):
         resp = client.post(
             "/app/login",
-            data={"email": "user@nope.xyz", "password": "secret", "next": "/oauth/authorize?client_id=abc"},
+            data={
+                "email": "user@nope.xyz",
+                "password": "secret",
+                "next": "/oauth/authorize?client_id=abc",
+            },
         )
         assert resp.status_code == 200
         html = resp.data.decode()
@@ -269,7 +286,7 @@ class TestLoginNextParameter:
 
 
 def test_logout(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, _account_id = authed_client
     resp = client.get("/app/logout")
     assert resp.status_code == 302
     assert "/app/login" in resp.headers["Location"]
@@ -288,7 +305,7 @@ def test_auth_check_unauthenticated(client):
 
 
 def test_auth_check_customer(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, _account_id = authed_client
     resp = client.get("/app/auth/check")
     assert resp.status_code == 200
     assert resp.data == b""
@@ -367,7 +384,7 @@ def test_auth_check_share_cookie_valid(client, app, _clean_db):
 
 
 def test_auth_check_share_cookie_revoked(client, app, _clean_db):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     with app.app_context():
         share = DocShare(
@@ -380,7 +397,7 @@ def test_auth_check_share_cookie_revoked(client, app, _clean_db):
             recipient_email="ext@gmail.com",
             doc_name="Test",
             doc_type="odt",
-            revoked_at=datetime.now(timezone.utc),
+            revoked_at=datetime.now(UTC),
         )
         db.session.add(share)
         db.session.commit()
@@ -397,7 +414,7 @@ def test_auth_check_share_cookie_invalid(client, app, _clean_db):
 
 
 def test_auth_check_session_takes_precedence_over_share_cookie(client, app, _clean_db):
-    from app.shared.keys import set_user_key, clear_user_key
+    from app.shared.keys import clear_user_key, set_user_key
 
     with app.app_context():
         user = User(email="precedence@example.com", role="customer", is_active=True)
@@ -421,7 +438,7 @@ def test_auth_check_session_takes_precedence_over_share_cookie(client, app, _cle
 
 
 def test_set_timezone_success(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, _account_id = authed_client
     resp = client.post(
         "/app/api/set-timezone",
         json={"timezone": "Australia/Adelaide"},
@@ -432,14 +449,29 @@ def test_set_timezone_success(authed_client):
         assert sess["_browser_tz"] == "Australia/Adelaide"
 
 
+def test_set_timezone_legacy_alias(authed_client):
+    # Browsers on legacy-alias systems report e.g. "Asia/Saigon"; slim
+    # container images ship trimmed tzdata without backward links, so the
+    # tzdata pip package (requirements.txt) must provide it. Regression: the
+    # calendar rendered the wrong "today" when this endpoint returned 400.
+    client, _user_id, _account_id = authed_client
+    resp = client.post(
+        "/app/api/set-timezone",
+        json={"timezone": "Asia/Saigon"},
+    )
+    assert resp.status_code == 200
+    with client.session_transaction() as sess:
+        assert sess["_browser_tz"] == "Asia/Saigon"
+
+
 def test_set_timezone_missing_field(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, _account_id = authed_client
     resp = client.post("/app/api/set-timezone", json={})
     assert resp.status_code == 400
 
 
 def test_set_timezone_invalid_timezone(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, _account_id = authed_client
     resp = client.post(
         "/app/api/set-timezone",
         json={"timezone": "Invalid/Zone"},
@@ -457,8 +489,8 @@ def test_set_timezone_unauthenticated(client):
 
 class TestLoginWithApiEnabled:
     def _setup_account_with_api(self, app, dek_hex="a" * 64, credential_key="0" * 64):
-        from app.shared.models.core import CustomerAccount
         from app.api.token_service import wrap_dek_with_credential
+        from app.shared.models.core import CustomerAccount
 
         user_id = None
         account_id = None
@@ -504,31 +536,40 @@ class TestLoginWithApiEnabled:
         user_id, account_id, dek_hex, credential_key = self._setup_account_with_api(app)
 
         from app.shared.keys import get_user_key
+
         mock_client = MagicMock()
         with (
             patch("app.modules.mail.controllers.auth.connect_imap", return_value=mock_client),
             patch("app.modules.mail.controllers.auth.login_imap"),
             patch("app.modules.mail.controllers.auth.safe_logout"),
             patch("app.modules.mail.controllers.auth.derive_key", return_value=credential_key),
-            patch("app.modules.mail.controllers.auth.build_cache_path", return_value="/tmp/test.db"),
+            patch(
+                "app.modules.mail.controllers.auth.build_cache_path", return_value="/tmp/test.db"
+            ),
         ):
-            resp = client.post("/app/login", data={"email": "apiuser@example.com", "password": "secret"})
+            resp = client.post(
+                "/app/login", data={"email": "apiuser@example.com", "password": "secret"}
+            )
 
         assert resp.status_code == 302
         assert get_user_key(user_id) == dek_hex
 
         with app.app_context():
-            from app.shared.models.core import CustomerAccount
             from app.modules.mail.services.secrets import decrypt_with_key
+            from app.shared.models.core import CustomerAccount
+
             account = db.session.get(CustomerAccount, account_id)
+            assert account is not None
             decrypted = decrypt_with_key(account.encrypted_secret, dek_hex)
             assert decrypted == b"secret" or decrypted == "secret"
 
         from app.shared.keys import clear_user_key
+
         clear_user_key(user_id)
 
     def test_login_without_api_enabled_uses_credential_key(self, app, client):
         from app.shared.models.core import CustomerAccount
+
         user_id = None
         credential_key = "0" * 64
         with app.app_context():
@@ -565,26 +606,33 @@ class TestLoginWithApiEnabled:
             db.session.commit()
 
         from app.shared.keys import get_user_key
+
         mock_client = MagicMock()
         with (
             patch("app.modules.mail.controllers.auth.connect_imap", return_value=mock_client),
             patch("app.modules.mail.controllers.auth.login_imap"),
             patch("app.modules.mail.controllers.auth.safe_logout"),
             patch("app.modules.mail.controllers.auth.derive_key", return_value=credential_key),
-            patch("app.modules.mail.controllers.auth.build_cache_path", return_value="/tmp/test.db"),
+            patch(
+                "app.modules.mail.controllers.auth.build_cache_path", return_value="/tmp/test.db"
+            ),
         ):
-            resp = client.post("/app/login", data={"email": "normal@example.com", "password": "secret"})
+            resp = client.post(
+                "/app/login", data={"email": "normal@example.com", "password": "secret"}
+            )
 
         assert resp.status_code == 302
         assert get_user_key(user_id) == credential_key
 
         from app.shared.keys import clear_user_key
+
         clear_user_key(user_id)
 
     def test_login_api_enabled_unwrap_fails_falls_back_to_credential_key(self, app, client):
-        user_id, account_id, dek_hex, credential_key = self._setup_account_with_api(app)
+        user_id, _account_id, _dek_hex, _credential_key = self._setup_account_with_api(app)
 
         from app.shared.keys import get_user_key
+
         wrong_key = "b" * 64
         mock_client = MagicMock()
         with (
@@ -592,12 +640,17 @@ class TestLoginWithApiEnabled:
             patch("app.modules.mail.controllers.auth.login_imap"),
             patch("app.modules.mail.controllers.auth.safe_logout"),
             patch("app.modules.mail.controllers.auth.derive_key", return_value=wrong_key),
-            patch("app.modules.mail.controllers.auth.build_cache_path", return_value="/tmp/test.db"),
+            patch(
+                "app.modules.mail.controllers.auth.build_cache_path", return_value="/tmp/test.db"
+            ),
         ):
-            resp = client.post("/app/login", data={"email": "apiuser@example.com", "password": "secret"})
+            resp = client.post(
+                "/app/login", data={"email": "apiuser@example.com", "password": "secret"}
+            )
 
         assert resp.status_code == 302
         assert get_user_key(user_id) == wrong_key
 
         from app.shared.keys import clear_user_key
+
         clear_user_key(user_id)

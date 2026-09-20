@@ -6,8 +6,8 @@ import requests
 from tests.e2e.conftest import skip_if_no_services
 from tests.e2e.services import (
     E2E_DEFAULT_PASSWORD,
-    login_session,
     admin_session,
+    login_session,
     mailapi_create_user,
     mailapi_user_exists,
 )
@@ -27,7 +27,11 @@ class TestCustomerLogin:
             allow_redirects=True,
         )
         assert "login" in r.url
-        assert "IMAP authentication failed" in r.text or "Invalid" in r.text or "Domain not enabled" in r.text
+        assert (
+            "IMAP authentication failed" in r.text
+            or "Invalid" in r.text
+            or "Domain not enabled" in r.text
+        )
 
     def test_logout_clears_session(self, app_url):
         s = login_session("e2e-test@test.localhost", E2E_DEFAULT_PASSWORD)

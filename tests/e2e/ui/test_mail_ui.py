@@ -1,3 +1,5 @@
+import contextlib
+
 from tests.e2e.conftest import skip_if_no_services
 
 
@@ -14,13 +16,11 @@ class TestMailMessageList:
         assert sender is not None
 
     def test_unread_messages_have_bold_styling(self, logged_in_page):
-        try:
+        with contextlib.suppress(Exception):
             logged_in_page.wait_for_function(
-                "document.querySelector('.message-row[data-is-unread=\"1\"] [data-subject=\"true\"].font-bold') !== null",
+                'document.querySelector(\'.message-row[data-is-unread="1"] [data-subject="true"].font-bold\') !== null',
                 timeout=5000,
             )
-        except Exception:
-            pass
         unread = logged_in_page.query_selector('.message-row[data-is-unread="1"]')
         if unread is None:
             return
@@ -41,26 +41,24 @@ class TestMailMessageList:
         trash_link = logged_in_page.query_selector('a[data-folder="Trash"]')
         if trash_link:
             trash_link.click()
-            logged_in_page.wait_for_load_state("networkidle")
-        try:
+            # Folder links navigate to /mail/folder/<account>/Trash; wait for
+            # the URL, not networkidle (SSE keeps the network busy forever).
+            logged_in_page.wait_for_url("**/mail/folder/*/Trash*", timeout=10000)
+        with contextlib.suppress(Exception):
             logged_in_page.wait_for_function(
                 "!document.getElementById('message-skeleton')",
                 timeout=15000,
             )
-        except Exception:
-            pass
         message_rows = logged_in_page.query_selector_all(".message-row")
         if message_rows:
             return
         status = logged_in_page.query_selector("#message-list-status")
         if status:
-            try:
+            with contextlib.suppress(Exception):
                 logged_in_page.wait_for_function(
                     "document.getElementById('message-list-status').textContent.trim().length > 0",
                     timeout=15000,
                 )
-            except Exception:
-                pass
             text = status.inner_text().strip()
             assert "No messages" in text or "Syncing" in text
 
@@ -98,7 +96,7 @@ class TestMailMessageList:
         if not was_flagged:
             return
         logged_in_page.reload()
-        logged_in_page.wait_for_load_state("networkidle")
+        logged_in_page.wait_for_load_state("load")
         logged_in_page.wait_for_selector("[data-protected-badge]", timeout=5000)
         assert logged_in_page.query_selector("[data-protected-badge]") is not None
         # restore state so other tests are not affected
@@ -135,7 +133,7 @@ class TestMailMessageList:
             return
         # open the message detail page (where the user reported the stuck spinner)
         logged_in_page.goto(f"http://localhost:8001/app/mail/message/{acct}/{msg_id}")
-        logged_in_page.wait_for_load_state("networkidle")
+        logged_in_page.wait_for_load_state("load")
         delete_form = logged_in_page.query_selector('form[data-action="delete"]')
         if delete_form is None:
             return
@@ -146,12 +144,11 @@ class TestMailMessageList:
         assert toast is not None
         assert "protected" in toast.inner_text().lower() or "starred" in toast.inner_text().lower()
         # the spinner (lr-spinner) must disappear after the response is handled
-        try:
+        with contextlib.suppress(Exception):
             logged_in_page.wait_for_selector(".lr-spinner", state="detached", timeout=5000)
-        except Exception:
-            pass
-        assert logged_in_page.query_selector_all(".lr-spinner") == [], \
+        assert logged_in_page.query_selector_all(".lr-spinner") == [], (
             "Delete spinner stuck after protected 409"
+        )
         # restore: unstar the message
         logged_in_page.evaluate(
             "async ([a, m]) => {"

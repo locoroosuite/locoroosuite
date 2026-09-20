@@ -1,11 +1,20 @@
+import contextlib
 import os
 
 import pytest
 
 from tests.e2e.services import (
-    APP_URL, MAIL_API_URL, check_services, login_session, admin_session,
-    E2E_TEST_USERS, E2E_DEFAULT_PASSWORD, setup_e2e_users, cleanup_e2e_users,
-    cleanup_e2e_contacts, get_account_id,
+    APP_URL,
+    E2E_DEFAULT_PASSWORD,
+    E2E_TEST_USERS,
+    MAIL_API_URL,
+    admin_session,
+    check_services,
+    cleanup_e2e_contacts,
+    cleanup_e2e_users,
+    get_account_id,
+    login_session,
+    setup_e2e_users,
 )
 
 
@@ -24,15 +33,11 @@ def _e2e_session_setup():
     if not _is_e2e_enabled():
         yield
         return
-    try:
+    with contextlib.suppress(Exception):
         cleanup_e2e_users()
-    except Exception:
-        pass
     for email in E2E_TEST_USERS:
-        try:
+        with contextlib.suppress(Exception):
             cleanup_e2e_contacts(email)
-        except Exception:
-            pass
     try:
         admin = admin_session()
         admin.post(f"{APP_URL}/admin/customers/2/purge", allow_redirects=True)
@@ -47,14 +52,10 @@ def _e2e_session_setup():
     yield
 
     for email in E2E_TEST_USERS:
-        try:
+        with contextlib.suppress(Exception):
             cleanup_e2e_contacts(email)
-        except Exception:
-            pass
-    try:
+    with contextlib.suppress(Exception):
         cleanup_e2e_users()
-    except Exception:
-        pass
 
 
 @pytest.fixture(scope="session")

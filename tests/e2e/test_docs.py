@@ -2,7 +2,6 @@ import re
 import uuid
 from pathlib import Path
 
-
 from tests.e2e.conftest import skip_if_no_services
 
 _PDF_FIXTURE = Path(__file__).parent / "fixtures" / "sample.pdf"

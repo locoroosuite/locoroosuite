@@ -3,19 +3,19 @@ from tests.e2e.conftest import skip_if_no_services
 
 def _submit_search(page, query):
     page.goto("http://localhost:8001/app/mail/")
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("load")
     form = page.query_selector('form[action*="mail/search"]')
     if form is None:
         form_html = f'<form method="post" action="/app/mail/search"><input name="q" value="{query}"/><input name="account_id" value="1"/></form>'
         page.evaluate(f'document.body.insertAdjacentHTML("beforeend", `{form_html}`)')
-        form = page.query_selector('form:last-of-type')
+        form = page.query_selector("form:last-of-type")
     else:
         q_input = form.query_selector('input[name="q"]')
         if q_input:
             q_input.fill(query)
     form.evaluate("f => f.submit()")
     page.wait_for_url("**/mail/search**", timeout=15000)
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("load")
 
 
 @skip_if_no_services

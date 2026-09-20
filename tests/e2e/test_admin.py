@@ -1,10 +1,11 @@
+import contextlib
 import re
 import uuid
 
 import pytest
 
 from tests.e2e.conftest import skip_if_no_services
-from tests.e2e.services import mailapi_user_exists, E2E_DEFAULT_PASSWORD
+from tests.e2e.services import E2E_DEFAULT_PASSWORD, mailapi_user_exists
 
 
 @skip_if_no_services
@@ -112,10 +113,8 @@ class TestAddAccount:
         r = admin_sess.get(f"{app_url}/admin/customers")
         assert r.status_code == 200
         assert new_account_email in r.text
-        try:
+        with contextlib.suppress(Exception):
             assert mailapi_user_exists(new_account_email)
-        except Exception:
-            pass
 
 
 @skip_if_no_services
@@ -135,18 +134,14 @@ class TestManagerList:
 
 def _extract_domain_id(html, domain_name):
     match = re.search(
-        r'data-domain-id="(\d+)"\s+data-domain-name="'
-        + re.escape(domain_name)
-        + r'"',
+        r'data-domain-id="(\d+)"\s+data-domain-name="' + re.escape(domain_name) + r'"',
         html,
     )
     return match.group(1) if match else None
 
 
 def _extract_domains(html):
-    return re.findall(
-        r'data-domain-id="(\d+)"\s+data-domain-name="([^"]+)"', html
-    )
+    return re.findall(r'data-domain-id="(\d+)"\s+data-domain-name="([^"]+)"', html)
 
 
 def _find_customer_id(html, email):

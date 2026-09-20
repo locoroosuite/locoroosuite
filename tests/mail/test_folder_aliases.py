@@ -3,13 +3,17 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.modules.mail.services.imap_client import select_folder, append_message, ensure_folder_and_append
 from app.modules.mail.services.folder_aliases import (
-    resolve_folder_name,
     canonical_folder_key,
+    resolve_folder_name,
+)
+from app.modules.mail.services.folder_sort import build_folder_sections
+from app.modules.mail.services.imap_client import (
+    append_message,
+    ensure_folder_and_append,
+    select_folder,
 )
 from app.modules.mail.services.imap_sync import _resolve_folders
-from app.modules.mail.services.folder_sort import build_folder_sections
 
 
 class TestSelectFolder:
@@ -31,7 +35,7 @@ class TestSelectFolder:
         client = MagicMock()
         client.select.return_value = ("OK", [b"42"])
         client._quote = lambda x: x
-        typ, dat = select_folder(client, "INBOX")
+        typ, _dat = select_folder(client, "INBOX")
         assert typ == "OK"
 
 
@@ -45,7 +49,7 @@ class TestAppendMessage:
     def test_returns_ok_on_success(self):
         client = MagicMock()
         client.append.return_value = ("OK", [b"[APPENDUID 1 42] APPEND completed."])
-        status, data = append_message(client, "Sent", b"test")
+        status, _data = append_message(client, "Sent", b"test")
         assert status == "OK"
 
 
@@ -53,7 +57,7 @@ class TestEnsureFolderAndAppend:
     def test_succeeds_immediately_when_folder_exists(self):
         client = MagicMock()
         client.append.return_value = ("OK", [b"[APPENDUID 1 42] APPEND completed."])
-        status, data = ensure_folder_and_append(client, "Sent", b"msg")
+        status, _data = ensure_folder_and_append(client, "Sent", b"msg")
         assert status == "OK"
         assert client.append.call_count == 1
 
@@ -65,12 +69,15 @@ class TestEnsureFolderAndAppend:
             imaplib.IMAP4.error("APPEND failed"),
             ok_resp,
         ]
-        client.list.return_value = ("OK", [
-            b'(\\HasNoChildren) "/" "INBOX"',
-        ])
+        client.list.return_value = (
+            "OK",
+            [
+                b'(\\HasNoChildren) "/" "INBOX"',
+            ],
+        )
         client.create.return_value = ("OK", [None])
 
-        status, data = ensure_folder_and_append(client, "Sent", b"msg")
+        status, _data = ensure_folder_and_append(client, "Sent", b"msg")
         assert status == "OK"
         client.create.assert_called_once_with("Sent")
         assert client.append.call_count == 3
@@ -82,12 +89,15 @@ class TestEnsureFolderAndAppend:
             imaplib.IMAP4.error("APPEND failed"),
             ok_resp,
         ]
-        client.list.return_value = ("OK", [
-            b'(\\HasNoChildren) "/" "INBOX"',
-            b'(\\HasNoChildren) "/" "Sent Items"',
-        ])
+        client.list.return_value = (
+            "OK",
+            [
+                b'(\\HasNoChildren) "/" "INBOX"',
+                b'(\\HasNoChildren) "/" "Sent Items"',
+            ],
+        )
 
-        status, data = ensure_folder_and_append(client, "Sent", b"msg")
+        status, _data = ensure_folder_and_append(client, "Sent", b"msg")
         assert status == "OK"
         assert client.append.call_args[0][0] == "Sent Items"
         client.create.assert_not_called()
@@ -165,25 +175,19 @@ class TestBuildFolderSections:
 
     def test_sent_items_in_system_section(self):
         conn = self._make_conn()
-        sections = build_folder_sections(
-            ["INBOX", "Sent Items", "Trash"], [], conn
-        )
+        sections = build_folder_sections(["INBOX", "Sent Items", "Trash"], [], conn)
         system = next(s for s in sections if s["title"] == "System")
         assert "Sent Items" in system["folders"]
 
     def test_spam_in_system_section(self):
         conn = self._make_conn()
-        sections = build_folder_sections(
-            ["INBOX", "Spam", "Trash"], [], conn
-        )
+        sections = build_folder_sections(["INBOX", "Spam", "Trash"], [], conn)
         system = next(s for s in sections if s["title"] == "System")
         assert "Spam" in system["folders"]
 
     def test_deleted_items_in_system_section(self):
         conn = self._make_conn()
-        sections = build_folder_sections(
-            ["INBOX", "Deleted Items", "Spam"], [], conn
-        )
+        sections = build_folder_sections(["INBOX", "Deleted Items", "Spam"], [], conn)
         system = next(s for s in sections if s["title"] == "System")
         assert "Deleted Items" in system["folders"]
 

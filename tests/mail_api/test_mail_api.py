@@ -4,7 +4,6 @@ from unittest.mock import patch
 import pytest
 
 
-
 class InMemoryDovecotManager:
     def __init__(self, **kwargs):
         self._users: dict[str, dict] = {}
@@ -69,9 +68,11 @@ def mail_api_app():
     flask_app.config["MAIL_API_KEY"] = "test-api-key"
     server_module.API_KEY = "test-api-key"
 
-    with patch.object(server_module, "dovecot", InMemoryDovecotManager()):
-        with patch.object(server_module, "postfix", InMemoryPostfixManager()):
-            yield flask_app
+    with (
+        patch.object(server_module, "dovecot", InMemoryDovecotManager()),
+        patch.object(server_module, "postfix", InMemoryPostfixManager()),
+    ):
+        yield flask_app
 
 
 @pytest.fixture()
@@ -109,7 +110,9 @@ def test_auth_invalid_key(mail_api_client):
 
 
 def test_add_domain(mail_api_client, auth_headers):
-    resp = mail_api_client.post("/api/domains", json={"domain": "example.com"}, headers=auth_headers)
+    resp = mail_api_client.post(
+        "/api/domains", json={"domain": "example.com"}, headers=auth_headers
+    )
     assert resp.status_code == 201
     data = resp.get_json()
     assert data["status"] == "ok"
@@ -188,15 +191,21 @@ def test_add_user_missing_password(mail_api_client, auth_headers):
 
 
 def test_add_user_invalid_email(mail_api_client, auth_headers):
-    resp = mail_api_client.post("/api/users", json={"email": "no-at-sign", "password": "x"}, headers=auth_headers)
+    resp = mail_api_client.post(
+        "/api/users", json={"email": "no-at-sign", "password": "x"}, headers=auth_headers
+    )
     assert resp.status_code == 400
     data = resp.get_json()
     assert "email must contain @" in data["error"]["message"]
 
 
 def test_add_user_duplicate(mail_api_client, auth_headers):
-    mail_api_client.post("/api/users", json={"email": "dup@test.com", "password": "x"}, headers=auth_headers)
-    resp = mail_api_client.post("/api/users", json={"email": "dup@test.com", "password": "y"}, headers=auth_headers)
+    mail_api_client.post(
+        "/api/users", json={"email": "dup@test.com", "password": "x"}, headers=auth_headers
+    )
+    resp = mail_api_client.post(
+        "/api/users", json={"email": "dup@test.com", "password": "y"}, headers=auth_headers
+    )
     assert resp.status_code == 409
     data = resp.get_json()
     assert data["error"]["code"] == "USER_EXISTS"
@@ -210,8 +219,12 @@ def test_list_users_empty(mail_api_client, auth_headers):
 
 
 def test_list_users_after_add(mail_api_client, auth_headers):
-    mail_api_client.post("/api/users", json={"email": "a@test.com", "password": "x"}, headers=auth_headers)
-    mail_api_client.post("/api/users", json={"email": "b@test.com", "password": "y"}, headers=auth_headers)
+    mail_api_client.post(
+        "/api/users", json={"email": "a@test.com", "password": "x"}, headers=auth_headers
+    )
+    mail_api_client.post(
+        "/api/users", json={"email": "b@test.com", "password": "y"}, headers=auth_headers
+    )
     resp = mail_api_client.get("/api/users", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.get_json()
@@ -221,8 +234,12 @@ def test_list_users_after_add(mail_api_client, auth_headers):
 
 
 def test_list_users_filter_by_domain(mail_api_client, auth_headers):
-    mail_api_client.post("/api/users", json={"email": "a@one.com", "password": "x"}, headers=auth_headers)
-    mail_api_client.post("/api/users", json={"email": "b@two.com", "password": "y"}, headers=auth_headers)
+    mail_api_client.post(
+        "/api/users", json={"email": "a@one.com", "password": "x"}, headers=auth_headers
+    )
+    mail_api_client.post(
+        "/api/users", json={"email": "b@two.com", "password": "y"}, headers=auth_headers
+    )
     resp = mail_api_client.get("/api/users?domain=one.com", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.get_json()
@@ -232,7 +249,9 @@ def test_list_users_filter_by_domain(mail_api_client, auth_headers):
 
 
 def test_remove_user(mail_api_client, auth_headers):
-    mail_api_client.post("/api/users", json={"email": "rm@test.com", "password": "x"}, headers=auth_headers)
+    mail_api_client.post(
+        "/api/users", json={"email": "rm@test.com", "password": "x"}, headers=auth_headers
+    )
     resp = mail_api_client.delete("/api/users/rm@test.com", headers=auth_headers)
     assert resp.status_code == 200
 
@@ -245,7 +264,9 @@ def test_remove_user_not_found(mail_api_client, auth_headers):
 
 
 def test_set_password(mail_api_client, auth_headers):
-    mail_api_client.post("/api/users", json={"email": "pw@test.com", "password": "old"}, headers=auth_headers)
+    mail_api_client.post(
+        "/api/users", json={"email": "pw@test.com", "password": "old"}, headers=auth_headers
+    )
     resp = mail_api_client.put(
         "/api/users/pw@test.com/password",
         json={"password": "new"},
@@ -255,7 +276,9 @@ def test_set_password(mail_api_client, auth_headers):
 
 
 def test_set_password_missing(mail_api_client, auth_headers):
-    mail_api_client.post("/api/users", json={"email": "pw2@test.com", "password": "old"}, headers=auth_headers)
+    mail_api_client.post(
+        "/api/users", json={"email": "pw2@test.com", "password": "old"}, headers=auth_headers
+    )
     resp = mail_api_client.put("/api/users/pw2@test.com/password", json={}, headers=auth_headers)
     assert resp.status_code == 400
 
@@ -270,7 +293,9 @@ def test_set_password_not_found(mail_api_client, auth_headers):
 
 
 def test_check_user_exists(mail_api_client, auth_headers):
-    mail_api_client.post("/api/users", json={"email": "chk@test.com", "password": "x"}, headers=auth_headers)
+    mail_api_client.post(
+        "/api/users", json={"email": "chk@test.com", "password": "x"}, headers=auth_headers
+    )
     resp = mail_api_client.get("/api/users/chk@test.com/check", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.get_json()

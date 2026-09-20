@@ -75,7 +75,10 @@ bp = create_api_blueprint("mail", "Mail operations")
 
 
 def _row_to_dict(row: Any) -> dict[str, Any]:
-    return {k: row[k] for k in row.keys()}  # Row iteration yields values, not keys; .keys() is required
+    return {
+        k: row[k]
+        for k in row.keys()  # noqa: SIM118 — sqlite3.Row iteration yields values, not keys
+    }
 
 
 def _get_cache_conn(account_id, dek):
@@ -134,7 +137,7 @@ def _parse_flags_list(raw_flags):
 
 def _merge_flag(flags_list, flag, add):
     if add:
-        return list(dict.fromkeys(flags_list + [flag]))
+        return list(dict.fromkeys([*flags_list, flag]))
     return [f for f in flags_list if f != flag]
 
 
@@ -668,7 +671,7 @@ def api_bulk_move(body: BulkMoveBody):
     items = data.get("items", [])[:100] if data else []
     if not items:
         return api_error("VALIDATION_ERROR", "No items provided", 400)
-    dest_folder = data.get("folder_id") or data.get("destination")
+    dest_folder = (data or {}).get("folder_id") or (data or {}).get("destination")
     if not dest_folder:
         return api_error("VALIDATION_ERROR", "'folder_id' or 'destination' is required", 400)
     conn = _get_cache_conn(account_id, dek)
@@ -1073,10 +1076,10 @@ def api_mail_create_draft(body: CreateDraftBody):
         import imaplib as _imaplib
 
         try:
-            status, resp_data = append_message(client, "Drafts", msg.as_bytes(), flags=["\\Draft"])
+            _status, resp_data = append_message(client, "Drafts", msg.as_bytes(), flags=["\\Draft"])
         except _imaplib.IMAP4.error:
             create_folder(client, "Drafts")
-            status, resp_data = append_message(client, "Drafts", msg.as_bytes(), flags=["\\Draft"])
+            _status, resp_data = append_message(client, "Drafts", msg.as_bytes(), flags=["\\Draft"])
         draft_uid = parse_append_uid(resp_data)
     finally:
         safe_logout(client)
@@ -1159,6 +1162,9 @@ def api_send_message(body: SendMessageBody):
         cc_list = [cc_list]
     if isinstance(bcc_list, str):
         bcc_list = [bcc_list]
+    to_list = list(to_list)
+    cc_list = list(cc_list)
+    bcc_list = list(bcc_list)
     subject = body.subject
     body_html = body.body_html
     body_plain = body.body_plain
@@ -1314,7 +1320,8 @@ def api_view_attachment(path: AttachmentPath):
             pandoc_reader = actions.get("pandoc_reader")
             if not pandoc_reader:
                 return api_error("UNSUPPORTED", "This file type cannot be converted to HTML", 400)
-            html_content = convert_to_html(payload, pandoc_reader)
+            # get_payload(decode=True) returns bytes for encoded attachments.
+            html_content = convert_to_html(bytes(payload), pandoc_reader)
             if not html_content:
                 return api_error("CONVERSION_ERROR", "Failed to convert attachment to HTML", 500)
             return api_response(

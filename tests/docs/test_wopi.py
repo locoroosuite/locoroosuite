@@ -1,20 +1,19 @@
+import contextlib
 import json
 import os
 
 
 def _safe_unlink(path):
-    try:
+    with contextlib.suppress(OSError):
         os.unlink(path)
-    except OSError:
-        pass
 
 
 def _setup_test_env(app, account_id):
     paths = {}
     with app.app_context():
+        from app.modules.docs.services.cache import get_cache_path
         from app.shared.db import db
         from app.shared.models.core import CustomerAccount
-        from app.modules.docs.services.cache import get_cache_path
 
         account = db.session.get(CustomerAccount, account_id)
         paths["cache"] = get_cache_path(account)
@@ -33,7 +32,7 @@ def _create_doc(client):
 
 
 def test_wopi_check_file_info_no_token(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         doc_id = _create_doc(client)
@@ -44,7 +43,7 @@ def test_wopi_check_file_info_no_token(authed_client, app):
 
 
 def test_wopi_check_file_info_invalid_token(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         doc_id = _create_doc(client)
@@ -112,7 +111,7 @@ def test_wopi_get_file(authed_client, app):
 
 
 def test_wopi_get_file_no_token(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         doc_id = _create_doc(client)
@@ -172,7 +171,7 @@ def test_wopi_put_file_readonly(authed_client, app):
 
 
 def test_wopi_put_file_no_token(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         doc_id = _create_doc(client)

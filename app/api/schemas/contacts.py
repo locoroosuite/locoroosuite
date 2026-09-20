@@ -35,7 +35,9 @@ class ContactPath(BaseModel):
 
 
 class ListContactsQuery(BaseModel):
-    account_id: int | None = Field(default=None, description="Mail account ID (defaults to primary account)")
+    account_id: int | None = Field(
+        default=None, description="Mail account ID (defaults to primary account)"
+    )
     max_results: int = Field(default=50, ge=1, le=200, description="Maximum results (1-200)")
     page: int = Field(default=1, ge=1, description="Page number (1-based)")
     q: str | None = Field(default=None, description="Search filter")
@@ -43,7 +45,9 @@ class ListContactsQuery(BaseModel):
 
 class SearchContactsQuery(BaseModel):
     q: str = Field(..., description="Search query (name, email, or phone)")
-    account_id: int | None = Field(default=None, description="Mail account ID (defaults to primary account)")
+    account_id: int | None = Field(
+        default=None, description="Mail account ID (defaults to primary account)"
+    )
     max_results: int = Field(default=50, ge=1, le=200, description="Maximum results (1-200)")
 
 

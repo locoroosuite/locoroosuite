@@ -1,10 +1,11 @@
 import os
 import time
 
-from flask import request, jsonify, Response
+from flask import Response, jsonify, request
 
 from app.modules.docs.controllers.helpers import docs_bp, logger
-from app.modules.docs.services import wopi_token, cache_db, storage, resync as resync_svc
+from app.modules.docs.services import cache_db, storage, wopi_token
+from app.modules.docs.services import resync as resync_svc
 
 
 def _extract_token():
@@ -53,6 +54,7 @@ def wopi_check_file_info(doc_id):
         return jsonify({"error": "unauthorized"}), 401
 
     from app.shared.models.core import CustomerAccount
+
     account = CustomerAccount.query.filter_by(
         id=account_id, customer_id=user_id, is_active=True
     ).first()
@@ -103,9 +105,12 @@ def wopi_check_file_info(doc_id):
 
 def _wopi_check_file_info_share(doc_id, payload):
     from app.shared.models.core import DocShare
+
     share_id = payload.get("share_id")
     share = DocShare.query.filter_by(
-        id=share_id, doc_id=doc_id, revoked_at=None,
+        id=share_id,
+        doc_id=doc_id,
+        revoked_at=None,
     ).first()
     if not share:
         return jsonify({"error": "share not found"}), 404
@@ -164,14 +169,18 @@ def wopi_get_file(doc_id):
 
 def _wopi_get_file_share(doc_id, payload):
     from app.shared.models.core import DocShare
+
     share_id = payload.get("share_id")
     share = DocShare.query.filter_by(
-        id=share_id, doc_id=doc_id, revoked_at=None,
+        id=share_id,
+        doc_id=doc_id,
+        revoked_at=None,
     ).first()
     if not share:
         return jsonify({"error": "share not found"}), 404
 
     from app.modules.docs.services.sharing import record_share_access
+
     record_share_access(share)
 
     owner_user_id = payload["owner_user_id"]
@@ -211,6 +220,7 @@ def wopi_put_file(doc_id):
     file_data = request.get_data()
 
     from app.shared.models.core import CustomerAccount
+
     account = CustomerAccount.query.filter_by(
         id=account_id, customer_id=user_id, is_active=True
     ).first()
@@ -222,9 +232,12 @@ def wopi_put_file(doc_id):
                 doc = cache_db.get_document(conn, doc_id)
                 if doc:
                     from app.modules.docs.services import doc_meta
+
                     metadata = resync_svc.build_doc_metadata(
-                        doc_id=doc["id"], name=doc["name"],
-                        doc_type=doc["doc_type"], account_id=doc["account_id"],
+                        doc_id=doc["id"],
+                        name=doc["name"],
+                        doc_type=doc["doc_type"],
+                        account_id=doc["account_id"],
                         deleted_at=doc.get("deleted_at"),
                         created_at=doc.get("created_at"),
                         updated_at=doc.get("updated_at"),
@@ -232,7 +245,9 @@ def wopi_put_file(doc_id):
                     try:
                         file_data = doc_meta.inject_metadata(file_data, metadata)
                     except Exception:
-                        logger.warning("Failed to re-inject metadata on PutFile for doc_id=%s", doc_id)
+                        logger.warning(
+                            "Failed to re-inject metadata on PutFile for doc_id=%s", doc_id
+                        )
 
                 written_size = storage.write_file(user_id, account_id, doc_id, file_data)
                 cache_db.update_file_size(conn, doc_id, written_size)
@@ -246,9 +261,12 @@ def wopi_put_file(doc_id):
 
 def _wopi_put_file_share(doc_id, payload):
     from app.shared.models.core import DocShare
+
     share_id = payload.get("share_id")
     share = DocShare.query.filter_by(
-        id=share_id, doc_id=doc_id, revoked_at=None,
+        id=share_id,
+        doc_id=doc_id,
+        revoked_at=None,
     ).first()
     if not share:
         return jsonify({"error": "share not found"}), 404
@@ -263,6 +281,7 @@ def _wopi_put_file_share(doc_id, payload):
     written_size = storage.write_file(owner_user_id, owner_account_id, doc_id, file_data)
 
     from app.modules.docs.services.sharing import update_shares_on_save
+
     update_shares_on_save(doc_id, written_size)
 
     return jsonify({"status": "ok"})
@@ -270,11 +289,13 @@ def _wopi_put_file_share(doc_id, payload):
 
 def _get_key_for_user(user_id):
     from app.shared.keys import get_user_key
+
     return get_user_key(user_id)
 
 
 def _open_cache(account, key_hex):
     from app.modules.docs.services.cache import get_cache_path
     from app.modules.docs.services.cache_db import open_cache
+
     path = get_cache_path(account)
     return open_cache(path, key_hex)

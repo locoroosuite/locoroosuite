@@ -9,7 +9,5 @@ def is_valid_email(email: str) -> bool:
     cleaned = email.strip()
     if not _EMAIL_RE.match(cleaned):
         return False
-    local, domain = cleaned.rsplit("@", 1)
-    if ".." in domain:
-        return False
-    return True
+    _local, domain = cleaned.rsplit("@", 1)
+    return ".." not in domain

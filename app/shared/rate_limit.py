@@ -1,8 +1,7 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.shared.db import db
 from app.shared.models.core import LoginAttempt
-
 
 FAIL_WINDOW = timedelta(minutes=10)
 BACKOFF_STEPS = [timedelta(minutes=1), timedelta(minutes=5), timedelta(minutes=15)]
@@ -12,7 +11,7 @@ LOCK_DURATION = timedelta(minutes=30)
 
 def _aware(dt):
     if dt is not None and dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
     return dt
 
 
@@ -20,7 +19,7 @@ def is_locked(username, ip_address):
     attempt = LoginAttempt.query.filter_by(username=username, ip_address=ip_address).first()
     if not attempt or not attempt.locked_until:
         return False
-    if _aware(attempt.locked_until) < datetime.now(timezone.utc):
+    if _aware(attempt.locked_until) < datetime.now(UTC):
         attempt.locked_until = None
         db.session.commit()
         return False
@@ -28,10 +27,12 @@ def is_locked(username, ip_address):
 
 
 def record_failed_login(username, ip_address):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     attempt = LoginAttempt.query.filter_by(username=username, ip_address=ip_address).first()
     if not attempt:
-        attempt = LoginAttempt(username=username, ip_address=ip_address, failed_count=1, first_failed_at=now)
+        attempt = LoginAttempt(
+            username=username, ip_address=ip_address, failed_count=1, first_failed_at=now
+        )
         db.session.add(attempt)
         db.session.commit()
         return

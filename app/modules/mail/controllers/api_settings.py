@@ -1,16 +1,17 @@
-from flask import session, request, redirect, url_for, render_template, flash
-
-from app.shared.db import db
-from app.shared.models.core import CustomerAccount, ApiToken
-from app.shared.keys import get_user_key
-from app.shared.auth import require_customer
-from app.shared.audit import log_audit
-from app.modules.mail.services.secrets import decrypt_with_key
-from app.modules.mail.controllers.helpers import mail_bp
+from flask import flash, redirect, render_template, request, session, url_for
 
 from app.api.token_service import (
-    create_api_token, revoke_api_token, ensure_api_enabled,
+    create_api_token,
+    ensure_api_enabled,
+    revoke_api_token,
 )
+from app.modules.mail.controllers.helpers import mail_bp
+from app.modules.mail.services.secrets import decrypt_with_key
+from app.shared.audit import log_audit
+from app.shared.auth import require_customer
+from app.shared.db import db
+from app.shared.keys import get_user_key
+from app.shared.models.core import ApiToken, CustomerAccount
 
 
 @mail_bp.route("/mail/settings/api", methods=["GET"])
@@ -22,7 +23,9 @@ def api_settings():
     tokens = []
     if api_enabled:
         tokens = ApiToken.query.filter_by(customer_id=user_id).all()
-    return render_template("api_settings.html", api_enabled=api_enabled, tokens=tokens, accounts=accounts)
+    return render_template(
+        "api_settings.html", api_enabled=api_enabled, tokens=tokens, accounts=accounts
+    )
 
 
 @mail_bp.route("/mail/settings/api/enable", methods=["POST"])
@@ -47,8 +50,14 @@ def api_settings_enable():
 
     ensure_api_enabled(user_id, credential_key)
 
-    log_audit(user_id, "customer", "api_access_enable", "", request.remote_addr,
-              request.headers.get("User-Agent", ""))
+    log_audit(
+        user_id,
+        "customer",
+        "api_access_enable",
+        "",
+        request.remote_addr,
+        request.headers.get("User-Agent", ""),
+    )
     flash("API access enabled. Create a token to get started.")
     return redirect(url_for("mail.api_settings"))
 
@@ -69,6 +78,7 @@ def api_settings_disable():
     for acc in CustomerAccount.query.filter_by(customer_id=user_id, is_active=True).all():
         if acc.cache_db_path:
             from app.modules.mail.services.cache import purge_cache
+
             purge_cache(acc.cache_db_path)
             acc.cache_db_path = None
         acc.api_enabled = False
@@ -77,8 +87,14 @@ def api_settings_disable():
     db.session.commit()
     session.clear()
 
-    log_audit(user_id, "customer", "api_access_disable", "", request.remote_addr,
-              request.headers.get("User-Agent", ""))
+    log_audit(
+        user_id,
+        "customer",
+        "api_access_disable",
+        "",
+        request.remote_addr,
+        request.headers.get("User-Agent", ""),
+    )
     return redirect(url_for("mail.login"))
 
 
@@ -110,18 +126,30 @@ def api_settings_create_token():
         flash("Session key not found. Please log in again.")
         return redirect(url_for("mail.api_settings"))
 
-    account = CustomerAccount.query.filter_by(customer_id=user_id, api_enabled=True, is_active=True).first()
+    account = CustomerAccount.query.filter_by(
+        customer_id=user_id, api_enabled=True, is_active=True
+    ).first()
     if not account:
         flash("API access is not enabled.")
         return redirect(url_for("mail.api_settings"))
 
-    token_value, token_obj = create_api_token(user_id, credential_key, name, scopes)
-    log_audit(user_id, "customer", "api_token_create", f"name={name}", request.remote_addr,
-              request.headers.get("User-Agent", ""))
-    return render_template("api_settings.html", api_enabled=True,
-                           tokens=ApiToken.query.filter_by(customer_id=user_id).all(),
-                           accounts=CustomerAccount.query.filter_by(customer_id=user_id, is_active=True).all(),
-                           new_token=token_value, new_token_name=name)
+    token_value, _token_obj = create_api_token(user_id, credential_key, name, scopes)
+    log_audit(
+        user_id,
+        "customer",
+        "api_token_create",
+        f"name={name}",
+        request.remote_addr,
+        request.headers.get("User-Agent", ""),
+    )
+    return render_template(
+        "api_settings.html",
+        api_enabled=True,
+        tokens=ApiToken.query.filter_by(customer_id=user_id).all(),
+        accounts=CustomerAccount.query.filter_by(customer_id=user_id, is_active=True).all(),
+        new_token=token_value,
+        new_token_name=name,
+    )
 
 
 @mail_bp.route("/mail/settings/api/tokens/<int:token_id>/revoke", methods=["POST"])
@@ -130,6 +158,12 @@ def api_settings_revoke_token(token_id):
     user_id = session.get("user_id")
     ok = revoke_api_token(token_id, user_id)
     if ok:
-        log_audit(user_id, "customer", "api_token_revoke", f"token_id={token_id}",
-                  request.remote_addr, request.headers.get("User-Agent", ""))
+        log_audit(
+            user_id,
+            "customer",
+            "api_token_revoke",
+            f"token_id={token_id}",
+            request.remote_addr,
+            request.headers.get("User-Agent", ""),
+        )
     return redirect(url_for("mail.api_settings"))

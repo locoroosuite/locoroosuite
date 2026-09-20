@@ -1,3 +1,5 @@
+import contextlib
+
 import pytest
 
 from app.modules.docs.services import folders as f
@@ -94,6 +96,7 @@ class TestEnsureFolderPath:
         conn = cache_conn_factory()
         f.ensure_folder_path(conn, 1, "A/B/C")
         from app.modules.docs.services import cache_db
+
         assert cache_db.folder_exists(conn, 1, "A")
         assert cache_db.folder_exists(conn, 1, "A/B")
         assert cache_db.folder_exists(conn, 1, "A/B/C")
@@ -103,6 +106,7 @@ class TestEnsureFolderPath:
         f.ensure_folder_path(conn, 1, "A/B")
         f.ensure_folder_path(conn, 1, "A/B")  # no error
         from app.modules.docs.services import cache_db
+
         rows = [r["path"] for r in cache_db.list_folders(conn, 1)]
         assert rows.count("A/B") == 1
 
@@ -111,21 +115,19 @@ class TestEnsureFolderPath:
 def cache_conn_factory():
     import os
     import tempfile
+
     from app.modules.docs.services.cache_db import open_cache
 
     paths = []
 
     def _make():
-        fh = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-        path = fh.name
-        fh.close()
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as fh:
+            path = fh.name
         paths.append(path)
         return open_cache(path, "0" * 64)
 
     yield _make
 
     for p in paths:
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(p)
-        except OSError:
-            pass

@@ -1,8 +1,7 @@
-from unittest.mock import patch, MagicMock
-
+from unittest.mock import MagicMock, patch
 
 from app.shared.db import db
-from app.shared.models.core import User, Domain, CustomerAccount
+from app.shared.models.core import CustomerAccount, Domain, User
 
 
 @patch("app.admin.controllers.admin.log_audit")
@@ -27,9 +26,16 @@ def test_admin_create_domain_calls_mail_api(mock_discover, mock_audit, admin_cli
 @patch("app.admin.controllers.admin.log_audit")
 @patch(
     "app.admin.controllers.admin.discover_domain_settings",
-    return_value={"imap_primary": None, "smtp_primary": None, "imap_candidates": [], "smtp_candidates": []},
+    return_value={
+        "imap_primary": None,
+        "smtp_primary": None,
+        "imap_candidates": [],
+        "smtp_candidates": [],
+    },
 )
-def test_admin_create_domain_mail_api_failure_graceful(mock_discover, mock_audit, admin_client, app):
+def test_admin_create_domain_mail_api_failure_graceful(
+    mock_discover, mock_audit, admin_client, app
+):
     client, _ = admin_client
     mock_mail = MagicMock()
     mock_mail.add_domain.side_effect = Exception("connection refused")
@@ -244,6 +250,11 @@ def test_admin_no_mail_api_configured(mock_audit, admin_client, app):
     with patch("app.admin.services.mail_server.get_mail_client", return_value=None):
         resp = client.post(
             "/admin/customers/new",
-            data={"username": "nomapi", "domain_id": str(domain_id), "password": "pass", "create_mode": "password"},
+            data={
+                "username": "nomapi",
+                "domain_id": str(domain_id),
+                "password": "pass",
+                "create_mode": "password",
+            },
         )
     assert resp.status_code == 302

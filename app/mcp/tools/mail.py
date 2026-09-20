@@ -31,7 +31,10 @@ class _ServiceConnectionError(Exception):
 
 
 def _row_to_dict(row) -> dict[str, Any]:
-    return {k: row[k] for k in row.keys()}  # Row iteration yields values, not keys; .keys() is required
+    return {
+        k: row[k]
+        for k in row.keys()  # noqa: SIM118 — sqlite3.Row iteration yields values, not keys
+    }
 
 
 def _parse_flags(raw):
@@ -188,7 +191,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         max_results: Annotated[
             int | None,
             Field(
-                description="Maximum number of messages to return (1–200, default 50)", ge=1, le=200
+                description="Maximum number of messages to return (1-200, default 50)", ge=1, le=200
             ),
         ] = None,
         unread: Annotated[bool | None, Field(description="Filter to unread messages only")] = None,
@@ -304,7 +307,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         max_results: Annotated[
             int | None,
             Field(
-                description="Maximum number of results to return (1–200, default 50)", ge=1, le=200
+                description="Maximum number of results to return (1-200, default 50)", ge=1, le=200
             ),
         ] = None,
         account_id: _AccId = None,
@@ -585,7 +588,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         ],
         account_id: _AccId = None,
     ) -> str:
-        ctx, aid, dek = resolve_read(flask_app, "mail", account_id)
+        _ctx, aid, dek = resolve_read(flask_app, "mail", account_id)
         with flask_app.app_context():
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
@@ -641,7 +644,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         ],
         account_id: _AccId = None,
     ) -> str:
-        ctx, aid, dek = resolve_read(flask_app, "mail", account_id)
+        _ctx, aid, dek = resolve_read(flask_app, "mail", account_id)
         with flask_app.app_context():
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
@@ -1142,7 +1145,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         ],
         account_id: _AccId = None,
     ) -> str:
-        ctx, aid, dek = resolve_read(flask_app, "mail", account_id)
+        _ctx, aid, dek = resolve_read(flask_app, "mail", account_id)
         with flask_app.app_context():
             conn = _get_cache_conn(aid, dek, flask_app)
             try:

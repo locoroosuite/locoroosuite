@@ -6,6 +6,7 @@ cache table (the latter only so empty folders persist within a session). Path
 strings are slash-separated, relative to the account root, with no leading
 slash. The root folder is the empty string ``""``.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -85,6 +86,7 @@ def ensure_folder_path(conn, account_id, path: str) -> None:
         return
     assert_depth(path)
     from app.modules.docs.services import cache_db
+
     parts = path.split(SEP)
     cumulative = ""
     for part in parts:
@@ -136,6 +138,7 @@ def build_tree(folder_rows: list[dict], doc_folder_paths: list[str]) -> list[dic
 def list_tree(conn, account_id) -> list[dict]:
     """Convenience: read folders + doc paths and return the full tree."""
     from app.modules.docs.services import cache_db
+
     folder_rows = cache_db.list_folders(conn, account_id)
     doc_paths = cache_db.distinct_doc_folder_paths(conn, account_id)
     return build_tree(folder_rows, doc_paths)
@@ -149,19 +152,22 @@ def list_flat(conn, account_id) -> list[dict]:
     nested :func:`list_tree`.
     """
     from app.modules.docs.services import cache_db
+
     folder_rows = cache_db.list_folders(conn, account_id)
     doc_paths = cache_db.distinct_doc_folder_paths(conn, account_id)
     counts: dict[str, int] = {}
     for p in doc_paths:
         counts[p] = counts.get(p, 0) + 1
-    all_paths = set(r["path"] for r in folder_rows) | set(counts.keys())
+    all_paths = {r["path"] for r in folder_rows} | set(counts.keys())
     result = []
     for p in sorted(all_paths, key=lambda x: (x.count(SEP), x.lower())):
         parts = p.split(SEP)
-        result.append({
-            "path": p,
-            "name": parts[-1],
-            "parent": SEP.join(parts[:-1]),
-            "count": counts.get(p, 0),
-        })
+        result.append(
+            {
+                "path": p,
+                "name": parts[-1],
+                "parent": SEP.join(parts[:-1]),
+                "count": counts.get(p, 0),
+            }
+        )
     return result

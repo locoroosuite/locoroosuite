@@ -4,8 +4,8 @@ import click
 from flask import Flask
 from flask.cli import AppGroup
 
-from app.shared.models.core import User
 from app.shared import totp as totp_mod
+from app.shared.models.core import User
 
 twofa_cli = AppGroup("twofa", help="Two-factor authentication management.")
 

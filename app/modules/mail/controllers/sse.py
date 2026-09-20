@@ -1,12 +1,11 @@
 import json
 import logging
+
 from flask import Response, session, stream_with_context
 
+from app.modules.mail.controllers.helpers import mail_sse_bp
 from app.shared.auth import require_customer
 from app.shared.events import stream_events
-
-from app.modules.mail.controllers.helpers import mail_sse_bp
-
 
 logger = logging.getLogger(__name__)
 

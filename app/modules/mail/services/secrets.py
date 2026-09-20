@@ -1,4 +1,5 @@
 import base64
+
 from cryptography.fernet import Fernet
 
 from app.modules.mail.services.crypto import derive_key

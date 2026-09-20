@@ -12,7 +12,27 @@ _TABLE = "urn:oasis:names:tc:opendocument:xmlns:table:1.0"
 _MANIFEST = "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"
 
 _VOID = frozenset(["br", "hr", "img", "input", "meta", "link"])
-_BLOCK = frozenset(["p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "blockquote", "pre", "table", "thead", "tbody", "tr", "div"])
+_BLOCK = frozenset(
+    [
+        "p",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "ul",
+        "ol",
+        "li",
+        "blockquote",
+        "pre",
+        "table",
+        "thead",
+        "tbody",
+        "tr",
+        "div",
+    ]
+)
 
 _HEADING = {"h1": "Heading_20_1", "h2": "Heading_20_2", "h3": "Heading_20_3", "h4": "Heading_20_4"}
 
@@ -46,6 +66,7 @@ def convert(markdown_text):
 
 def _to_html(text):
     import markdown
+
     return markdown.Markdown(extensions=["extra"]).convert(text)
 
 
@@ -56,7 +77,7 @@ def _esc(text):
 
 
 class _Node:
-    __slots__ = ("tag", "attrs", "children", "text", "tail")
+    __slots__ = ("attrs", "children", "tag", "tail", "text")
 
     def __init__(self, tag, attrs=None):
         self.tag = tag
@@ -121,7 +142,7 @@ def _render(node, ctx):
     if tag in ("ul", "ol"):
         ls = "List_Bullet" if tag == "ul" else "List_Number"
         items = "".join(_render(c, ctx) for c in node.children)
-        return f"<text:list text:style-name=\"{ls}\">{items}</text:list>"
+        return f'<text:list text:style-name="{ls}">{items}</text:list>'
 
     if tag == "li":
         return _render_li(node, ctx)
@@ -188,7 +209,7 @@ def _render_li(node, ctx):
     if not parts:
         parts.append('<text:p text:style-name="ListParagraph"/>')
 
-    return f'<text:list-item>{"".join(parts)}</text:list-item>'
+    return f"<text:list-item>{''.join(parts)}</text:list-item>"
 
 
 def _inline(node):
@@ -373,7 +394,9 @@ def _manifest_xml():
 def _build_zip(body_xml):
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("mimetype", "application/vnd.oasis.opendocument.text", compress_type=zipfile.ZIP_STORED)
+        zf.writestr(
+            "mimetype", "application/vnd.oasis.opendocument.text", compress_type=zipfile.ZIP_STORED
+        )
         zf.writestr("content.xml", _content_xml(body_xml))
         zf.writestr("styles.xml", _styles_xml())
         zf.writestr("META-INF/manifest.xml", _manifest_xml())

@@ -1,21 +1,20 @@
+import contextlib
 import io
 import json
 import os
 
 
 def _safe_unlink(path):
-    try:
+    with contextlib.suppress(OSError):
         os.unlink(path)
-    except OSError:
-        pass
 
 
 def _setup_test_env(app, account_id):
     paths = {}
     with app.app_context():
+        from app.modules.docs.services.cache import get_cache_path
         from app.shared.db import db
         from app.shared.models.core import CustomerAccount
-        from app.modules.docs.services.cache import get_cache_path
 
         account = db.session.get(CustomerAccount, account_id)
         paths["cache"] = get_cache_path(account)
@@ -37,11 +36,11 @@ def _upload(client, raw, filename):
 
 
 def test_api_list_returns_documents(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         doc_id = _upload(client, b"%PDF-1.4 fake", "contract.pdf")
-        resp = client.get("/app/docs/api/list?account_id=%s" % account_id)
+        resp = client.get(f"/app/docs/api/list?account_id={account_id}")
         assert resp.status_code == 200
         body = resp.get_json()
         assert body["account_id"] == account_id
@@ -58,30 +57,30 @@ def test_api_list_returns_documents(authed_client, app):
 
 
 def test_api_list_search_filter(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         _upload(client, b"%PDF-1.4 fake", "contract.pdf")
         _upload(client, b"PK fake xlsx", "budget.xlsx")
 
-        resp = client.get("/app/docs/api/list?account_id=%s&q=contract" % account_id)
+        resp = client.get(f"/app/docs/api/list?account_id={account_id}&q=contract")
         docs = resp.get_json()["documents"]
         assert len(docs) == 1
         assert docs[0]["name"] == "contract"
 
-        resp = client.get("/app/docs/api/list?account_id=%s&q=nomatch" % account_id)
+        resp = client.get(f"/app/docs/api/list?account_id={account_id}&q=nomatch")
         assert resp.get_json()["documents"] == []
     finally:
         _safe_unlink(paths["cache"])
 
 
 def test_download_with_account_id_param(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         raw = b"%PDF-1.4 specific content"
         doc_id = _upload(client, raw, "contract.pdf")
-        resp = client.get("/app/docs/%s/download?account_id=%s" % (doc_id, account_id))
+        resp = client.get(f"/app/docs/{doc_id}/download?account_id={account_id}")
         assert resp.status_code == 200
         assert resp.data == raw
         cd = resp.headers.get("Content-Disposition", "")
@@ -91,13 +90,13 @@ def test_download_with_account_id_param(authed_client, app):
 
 
 def test_download_falls_back_to_session_account(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         raw = b"%PDF-1.4 fallback"
         doc_id = _upload(client, raw, "note.pdf")
         # No account_id query param: must use the session active_account_id.
-        resp = client.get("/app/docs/%s/download" % doc_id)
+        resp = client.get(f"/app/docs/{doc_id}/download")
         assert resp.status_code == 200
         assert resp.data == raw
     finally:
@@ -105,18 +104,18 @@ def test_download_falls_back_to_session_account(authed_client, app):
 
 
 def test_download_wrong_account_owner_404(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         doc_id = _upload(client, b"%PDF-1.4", "contract.pdf")
-        resp = client.get("/app/docs/%s/download?account_id=999999" % doc_id)
+        resp = client.get(f"/app/docs/{doc_id}/download?account_id=999999")
         assert resp.status_code == 404
     finally:
         _safe_unlink(paths["cache"])
 
 
 def test_api_list_uses_session_when_no_param(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         _upload(client, b"%PDF-1.4 fake", "contract.pdf")

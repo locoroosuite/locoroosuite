@@ -1,9 +1,10 @@
+import contextlib
 import logging
+from datetime import UTC, datetime
+from email import encoders as email_encoders
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders as email_encoders
-from datetime import datetime, timezone as dt_timezone
 
 from app.shared.icalendar import generate_icalendar
 
@@ -22,10 +23,11 @@ def _format_imip_datetime(dt_str, event_tz=None):
         if event_tz:
             try:
                 from zoneinfo import ZoneInfo
+
                 dt = dt.replace(tzinfo=ZoneInfo(event_tz))
                 tz_label = event_tz
             except Exception:
-                dt = dt.replace(tzinfo=dt_timezone.utc)
+                dt = dt.replace(tzinfo=UTC)
                 tz_label = "UTC"
         else:
             tz_label = "UTC"
@@ -48,23 +50,24 @@ def _format_imip_when(dtstart_str, dtend_str, event_tz=None):
         if start_date == end_date:
             start_time = start_fmt.split(" at ")[1]
             end_time = end_fmt.split(" at ")[1]
-            return f"{start_date} {start_time} – {end_time}{tz_label}"
-        return f"{start_fmt} – {end_fmt}{tz_label}"
+            return f"{start_date} {start_time} \u2013 {end_time}{tz_label}"
+        return f"{start_fmt} \u2013 {end_fmt}{tz_label}"
     return f"{start_fmt}{tz_label}"
 
 
 def build_imip_email(from_addr, organizer_name, attendees, event_data, method, uid=None):
     if method == "CANCEL":
         subject = f"Cancelled: {event_data.get('summary', 'Event')}"
-        body_text = (
-            f"This event has been cancelled.\n\n"
-            f"Title: {event_data.get('summary', '')}\n"
-        )
+        body_text = f"This event has been cancelled.\n\nTitle: {event_data.get('summary', '')}\n"
     elif method == "REPLY":
         subject = f"Re: {event_data.get('summary', 'Event')}"
         reply_attendee = event_data.get("reply_attendee", {})
         partstat = event_data.get("reply_partstat", "ACCEPTED")
-        status_label = {"ACCEPTED": "accepted", "TENTATIVE": "tentatively accepted", "DECLINED": "declined"}.get(partstat, "responded to")
+        status_label = {
+            "ACCEPTED": "accepted",
+            "TENTATIVE": "tentatively accepted",
+            "DECLINED": "declined",
+        }.get(partstat, "responded to")
         attendee_name = reply_attendee.get("cn", reply_attendee.get("email", "Someone"))
         body_text = f"{attendee_name} has {status_label} the invitation.\n\nTitle: {event_data.get('summary', '')}\n"
     else:
@@ -73,7 +76,9 @@ def build_imip_email(from_addr, organizer_name, attendees, event_data, method, u
         dtend = event_data.get("dtend", "")
         event_tz = event_data.get("timezone")
         location = event_data.get("location", "")
-        body_text = f"You have been invited to an event.\n\nTitle: {event_data.get('summary', '')}\n"
+        body_text = (
+            f"You have been invited to an event.\n\nTitle: {event_data.get('summary', '')}\n"
+        )
         when_display = _format_imip_when(dtstart, dtend, event_tz)
         if when_display:
             body_text += f"When: {when_display}\n"
@@ -117,8 +122,8 @@ def build_imip_email(from_addr, organizer_name, attendees, event_data, method, u
 
 
 def send_imip_email(domain, account, event_data, method, attendees, uid=None):
-    from app.modules.mail.services.smtp_client import smtp_connect, smtp_login, smtp_send
     from app.modules.mail.services.secrets import decrypt_with_key
+    from app.modules.mail.services.smtp_client import smtp_connect, smtp_login, smtp_send
     from app.shared.keys import get_user_key
 
     key = get_user_key(account.customer_id)
@@ -131,8 +136,13 @@ def send_imip_email(domain, account, event_data, method, attendees, uid=None):
     from_addr = account.email_address
     organizer_name = account.email_address
 
-    msg_bytes, subject = build_imip_email(
-        from_addr, organizer_name, attendees, event_data, method, uid=uid,
+    msg_bytes, _subject = build_imip_email(
+        from_addr,
+        organizer_name,
+        attendees,
+        event_data,
+        method,
+        uid=uid,
     )
 
     if method == "REPLY":
@@ -152,15 +162,15 @@ def send_imip_email(domain, account, event_data, method, attendees, uid=None):
         smtp_send(server, from_addr, recipients, msg_bytes)
     finally:
         if server:
-            try:
+            with contextlib.suppress(Exception):
                 server.quit()
-            except Exception:
-                pass
 
     logger.info("imip sent method=%s uid=%s recipients=%s", method, uid, recipients)
 
 
-def build_reply_imip_email(from_addr, attendee_data, organizer_data, event_data, partstat, uid=None):
+def build_reply_imip_email(
+    from_addr, attendee_data, organizer_data, event_data, partstat, uid=None
+):
     reply_event_data = dict(event_data)
     reply_event_data["reply_attendee"] = attendee_data
     reply_event_data["reply_partstat"] = partstat
@@ -171,13 +181,18 @@ def build_reply_imip_email(from_addr, attendee_data, organizer_data, event_data,
     reply_event_data["attendees"] = [attendee_data_reply]
 
     return build_imip_email(
-        from_addr, from_addr, [], reply_event_data, "REPLY", uid=uid,
+        from_addr,
+        from_addr,
+        [],
+        reply_event_data,
+        "REPLY",
+        uid=uid,
     )
 
 
 def send_reply_imip(domain, account, attendee_data, organizer_data, event_data, partstat, uid=None):
-    from app.modules.mail.services.smtp_client import smtp_connect, smtp_login, smtp_send
     from app.modules.mail.services.secrets import decrypt_with_key
+    from app.modules.mail.services.smtp_client import smtp_connect, smtp_login, smtp_send
     from app.shared.keys import get_user_key
 
     key = get_user_key(account.customer_id)
@@ -188,8 +203,13 @@ def send_reply_imip(domain, account, attendee_data, organizer_data, event_data, 
         raise RuntimeError("Credentials unavailable.")
 
     from_addr = account.email_address
-    msg_bytes, subject = build_reply_imip_email(
-        from_addr, attendee_data, organizer_data, event_data, partstat, uid=uid,
+    msg_bytes, _subject = build_reply_imip_email(
+        from_addr,
+        attendee_data,
+        organizer_data,
+        event_data,
+        partstat,
+        uid=uid,
     )
 
     recipients = [organizer_data.get("email", "")]
@@ -205,9 +225,7 @@ def send_reply_imip(domain, account, attendee_data, organizer_data, event_data, 
         smtp_send(server, from_addr, recipients, msg_bytes)
     finally:
         if server:
-            try:
+            with contextlib.suppress(Exception):
                 server.quit()
-            except Exception:
-                pass
 
     logger.info("imip reply sent partstat=%s uid=%s organizer=%s", partstat, uid, recipients)

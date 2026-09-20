@@ -1,10 +1,9 @@
 import json
-from unittest.mock import patch, MagicMock
-
+from unittest.mock import MagicMock, patch
 
 
 def test_mailbox_redirects_to_inbox(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, _account_id = authed_client
     resp = client.get("/app/mail/")
     assert resp.status_code == 302
     assert "INBOX" in resp.headers["Location"]
@@ -20,7 +19,7 @@ _empty_pagination = {
 
 
 def test_folder_view(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     mock_settings = MagicMock()
     mock_settings.timezone = "UTC"
     app.sync_manager.set_active_account.return_value = None
@@ -28,11 +27,22 @@ def test_folder_view(authed_client, app):
     app.sync_manager.enqueue_sync.return_value = False
     with (
         patch("app.modules.mail.controllers.mailbox.open_cache", return_value=MagicMock()),
-        patch("app.modules.mail.controllers.mailbox._build_threads", return_value=({}, _empty_pagination)),
-        patch("app.modules.mail.controllers.mailbox._get_or_create_settings", return_value=mock_settings),
-        patch("app.modules.mail.controllers.mailbox._folder_sidebar_context", return_value=([], [], {}, [], 0, None)),
+        patch(
+            "app.modules.mail.controllers.mailbox._build_threads",
+            return_value=({}, _empty_pagination),
+        ),
+        patch(
+            "app.modules.mail.controllers.mailbox._get_or_create_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            "app.modules.mail.controllers.mailbox._folder_sidebar_context",
+            return_value=([], [], {}, [], 0, None),
+        ),
         patch("app.modules.mail.controllers.mailbox._snippet_debug_enabled", return_value=False),
-        patch("app.modules.mail.controllers.mailbox._consume_send_failure_notice", return_value=None),
+        patch(
+            "app.modules.mail.controllers.mailbox._consume_send_failure_notice", return_value=None
+        ),
         patch("app.modules.mail.controllers.mailbox._current_undo_action", return_value=None),
         patch("app.modules.mail.controllers.mailbox._spam_action_enabled", return_value=False),
         patch("app.modules.mail.services.cache_db.has_completed_sync", return_value=True),
@@ -42,11 +52,16 @@ def test_folder_view(authed_client, app):
 
 
 def test_folder_messages_json(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     with (
         patch("app.modules.mail.controllers.mailbox.open_cache", return_value=MagicMock()),
-        patch("app.modules.mail.controllers.mailbox._build_threads", return_value=({}, _empty_pagination)),
-        patch("app.modules.mail.controllers.mailbox._get_or_create_settings", return_value=MagicMock()),
+        patch(
+            "app.modules.mail.controllers.mailbox._build_threads",
+            return_value=({}, _empty_pagination),
+        ),
+        patch(
+            "app.modules.mail.controllers.mailbox._get_or_create_settings", return_value=MagicMock()
+        ),
         patch("app.modules.mail.controllers.mailbox._snippet_debug_enabled", return_value=False),
         patch("app.modules.mail.controllers.mailbox._spam_action_enabled", return_value=False),
     ):
@@ -62,11 +77,14 @@ def test_folder_messages_json(authed_client):
 
 
 def test_mark_all_read(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     mock_client = MagicMock()
     with (
         patch("app.modules.mail.controllers.mailbox.decrypt_with_key", return_value="secret"),
-        patch("app.modules.mail.controllers.mailbox._imap_for_account", return_value=(mock_client, MagicMock())),
+        patch(
+            "app.modules.mail.controllers.mailbox._imap_for_account",
+            return_value=(mock_client, MagicMock()),
+        ),
         patch("app.modules.mail.controllers.mailbox.select_folder"),
     ):
         resp = client.post(f"/app/mail/folder/{account_id}/INBOX/mark-all-read")
@@ -76,11 +94,14 @@ def test_mark_all_read(authed_client):
 
 
 def test_create_folder(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     mock_client = MagicMock()
     with (
         patch("app.modules.mail.controllers.mailbox.decrypt_with_key", return_value="secret"),
-        patch("app.modules.mail.controllers.mailbox._imap_for_account", return_value=(mock_client, MagicMock())),
+        patch(
+            "app.modules.mail.controllers.mailbox._imap_for_account",
+            return_value=(mock_client, MagicMock()),
+        ),
         patch("app.modules.mail.controllers.mailbox.create_folder"),
     ):
         resp = client.post(f"/app/mail/folder/{account_id}/create", data={"name": "Archive"})
@@ -89,7 +110,7 @@ def test_create_folder(authed_client):
 
 
 def test_toggle_pin_folder(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     resp = client.post(f"/app/mail/folder/{account_id}/INBOX/pin")
     assert resp.status_code == 302
 
@@ -97,7 +118,7 @@ def test_toggle_pin_folder(authed_client):
 def test_delete_system_folder_refused_as_json(authed_client):
     # System folders are always protected; the XHR path must return a structured
     # 409 instead of a full-page redirect so the sidebar indicator is not stranded.
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     resp = client.post(
         f"/app/mail/folder/{account_id}/INBOX/delete",
         headers={"X-Requested-With": "XMLHttpRequest"},
@@ -109,16 +130,18 @@ def test_delete_system_folder_refused_as_json(authed_client):
 
 
 def test_delete_system_folder_redirects_when_not_xhr(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     resp = client.post(f"/app/mail/folder/{account_id}/INBOX/delete")
     assert resp.status_code == 302
 
 
 def test_delete_user_protected_folder_refused_as_json(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     mock_settings = MagicMock()
     mock_settings.protected_folders = json.dumps(["Projects"])
-    with patch("app.modules.mail.controllers.mailbox._get_or_create_settings", return_value=mock_settings):
+    with patch(
+        "app.modules.mail.controllers.mailbox._get_or_create_settings", return_value=mock_settings
+    ):
         resp = client.post(
             f"/app/mail/folder/{account_id}/Projects/delete",
             headers={"X-Requested-With": "XMLHttpRequest"},
@@ -130,11 +153,14 @@ def test_delete_user_protected_folder_refused_as_json(authed_client):
 
 
 def test_delete_folder_success_returns_redirect_json(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     mock_client = MagicMock()
     with (
         patch("app.modules.mail.controllers.mailbox.decrypt_with_key", return_value="secret"),
-        patch("app.modules.mail.controllers.mailbox._imap_for_account", return_value=(mock_client, MagicMock())),
+        patch(
+            "app.modules.mail.controllers.mailbox._imap_for_account",
+            return_value=(mock_client, MagicMock()),
+        ),
         patch("app.modules.mail.controllers.mailbox.imap_delete_folder"),
         patch("app.modules.mail.controllers.mailbox.open_cache", return_value=MagicMock()),
         patch("app.modules.mail.services.cache_db.delete_folder_in_cache"),
@@ -150,7 +176,7 @@ def test_delete_folder_success_returns_redirect_json(authed_client):
 
 
 def test_toggle_protect_system_folder_refused_as_json(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     resp = client.post(
         f"/app/mail/folder/{account_id}/INBOX/protect",
         headers={"X-Requested-With": "XMLHttpRequest"},
@@ -161,7 +187,7 @@ def test_toggle_protect_system_folder_refused_as_json(authed_client):
 
 
 def test_toggle_protect_user_folder_returns_state(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     resp = client.post(
         f"/app/mail/folder/{account_id}/Projects/protect",
         headers={"X-Requested-With": "XMLHttpRequest"},
@@ -173,25 +199,32 @@ def test_toggle_protect_user_folder_returns_state(authed_client):
 
 
 def test_remove_account(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     with patch("app.modules.mail.controllers.mailbox.purge_cache"):
         resp = client.post(f"/app/mail/accounts/{account_id}/remove")
     assert resp.status_code == 302
 
 
 def test_set_active_account(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     resp = client.post("/app/mail/accounts/active", data={"account_id": str(account_id)})
     assert resp.status_code == 302
 
 
 def test_smart_folder_unread(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     with (
         patch("app.modules.mail.controllers.mailbox.open_cache", return_value=MagicMock()),
-        patch("app.modules.mail.controllers.mailbox._get_or_create_settings", return_value=MagicMock()),
-        patch("app.modules.mail.controllers.mailbox._folder_sidebar_context", return_value=([], [], {}, [], 0, None)),
-        patch("app.modules.mail.controllers.mailbox._consume_send_failure_notice", return_value=None),
+        patch(
+            "app.modules.mail.controllers.mailbox._get_or_create_settings", return_value=MagicMock()
+        ),
+        patch(
+            "app.modules.mail.controllers.mailbox._folder_sidebar_context",
+            return_value=([], [], {}, [], 0, None),
+        ),
+        patch(
+            "app.modules.mail.controllers.mailbox._consume_send_failure_notice", return_value=None
+        ),
         patch("app.modules.mail.controllers.mailbox._current_undo_action", return_value=None),
         patch("app.modules.mail.controllers.mailbox._spam_action_enabled", return_value=False),
         patch("app.modules.mail.services.cache_db.list_unread", return_value=[]),
@@ -204,20 +237,37 @@ def test_smart_folder_unread(authed_client):
 def test_smart_folder_unread_with_messages_passes_correct_encryption_key(authed_client):
     client, user_id, account_id = authed_client
     from app.shared.keys import get_user_key
+
     expected_key = get_user_key(user_id)
     mock_row = {
-        "id": 1, "subject": "Test Subject", "sender": "sender@example.com",
-        "snippet": "snippet", "date": "2025-01-01", "flags": '["\\Seen"]',
-        "body": "body text", "folder": "INBOX", "thread_id": "thread-1",
-        "recipients": "dest@example.com", "sort_ts": 1735689600,
-        "is_bounce": 0, "bounce_reason": None, "original_subject": None,
+        "id": 1,
+        "subject": "Test Subject",
+        "sender": "sender@example.com",
+        "snippet": "snippet",
+        "date": "2025-01-01",
+        "flags": '["\\Seen"]',
+        "body": "body text",
+        "folder": "INBOX",
+        "thread_id": "thread-1",
+        "recipients": "dest@example.com",
+        "sort_ts": 1735689600,
+        "is_bounce": 0,
+        "bounce_reason": None,
+        "original_subject": None,
         "has_attachments": 0,
     }
     with (
         patch("app.modules.mail.controllers.mailbox.open_cache", return_value=MagicMock()),
-        patch("app.modules.mail.controllers.mailbox._get_or_create_settings", return_value=MagicMock()),
-        patch("app.modules.mail.controllers.mailbox._folder_sidebar_context", return_value=([], [], {}, [], 0, None)) as mock_sidebar,
-        patch("app.modules.mail.controllers.mailbox._consume_send_failure_notice", return_value=None),
+        patch(
+            "app.modules.mail.controllers.mailbox._get_or_create_settings", return_value=MagicMock()
+        ),
+        patch(
+            "app.modules.mail.controllers.mailbox._folder_sidebar_context",
+            return_value=([], [], {}, [], 0, None),
+        ) as mock_sidebar,
+        patch(
+            "app.modules.mail.controllers.mailbox._consume_send_failure_notice", return_value=None
+        ),
         patch("app.modules.mail.controllers.mailbox._current_undo_action", return_value=None),
         patch("app.modules.mail.controllers.mailbox._spam_action_enabled", return_value=False),
         patch("app.modules.mail.services.cache_db.list_unread", return_value=[mock_row]),
@@ -233,13 +283,14 @@ def test_smart_folder_unread_with_messages_passes_correct_encryption_key(authed_
 
 def test_unread_excludes_drafts():
     from app.modules.mail.services.folder_sort import UNREAD_EXCLUDED_FOLDERS
+
     assert "DRAFTS" in UNREAD_EXCLUDED_FOLDERS
 
 
 def test_folder_view_cache_key_mismatch(authed_client, app):
     from app.shared.cache_errors import CacheKeyMismatchError
 
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     app.sync_manager.set_active_account.return_value = None
     app.sync_manager.set_active_folder.return_value = None
     app.sync_manager.enqueue_sync.return_value = False
@@ -257,7 +308,7 @@ def test_folder_view_cache_key_mismatch(authed_client, app):
 def test_folder_view_cache_key_mismatch_json(authed_client, app):
     from app.shared.cache_errors import CacheKeyMismatchError
 
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     app.sync_manager.set_active_folder.return_value = None
     app.sync_manager.enqueue_sync.return_value = False
     with patch(
@@ -278,7 +329,7 @@ def test_reset_cache_deletes_file_and_redirects(authed_client, app, tmp_path):
     from app.shared.db import db
     from app.shared.models.core import CustomerAccount
 
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     cache_file = tmp_path / "test_cache.db"
     cache_file.write_text("fake cache data")
     app.sync_manager.enqueue_sync.return_value = False
@@ -301,9 +352,9 @@ def test_reset_cache_deletes_file_and_redirects(authed_client, app, tmp_path):
 
 def test_reset_cache_other_user_account_404(authed_client, app, tmp_path):
     from app.shared.db import db
-    from app.shared.models.core import User, Domain, CustomerAccount
+    from app.shared.models.core import CustomerAccount, Domain, User
 
-    client, user_id, account_id = authed_client
+    client, _user_id, _account_id = authed_client
 
     with app.app_context():
         other_user = User(email="other@example.com", role="customer", is_active=True)
@@ -330,7 +381,7 @@ def test_reset_cache_no_file_still_redirects(authed_client, app):
     from app.shared.db import db
     from app.shared.models.core import CustomerAccount
 
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     app.sync_manager.enqueue_sync.return_value = False
 
     with app.app_context():
@@ -345,13 +396,26 @@ def test_reset_cache_no_file_still_redirects(authed_client, app):
 
 def _badge_row(flagged=True, locked=False):
     return {
-        "id": 1, "subject": "Hello", "sender": "s@example.com",
-        "sender_display": "s", "sender_tooltip": "s@example.com",
-        "snippet": "snippet", "date": "2025-01-01", "date_ts": 0, "sort_ts": 0,
-        "date_display": "Jan 1", "flags": (["\\Flagged"] if flagged else []) + (["$Locked"] if locked else []),
-        "is_unread": False, "is_flagged": flagged, "folder": "INBOX",
-        "thread_id": "t1", "is_sent": False, "is_draft": False,
-        "recipients_display": "", "is_bounce": False, "bounce_reason": None,
+        "id": 1,
+        "subject": "Hello",
+        "sender": "s@example.com",
+        "sender_display": "s",
+        "sender_tooltip": "s@example.com",
+        "snippet": "snippet",
+        "date": "2025-01-01",
+        "date_ts": 0,
+        "sort_ts": 0,
+        "date_display": "Jan 1",
+        "flags": (["\\Flagged"] if flagged else []) + (["$Locked"] if locked else []),
+        "is_unread": False,
+        "is_flagged": flagged,
+        "folder": "INBOX",
+        "thread_id": "t1",
+        "is_sent": False,
+        "is_draft": False,
+        "recipients_display": "",
+        "is_bounce": False,
+        "bounce_reason": None,
         "has_attachments": False,
     }
 
@@ -361,9 +425,10 @@ class TestProtectedBadgeRendering:
     state is visible before a delete is attempted."""
 
     def test_badge_shown_for_starred_when_protect_starred_on(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        _client, _user_id, account_id = authed_client
         with app.test_request_context():
             from flask import render_template
+
             html = render_template(
                 "message_list.html",
                 account=MagicMock(id=account_id, email_address="t@example.com"),
@@ -377,9 +442,10 @@ class TestProtectedBadgeRendering:
         assert "Protected" in html
 
     def test_badge_omitted_for_starred_when_protect_starred_off(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        _client, _user_id, account_id = authed_client
         with app.test_request_context():
             from flask import render_template
+
             html = render_template(
                 "message_list.html",
                 account=MagicMock(id=account_id, email_address="t@example.com"),
@@ -392,9 +458,10 @@ class TestProtectedBadgeRendering:
         assert "data-protected-badge" not in html
 
     def test_badge_shown_for_locked_regardless_of_policy(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        _client, _user_id, account_id = authed_client
         with app.test_request_context():
             from flask import render_template
+
             html = render_template(
                 "message_list.html",
                 account=MagicMock(id=account_id, email_address="t@example.com"),
@@ -407,9 +474,10 @@ class TestProtectedBadgeRendering:
         assert "data-protected-badge" in html
 
     def test_badge_omitted_for_plain_message(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        _client, _user_id, account_id = authed_client
         with app.test_request_context():
             from flask import render_template
+
             html = render_template(
                 "message_list.html",
                 account=MagicMock(id=account_id, email_address="t@example.com"),

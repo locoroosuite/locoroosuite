@@ -1,18 +1,18 @@
 import logging
 from math import ceil
 
-from flask import render_template, redirect, url_for, session, request
+from flask import redirect, render_template, request, session, url_for
 
-from app.shared.auth import require_customer
 from app.modules.contacts.controllers.helpers import (
-    contacts_bp,
+    _carddav_base_url,
     _get_account,
     _get_carddav_config,
     _get_credentials,
     _open_cache_for_account,
-    _carddav_base_url,
+    contacts_bp,
 )
-from app.modules.contacts.services import carddav, cache_db
+from app.modules.contacts.services import cache_db, carddav
+from app.shared.auth import require_customer
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +138,7 @@ def contact_new():
         conn.close()
 
     from app.modules.contacts.services.vcard import generate_vcard
+
     data = _form_to_data(request.form)
     vcard_text = generate_vcard(data)
 
@@ -154,6 +155,7 @@ def contact_new():
         href, etag = carddav.create_contact(s, abook_url, vcard_text)
         uid = None
         from app.modules.contacts.services.vcard import extract_uid
+
         uid = extract_uid(vcard_text)
         conn = _open_cache_for_account(account)
         try:
@@ -203,6 +205,7 @@ def contact_edit(account_id, uid):
             return render_template("form.html", contact=contact, account=account, errors=dup_errors)
 
         from app.modules.contacts.services.vcard import generate_vcard
+
         data = _form_to_data(request.form)
         vcard_text = generate_vcard(data, uid=uid)
 
@@ -231,7 +234,9 @@ def contact_edit(account_id, uid):
                 "form.html",
                 contact=contact,
                 account=account,
-                errors={"_server": "Failed to save contact. Please check your connection and retry."},
+                errors={
+                    "_server": "Failed to save contact. Please check your connection and retry."
+                },
             )
 
         return redirect(url_for("contacts.contact_detail", account_id=account_id, uid=uid))
@@ -263,9 +268,8 @@ def contact_delete(account_id, uid):
                     base_url, account.username, password
                 )
                 contact_href = contact["href"]
-                if not contact_href.startswith("http"):
-                    if abook_url:
-                        contact_href = f"{abook_url.rstrip('/')}/{uid}.vcf"
+                if not contact_href.startswith("http") and abook_url:
+                    contact_href = f"{abook_url.rstrip('/')}/{uid}.vcf"
                 carddav.delete_contact(s, contact_href, contact.get("etag"))
             except Exception:
                 logger.exception("failed to delete contact from CardDAV")
@@ -366,5 +370,7 @@ def _check_email_duplicates(conn, email_work, email_home, exclude_uid=None):
             continue
         existing = cache_db.find_by_email(conn, email)
         if existing and existing["uid"] != exclude_uid:
-            errors[label] = f"Email {email} is already used by contact '{existing['fn'] or existing['first_name'] + ' ' + existing['last_name']}'."
+            errors[label] = (
+                f"Email {email} is already used by contact '{existing['fn'] or existing['first_name'] + ' ' + existing['last_name']}'."
+            )
     return errors

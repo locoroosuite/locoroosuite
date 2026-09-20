@@ -28,8 +28,8 @@ _logger = logging.getLogger(__name__)
 #
 # Creates every table with its complete current column set, plus FTS, triggers,
 # and indexes. For fresh DBs this is the only migration that does real work;
-# 0002–0004 are no-ops. For pre-versioning DBs, CREATE TABLE IF NOT EXISTS
-# leaves existing tables untouched and 0002–0004 fill the gaps.
+# 0002-0004 are no-ops. For pre-versioning DBs, CREATE TABLE IF NOT EXISTS
+# leaves existing tables untouched and 0002-0004 fill the gaps.
 # ---------------------------------------------------------------------------
 
 

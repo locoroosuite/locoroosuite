@@ -1,8 +1,7 @@
-from datetime import timezone
+from datetime import UTC
 from email.utils import parsedate_to_datetime
 
-from app.modules.mail.services.folder_aliases import canonical_folder_key, FOLDER_ALIASES
-
+from app.modules.mail.services.folder_aliases import FOLDER_ALIASES, canonical_folder_key
 
 SYSTEM_FOLDERS = list(FOLDER_ALIASES.keys())
 
@@ -90,8 +89,5 @@ def _parse_date(date_str):
         return None
     if not dt:
         return None
-    if dt.tzinfo:
-        dt = dt.astimezone(timezone.utc)
-    else:
-        dt = dt.replace(tzinfo=timezone.utc)
+    dt = dt.astimezone(UTC) if dt.tzinfo else dt.replace(tzinfo=UTC)
     return int(dt.timestamp())

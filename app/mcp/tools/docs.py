@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import io
 import logging
 import uuid
@@ -19,7 +20,10 @@ _AccId = Annotated[int | None, Field(description="Account ID (uses default accou
 
 
 def _row_to_dict(row) -> dict[str, Any]:
-    return {k: row[k] for k in row.keys()}  # Row iteration yields values, not keys; .keys() is required
+    return {
+        k: row[k]
+        for k in row.keys()  # noqa: SIM118 — sqlite3.Row iteration yields values, not keys
+    }
 
 
 def _get_cache_conn(account_id, dek, flask_app):
@@ -119,10 +123,8 @@ def _markdown_to_odf(markdown_text, doc_type, flask_app):
         import os
 
         for p in (md_path, out_path):
-            try:
+            with contextlib.suppress(Exception):
                 os.unlink(p)
-            except Exception:
-                pass
 
 
 def register(mcp: FastMCP, flask_app: Flask) -> None:
@@ -151,14 +153,14 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         max_results: Annotated[
             int | None,
             Field(
-                description="Maximum number of documents to return (1–200, default 50)",
+                description="Maximum number of documents to return (1-200, default 50)",
                 ge=1,
                 le=200,
             ),
         ] = None,
         account_id: _AccId = None,
     ) -> str:
-        ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
+        _ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
         with flask_app.app_context():
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
@@ -189,7 +191,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         document_id: Annotated[str, Field(description="ID of the document to retrieve")],
         account_id: _AccId = None,
     ) -> str:
-        ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
+        _ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
         with flask_app.app_context():
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
@@ -395,7 +397,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         document_id: Annotated[str, Field(description="ID of the document to download")],
         account_id: _AccId = None,
     ) -> str:
-        ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
+        _ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
         with flask_app.app_context():
             from app.shared.db import db
             from app.shared.models.core import CustomerAccount
@@ -457,7 +459,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         ] = None,
         account_id: _AccId = None,
     ) -> str:
-        ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
+        _ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
         fmt = format or "text"
         with flask_app.app_context():
             from app.shared.db import db
@@ -653,7 +655,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         document_id: Annotated[str, Field(description="ID of the document to list drafts for")],
         account_id: _AccId = None,
     ) -> str:
-        ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
+        _ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
         with flask_app.app_context():
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
@@ -770,7 +772,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         document_id: Annotated[str, Field(description="ID of the document to export")],
         account_id: _AccId = None,
     ) -> str:
-        ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
+        _ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
         with flask_app.app_context():
             from app.shared.db import db
             from app.shared.models.core import CustomerAccount
@@ -887,7 +889,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
     async def docs_list_folders(
         account_id: _AccId = None,
     ) -> str:
-        ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
+        _ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
         with flask_app.app_context():
             from app.modules.docs.services import folders as folders_svc
 
@@ -912,7 +914,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         ] = None,
         account_id: _AccId = None,
     ) -> str:
-        ctx, aid, dek = resolve_write(flask_app, "docs", account_id)
+        _ctx, aid, dek = resolve_write(flask_app, "docs", account_id)
         from app.modules.docs.services import folders as folders_svc
 
         try:
@@ -1091,7 +1093,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         document_id: Annotated[str, Field(description="ID of the document")],
         account_id: _AccId = None,
     ) -> str:
-        ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
+        _ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
         with flask_app.app_context():
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
@@ -1170,7 +1172,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
     async def docs_list_tags(
         account_id: _AccId = None,
     ) -> str:
-        ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
+        _ctx, aid, dek = resolve_read(flask_app, "docs", account_id)
         with flask_app.app_context():
             conn = _get_cache_conn(aid, dek, flask_app)
             try:

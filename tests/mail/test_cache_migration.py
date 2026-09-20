@@ -201,6 +201,7 @@ class TestFoldersDropAccountId:
 class TestErrorPageResetButton:
     def test_error_page_shows_reset_button_with_account(self, app):
         from flask import render_template
+
         with app.test_request_context("/", headers={"Accept": "text/html"}):
             html = render_template(
                 "error.html",
@@ -215,6 +216,7 @@ class TestErrorPageResetButton:
 
     def test_error_page_hides_reset_button_without_account(self, app):
         from flask import render_template
+
         with app.test_request_context("/", headers={"Accept": "text/html"}):
             html = render_template(
                 "error.html",

@@ -1,15 +1,15 @@
 import json
 import logging
 
-from flask import request, jsonify, session
+from flask import jsonify, request, session
 
-from app.shared.auth import require_customer
 from app.modules.calendar.controllers.helpers import (
-    calendar_bp,
     _get_account,
     _open_cache_for_account,
+    calendar_bp,
 )
 from app.modules.calendar.services import cache_db
+from app.shared.auth import require_customer
 from app.shared.db import db
 from app.shared.models.core import Domain
 
@@ -76,6 +76,7 @@ def send_invite():
         }
 
         from app.modules.calendar.services.imip import send_imip_email
+
         send_imip_email(domain, account, event_data, method, attendees, uid=event.get("uid"))
 
         return jsonify({"status": "ok"})

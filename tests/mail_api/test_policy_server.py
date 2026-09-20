@@ -1,17 +1,17 @@
 import asyncio
 import sqlite3
 import tempfile
+from datetime import UTC
 
 import pytest
-
 from policy_server import PolicyServer, _check_and_increment
 
 
 @pytest.fixture()
 def db():
-    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    tmp.close()
-    conn = sqlite3.connect(tmp.name)
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+        db_path = tmp.name
+    conn = sqlite3.connect(db_path)
     conn.execute(
         "CREATE TABLE IF NOT EXISTS sending_limits "
         "(email TEXT PRIMARY KEY, max_per_day INTEGER NOT NULL, "
@@ -21,7 +21,8 @@ def db():
     yield conn
     conn.close()
     import os
-    os.unlink(tmp.name)
+
+    os.unlink(db_path)
 
 
 def test_no_limit_returns_dunno(db):
@@ -35,8 +36,9 @@ def test_empty_email_returns_dunno(db):
 
 
 def test_under_limit_returns_dunno(db):
-    from datetime import datetime, timezone
-    today = datetime.now(timezone.utc).date().isoformat()
+    from datetime import datetime
+
+    today = datetime.now(UTC).date().isoformat()
     db.execute(
         "INSERT INTO sending_limits (email, max_per_day, sent_today, last_reset_date) VALUES (?, ?, ?, ?)",
         ("user@example.com", 200, 50, today),
@@ -45,13 +47,16 @@ def test_under_limit_returns_dunno(db):
     result = _check_and_increment(db, "user@example.com")
     assert result == "DUNNO"
 
-    row = db.execute("SELECT sent_today FROM sending_limits WHERE email=?", ("user@example.com",)).fetchone()
+    row = db.execute(
+        "SELECT sent_today FROM sending_limits WHERE email=?", ("user@example.com",)
+    ).fetchone()
     assert row[0] == 51
 
 
 def test_at_limit_returns_reject(db):
-    from datetime import datetime, timezone
-    today = datetime.now(timezone.utc).date().isoformat()
+    from datetime import datetime
+
+    today = datetime.now(UTC).date().isoformat()
     db.execute(
         "INSERT INTO sending_limits (email, max_per_day, sent_today, last_reset_date) VALUES (?, ?, ?, ?)",
         ("user@example.com", 200, 200, today),
@@ -70,17 +75,20 @@ def test_daily_reset(db):
     result = _check_and_increment(db, "user@example.com")
     assert result == "DUNNO"
 
-    row = db.execute("SELECT sent_today FROM sending_limits WHERE email=?", ("user@example.com",)).fetchone()
+    row = db.execute(
+        "SELECT sent_today FROM sending_limits WHERE email=?", ("user@example.com",)
+    ).fetchone()
     assert row[0] == 1
 
 
 def test_policy_server_start_stop():
-    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    tmp.close()
-    server = PolicyServer(host="127.0.0.1", port=0, db_path=tmp.name)
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+        db_path = tmp.name
+    server = PolicyServer(host="127.0.0.1", port=0, db_path=db_path)
     asyncio.run(_start_stop(server))
     import os
-    os.unlink(tmp.name)
+
+    os.unlink(db_path)
 
 
 async def _start_stop(server):

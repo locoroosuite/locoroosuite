@@ -1,8 +1,8 @@
-import os
 import base64
 import hashlib
 import json
 import logging
+import os
 import secrets
 
 from cryptography.fernet import Fernet
@@ -19,11 +19,9 @@ def generate_dek():
 
 def ensure_api_enabled(customer_id: int, credential_key_hex: str) -> bool:
     from app.modules.mail.services.secrets import decrypt_with_key, encrypt_with_key
-    from app.shared.keys import set_user_key, get_user_key
+    from app.shared.keys import get_user_key, set_user_key
 
-    accounts = CustomerAccount.query.filter_by(
-        customer_id=customer_id, is_active=True
-    ).all()
+    accounts = CustomerAccount.query.filter_by(customer_id=customer_id, is_active=True).all()
     if not accounts:
         return False
 
@@ -52,6 +50,7 @@ def ensure_api_enabled(customer_id: int, credential_key_hex: str) -> bool:
         acc.dek_wrapped_cred = wrapped_dek
         if acc.cache_db_path:
             from app.modules.mail.services.cache import purge_cache
+
             purge_cache(acc.cache_db_path)
             acc.cache_db_path = None
 

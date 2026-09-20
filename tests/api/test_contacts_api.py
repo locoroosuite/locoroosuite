@@ -1,9 +1,9 @@
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tests.api.conftest import setup_cache_db, cleanup_cache_db, create_api_token, auth_header
+from tests.api.conftest import auth_header, cleanup_cache_db, create_api_token, setup_cache_db
 
 
 @pytest.fixture()
@@ -53,14 +53,14 @@ def _seed_contacts_cache(cache_path, dek="a" * 64):
 
 class TestListContacts:
     def test_empty_list(self, app, contacts_api):
-        client, token, account_id, _ = contacts_api
+        client, token, _account_id, _ = contacts_api
         resp = client.get("/api/v1/contacts", headers=auth_header(token))
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert data["data"] == []
 
     def test_returns_seeded_contacts(self, app, contacts_api):
-        client, token, account_id, cache_path = contacts_api
+        client, token, _account_id, cache_path = contacts_api
         _seed_contacts_cache(cache_path)
         resp = client.get("/api/v1/contacts", headers=auth_header(token))
         assert resp.status_code == 200
@@ -71,7 +71,7 @@ class TestListContacts:
         assert "Bob Jones" in names
 
     def test_contact_has_expected_fields(self, app, contacts_api):
-        client, token, account_id, cache_path = contacts_api
+        client, token, _account_id, cache_path = contacts_api
         _seed_contacts_cache(cache_path)
         resp = client.get("/api/v1/contacts", headers=auth_header(token))
         data = json.loads(resp.data)
@@ -93,12 +93,12 @@ class TestListContacts:
 
 class TestGetContact:
     def test_not_found(self, app, contacts_api):
-        client, token, account_id, _ = contacts_api
+        client, token, _account_id, _ = contacts_api
         resp = client.get("/api/v1/contacts/99999", headers=auth_header(token))
         assert resp.status_code == 404
 
     def test_returns_contact_detail(self, app, contacts_api):
-        client, token, account_id, cache_path = contacts_api
+        client, token, _account_id, cache_path = contacts_api
         _seed_contacts_cache(cache_path)
         list_resp = client.get("/api/v1/contacts", headers=auth_header(token))
         contacts = json.loads(list_resp.data)["data"]
@@ -115,12 +115,12 @@ class TestGetContact:
 
 class TestSearchContacts:
     def test_missing_query_returns_422(self, app, contacts_api):
-        client, token, account_id, _ = contacts_api
+        client, token, _account_id, _ = contacts_api
         resp = client.get("/api/v1/contacts/search", headers=auth_header(token))
         assert resp.status_code == 422
 
     def test_search_returns_matching(self, app, contacts_api):
-        client, token, account_id, cache_path = contacts_api
+        client, token, _account_id, cache_path = contacts_api
         _seed_contacts_cache(cache_path)
         resp = client.get("/api/v1/contacts/search?q=Jane", headers=auth_header(token))
         assert resp.status_code == 200
@@ -129,7 +129,7 @@ class TestSearchContacts:
         assert data["data"][0]["name"] == "Jane Smith"
 
     def test_search_no_results(self, app, contacts_api):
-        client, token, account_id, cache_path = contacts_api
+        client, token, _account_id, cache_path = contacts_api
         _seed_contacts_cache(cache_path)
         resp = client.get("/api/v1/contacts/search?q=nonexistent", headers=auth_header(token))
         assert resp.status_code == 200
@@ -138,12 +138,12 @@ class TestSearchContacts:
 
 class TestDeleteContact:
     def test_not_found(self, app, contacts_api):
-        client, token, account_id, _ = contacts_api
+        client, token, _account_id, _ = contacts_api
         resp = client.delete("/api/v1/contacts/99999", headers=auth_header(token))
         assert resp.status_code == 404
 
     def test_deletes_contact(self, app, contacts_api):
-        client, token, account_id, cache_path = contacts_api
+        client, token, _account_id, cache_path = contacts_api
         _seed_contacts_cache(cache_path)
         list_resp = client.get("/api/v1/contacts", headers=auth_header(token))
         contact_id = json.loads(list_resp.data)["data"][0]["id"]
@@ -157,7 +157,7 @@ class TestDeleteContact:
 
 class TestBulkDeleteContacts:
     def test_empty_items_returns_400(self, app, contacts_api):
-        client, token, account_id, _ = contacts_api
+        client, token, _account_id, _ = contacts_api
         resp = client.post(
             "/api/v1/contacts/bulk/delete",
             json={"items": []},
@@ -166,7 +166,7 @@ class TestBulkDeleteContacts:
         assert resp.status_code == 400
 
     def test_bulk_delete_happy_path(self, app, contacts_api):
-        client, token, account_id, cache_path = contacts_api
+        client, token, _account_id, cache_path = contacts_api
         _seed_contacts_cache(cache_path)
         list_resp = client.get("/api/v1/contacts", headers=auth_header(token))
         contacts = json.loads(list_resp.data)["data"]
@@ -183,7 +183,7 @@ class TestBulkDeleteContacts:
         assert len(data["failed"]) == 0
 
     def test_bulk_delete_not_found(self, app, contacts_api):
-        client, token, account_id, _ = contacts_api
+        client, token, _account_id, _ = contacts_api
         resp = client.post(
             "/api/v1/contacts/bulk/delete",
             json={"items": [{"contact_id": 99999}]},
@@ -198,7 +198,7 @@ class TestBulkDeleteContacts:
 class TestCreateContact:
     @patch("app.api.controllers.contacts._get_carddav_session")
     def test_create_success(self, mock_session, app, contacts_api):
-        client, token, account_id, cache_path = contacts_api
+        client, token, _account_id, _cache_path = contacts_api
         mock_s = MagicMock()
         mock_session.return_value = (mock_s, "http://localhost:5232/user/contacts/", "pass")
 
@@ -218,7 +218,7 @@ class TestCreateContact:
         assert data["uid"]
 
     def test_create_missing_fn_and_email(self, app, contacts_api):
-        client, token, account_id, _ = contacts_api
+        client, token, _account_id, _ = contacts_api
         resp = client.post(
             "/api/v1/contacts",
             json={},
@@ -230,7 +230,7 @@ class TestCreateContact:
 class TestUpdateContact:
     @patch("app.api.controllers.contacts._get_carddav_session")
     def test_update_with_relative_href_succeeds(self, mock_session, app, contacts_api):
-        client, token, account_id, cache_path = contacts_api
+        client, token, _account_id, cache_path = contacts_api
         _seed_contacts_cache(cache_path)
 
         list_resp = client.get("/api/v1/contacts", headers=auth_header(token))
@@ -263,7 +263,7 @@ class TestUpdateContact:
 
     @patch("app.api.controllers.contacts._get_carddav_session")
     def test_update_uses_full_href_when_available(self, mock_session, app, contacts_api):
-        client, token, account_id, cache_path = contacts_api
+        client, token, _account_id, cache_path = contacts_api
 
         from app.modules.contacts.services.cache_db import open_cache, upsert_contact
 
@@ -301,7 +301,7 @@ class TestUpdateContact:
         assert call_args[1].startswith("http://")
 
     def test_update_not_found(self, app, contacts_api):
-        client, token, account_id, _ = contacts_api
+        client, token, _account_id, _ = contacts_api
         resp = client.put(
             "/api/v1/contacts/99999",
             json={"fn": "Ghost"},
@@ -313,7 +313,7 @@ class TestUpdateContact:
 class TestCreateContactSchema:
     @patch("app.api.controllers.contacts._get_carddav_session")
     def test_create_returns_full_object(self, mock_session, app, contacts_api):
-        client, token, account_id, cache_path = contacts_api
+        client, token, _account_id, _cache_path = contacts_api
         mock_s = MagicMock()
         mock_session.return_value = (mock_s, "http://localhost:5232/user/contacts/", "pass")
 
@@ -350,7 +350,7 @@ class TestCreateContactSchema:
 class TestUpdateContactSchema:
     @patch("app.api.controllers.contacts._get_carddav_session")
     def test_update_returns_full_object(self, mock_session, app, contacts_api):
-        client, token, account_id, cache_path = contacts_api
+        client, token, _account_id, cache_path = contacts_api
         _seed_contacts_cache(cache_path)
 
         list_resp = client.get("/api/v1/contacts", headers=auth_header(token))
@@ -403,7 +403,7 @@ class TestUpdateContactSchema:
 class TestPartialUpdateContact:
     @patch("app.api.controllers.contacts._get_carddav_session")
     def test_partial_update_preserves_omitted_values(self, mock_session, app, contacts_api):
-        client, token, account_id, cache_path = contacts_api
+        client, token, _account_id, cache_path = contacts_api
         _seed_contacts_cache(cache_path)
 
         list_resp = client.get("/api/v1/contacts", headers=auth_header(token))
@@ -441,7 +441,7 @@ class TestPartialUpdateContact:
 class TestCreateUpdateGetDeleteRegression:
     @patch("app.api.controllers.contacts._get_carddav_session")
     def test_full_crud_cycle(self, mock_session, app, contacts_api):
-        client, token, account_id, cache_path = contacts_api
+        client, token, _account_id, _cache_path = contacts_api
         mock_s = MagicMock()
         abook_url = "http://localhost:5232/test%40test.localhost/contacts/"
         mock_session.return_value = (mock_s, abook_url, "pass")

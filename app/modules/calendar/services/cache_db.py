@@ -1,4 +1,5 @@
 import json
+from datetime import UTC
 
 import sqlcipher3
 
@@ -20,6 +21,7 @@ def open_cache(db_path, key):
     except (MemoryError, Exception) as exc:
         conn.close()
         import os as _os
+
         if _os.path.exists(db_path):
             _os.unlink(db_path)
         conn = sqlcipher3.connect(db_path)
@@ -40,7 +42,9 @@ def _init_schema(conn):
     run_migrations(conn, CALENDAR_CACHE_MIGRATIONS)
 
 
-def upsert_calendar(conn, uid, href, displayname="", color="#4285f4", description=None, is_default=False):
+def upsert_calendar(
+    conn, uid, href, displayname="", color="#4285f4", description=None, is_default=False
+):
     row = conn.execute("SELECT id FROM calendars WHERE uid = ?", (uid,)).fetchone()
     fields = {
         "uid": uid,
@@ -63,9 +67,11 @@ def upsert_calendar(conn, uid, href, displayname="", color="#4285f4", descriptio
 
 
 def get_all_calendars(conn):
-    rows = conn.execute("SELECT * FROM calendars ORDER BY is_default DESC, order_index ASC, displayname ASC").fetchall()
+    rows = conn.execute(
+        "SELECT * FROM calendars ORDER BY is_default DESC, order_index ASC, displayname ASC"
+    ).fetchall()
     cols = [desc[0] for desc in conn.execute("SELECT * FROM calendars LIMIT 0").description]
-    return [dict(zip(cols, r)) for r in rows]
+    return [dict(zip(cols, r, strict=False)) for r in rows]
 
 
 def count_calendars(conn):
@@ -78,7 +84,7 @@ def get_calendar(conn, calendar_id):
     if not row:
         return None
     cols = [desc[0] for desc in conn.execute("SELECT * FROM calendars LIMIT 0").description]
-    return dict(zip(cols, row))
+    return dict(zip(cols, row, strict=False))
 
 
 def update_calendar(conn, calendar_id, displayname=None, color=None, is_visible=None):
@@ -102,7 +108,10 @@ def update_calendar(conn, calendar_id, displayname=None, color=None, is_visible=
 
 def delete_calendar_by_id(conn, calendar_id):
     conn.execute("DELETE FROM calendar_events WHERE calendar_id = ?", (calendar_id,))
-    conn.execute("DELETE FROM calendar_state WHERE calendar_href IN (SELECT href FROM calendars WHERE id = ?)", (calendar_id,))
+    conn.execute(
+        "DELETE FROM calendar_state WHERE calendar_href IN (SELECT href FROM calendars WHERE id = ?)",
+        (calendar_id,),
+    )
     conn.execute("DELETE FROM calendars WHERE id = ?", (calendar_id,))
     conn.commit()
 
@@ -135,7 +144,10 @@ def upsert_event(conn, uid, href, etag, calendar_id, ical_text):
     if cats:
         categories_str = json.dumps(cats)
 
-    row = conn.execute("SELECT id, timezone FROM calendar_events WHERE uid = ? AND calendar_id = ?", (uid, calendar_id)).fetchone()
+    row = conn.execute(
+        "SELECT id, timezone FROM calendar_events WHERE uid = ? AND calendar_id = ?",
+        (uid, calendar_id),
+    ).fetchone()
     existing_tz = row["timezone"] if row else None
     fields = {
         "uid": uid,
@@ -170,11 +182,15 @@ def upsert_event(conn, uid, href, etag, calendar_id, ical_text):
     if row:
         event_id = row[0]
         sets = ", ".join(f"{k} = ?" for k in fields)
-        conn.execute(f"UPDATE calendar_events SET {sets} WHERE id = ?", (*fields.values(), event_id))
+        conn.execute(
+            f"UPDATE calendar_events SET {sets} WHERE id = ?", (*fields.values(), event_id)
+        )
     else:
         cols = ", ".join(fields.keys())
         placeholders = ", ".join("?" for _ in fields)
-        cur = conn.execute(f"INSERT INTO calendar_events ({cols}) VALUES ({placeholders})", tuple(fields.values()))
+        cur = conn.execute(
+            f"INSERT INTO calendar_events ({cols}) VALUES ({placeholders})", tuple(fields.values())
+        )
         event_id = cur.lastrowid
 
     conn.execute("DELETE FROM calendar_reminders WHERE event_id = ?", (event_id,))
@@ -182,7 +198,12 @@ def upsert_event(conn, uid, href, etag, calendar_id, ical_text):
     for alarm in alarms:
         conn.execute(
             "INSERT INTO calendar_reminders (event_id, trigger_val, action, description) VALUES (?, ?, ?, ?)",
-            (event_id, alarm.get("trigger", "-PT15M"), alarm.get("action", "DISPLAY"), alarm.get("description", "")),
+            (
+                event_id,
+                alarm.get("trigger", "-PT15M"),
+                alarm.get("action", "DISPLAY"),
+                alarm.get("description", ""),
+            ),
         )
     conn.commit()
     return event_id
@@ -190,10 +211,18 @@ def upsert_event(conn, uid, href, etag, calendar_id, ical_text):
 
 def delete_event_by_uid(conn, uid, calendar_id=None):
     if calendar_id:
-        conn.execute("DELETE FROM calendar_reminders WHERE event_id IN (SELECT id FROM calendar_events WHERE uid = ? AND calendar_id = ?)", (uid, calendar_id))
-        conn.execute("DELETE FROM calendar_events WHERE uid = ? AND calendar_id = ?", (uid, calendar_id))
+        conn.execute(
+            "DELETE FROM calendar_reminders WHERE event_id IN (SELECT id FROM calendar_events WHERE uid = ? AND calendar_id = ?)",
+            (uid, calendar_id),
+        )
+        conn.execute(
+            "DELETE FROM calendar_events WHERE uid = ? AND calendar_id = ?", (uid, calendar_id)
+        )
     else:
-        conn.execute("DELETE FROM calendar_reminders WHERE event_id IN (SELECT id FROM calendar_events WHERE uid = ?)", (uid,))
+        conn.execute(
+            "DELETE FROM calendar_reminders WHERE event_id IN (SELECT id FROM calendar_events WHERE uid = ?)",
+            (uid,),
+        )
         conn.execute("DELETE FROM calendar_events WHERE uid = ?", (uid,))
     conn.commit()
 
@@ -203,20 +232,22 @@ def get_event(conn, event_id):
     if not row:
         return None
     cols = [desc[0] for desc in conn.execute("SELECT * FROM calendar_events LIMIT 0").description]
-    event = dict(zip(cols, row))
+    event = dict(zip(cols, row, strict=False))
     event["reminders"] = _get_reminders(conn, event_id)
     return event
 
 
 def get_event_by_uid(conn, uid, calendar_id=None):
     if calendar_id:
-        row = conn.execute("SELECT * FROM calendar_events WHERE uid = ? AND calendar_id = ?", (uid, calendar_id)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM calendar_events WHERE uid = ? AND calendar_id = ?", (uid, calendar_id)
+        ).fetchone()
     else:
         row = conn.execute("SELECT * FROM calendar_events WHERE uid = ?", (uid,)).fetchone()
     if not row:
         return None
     cols = [desc[0] for desc in conn.execute("SELECT * FROM calendar_events LIMIT 0").description]
-    event = dict(zip(cols, row))
+    event = dict(zip(cols, row, strict=False))
     event["reminders"] = _get_reminders(conn, event["id"])
     return event
 
@@ -276,13 +307,19 @@ def get_events_range(conn, start, end, calendar_ids=None):
             ).fetchall()
     if not rows:
         return []
-    cols = [desc[0] for desc in conn.execute("SELECT e.*, c.color as calendar_color, c.displayname as calendar_name FROM calendar_events e JOIN calendars c ON e.calendar_id = c.id LIMIT 0").description]
-    return [dict(zip(cols, r)) for r in rows]
+    cols = [
+        desc[0]
+        for desc in conn.execute(
+            "SELECT e.*, c.color as calendar_color, c.displayname as calendar_name FROM calendar_events e JOIN calendars c ON e.calendar_id = c.id LIMIT 0"
+        ).description
+    ]
+    return [dict(zip(cols, r, strict=False)) for r in rows]
 
 
 def get_upcoming_events(conn, limit=30):
     import datetime
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+    now = datetime.datetime.now(datetime.UTC).isoformat()
     rows = conn.execute(
         """
         SELECT e.*, c.color as calendar_color, c.displayname as calendar_name
@@ -296,13 +333,20 @@ def get_upcoming_events(conn, limit=30):
     ).fetchall()
     if not rows:
         return []
-    cols = [desc[0] for desc in conn.execute("SELECT e.*, c.color as calendar_color, c.displayname as calendar_name FROM calendar_events e JOIN calendars c ON e.calendar_id = c.id LIMIT 0").description]
-    return [dict(zip(cols, r)) for r in rows]
+    cols = [
+        desc[0]
+        for desc in conn.execute(
+            "SELECT e.*, c.color as calendar_color, c.displayname as calendar_name FROM calendar_events e JOIN calendars c ON e.calendar_id = c.id LIMIT 0"
+        ).description
+    ]
+    return [dict(zip(cols, r, strict=False)) for r in rows]
 
 
 def count_events(conn, calendar_id=None):
     if calendar_id:
-        row = conn.execute("SELECT COUNT(*) FROM calendar_events WHERE calendar_id = ?", (calendar_id,)).fetchone()
+        row = conn.execute(
+            "SELECT COUNT(*) FROM calendar_events WHERE calendar_id = ?", (calendar_id,)
+        ).fetchone()
     else:
         row = conn.execute("SELECT COUNT(*) FROM calendar_events").fetchone()
     return row[0] if row else 0
@@ -324,8 +368,13 @@ def search_events(conn, query, limit=50):
     ).fetchall()
     if not rows:
         return []
-    cols = [desc[0] for desc in conn.execute("SELECT e.*, c.color as calendar_color, c.displayname as calendar_name FROM calendar_events e JOIN calendars c ON e.calendar_id = c.id LIMIT 0").description]
-    return [dict(zip(cols, r)) for r in rows]
+    cols = [
+        desc[0]
+        for desc in conn.execute(
+            "SELECT e.*, c.color as calendar_color, c.displayname as calendar_name FROM calendar_events e JOIN calendars c ON e.calendar_id = c.id LIMIT 0"
+        ).description
+    ]
+    return [dict(zip(cols, r, strict=False)) for r in rows]
 
 
 def search_events_api(conn, query, limit=10):
@@ -344,15 +393,17 @@ def search_events_api(conn, query, limit=10):
     ).fetchall()
     results = []
     for row in rows:
-        results.append({
-            "uid": row["uid"],
-            "summary": row["summary"],
-            "dtstart": row["dtstart"],
-            "dtend": row["dtend"],
-            "all_day": bool(row["all_day"]),
-            "location": row["location"],
-            "calendar_color": row["calendar_color"],
-        })
+        results.append(
+            {
+                "uid": row["uid"],
+                "summary": row["summary"],
+                "dtstart": row["dtstart"],
+                "dtend": row["dtend"],
+                "all_day": bool(row["all_day"]),
+                "location": row["location"],
+                "calendar_color": row["calendar_color"],
+            }
+        )
     return results
 
 
@@ -363,7 +414,11 @@ def get_sync_state(conn, calendar_href):
     ).fetchone()
     if not row:
         return None
-    return {"sync_token": row["sync_token"], "ctag": row["ctag"], "last_sync_at": row["last_sync_at"]}
+    return {
+        "sync_token": row["sync_token"],
+        "ctag": row["ctag"],
+        "last_sync_at": row["last_sync_at"],
+    }
 
 
 def set_sync_state(conn, calendar_href, sync_token=None, ctag=None):
@@ -382,14 +437,19 @@ def set_sync_state(conn, calendar_href, sync_token=None, ctag=None):
 
 
 def _get_reminders(conn, event_id):
-    rows = conn.execute("SELECT * FROM calendar_reminders WHERE event_id = ?", (event_id,)).fetchall()
-    cols = [desc[0] for desc in conn.execute("SELECT * FROM calendar_reminders LIMIT 0").description]
-    return [dict(zip(cols, r)) for r in rows]
+    rows = conn.execute(
+        "SELECT * FROM calendar_reminders WHERE event_id = ?", (event_id,)
+    ).fetchall()
+    cols = [
+        desc[0] for desc in conn.execute("SELECT * FROM calendar_reminders LIMIT 0").description
+    ]
+    return [dict(zip(cols, r, strict=False)) for r in rows]
 
 
 def _now():
-    from datetime import datetime, timezone
-    return datetime.now(timezone.utc).isoformat()
+    from datetime import datetime
+
+    return datetime.now(UTC).isoformat()
 
 
 def set_event_source_email(conn, event_id, message_id, account_id):
@@ -429,12 +489,14 @@ def get_conflicting_events(conn, start, end, exclude_event_id=None, calendar_ids
     for row in rows:
         if exclude_event_id and row["id"] == exclude_event_id:
             continue
-        results.append({
-            "id": row["id"],
-            "summary": row["summary"],
-            "dtstart": row["dtstart"],
-            "dtend": row["dtend"],
-            "all_day": bool(row["all_day"]),
-            "calendar_id": row["calendar_id"],
-        })
+        results.append(
+            {
+                "id": row["id"],
+                "summary": row["summary"],
+                "dtstart": row["dtstart"],
+                "dtend": row["dtend"],
+                "all_day": bool(row["all_day"]),
+                "calendar_id": row["calendar_id"],
+            }
+        )
     return results

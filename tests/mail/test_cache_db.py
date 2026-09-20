@@ -20,9 +20,21 @@ from app.modules.mail.services.cache_db import (
 )
 
 _VIEW_COLUMNS = {
-    "id", "subject", "sender", "snippet", "date", "flags", "body", "folder",
-    "thread_id", "recipients", "sort_ts", "is_bounce", "bounce_reason",
-    "original_subject", "has_attachments",
+    "id",
+    "subject",
+    "sender",
+    "snippet",
+    "date",
+    "flags",
+    "body",
+    "folder",
+    "thread_id",
+    "recipients",
+    "sort_ts",
+    "is_bounce",
+    "bounce_reason",
+    "original_subject",
+    "has_attachments",
 }
 
 
@@ -52,8 +64,20 @@ def _seed_message(
     cc=None,
 ):
     upsert_message(
-        conn, uid, folder, subject, sender, recipients, date, flags or [], snippet, body,
-        has_attachments, message_id, thread_id=thread_id, cc=cc,
+        conn,
+        uid,
+        folder,
+        subject,
+        sender,
+        recipients,
+        date,
+        flags or [],
+        snippet,
+        body,
+        has_attachments,
+        message_id,
+        thread_id=thread_id,
+        cc=cc,
     )
     return get_message(conn, 1)
 
@@ -88,8 +112,21 @@ def test_get_message_columns(tmp_path):
     conn, _ = _make_cache(tmp_path)
     row = _seed_message(conn, thread_id="thread-xyz", has_attachments=True, cc="e@f.com")
     assert set(row.keys()) == {
-        "id", "uid", "folder", "subject", "sender", "recipients", "date", "flags",
-        "snippet", "body", "body_html", "has_attachments", "message_id", "thread_id", "cc",
+        "id",
+        "uid",
+        "folder",
+        "subject",
+        "sender",
+        "recipients",
+        "date",
+        "flags",
+        "snippet",
+        "body",
+        "body_html",
+        "has_attachments",
+        "message_id",
+        "thread_id",
+        "cc",
     }
     assert row["thread_id"] == "thread-xyz"
     assert row["has_attachments"] == 1
@@ -113,8 +150,19 @@ def test_search_local_columns(tmp_path):
     assert len(rows) == 1
     row = rows[0]
     assert set(row.keys()) == {
-        "id", "uid", "folder", "subject", "sender", "recipients", "date", "flags",
-        "body", "has_attachments", "message_id", "thread_id", "snippet",
+        "id",
+        "uid",
+        "folder",
+        "subject",
+        "sender",
+        "recipients",
+        "date",
+        "flags",
+        "body",
+        "has_attachments",
+        "message_id",
+        "thread_id",
+        "snippet",
     }
     assert row["subject"] == "Quarterly Report"
     assert row["snippet"] == "numbers"
@@ -177,9 +225,21 @@ def test_list_messages_for_folder_view_columns(tmp_path):
     assert len(rows) == 1
     row = rows[0]
     assert set(row.keys()) == {
-        "id", "subject", "sender", "snippet", "date", "flags", "body", "folder",
-        "thread_id", "recipients", "sort_ts", "is_bounce", "bounce_reason",
-        "original_subject", "has_attachments",
+        "id",
+        "subject",
+        "sender",
+        "snippet",
+        "date",
+        "flags",
+        "body",
+        "folder",
+        "thread_id",
+        "recipients",
+        "sort_ts",
+        "is_bounce",
+        "bounce_reason",
+        "original_subject",
+        "has_attachments",
     }
     assert row["thread_id"] == "t1"
     assert row["folder"] == "INBOX"
@@ -189,18 +249,47 @@ def test_list_messages_for_folder_view_columns(tmp_path):
 def test_decorate_message_row_shape(tmp_path):
     conn, _ = _make_cache(tmp_path)
     upsert_message(
-        conn, "1", "INBOX", "Re: Hello", "Alice <a@b.com>", "c@d.com",
-        "Mon, 1 Jan 2024 10:00:00 +0000", ["\\Seen", "\\Flagged"], "preview", "body",
-        True, "<msg1@test.com>", thread_id="th-1", is_bounce=True,
-        bounce_reason="550 denied", original_subject="Hello",
+        conn,
+        "1",
+        "INBOX",
+        "Re: Hello",
+        "Alice <a@b.com>",
+        "c@d.com",
+        "Mon, 1 Jan 2024 10:00:00 +0000",
+        ["\\Seen", "\\Flagged"],
+        "preview",
+        "body",
+        True,
+        "<msg1@test.com>",
+        thread_id="th-1",
+        is_bounce=True,
+        bounce_reason="550 denied",
+        original_subject="Hello",
     )
     row = list_messages_for_folder_view(conn, "INBOX")[0]
     decorated = _decorate_message_row(row, timezone_name="UTC", is_sent=False)
     assert set(decorated.keys()) == {
-        "id", "subject", "sender", "sender_display", "sender_tooltip", "snippet",
-        "date", "date_ts", "sort_ts", "date_display", "flags", "is_unread",
-        "is_flagged", "folder", "thread_id", "is_sent", "is_draft",
-        "recipients_display", "is_bounce", "bounce_reason", "has_attachments",
+        "id",
+        "subject",
+        "sender",
+        "sender_display",
+        "sender_tooltip",
+        "snippet",
+        "date",
+        "date_ts",
+        "sort_ts",
+        "date_display",
+        "flags",
+        "is_unread",
+        "is_flagged",
+        "folder",
+        "thread_id",
+        "is_sent",
+        "is_draft",
+        "recipients_display",
+        "is_bounce",
+        "bounce_reason",
+        "has_attachments",
     }
     assert decorated["folder"] == "INBOX"
     assert decorated["thread_id"] == "th-1"

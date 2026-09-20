@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
 
 import dns.resolver
 
@@ -9,10 +8,10 @@ class DiscoveryCandidate:
     host: str
     port: int
     label: str
-    tls_mode: Optional[str] = None
+    tls_mode: str | None = None
 
 
-def _resolve_srv(resolver: dns.resolver.Resolver, name: str) -> List[Tuple[str, int, int, int]]:
+def _resolve_srv(resolver: dns.resolver.Resolver, name: str) -> list[tuple[str, int, int, int]]:
     try:
         answers = resolver.resolve(name, "SRV")
     except Exception:
@@ -42,15 +41,17 @@ def discover_domain_settings(domain_name: str):
     resolver = dns.resolver.Resolver()
     resolver.lifetime = 2.5
 
-    imap_candidates: List[DiscoveryCandidate] = []
-    smtp_candidates: List[DiscoveryCandidate] = []
+    imap_candidates: list[DiscoveryCandidate] = []
+    smtp_candidates: list[DiscoveryCandidate] = []
 
     for service, label, port_hint in (
         ("_imaps._tcp", "imaps", 993),
         ("_imap._tcp", "imap", 143),
     ):
         for host, port, _, _ in _resolve_srv(resolver, f"{service}.{domain_name}"):
-            imap_candidates.append(DiscoveryCandidate(host=host, port=port or port_hint, label=f"SRV {label}"))
+            imap_candidates.append(
+                DiscoveryCandidate(host=host, port=port or port_hint, label=f"SRV {label}")
+            )
 
     for service, label, tls_mode, port_hint in (
         ("_submission._tcp", "submission", "starttls", 587),
@@ -59,7 +60,9 @@ def discover_domain_settings(domain_name: str):
     ):
         for host, port, _, _ in _resolve_srv(resolver, f"{service}.{domain_name}"):
             smtp_candidates.append(
-                DiscoveryCandidate(host=host, port=port or port_hint, label=f"SRV {label}", tls_mode=tls_mode)
+                DiscoveryCandidate(
+                    host=host, port=port or port_hint, label=f"SRV {label}", tls_mode=tls_mode
+                )
             )
 
     for hostname, port, label in (
@@ -74,7 +77,9 @@ def discover_domain_settings(domain_name: str):
         (f"mail.{domain_name}", 587, "A/AAAA mail (smtp)", "starttls"),
     ):
         if _has_address(resolver, hostname):
-            smtp_candidates.append(DiscoveryCandidate(host=hostname, port=port, label=label, tls_mode=tls_mode))
+            smtp_candidates.append(
+                DiscoveryCandidate(host=hostname, port=port, label=label, tls_mode=tls_mode)
+            )
 
     try:
         mx_answers = resolver.resolve(domain_name, "MX")
@@ -97,7 +102,7 @@ def discover_domain_settings(domain_name: str):
     }
 
 
-def _dedupe_candidates(candidates: List[DiscoveryCandidate]) -> List[DiscoveryCandidate]:
+def _dedupe_candidates(candidates: list[DiscoveryCandidate]) -> list[DiscoveryCandidate]:
     seen = set()
     unique = []
     for candidate in candidates:

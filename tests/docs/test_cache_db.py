@@ -8,6 +8,7 @@ from app.modules.docs.services.cache_db import open_cache
 
 def _doc(conn, doc_id):
     from app.modules.docs.services.cache_db import get_document
+
     doc = get_document(conn, doc_id)
     assert doc is not None, f"document {doc_id} not found"
     return doc
@@ -15,9 +16,8 @@ def _doc(conn, doc_id):
 
 @pytest.fixture
 def cache_conn():
-    f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    path = f.name
-    f.close()
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp_file:
+        path = tmp_file.name
     key = "0" * 64
     conn = open_cache(path, key)
     yield conn
@@ -27,6 +27,7 @@ def cache_conn():
 
 def test_create_and_get_document(cache_conn):
     from app.modules.docs.services.cache_db import create_document
+
     create_document(cache_conn, "doc-1", "Test Doc", "odt", 1)
     doc = _doc(cache_conn, "doc-1")
     assert doc is not None
@@ -38,11 +39,13 @@ def test_create_and_get_document(cache_conn):
 
 def test_get_document_nonexistent(cache_conn):
     from app.modules.docs.services.cache_db import get_document
+
     assert get_document(cache_conn, "nope") is None
 
 
 def test_list_documents(cache_conn):
     from app.modules.docs.services.cache_db import create_document, list_documents
+
     create_document(cache_conn, "doc-1", "Doc A", "odt", 1)
     create_document(cache_conn, "doc-2", "Doc B", "ods", 1)
     docs = list_documents(cache_conn, 1)
@@ -50,7 +53,12 @@ def test_list_documents(cache_conn):
 
 
 def test_list_documents_excludes_trash(cache_conn):
-    from app.modules.docs.services.cache_db import create_document, soft_delete_document, list_documents
+    from app.modules.docs.services.cache_db import (
+        create_document,
+        list_documents,
+        soft_delete_document,
+    )
+
     create_document(cache_conn, "doc-1", "Doc A", "odt", 1)
     create_document(cache_conn, "doc-2", "Doc B", "ods", 1)
     soft_delete_document(cache_conn, "doc-1")
@@ -60,7 +68,12 @@ def test_list_documents_excludes_trash(cache_conn):
 
 
 def test_list_documents_with_trash(cache_conn):
-    from app.modules.docs.services.cache_db import create_document, soft_delete_document, list_documents
+    from app.modules.docs.services.cache_db import (
+        create_document,
+        list_documents,
+        soft_delete_document,
+    )
+
     create_document(cache_conn, "doc-1", "Doc A", "odt", 1)
     soft_delete_document(cache_conn, "doc-1")
     docs = list_documents(cache_conn, 1, include_trash=True)
@@ -68,7 +81,8 @@ def test_list_documents_with_trash(cache_conn):
 
 
 def test_list_trash(cache_conn):
-    from app.modules.docs.services.cache_db import create_document, soft_delete_document, list_trash
+    from app.modules.docs.services.cache_db import create_document, list_trash, soft_delete_document
+
     create_document(cache_conn, "doc-1", "Doc A", "odt", 1)
     create_document(cache_conn, "doc-2", "Doc B", "ods", 1)
     soft_delete_document(cache_conn, "doc-1")
@@ -79,6 +93,7 @@ def test_list_trash(cache_conn):
 
 def test_rename_document(cache_conn):
     from app.modules.docs.services.cache_db import create_document, rename_document
+
     create_document(cache_conn, "doc-1", "Old Name", "odt", 1)
     rename_document(cache_conn, "doc-1", "New Name")
     doc = _doc(cache_conn, "doc-1")
@@ -86,7 +101,12 @@ def test_rename_document(cache_conn):
 
 
 def test_soft_delete_and_restore(cache_conn):
-    from app.modules.docs.services.cache_db import create_document, soft_delete_document, restore_document
+    from app.modules.docs.services.cache_db import (
+        create_document,
+        restore_document,
+        soft_delete_document,
+    )
+
     create_document(cache_conn, "doc-1", "Doc", "odt", 1)
     soft_delete_document(cache_conn, "doc-1")
     doc = _doc(cache_conn, "doc-1")
@@ -98,7 +118,12 @@ def test_soft_delete_and_restore(cache_conn):
 
 
 def test_hard_delete_document(cache_conn):
-    from app.modules.docs.services.cache_db import create_document, hard_delete_document, get_document
+    from app.modules.docs.services.cache_db import (
+        create_document,
+        get_document,
+        hard_delete_document,
+    )
+
     create_document(cache_conn, "doc-1", "Doc", "odt", 1)
     hard_delete_document(cache_conn, "doc-1")
     assert get_document(cache_conn, "doc-1") is None
@@ -106,6 +131,7 @@ def test_hard_delete_document(cache_conn):
 
 def test_update_file_size(cache_conn):
     from app.modules.docs.services.cache_db import create_document, update_file_size
+
     create_document(cache_conn, "doc-1", "Doc", "odt", 1)
     update_file_size(cache_conn, "doc-1", 4096)
     doc = _doc(cache_conn, "doc-1")
@@ -113,7 +139,12 @@ def test_update_file_size(cache_conn):
 
 
 def test_count_documents(cache_conn):
-    from app.modules.docs.services.cache_db import create_document, soft_delete_document, count_documents
+    from app.modules.docs.services.cache_db import (
+        count_documents,
+        create_document,
+        soft_delete_document,
+    )
+
     assert count_documents(cache_conn, 1) == 0
     create_document(cache_conn, "doc-1", "A", "odt", 1)
     create_document(cache_conn, "doc-2", "B", "ods", 1)
@@ -124,6 +155,7 @@ def test_count_documents(cache_conn):
 
 def test_list_documents_filters_by_account(cache_conn):
     from app.modules.docs.services.cache_db import create_document, list_documents
+
     create_document(cache_conn, "doc-1", "A", "odt", 1)
     create_document(cache_conn, "doc-2", "B", "odt", 2)
     docs = list_documents(cache_conn, 1)
@@ -135,12 +167,14 @@ def test_list_documents_filters_by_account(cache_conn):
 # Folders + tags (U13.90 / U13.91)
 # ---------------------------------------------------------------------------
 
+
 def test_migration_preserves_existing_data(tmp_path):
     # Regression: an existing pre-folders cache DB must migrate in place,
     # adding folder_path/tags + the folders table WITHOUT wiping documents.
     # (Creating the folder_path index before the column exists previously
     # triggered open_cache's corrupt-cache path and deleted everything.)
     import sqlcipher3
+
     from app.modules.docs.services import cache_db
 
     path = str(tmp_path / "old.db")
@@ -152,7 +186,9 @@ def test_migration_preserves_existing_data(tmp_path):
         "original_format TEXT, file_size INTEGER, account_id INTEGER, "
         "created_at TEXT, updated_at TEXT, deleted_at TEXT)"
     )
-    raw.execute("INSERT INTO documents (id, name, doc_type, account_id) VALUES ('d1', 'Old', 'odt', 1)")
+    raw.execute(
+        "INSERT INTO documents (id, name, doc_type, account_id) VALUES ('d1', 'Old', 'odt', 1)"
+    )
     raw.commit()
     raw.close()
 
@@ -171,6 +207,7 @@ def test_migration_preserves_existing_data(tmp_path):
 
 def test_create_document_defaults_folder_and_tags(cache_conn):
     from app.modules.docs.services.cache_db import create_document
+
     create_document(cache_conn, "d1", "Doc", "odt", 1)
     doc = _doc(cache_conn, "d1")
     assert doc["folder_path"] == ""
@@ -179,6 +216,7 @@ def test_create_document_defaults_folder_and_tags(cache_conn):
 
 def test_create_document_with_folder_and_tags(cache_conn):
     from app.modules.docs.services.cache_db import create_document
+
     create_document(cache_conn, "d1", "Doc", "odt", 1, folder_path="Work/A", tags=["x", "y"])
     doc = _doc(cache_conn, "d1")
     assert doc["folder_path"] == "Work/A"
@@ -187,6 +225,7 @@ def test_create_document_with_folder_and_tags(cache_conn):
 
 def test_list_documents_folder_filter_is_exact(cache_conn):
     from app.modules.docs.services.cache_db import create_document, list_documents
+
     create_document(cache_conn, "root", "Root", "odt", 1)
     create_document(cache_conn, "a", "A", "odt", 1, folder_path="Work")
     create_document(cache_conn, "b", "B", "odt", 1, folder_path="Work/Sub")
@@ -197,6 +236,7 @@ def test_list_documents_folder_filter_is_exact(cache_conn):
 
 def test_list_documents_tag_filter(cache_conn):
     from app.modules.docs.services.cache_db import create_document, list_documents
+
     create_document(cache_conn, "a", "A", "odt", 1, tags=["urgent"])
     create_document(cache_conn, "b", "B", "odt", 1, tags=["finance"])
     create_document(cache_conn, "c", "C", "odt", 1, tags=["urgent", "finance"])
@@ -205,7 +245,13 @@ def test_list_documents_tag_filter(cache_conn):
 
 
 def test_tags_add_remove_set(cache_conn):
-    from app.modules.docs.services.cache_db import create_document, get_document_tags, update_document_tags, set_document_tags
+    from app.modules.docs.services.cache_db import (
+        create_document,
+        get_document_tags,
+        set_document_tags,
+        update_document_tags,
+    )
+
     create_document(cache_conn, "d1", "Doc", "odt", 1, tags=["a"])
     update_document_tags(cache_conn, "d1", add=["b", "a"], remove=[])
     assert get_document_tags(cache_conn, "d1") == ["a", "b"]  # de-dup, order preserved
@@ -216,7 +262,12 @@ def test_tags_add_remove_set(cache_conn):
 
 
 def test_list_all_tags(cache_conn):
-    from app.modules.docs.services.cache_db import create_document, list_all_tags, soft_delete_document
+    from app.modules.docs.services.cache_db import (
+        create_document,
+        list_all_tags,
+        soft_delete_document,
+    )
+
     create_document(cache_conn, "a", "A", "odt", 1, tags=["Zeta", "alpha"])
     create_document(cache_conn, "b", "B", "odt", 1, tags=["alpha"])
     # Sorted case-insensitively, de-duplicated.
@@ -227,7 +278,13 @@ def test_list_all_tags(cache_conn):
 
 
 def test_folder_crud_and_tree_inputs(cache_conn):
-    from app.modules.docs.services.cache_db import create_folder, get_folder_by_path, folder_exists, list_folders
+    from app.modules.docs.services.cache_db import (
+        create_folder,
+        folder_exists,
+        get_folder_by_path,
+        list_folders,
+    )
+
     create_folder(cache_conn, 1, "Work", "Work")
     assert folder_exists(cache_conn, 1, "Work")
     folder = get_folder_by_path(cache_conn, 1, "Work")
@@ -241,8 +298,12 @@ def test_folder_crud_and_tree_inputs(cache_conn):
 
 def test_rename_folder_subtree_rewrites_docs_and_subfolders(cache_conn):
     from app.modules.docs.services.cache_db import (
-        create_document, create_folder, rename_folder_subtree, list_folders,
+        create_document,
+        create_folder,
+        list_folders,
+        rename_folder_subtree,
     )
+
     create_folder(cache_conn, 1, "Old", "Old")
     create_folder(cache_conn, 1, "Old/Sub", "Sub")
     create_document(cache_conn, "d1", "A", "odt", 1, folder_path="Old")
@@ -261,6 +322,7 @@ def test_rename_folder_subtree_rewrites_docs_and_subfolders(cache_conn):
 def test_rename_folder_subtree_only_affects_segment_prefix(cache_conn):
     # Renaming "Old" must not rewrite a sibling like "Older".
     from app.modules.docs.services.cache_db import create_document, rename_folder_subtree
+
     create_document(cache_conn, "d1", "A", "odt", 1, folder_path="Old")
     create_document(cache_conn, "d2", "B", "odt", 1, folder_path="Older")
     rename_folder_subtree(cache_conn, 1, "Old", "New")
@@ -270,9 +332,13 @@ def test_rename_folder_subtree_only_affects_segment_prefix(cache_conn):
 
 def test_delete_folder_flattens_docs_to_parent(cache_conn):
     from app.modules.docs.services.cache_db import (
-        create_document, create_folder, delete_folder_subtree_rows,
-        move_subtree_docs_to_parent, list_folders,
+        create_document,
+        create_folder,
+        delete_folder_subtree_rows,
+        list_folders,
+        move_subtree_docs_to_parent,
     )
+
     create_folder(cache_conn, 1, "A", "A")
     create_folder(cache_conn, 1, "A/B", "B")
     create_document(cache_conn, "d1", "1", "odt", 1, folder_path="A/B")
@@ -288,8 +354,11 @@ def test_delete_folder_flattens_docs_to_parent(cache_conn):
 
 def test_distinct_doc_folder_paths_excludes_trashed_and_root(cache_conn):
     from app.modules.docs.services.cache_db import (
-        create_document, distinct_doc_folder_paths, soft_delete_document,
+        create_document,
+        distinct_doc_folder_paths,
+        soft_delete_document,
     )
+
     create_document(cache_conn, "a", "A", "odt", 1, folder_path="Work")
     create_document(cache_conn, "b", "B", "odt", 1, folder_path="Work")
     create_document(cache_conn, "c", "C", "odt", 1)  # root, excluded
@@ -300,6 +369,7 @@ def test_distinct_doc_folder_paths_excludes_trashed_and_root(cache_conn):
 
 def test_subtree_documents_returns_nested(cache_conn):
     from app.modules.docs.services.cache_db import create_document, subtree_documents
+
     create_document(cache_conn, "a", "A", "odt", 1, folder_path="Work")
     create_document(cache_conn, "b", "B", "odt", 1, folder_path="Work/Sub")
     create_document(cache_conn, "c", "C", "odt", 1, folder_path="Other")

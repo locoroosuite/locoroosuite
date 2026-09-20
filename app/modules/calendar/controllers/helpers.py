@@ -1,16 +1,14 @@
-import logging
 import base64
-
-from flask import Blueprint, session
+import logging
 
 from cryptography.fernet import Fernet
+from flask import Blueprint, session
 
-from app.shared.db import db
-from app.shared.models.core import Domain, CustomerAccount
-from app.shared.keys import get_user_key
 from app.modules.calendar.services.cache import get_cache_path
 from app.modules.calendar.services.cache_db import open_cache as open_calendar_cache
-
+from app.shared.db import db
+from app.shared.keys import get_user_key
+from app.shared.models.core import CustomerAccount, Domain
 
 calendar_bp = Blueprint("calendar", __name__, template_folder="../templates")
 logger = logging.getLogger(__name__)

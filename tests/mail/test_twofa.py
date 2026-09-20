@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import pyotp
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from app.shared.db import db
-from app.shared.models.core import User, Domain, TrustedDevice
+import pyotp
+
 from app.shared import totp as totp_mod
-from app.shared.keys import get_user_key, clear_user_key
+from app.shared.db import db
+from app.shared.keys import clear_user_key, get_user_key
+from app.shared.models.core import Domain, TrustedDevice, User
 
 
 def _setup_domain(app):
@@ -57,7 +58,9 @@ class TestCustomerLoginWithout2FA:
         for p in patches:
             p.start()
         try:
-            resp = client.post("/app/login", data={"email": "user@example.com", "password": "secret"})
+            resp = client.post(
+                "/app/login", data={"email": "user@example.com", "password": "secret"}
+            )
         finally:
             for p in patches:
                 p.stop()
@@ -72,21 +75,28 @@ class TestCustomerLoginWith2FA:
         for p in patches:
             p.start()
         try:
-            resp = client.post("/app/login", data={"email": "user@example.com", "password": "secret"})
+            resp = client.post(
+                "/app/login", data={"email": "user@example.com", "password": "secret"}
+            )
         finally:
             for p in patches:
                 p.stop()
-        uid, secret = _enable_2fa_for_customer(app)
+        _uid, _secret = _enable_2fa_for_customer(app)
         patches = _mock_imap_patches()
         for p in patches:
             p.start()
         try:
-            resp = client.post("/app/login", data={"email": "user@example.com", "password": "secret"})
+            resp = client.post(
+                "/app/login", data={"email": "user@example.com", "password": "secret"}
+            )
         finally:
             for p in patches:
                 p.stop()
         assert resp.status_code == 200
-        assert "verification code" in resp.data.decode().lower() or "two-factor" in resp.data.decode().lower()
+        assert (
+            "verification code" in resp.data.decode().lower()
+            or "two-factor" in resp.data.decode().lower()
+        )
 
     def test_role_not_set_during_pending_2fa(self, client, app):
         _setup_domain(app)
@@ -98,7 +108,7 @@ class TestCustomerLoginWith2FA:
         finally:
             for p in patches:
                 p.stop()
-        uid, secret = _enable_2fa_for_customer(app)
+        uid, _secret = _enable_2fa_for_customer(app)
         patches = _mock_imap_patches()
         for p in patches:
             p.start()
@@ -121,7 +131,7 @@ class TestCustomerLoginWith2FA:
         finally:
             for p in patches:
                 p.stop()
-        uid, secret = _enable_2fa_for_customer(app)
+        uid, _secret = _enable_2fa_for_customer(app)
         patches = _mock_imap_patches()
         for p in patches:
             p.start()
@@ -171,7 +181,7 @@ class TestCustomerLoginWith2FA:
         finally:
             for p in patches:
                 p.stop()
-        uid, secret = _enable_2fa_for_customer(app)
+        uid, _secret = _enable_2fa_for_customer(app)
         patches = _mock_imap_patches()
         for p in patches:
             p.start()
@@ -203,7 +213,7 @@ class TestCustomerLoginWith2FA:
         finally:
             for p in patches:
                 p.stop()
-        uid, secret = _enable_2fa_for_customer(app)
+        uid, _secret = _enable_2fa_for_customer(app)
         with app.app_context():
             token = totp_mod.issue_trusted_device(uid, "Chrome", "127.0.0.1")
         client.set_cookie(totp_mod.TRUSTED_DEVICE_COOKIE, token)
@@ -211,7 +221,9 @@ class TestCustomerLoginWith2FA:
         for p in patches:
             p.start()
         try:
-            resp = client.post("/app/login", data={"email": "user@example.com", "password": "secret"})
+            resp = client.post(
+                "/app/login", data={"email": "user@example.com", "password": "secret"}
+            )
         finally:
             for p in patches:
                 p.stop()
@@ -231,7 +243,7 @@ class TestCustomerLoginWith2FA:
         finally:
             for p in patches:
                 p.stop()
-        uid, secret = _enable_2fa_for_customer(app)
+        uid, _secret = _enable_2fa_for_customer(app)
         with app.app_context():
             user = db.session.get(User, uid)
             codes = totp_mod.enable_2fa(user, user.totp_secret)
@@ -250,20 +262,20 @@ class TestCustomerLoginWith2FA:
 
 class TestCustomer2FASettings:
     def test_settings_page_no_2fa(self, authed_client):
-        client, uid, account_id = authed_client
+        client, _uid, _account_id = authed_client
         resp = client.get("/app/mail/settings/security")
         assert resp.status_code == 200
         assert "Enable 2FA" in resp.data.decode()
 
     def test_enable_creates_pending_secret(self, authed_client):
-        client, uid, account_id = authed_client
+        client, _uid, _account_id = authed_client
         resp = client.post("/app/mail/settings/security/enable")
         assert resp.status_code == 302
         with client.session_transaction() as sess:
             assert sess.get("_pending_totp_secret") is not None
 
     def test_confirm_valid_code_enables_2fa(self, authed_client, app):
-        client, uid, account_id = authed_client
+        client, uid, _account_id = authed_client
         secret = pyotp.random_base32()
         with client.session_transaction() as sess:
             sess["_pending_totp_secret"] = secret
@@ -275,7 +287,7 @@ class TestCustomer2FASettings:
             assert user.totp_enabled is True
 
     def test_confirm_invalid_code(self, authed_client):
-        client, uid, account_id = authed_client
+        client, _uid, _account_id = authed_client
         with client.session_transaction() as sess:
             sess["_pending_totp_secret"] = pyotp.random_base32()
         resp = client.post("/app/mail/settings/security/confirm", data={"code": "000000"})
@@ -283,7 +295,7 @@ class TestCustomer2FASettings:
         assert "Invalid code" in resp.data.decode()
 
     def test_disable_with_valid_code(self, authed_client, app):
-        client, uid, account_id = authed_client
+        client, uid, _account_id = authed_client
         with app.app_context():
             user = db.session.get(User, uid)
             secret = pyotp.random_base32()
@@ -296,7 +308,7 @@ class TestCustomer2FASettings:
             assert user.totp_enabled is False
 
     def test_revoke_device(self, authed_client, app):
-        client, uid, account_id = authed_client
+        client, uid, _account_id = authed_client
         with app.app_context():
             totp_mod.issue_trusted_device(uid, "Chrome", None)
             device = TrustedDevice.query.filter_by(user_id=uid).first()
@@ -308,7 +320,7 @@ class TestCustomer2FASettings:
             assert device.revoked_at is not None
 
     def test_revoke_all_devices(self, authed_client, app):
-        client, uid, account_id = authed_client
+        client, uid, _account_id = authed_client
         with app.app_context():
             totp_mod.issue_trusted_device(uid, "Chrome", None)
             totp_mod.issue_trusted_device(uid, "Firefox", None)

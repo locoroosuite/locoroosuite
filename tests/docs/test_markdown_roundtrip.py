@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-
-from app.modules.docs.services.markdown_to_odt import convert
 from app.api.controllers.docs import _extract_odt_text
+from app.modules.docs.services.markdown_to_odt import convert
 
 
 def _roundtrip(md: str, tmp_path) -> str:

@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
 import secrets
+from datetime import UTC, datetime
 
 from flask import current_app
 from itsdangerous import BadSignature, URLSafeSerializer
@@ -50,7 +50,7 @@ def parse_import_token(token):
 
 
 def utcnow():
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def is_request_expired(import_request):
@@ -58,5 +58,5 @@ def is_request_expired(import_request):
     if expires_at is None:
         return False
     if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
+        expires_at = expires_at.replace(tzinfo=UTC)
     return expires_at <= utcnow()

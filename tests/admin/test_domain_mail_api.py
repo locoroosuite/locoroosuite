@@ -1,11 +1,13 @@
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from app.shared.db import db
-from app.shared.models.core import User, Domain, CustomerAccount
+from app.shared.models.core import CustomerAccount, Domain, User
 
 
-def _create_domain_with_mail_api(app, name="synctest.com", mail_api_url="http://mail-api:8800", mail_api_key="test-key"):
+def _create_domain_with_mail_api(
+    app, name="synctest.com", mail_api_url="http://mail-api:8800", mail_api_key="test-key"
+):
     domain_id = None
     with app.app_context():
         domain = Domain(
@@ -50,7 +52,9 @@ def test_test_mail_api_connection_success(mock_audit, admin_client, app):
 
     mock_resp = MagicMock()
     mock_resp.status_code = 200
-    with patch("app.admin.services.mail_server.http_client.requests.request", return_value=mock_resp):
+    with patch(
+        "app.admin.services.mail_server.http_client.requests.request", return_value=mock_resp
+    ):
         resp = client.post(f"/admin/domains/{domain_id}/test-mail-api")
 
     assert resp.status_code == 200
@@ -64,7 +68,11 @@ def test_test_mail_api_connection_failure(mock_audit, admin_client, app):
     domain_id = _create_domain_with_mail_api(app)
 
     import requests as real_requests
-    with patch("app.admin.services.mail_server.http_client.requests.request", side_effect=real_requests.ConnectionError("refused")):
+
+    with patch(
+        "app.admin.services.mail_server.http_client.requests.request",
+        side_effect=real_requests.ConnectionError("refused"),
+    ):
         resp = client.post(f"/admin/domains/{domain_id}/test-mail-api")
 
     assert resp.status_code == 200
@@ -91,7 +99,9 @@ def test_test_mail_api_uses_form_values(mock_audit, admin_client, app):
 
     mock_resp = MagicMock()
     mock_resp.status_code = 200
-    with patch("app.admin.services.mail_server.http_client.requests.request", return_value=mock_resp):
+    with patch(
+        "app.admin.services.mail_server.http_client.requests.request", return_value=mock_resp
+    ):
         resp = client.post(
             f"/admin/domains/{domain_id}/test-mail-api",
             data={"mail_api_url": "http://testhost:8800", "mail_api_key": "new-key"},
@@ -177,7 +187,13 @@ def test_sync_apply_create_locally(mock_audit, admin_client, app):
 
     resp = client.post(
         f"/admin/domains/{domain_id}/sync-apply",
-        data=json.dumps({"create_locally": ["new@synctest.com"], "create_remotely": [], "soft_delete_locally": []}),
+        data=json.dumps(
+            {
+                "create_locally": ["new@synctest.com"],
+                "create_remotely": [],
+                "soft_delete_locally": [],
+            }
+        ),
         content_type="application/json",
     )
 
@@ -204,7 +220,13 @@ def test_sync_apply_create_remotely(mock_audit, admin_client, app):
     with patch("app.admin.services.mail_server.get_mail_client_for_domain", return_value=mock_mail):
         resp = client.post(
             f"/admin/domains/{domain_id}/sync-apply",
-            data=json.dumps({"create_locally": [], "create_remotely": ["localonly@synctest.com"], "soft_delete_locally": []}),
+            data=json.dumps(
+                {
+                    "create_locally": [],
+                    "create_remotely": ["localonly@synctest.com"],
+                    "soft_delete_locally": [],
+                }
+            ),
             content_type="application/json",
         )
 
@@ -226,7 +248,13 @@ def test_sync_apply_soft_delete_locally(mock_audit, admin_client, app):
 
     resp = client.post(
         f"/admin/domains/{domain_id}/sync-apply",
-        data=json.dumps({"create_locally": [], "create_remotely": [], "soft_delete_locally": ["todelete@synctest.com"]}),
+        data=json.dumps(
+            {
+                "create_locally": [],
+                "create_remotely": [],
+                "soft_delete_locally": ["todelete@synctest.com"],
+            }
+        ),
         content_type="application/json",
     )
 
@@ -249,11 +277,13 @@ def test_sync_apply_combined(mock_audit, admin_client, app):
     with patch("app.admin.services.mail_server.get_mail_client_for_domain", return_value=mock_mail):
         resp = client.post(
             f"/admin/domains/{domain_id}/sync-apply",
-            data=json.dumps({
-                "create_locally": ["remote@synctest.com"],
-                "create_remotely": ["existing@synctest.com"],
-                "soft_delete_locally": [],
-            }),
+            data=json.dumps(
+                {
+                    "create_locally": ["remote@synctest.com"],
+                    "create_remotely": ["existing@synctest.com"],
+                    "soft_delete_locally": [],
+                }
+            ),
             content_type="application/json",
         )
 
@@ -333,7 +363,9 @@ def test_per_domain_mail_client_used_for_domain_sync(mock_audit, admin_client, a
         db.session.commit()
 
     mock_mail = MagicMock()
-    with patch("app.admin.services.mail_server.get_mail_client_for_domain", return_value=mock_mail) as mock_factory:
+    with patch(
+        "app.admin.services.mail_server.get_mail_client_for_domain", return_value=mock_mail
+    ) as mock_factory:
         resp = client.post(f"/admin/domains/{domain_id}/toggle")
 
     assert resp.status_code == 302
@@ -362,7 +394,9 @@ def test_per_domain_mail_client_fallback_to_global(mock_audit, admin_client, app
         db.session.commit()
 
     global_client = MagicMock()
-    with patch("app.admin.services.mail_server.get_mail_client_for_domain", return_value=global_client) as mock_factory:
+    with patch(
+        "app.admin.services.mail_server.get_mail_client_for_domain", return_value=global_client
+    ) as mock_factory:
         resp = client.post(f"/admin/domains/{domain_id}/toggle")
 
     assert resp.status_code == 302

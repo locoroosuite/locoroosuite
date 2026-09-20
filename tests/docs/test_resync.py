@@ -1,12 +1,13 @@
+import contextlib
 import os
 import shutil
 import tempfile
 
 import pytest
 
-from app.modules.docs.services import cache_db, doc_meta, resync as resync_svc
-from app.modules.docs.services.templates import empty_odt, empty_ods
-from app.modules.docs.services import storage
+from app.modules.docs.services import cache_db, doc_meta, storage
+from app.modules.docs.services import resync as resync_svc
+from app.modules.docs.services.templates import empty_ods, empty_odt
 
 _seq = 0
 
@@ -26,9 +27,8 @@ def _next_ids():
 @pytest.fixture
 def cache_conn(app):
     user_id, account_id = _next_ids()
-    f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    path = f.name
-    f.close()
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp_file:
+        path = tmp_file.name
     key = "0" * 64
     conn = cache_db.open_cache(path, key)
     ctx = app.app_context()
@@ -42,15 +42,15 @@ def cache_conn(app):
         shutil.rmtree(doc_dir, ignore_errors=True)
     parent = storage.get_docs_dir() / str(user_id)
     if parent.exists():
-        try:
+        with contextlib.suppress(OSError):
             shutil.rmtree(parent, ignore_errors=True)
-        except OSError:
-            pass
 
 
 def _make_odt_with_meta(doc_id, name, doc_type="odt", account_id=1, deleted_at=None):
     template = empty_odt().read()
-    metadata = resync_svc.build_doc_metadata(doc_id, name, doc_type, account_id, deleted_at=deleted_at)
+    metadata = resync_svc.build_doc_metadata(
+        doc_id, name, doc_type, account_id, deleted_at=deleted_at
+    )
     return doc_meta.inject_metadata(template, metadata)
 
 
@@ -126,7 +126,7 @@ class TestResyncDocs:
         assert count == 0
 
     def test_resync_handles_nonexistent_dir(self, cache_conn):
-        conn, user_id, account_id = cache_conn
+        conn, _user_id, _account_id = cache_conn
         count = resync_svc.resync_docs(conn, 99999, 88888)
         assert count == 0
 
@@ -158,8 +158,12 @@ class TestResyncDocs:
         conn, user_id, account_id = cache_conn
         doc_id = "date000001"
         metadata = resync_svc.build_doc_metadata(
-            doc_id, "DateDoc", "odt", account_id,
-            created_at="2026-01-10 09:00:00", updated_at="2026-02-15 14:30:00",
+            doc_id,
+            "DateDoc",
+            "odt",
+            account_id,
+            created_at="2026-01-10 09:00:00",
+            updated_at="2026-02-15 14:30:00",
         )
         template = empty_odt().read()
         file_data = doc_meta.inject_metadata(template, metadata)
@@ -209,13 +213,21 @@ class TestResyncDocs:
         # A cache wipe must not lose folder/tag organization: the embedded
         # metadata blob carries folder_path + tags, and resync rebuilds both.
         from app.modules.docs.services import folders as folders_svc
+
         conn, user_id, account_id = cache_conn
         doc_id = "foldersurv01"
         template = empty_odt().read()
         metadata = resync_svc.build_doc_metadata(
-            doc_id, "Report", "odt", account_id, folder_path="Work/Reports", tags=["urgent"],
+            doc_id,
+            "Report",
+            "odt",
+            account_id,
+            folder_path="Work/Reports",
+            tags=["urgent"],
         )
-        storage.write_file(user_id, account_id, doc_id, doc_meta.inject_metadata(template, metadata))
+        storage.write_file(
+            user_id, account_id, doc_id, doc_meta.inject_metadata(template, metadata)
+        )
 
         # Simulate a full cache reset.
         conn.execute("DELETE FROM documents")
@@ -238,8 +250,13 @@ class TestResyncDocs:
         conn, user_id, account_id = cache_conn
         doc_id = "sidecarsv01"
         metadata = resync_svc.build_doc_metadata(
-            doc_id, "Scan", "odg", account_id, original_format="pdf",
-            folder_path="Inbox", tags=["a", "b"],
+            doc_id,
+            "Scan",
+            "odg",
+            account_id,
+            original_format="pdf",
+            folder_path="Inbox",
+            tags=["a", "b"],
         )
         storage.write_file(user_id, account_id, doc_id, b"%PDF-1.4 fake pdf body")
         storage.write_sidecar(user_id, account_id, doc_id, metadata)
@@ -258,6 +275,7 @@ class TestResyncDocs:
         # A manual Sync must NOT wipe the user's empty folders — only a true
         # cache reset (fresh DB) loses them (U13.90c).
         from app.modules.docs.services import folders as folders_svc
+
         conn, user_id, account_id = cache_conn
         folders_svc.ensure_folder_path(conn, account_id, "Kept")
 
@@ -269,6 +287,7 @@ class TestResyncDocs:
         # After a real cache reset (folders table empty), resync can only
         # rebuild folders that have documents; empty folders stay gone.
         from app.modules.docs.services import folders as folders_svc
+
         conn, user_id, account_id = cache_conn
         folders_svc.ensure_folder_path(conn, account_id, "Empty")
 
@@ -297,7 +316,10 @@ class TestBuildDocMetadata:
 
     def test_with_all_fields(self):
         m = resync_svc.build_doc_metadata(
-            "id2", "Full", "ods", 10,
+            "id2",
+            "Full",
+            "ods",
+            10,
             original_format="xlsx",
             deleted_at="2024-01-01",
             created_at="2024-01-02",
@@ -321,15 +343,19 @@ class TestBuildDocMetadata:
 
 class TestInjectMetadataFromDocRow:
     def test_injects_from_dict(self, cache_conn):
-        conn, user_id, account_id = cache_conn
+        _conn, user_id, account_id = cache_conn
         doc_id = "rowtest001"
         template = empty_odt().read()
         storage.write_file(user_id, account_id, doc_id, template)
 
         doc = {
-            "id": doc_id, "name": "Row Doc", "doc_type": "odt",
-            "account_id": account_id, "deleted_at": None,
-            "created_at": None, "updated_at": None,
+            "id": doc_id,
+            "name": "Row Doc",
+            "doc_type": "odt",
+            "account_id": account_id,
+            "deleted_at": None,
+            "created_at": None,
+            "updated_at": None,
         }
         resync_svc.inject_metadata_from_doc_row(user_id, account_id, doc)
 

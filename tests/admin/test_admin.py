@@ -1,14 +1,19 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from werkzeug.security import generate_password_hash
 
 from app.shared.db import db
-from app.shared.models.core import User, Domain, CustomerAccount, DomainDnsConfig
+from app.shared.models.core import CustomerAccount, Domain, DomainDnsConfig, User
 
 
 def test_admin_login_page(client, app, _clean_db):
     with app.app_context():
-        user = User(email="admin@example.com", role="admin", is_active=True, password_hash=generate_password_hash("admin123"))
+        user = User(
+            email="admin@example.com",
+            role="admin",
+            is_active=True,
+            password_hash=generate_password_hash("admin123"),
+        )
         db.session.add(user)
         db.session.commit()
     resp = client.get("/admin/login")
@@ -156,7 +161,12 @@ def test_admin_assignments_page(admin_client):
 @patch("app.admin.controllers.admin.log_audit")
 @patch(
     "app.admin.controllers.admin.discover_domain_settings",
-    return_value={"imap_primary": None, "smtp_primary": None, "imap_candidates": [], "smtp_candidates": []},
+    return_value={
+        "imap_primary": None,
+        "smtp_primary": None,
+        "imap_candidates": [],
+        "smtp_candidates": [],
+    },
 )
 def test_admin_create_domain(mock_discover, mock_audit, admin_client):
     client, _ = admin_client
@@ -168,7 +178,9 @@ def test_admin_create_domain(mock_discover, mock_audit, admin_client):
 @patch("app.admin.controllers.admin.generate_password_hash", return_value="hashed")
 def test_admin_create_manager(mock_hash, mock_audit, admin_client):
     client, _ = admin_client
-    resp = client.post("/admin/managers/new", data={"email": "mgr@example.com", "password": "secret"})
+    resp = client.post(
+        "/admin/managers/new", data={"email": "mgr@example.com", "password": "secret"}
+    )
     assert resp.status_code == 302
 
 
@@ -190,7 +202,10 @@ def test_admin_create_customer(mock_audit, admin_client, app):
         db.session.flush()
         domain_id = domain.id
         db.session.commit()
-    resp = client.post("/admin/customers/new", data={"username": "cust", "domain_id": domain_id, "create_mode": "invite"})
+    resp = client.post(
+        "/admin/customers/new",
+        data={"username": "cust", "domain_id": domain_id, "create_mode": "invite"},
+    )
     assert resp.status_code == 200
 
 
@@ -216,7 +231,12 @@ def test_admin_create_customer_password_includes_login_link(mock_audit, admin_cl
     with patch("app.admin.services.mail_server.get_mail_client", return_value=MagicMock()):
         resp = client.post(
             "/admin/customers/new",
-            data={"username": "newuser", "domain_id": str(domain_id), "password": "secret123", "create_mode": "password"},
+            data={
+                "username": "newuser",
+                "domain_id": str(domain_id),
+                "password": "secret123",
+                "create_mode": "password",
+            },
             follow_redirects=True,
         )
     assert resp.status_code == 200
@@ -247,7 +267,9 @@ def test_admin_create_customer_invite_rejects_existing_mailbox(mock_audit, admin
 
     mock_client = MagicMock()
     mock_client.check_user.return_value = True
-    with patch("app.admin.services.mail_server.get_mail_client_for_domain", return_value=mock_client):
+    with patch(
+        "app.admin.services.mail_server.get_mail_client_for_domain", return_value=mock_client
+    ):
         resp = client.post(
             "/admin/customers/new",
             data={"username": "existing", "domain_id": str(domain_id), "create_mode": "invite"},
@@ -311,7 +333,9 @@ def test_admin_create_customer_existing_user_with_sync_link(mock_audit, admin_cl
         db.session.commit()
 
     mock_client = MagicMock()
-    with patch("app.admin.services.mail_server.get_mail_client_for_domain", return_value=mock_client):
+    with patch(
+        "app.admin.services.mail_server.get_mail_client_for_domain", return_value=mock_client
+    ):
         resp = client.post(
             "/admin/customers/new",
             data={"username": "dup", "domain_id": str(domain_id), "create_mode": "invite"},
@@ -377,10 +401,17 @@ def test_admin_create_customer_password_rollback_on_mail_api_failure(mock_audit,
 
     mock_client = MagicMock()
     mock_client.add_user.side_effect = Exception("User already exists")
-    with patch("app.admin.services.mail_server.get_mail_client_for_domain", return_value=mock_client):
+    with patch(
+        "app.admin.services.mail_server.get_mail_client_for_domain", return_value=mock_client
+    ):
         resp = client.post(
             "/admin/customers/new",
-            data={"username": "failuser", "domain_id": str(domain_id), "password": "secret", "create_mode": "password"},
+            data={
+                "username": "failuser",
+                "domain_id": str(domain_id),
+                "password": "secret",
+                "create_mode": "password",
+            },
             follow_redirects=True,
         )
     assert resp.status_code == 200
@@ -472,7 +503,12 @@ def test_admin_logout(admin_client):
 
 @patch(
     "app.admin.controllers.admin.discover_domain_settings",
-    return_value={"imap_primary": None, "smtp_primary": None, "imap_candidates": [], "smtp_candidates": []},
+    return_value={
+        "imap_primary": None,
+        "smtp_primary": None,
+        "imap_candidates": [],
+        "smtp_candidates": [],
+    },
 )
 def test_admin_review_domain_page(mock_discover, admin_client, app):
     client, _ = admin_client
@@ -589,7 +625,12 @@ def test_admin_update_domain_carddav_clear(mock_audit, admin_client, app):
 @patch("app.admin.controllers.admin.log_audit")
 @patch(
     "app.admin.controllers.admin.discover_domain_settings",
-    return_value={"imap_primary": None, "smtp_primary": None, "imap_candidates": [], "smtp_candidates": []},
+    return_value={
+        "imap_primary": None,
+        "smtp_primary": None,
+        "imap_candidates": [],
+        "smtp_candidates": [],
+    },
 )
 def test_admin_review_domain_saves_carddav(mock_discover, mock_audit, admin_client, app):
     client, _ = admin_client
@@ -634,7 +675,12 @@ def test_admin_review_domain_saves_carddav(mock_discover, mock_audit, admin_clie
 
 @patch(
     "app.admin.controllers.admin.discover_domain_settings",
-    return_value={"imap_primary": None, "smtp_primary": None, "imap_candidates": [], "smtp_candidates": []},
+    return_value={
+        "imap_primary": None,
+        "smtp_primary": None,
+        "imap_candidates": [],
+        "smtp_candidates": [],
+    },
 )
 def test_admin_review_domain_page_shows_carddav_fields(mock_discover, admin_client, app):
     client, _ = admin_client
@@ -917,7 +963,10 @@ def test_admin_create_customer_external(mock_mail_api, mock_audit, admin_client,
         domain_id = domain.id
         db.session.commit()
 
-    resp = client.post("/admin/customers/new", data={"username": "alice", "domain_id": domain_id, "create_mode": "external"})
+    resp = client.post(
+        "/admin/customers/new",
+        data={"username": "alice", "domain_id": domain_id, "create_mode": "external"},
+    )
     assert resp.status_code == 302
     mock_mail_api.assert_not_called()
 
@@ -995,7 +1044,9 @@ def test_admin_set_customer_password(mock_mail_api, mock_audit, admin_client, ap
         db.session.commit()
 
     cust_id = _create_customer_with_account(app, domain_id, "carol@setpw.com")
-    resp = client.post(f"/admin/customers/{cust_id}/set-password", data={"password": "newsecret123"})
+    resp = client.post(
+        f"/admin/customers/{cust_id}/set-password", data={"password": "newsecret123"}
+    )
     assert resp.status_code == 302
     mock_mail_api.assert_called_once()
 
@@ -1074,7 +1125,9 @@ def test_admin_toggle_customer_external_from_hosted(mock_audit, admin_client, ap
         domain_id = domain.id
         db.session.commit()
 
-    cust_id = _create_customer_with_account(app, domain_id, "hosted@toext.com", auth_type="password")
+    cust_id = _create_customer_with_account(
+        app, domain_id, "hosted@toext.com", auth_type="password"
+    )
     resp = client.post(f"/admin/customers/{cust_id}/toggle-external", data={"mode": "external"})
     assert resp.status_code == 302
 
@@ -1103,7 +1156,9 @@ def test_admin_toggle_customer_external_to_hosted(mock_audit, admin_client, app)
         domain_id = domain.id
         db.session.commit()
 
-    cust_id = _create_customer_with_account(app, domain_id, "ext@tohosted.com", auth_type="external")
+    cust_id = _create_customer_with_account(
+        app, domain_id, "ext@tohosted.com", auth_type="external"
+    )
     resp = client.post(f"/admin/customers/{cust_id}/toggle-external", data={"mode": "hosted"})
     assert resp.status_code == 302
 
@@ -1160,11 +1215,14 @@ def test_admin_customers_page_shows_no_account_badge(admin_client, app):
 
 
 def test_admin_customers_page_shows_admin_row(admin_client, app):
-    client, admin_id = admin_client
+    client, _admin_id = admin_client
     with app.app_context():
         domain = Domain(
-            name="example.com", is_active=True, status="complete",
-            imap_host="imap.example.com", smtp_host="smtp.example.com",
+            name="example.com",
+            is_active=True,
+            status="complete",
+            imap_host="imap.example.com",
+            smtp_host="smtp.example.com",
             smtp_tls_mode="starttls",
         )
         db.session.add(domain)
@@ -1181,8 +1239,11 @@ def test_admin_customers_page_auto_creates_account(admin_client, app):
     client, admin_id = admin_client
     with app.app_context():
         domain = Domain(
-            name="example.com", is_active=True, status="complete",
-            imap_host="imap.example.com", smtp_host="smtp.example.com",
+            name="example.com",
+            is_active=True,
+            status="complete",
+            imap_host="imap.example.com",
+            smtp_host="smtp.example.com",
             smtp_tls_mode="starttls",
         )
         db.session.add(domain)
@@ -1389,7 +1450,7 @@ def test_account_delete(mock_mail_api, admin_client, app):
 
 def test_account_delete_wrong_domain(admin_client, app):
     client, _ = admin_client
-    domain_id, account_id, _ = _setup_self_hosted_domain(app)
+    _domain_id, account_id, _ = _setup_self_hosted_domain(app)
     with app.app_context():
         domain2 = Domain(
             name="other.com",

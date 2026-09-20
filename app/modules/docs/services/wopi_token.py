@@ -82,11 +82,13 @@ def _get_secret():
 
 def _b64url_encode(data):
     import base64
+
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
 
 
 def _b64url_decode(data):
     import base64
+
     padding = 4 - len(data) % 4
     if padding != 4:
         data += "=" * padding

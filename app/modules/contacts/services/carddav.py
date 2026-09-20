@@ -34,10 +34,12 @@ def _make_session(username, password):
     s = requests.Session()
     if password:
         s.auth = (username, password)
-    s.headers.update({
-        "User-Agent": "LocoRooSuite/1.0",
-        "X-Remote-User": username,
-    })
+    s.headers.update(
+        {
+            "User-Agent": "LocoRooSuite/1.0",
+            "X-Remote-User": username,
+        }
+    )
     return s
 
 

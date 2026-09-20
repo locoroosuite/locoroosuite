@@ -10,6 +10,7 @@ def main():
 
 def create_asgi_app_from_module():
     from app.mcp import create_asgi_app
+
     return create_asgi_app()
 
 

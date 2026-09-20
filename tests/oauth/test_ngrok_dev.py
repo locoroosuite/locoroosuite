@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import MagicMock, patch
 
 import jwt as pyjwt
 import pytest
 from cryptography.hazmat.primitives import serialization
-from unittest.mock import patch, MagicMock
 
 from app.shared.db import db as _db
-from app.shared.models.core import User, Domain, CustomerAccount
-from app.shared.keys import set_user_key, clear_user_key
+from app.shared.keys import clear_user_key, set_user_key
+from app.shared.models.core import CustomerAccount, Domain, User
 from app.shared.oauth import get_public_key
-
 
 NGROK_HOST = "frostlike-spore-arrange.ngrok-free.dev"
 NGROK_ISSUER = f"https://{NGROK_HOST}"
@@ -21,11 +20,10 @@ def _generate_pkce():
     import base64
     import hashlib
     import secrets
+
     verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode()
     challenge = (
-        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest())
-        .rstrip(b"=")
-        .decode()
+        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     )
     return verifier, challenge
 
@@ -56,29 +54,35 @@ def _run_oauth_flow(flask_client, user_id, account_id, scope="mail.read mail.wri
         sess["user_id"] = user_id
         sess["active_account_id"] = account_id
 
-    resp = flask_client.post("/oauth/authorize", data={
-        "action": "approve",
-        "client_id": client_id,
-        "redirect_uri": redirect_uri,
-        "scope": scope,
-        "scopes": scope.split(),
-        "resource": resource,
-        "state": "test-state",
-        "code_challenge": challenge,
-        "code_challenge_method": "S256",
-        "response_type": "code",
-    })
+    resp = flask_client.post(
+        "/oauth/authorize",
+        data={
+            "action": "approve",
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "scope": scope,
+            "scopes": scope.split(),
+            "resource": resource,
+            "state": "test-state",
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+            "response_type": "code",
+        },
+    )
     assert resp.status_code == 302
     location = resp.headers["Location"]
     code = location.split("code=")[1].split("&")[0]
 
-    resp = flask_client.post("/oauth/token", data={
-        "grant_type": "authorization_code",
-        "code": code,
-        "redirect_uri": redirect_uri,
-        "client_id": client_id,
-        "code_verifier": verifier,
-    })
+    resp = flask_client.post(
+        "/oauth/token",
+        data={
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": redirect_uri,
+            "client_id": client_id,
+            "code_verifier": verifier,
+        },
+    )
     assert resp.status_code == 200
     token_data = json.loads(resp.data)
     return token_data["access_token"], client_id, resource
@@ -218,7 +222,9 @@ class TestNgrokChatGPTFlow:
             pub_key_bytes = get_public_key(app)
         pub_key = serialization.load_pem_public_key(pub_key_bytes)
         payload = pyjwt.decode(
-            access_token, pub_key, algorithms=["RS256"],
+            access_token,
+            pub_key,
+            algorithms=["RS256"],
             options={"verify_aud": False},
         )
         assert payload["iss"] == NGROK_ISSUER
@@ -228,7 +234,10 @@ class TestNgrokChatGPTFlow:
     def test_jwt_accepted_by_rest_api(self, app, client, oauth_user):
         user_id, account_id = oauth_user
         access_token, _, _ = _run_oauth_flow(
-            client, user_id, account_id, scope="mail.read",
+            client,
+            user_id,
+            account_id,
+            scope="mail.read",
         )
 
         resp = client.get(
@@ -238,14 +247,17 @@ class TestNgrokChatGPTFlow:
         assert resp.status_code != 401, "JWT should be accepted by REST API auth"
 
     def test_api_auto_enabled_during_oauth(self, app, client, oauth_user_no_api):
-        user_id, account_id, cred_key = oauth_user_no_api
+        user_id, account_id, _cred_key = oauth_user_no_api
 
         with app.app_context():
             account = _db.session.get(CustomerAccount, account_id)
             assert account.api_enabled is False
 
-        access_token, _, _ = _run_oauth_flow(
-            client, user_id, account_id, scope="mail.read",
+        _access_token, _, _ = _run_oauth_flow(
+            client,
+            user_id,
+            account_id,
+            scope="mail.read",
         )
 
         with app.app_context():
@@ -256,15 +268,20 @@ class TestNgrokChatGPTFlow:
     def test_mcp_initialize_with_ngrok_jwt(self, app, client, oauth_user):
         user_id, account_id = oauth_user
         access_token, _, _ = _run_oauth_flow(
-            client, user_id, account_id, scope="mail.read mail.write",
+            client,
+            user_id,
+            account_id,
+            scope="mail.read mail.write",
         )
 
         from app.mcp import create_asgi_app
+
         with patch("app.workers.manager.WorkerManager") as MockWM:
             MockWM.return_value = MagicMock()
             asgi_app = create_asgi_app()
 
         from starlette.testclient import TestClient
+
         with TestClient(asgi_app) as mcp_client:
             resp = mcp_client.post(
                 "/mcp",
@@ -292,11 +309,13 @@ class TestNgrokChatGPTFlow:
 
     def test_mcp_asgi_proxies_oauth_discovery(self, app, client, oauth_user):
         from app.mcp import create_asgi_app
+
         with patch("app.workers.manager.WorkerManager") as MockWM:
             MockWM.return_value = MagicMock()
             asgi_app = create_asgi_app()
 
         from starlette.testclient import TestClient
+
         with TestClient(asgi_app) as mcp_client:
             resp = mcp_client.get(
                 "/.well-known/oauth-authorization-server",
@@ -309,15 +328,20 @@ class TestNgrokChatGPTFlow:
     def test_mcp_tool_call_accepts_ngrok_jwt(self, app, client, oauth_user):
         user_id, account_id = oauth_user
         access_token, _, _ = _run_oauth_flow(
-            client, user_id, account_id, scope="mail.read mail.write",
+            client,
+            user_id,
+            account_id,
+            scope="mail.read mail.write",
         )
 
         from app.mcp import create_asgi_app
+
         with patch("app.workers.manager.WorkerManager") as MockWM:
             MockWM.return_value = MagicMock()
             asgi_app = create_asgi_app()
 
         from starlette.testclient import TestClient
+
         with TestClient(asgi_app) as mcp_client:
             mcp_client.post(
                 "/mcp",
@@ -396,16 +420,19 @@ class TestNgrokDevModeRelaxations:
             sess["user_id"] = user_id
             sess["active_account_id"] = account_id
 
-        resp = client.get("/oauth/authorize", query_string={
-            "response_type": "code",
-            "client_id": client_id,
-            "redirect_uri": redirect_uri,
-            "scope": "mail.read",
-            "code_challenge": challenge,
-            "code_challenge_method": "S256",
-            "resource": NGROK_ISSUER,
-            "state": "test",
-        })
+        resp = client.get(
+            "/oauth/authorize",
+            query_string={
+                "response_type": "code",
+                "client_id": client_id,
+                "redirect_uri": redirect_uri,
+                "scope": "mail.read",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "resource": NGROK_ISSUER,
+                "state": "test",
+            },
+        )
         assert resp.status_code == 200
         assert b"Authorize" in resp.data or b"authorize" in resp.data
 
@@ -417,6 +444,7 @@ class TestSafeRedirectWithNgrok:
 
     def test_accepts_ngrok_free_dev_domain(self, app):
         from app.modules.mail.controllers.auth import _is_safe_redirect_url
+
         saved = app.config["SERVER_NAME"]
         try:
             app.config["SERVER_NAME"] = ""
@@ -428,6 +456,7 @@ class TestSafeRedirectWithNgrok:
 
     def test_accepts_matching_request_host(self, app):
         from app.modules.mail.controllers.auth import _is_safe_redirect_url
+
         saved = app.config["SERVER_NAME"]
         try:
             app.config["SERVER_NAME"] = ""
@@ -439,6 +468,7 @@ class TestSafeRedirectWithNgrok:
 
     def test_rejects_unrelated_host(self, app):
         from app.modules.mail.controllers.auth import _is_safe_redirect_url
+
         saved = app.config["SERVER_NAME"]
         try:
             app.config["SERVER_NAME"] = ""
@@ -450,6 +480,7 @@ class TestSafeRedirectWithNgrok:
 
     def test_accepts_relative_path(self, app):
         from app.modules.mail.controllers.auth import _is_safe_redirect_url
+
         saved = app.config["SERVER_NAME"]
         try:
             app.config["SERVER_NAME"] = ""
@@ -460,6 +491,7 @@ class TestSafeRedirectWithNgrok:
 
     def test_rejects_javascript_scheme(self, app):
         from app.modules.mail.controllers.auth import _is_safe_redirect_url
+
         saved = app.config["SERVER_NAME"]
         try:
             app.config["SERVER_NAME"] = ""
@@ -470,6 +502,7 @@ class TestSafeRedirectWithNgrok:
 
     def test_different_ngrok_domain_accepted(self, app):
         from app.modules.mail.controllers.auth import _is_safe_redirect_url
+
         saved = app.config["SERVER_NAME"]
         try:
             app.config["SERVER_NAME"] = ""
@@ -481,6 +514,7 @@ class TestSafeRedirectWithNgrok:
 
     def test_server_name_takes_priority_over_ngrok(self, app):
         from app.modules.mail.controllers.auth import _is_safe_redirect_url
+
         saved = app.config["SERVER_NAME"]
         try:
             app.config["SERVER_NAME"] = "mail.example.com"

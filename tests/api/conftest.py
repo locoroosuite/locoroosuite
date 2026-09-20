@@ -1,11 +1,12 @@
+import contextlib
 import os
 import tempfile
 
 import pytest
 
 from app.shared.db import db as _db
-from app.shared.models.core import User, Domain, CustomerAccount
-from app.shared.keys import set_user_key, clear_user_key
+from app.shared.keys import clear_user_key, set_user_key
+from app.shared.models.core import CustomerAccount, Domain, User
 
 
 @pytest.fixture(autouse=True)
@@ -67,9 +68,8 @@ def setup_cache_db(app, account_id, cache_path_fn=None):
         if cache_path_fn:
             cache_path = cache_path_fn(account)
         else:
-            f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-            cache_path = f.name
-            f.close()
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp_file:
+                cache_path = tmp_file.name
             account.cache_db_path = cache_path
             _db.session.commit()
     if cache_path_fn and os.path.exists(cache_path):
@@ -78,10 +78,8 @@ def setup_cache_db(app, account_id, cache_path_fn=None):
 
 
 def cleanup_cache_db(cache_path):
-    try:
+    with contextlib.suppress(OSError):
         os.unlink(cache_path)
-    except OSError:
-        pass
 
 
 def create_api_token(app, customer_id, dek_hex="a" * 64, name="test-token", scopes=None):

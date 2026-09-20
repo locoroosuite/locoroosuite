@@ -1,6 +1,6 @@
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 
 PROVISIONING_KEY = "test-provisioning-key"
 
@@ -50,7 +50,9 @@ def test_check_availability_unauthorized(client):
 
 
 def test_check_availability_invalid_email(client, provision_headers):
-    resp = client.post("/api/provision/check-availability", json={"email": ""}, headers=provision_headers)
+    resp = client.post(
+        "/api/provision/check-availability", json={"email": ""}, headers=provision_headers
+    )
     assert resp.status_code == 400
 
 
@@ -58,7 +60,11 @@ def test_check_availability_invalid_email(client, provision_headers):
 def test_check_availability_available(mock_get, client, provision_headers, mock_mail_client):
     mock_get.return_value = mock_mail_client
     mock_mail_client.check_user.return_value = False
-    resp = client.post("/api/provision/check-availability", json={"email": "user@example.com"}, headers=provision_headers)
+    resp = client.post(
+        "/api/provision/check-availability",
+        json={"email": "user@example.com"},
+        headers=provision_headers,
+    )
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["available"] is True
@@ -68,7 +74,11 @@ def test_check_availability_available(mock_get, client, provision_headers, mock_
 def test_check_availability_taken(mock_get, client, provision_headers, mock_mail_client):
     mock_get.return_value = mock_mail_client
     mock_mail_client.check_user.return_value = True
-    resp = client.post("/api/provision/check-availability", json={"email": "user@example.com"}, headers=provision_headers)
+    resp = client.post(
+        "/api/provision/check-availability",
+        json={"email": "user@example.com"},
+        headers=provision_headers,
+    )
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["available"] is False
@@ -84,7 +94,11 @@ def test_check_availability_local_user_exists(app, client, provision_headers):
         db.session.add(user)
         db.session.commit()
 
-    resp = client.post("/api/provision/check-availability", json={"email": "admin@example.com"}, headers=provision_headers)
+    resp = client.post(
+        "/api/provision/check-availability",
+        json={"email": "admin@example.com"},
+        headers=provision_headers,
+    )
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["available"] is False
@@ -100,32 +114,45 @@ def test_check_availability_local_user_case_insensitive(app, client, provision_h
         db.session.add(user)
         db.session.commit()
 
-    resp = client.post("/api/provision/check-availability", json={"email": "ADMIN@EXAMPLE.COM"}, headers=provision_headers)
+    resp = client.post(
+        "/api/provision/check-availability",
+        json={"email": "ADMIN@EXAMPLE.COM"},
+        headers=provision_headers,
+    )
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["available"] is False
 
 
 def test_check_availability_no_at_sign(client, provision_headers):
-    resp = client.post("/api/provision/check-availability", json={"email": "noatsign"}, headers=provision_headers)
+    resp = client.post(
+        "/api/provision/check-availability", json={"email": "noatsign"}, headers=provision_headers
+    )
     assert resp.status_code == 400
 
 
 @patch("app.provisioning.controllers._get_mail_client")
 def test_check_availability_service_error(mock_get, client, provision_headers):
     mock_get.side_effect = RuntimeError("Mail API is not configured")
-    resp = client.post("/api/provision/check-availability", json={"email": "user@example.com"}, headers=provision_headers)
+    resp = client.post(
+        "/api/provision/check-availability",
+        json={"email": "user@example.com"},
+        headers=provision_headers,
+    )
     assert resp.status_code == 503
 
 
 @patch("app.provisioning.controllers._get_mail_client")
 def test_create_domain(mock_get, app, client, provision_headers, mock_mail_client):
     mock_get.return_value = mock_mail_client
-    resp = client.post("/api/provision/create-domain", json={"domain": "example.com"}, headers=provision_headers)
+    resp = client.post(
+        "/api/provision/create-domain", json={"domain": "example.com"}, headers=provision_headers
+    )
     assert resp.status_code == 201
     data = resp.get_json()
     assert data["created"] is True
     from app.shared.models.core import Domain
+
     with app.app_context():
         domain = Domain.query.filter_by(name="example.com").first()
         assert domain is not None
@@ -134,9 +161,12 @@ def test_create_domain(mock_get, app, client, provision_headers, mock_mail_clien
 
 
 @patch("app.provisioning.controllers._get_mail_client")
-def test_create_domain_with_platform_config(mock_get, app, client, provision_headers, mock_mail_client):
-    from app.shared.models.core import PlatformServiceConfig, Domain, DomainDnsConfig
+def test_create_domain_with_platform_config(
+    mock_get, app, client, provision_headers, mock_mail_client
+):
     from app.shared.db import db
+    from app.shared.models.core import Domain, DomainDnsConfig, PlatformServiceConfig
+
     mock_get.return_value = mock_mail_client
     app.config["APP_ENV"] = "production"
     with app.app_context():
@@ -151,7 +181,9 @@ def test_create_domain_with_platform_config(mock_get, app, client, provision_hea
         )
         db.session.add(svc)
         db.session.commit()
-    resp = client.post("/api/provision/create-domain", json={"domain": "newdomain.com"}, headers=provision_headers)
+    resp = client.post(
+        "/api/provision/create-domain", json={"domain": "newdomain.com"}, headers=provision_headers
+    )
     assert resp.status_code == 201
     with app.app_context():
         domain = Domain.query.filter_by(name="newdomain.com").first()
@@ -170,21 +202,31 @@ def test_create_domain_with_platform_config(mock_get, app, client, provision_hea
 @patch("app.provisioning.controllers._get_mail_client")
 def test_create_domain_idempotent(mock_get, app, client, provision_headers, mock_mail_client):
     from app.shared.models.core import Domain
+
     mock_get.return_value = mock_mail_client
-    resp1 = client.post("/api/provision/create-domain", json={"domain": "example.com"}, headers=provision_headers)
+    resp1 = client.post(
+        "/api/provision/create-domain", json={"domain": "example.com"}, headers=provision_headers
+    )
     assert resp1.status_code == 201
-    resp2 = client.post("/api/provision/create-domain", json={"domain": "example.com"}, headers=provision_headers)
+    resp2 = client.post(
+        "/api/provision/create-domain", json={"domain": "example.com"}, headers=provision_headers
+    )
     assert resp2.status_code == 201
     with app.app_context():
         assert Domain.query.filter_by(name="example.com").count() == 1
 
 
 @patch("app.provisioning.controllers._get_mail_client")
-def test_create_domain_production_no_platform_config(mock_get, app, client, provision_headers, mock_mail_client):
+def test_create_domain_production_no_platform_config(
+    mock_get, app, client, provision_headers, mock_mail_client
+):
     from app.shared.models.core import Domain
+
     mock_get.return_value = mock_mail_client
     app.config["APP_ENV"] = "production"
-    resp = client.post("/api/provision/create-domain", json={"domain": "noplat.com"}, headers=provision_headers)
+    resp = client.post(
+        "/api/provision/create-domain", json={"domain": "noplat.com"}, headers=provision_headers
+    )
     assert resp.status_code == 201
     with app.app_context():
         domain = Domain.query.filter_by(name="noplat.com").first()
@@ -201,8 +243,9 @@ def test_create_domain_missing(client, provision_headers):
 
 @patch("app.provisioning.controllers._get_mail_client")
 def test_create_mailbox(mock_get, app, client, provision_headers, mock_mail_client):
-    from app.shared.models.core import User, CustomerAccount, Domain
     from app.shared.db import db
+    from app.shared.models.core import CustomerAccount, Domain, User
+
     mock_get.return_value = mock_mail_client
     with app.app_context():
         domain = Domain(
@@ -218,19 +261,25 @@ def test_create_mailbox(mock_get, app, client, provision_headers, mock_mail_clie
         )
         db.session.add(domain)
         db.session.commit()
-    resp = client.post("/api/provision/create-mailbox", json={
-        "email": "user@example.com",
-        "password": "secret123",
-        "domain": "example.com",
-        "quota_bytes": 5368709120,
-        "max_emails_per_day": 200,
-    }, headers=provision_headers)
+    resp = client.post(
+        "/api/provision/create-mailbox",
+        json={
+            "email": "user@example.com",
+            "password": "secret123",
+            "domain": "example.com",
+            "quota_bytes": 5368709120,
+            "max_emails_per_day": 200,
+        },
+        headers=provision_headers,
+    )
     assert resp.status_code == 201
     data = resp.get_json()
     assert data["created"] is True
     assert data["email"] == "user@example.com"
     mock_mail_client.add_domain.assert_called_once_with("example.com")
-    mock_mail_client.add_user.assert_called_once_with("user@example.com", "secret123", quota_bytes=5368709120)
+    mock_mail_client.add_user.assert_called_once_with(
+        "user@example.com", "secret123", quota_bytes=5368709120
+    )
     mock_mail_client.set_sending_limit.assert_called_once_with("user@example.com", 200)
     with app.app_context():
         user = User.query.filter_by(email="user@example.com").first()
@@ -244,13 +293,20 @@ def test_create_mailbox(mock_get, app, client, provision_headers, mock_mail_clie
 
 
 @patch("app.provisioning.controllers._get_mail_client")
-def test_create_mailbox_without_domain_in_db(mock_get, app, client, provision_headers, mock_mail_client):
+def test_create_mailbox_without_domain_in_db(
+    mock_get, app, client, provision_headers, mock_mail_client
+):
     from app.shared.models.core import User
+
     mock_get.return_value = mock_mail_client
-    resp = client.post("/api/provision/create-mailbox", json={
-        "email": "user@unknowndomain.com",
-        "password": "secret123",
-    }, headers=provision_headers)
+    resp = client.post(
+        "/api/provision/create-mailbox",
+        json={
+            "email": "user@unknowndomain.com",
+            "password": "secret123",
+        },
+        headers=provision_headers,
+    )
     assert resp.status_code == 201
     with app.app_context():
         user = User.query.filter_by(email="user@unknowndomain.com").first()
@@ -260,18 +316,23 @@ def test_create_mailbox_without_domain_in_db(mock_get, app, client, provision_he
 
 @patch("app.provisioning.controllers._get_mail_client")
 def test_create_mailbox_idempotent_user(mock_get, app, client, provision_headers, mock_mail_client):
-    from app.shared.models.core import User
     from app.shared.db import db
+    from app.shared.models.core import User
+
     mock_get.return_value = mock_mail_client
     with app.app_context():
         user = User(email="existing@example.com", role="customer", is_active=True)
         user.password_hash = "x"
         db.session.add(user)
         db.session.commit()
-    resp = client.post("/api/provision/create-mailbox", json={
-        "email": "existing@example.com",
-        "password": "secret123",
-    }, headers=provision_headers)
+    resp = client.post(
+        "/api/provision/create-mailbox",
+        json={
+            "email": "existing@example.com",
+            "password": "secret123",
+        },
+        headers=provision_headers,
+    )
     assert resp.status_code == 201
     with app.app_context():
         assert User.query.filter_by(email="existing@example.com").count() == 1
@@ -304,7 +365,9 @@ def test_list_users(mock_get, client, provision_headers, mock_mail_client):
 @patch("app.provisioning.controllers._get_mail_client")
 def test_generate_dkim(mock_get, client, provision_headers, mock_mail_client):
     mock_get.return_value = mock_mail_client
-    resp = client.post("/api/provision/generate-dkim", json={"domain": "example.com"}, headers=provision_headers)
+    resp = client.post(
+        "/api/provision/generate-dkim", json={"domain": "example.com"}, headers=provision_headers
+    )
     assert resp.status_code == 201
     data = resp.get_json()
     assert data["selector"] == "default"
@@ -319,14 +382,22 @@ def test_generate_dkim_missing_domain(client, provision_headers):
 @patch("app.provisioning.controllers._get_mail_client")
 def test_update_quota(mock_get, client, provision_headers, mock_mail_client):
     mock_get.return_value = mock_mail_client
-    resp = client.put("/api/provision/mailbox/user@example.com/quota", json={"quota_bytes": 10737418240}, headers=provision_headers)
+    resp = client.put(
+        "/api/provision/mailbox/user@example.com/quota",
+        json={"quota_bytes": 10737418240},
+        headers=provision_headers,
+    )
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["updated"] is True
 
 
 def test_update_quota_invalid(client, provision_headers):
-    resp = client.put("/api/provision/mailbox/user@example.com/quota", json={"quota_bytes": -1}, headers=provision_headers)
+    resp = client.put(
+        "/api/provision/mailbox/user@example.com/quota",
+        json={"quota_bytes": -1},
+        headers=provision_headers,
+    )
     assert resp.status_code == 400
 
 
@@ -334,6 +405,7 @@ def test_update_quota_invalid(client, provision_headers):
 @patch("app.admin.services.dns_checks.run_all_dns_checks")
 def test_validate_dns(mock_dns, mock_get, app, client, provision_headers, mock_mail_client):
     from app.shared.models.core import PlatformDnsConfig
+
     mock_get.return_value = mock_mail_client
     mock_dns.return_value = {
         "mx": {"status": "ok"},
@@ -344,6 +416,7 @@ def test_validate_dns(mock_dns, mock_get, app, client, provision_headers, mock_m
     with app.app_context():
         config = PlatformDnsConfig(mx_hostname="mail.example.com", mx_priority=10)
         from app.shared.db import db
+
         db.session.add(config)
         db.session.commit()
 
@@ -359,12 +432,20 @@ def test_validate_dns(mock_dns, mock_get, app, client, provision_headers, mock_m
 @patch("app.provisioning.controllers._get_mail_client")
 @patch("app.admin.services.dns_checks._query_record_at_ns", return_value=["locoroo-verify=abc123"])
 @patch("app.admin.services.dns_checks._resolve_ns_ips", return_value=["1.2.3.4"])
-@patch("app.admin.services.dns_checks._get_authoritative_nameservers", return_value=["ns1.example.com"])
-def test_validate_ownership(mock_ns, mock_resolve, mock_query, mock_get, client, provision_headers, mock_mail_client):
+@patch(
+    "app.admin.services.dns_checks._get_authoritative_nameservers", return_value=["ns1.example.com"]
+)
+def test_validate_ownership(
+    mock_ns, mock_resolve, mock_query, mock_get, client, provision_headers, mock_mail_client
+):
     mock_get.return_value = mock_mail_client
-    resp = client.post("/api/provision/validate-ownership/example.com", json={
-        "expected_value": "locoroo-verify=abc123",
-    }, headers=provision_headers)
+    resp = client.post(
+        "/api/provision/validate-ownership/example.com",
+        json={
+            "expected_value": "locoroo-verify=abc123",
+        },
+        headers=provision_headers,
+    )
     assert resp.status_code == 200
     data = resp.get_json()
     assert "verified" in data
@@ -372,5 +453,7 @@ def test_validate_ownership(mock_ns, mock_resolve, mock_query, mock_get, client,
 
 
 def test_validate_ownership_missing_value(client, provision_headers):
-    resp = client.post("/api/provision/validate-ownership/example.com", json={}, headers=provision_headers)
+    resp = client.post(
+        "/api/provision/validate-ownership/example.com", json={}, headers=provision_headers
+    )
     assert resp.status_code == 400

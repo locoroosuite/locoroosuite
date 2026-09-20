@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import logging
 
-from flask import session, request, redirect, url_for, render_template, Response
+from flask import Response, redirect, render_template, request, session, url_for
 
+from app.admin import admin_bp
+from app.shared import totp as totp_mod
+from app.shared.auth import require_role
 from app.shared.db import db
 from app.shared.models.core import User
-from app.shared.auth import require_role
-from app.shared import totp as totp_mod
-from app.admin import admin_bp
 
 logger = logging.getLogger(__name__)
 

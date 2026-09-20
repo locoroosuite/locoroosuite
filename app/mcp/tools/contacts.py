@@ -21,14 +21,15 @@ _contacts_logger = logging.getLogger(__name__)
 
 def _row_to_dict(row) -> dict[str, Any]:
     assert row is not None
-    return {k: row[k] for k in row.keys()}
+    return {k: row[k] for k in row.keys()}  # noqa: SIM118 — sqlite3.Row iteration yields values, not keys
 
 
 def _get_cache_conn(account_id, dek, flask_app):
-    from app.shared.models.core import CustomerAccount
-    from app.shared.db import db
     from app.modules.contacts.services.cache import get_cache_path
     from app.modules.contacts.services.cache_db import open_cache
+    from app.shared.db import db
+    from app.shared.models.core import CustomerAccount
+
     account = db.session.get(CustomerAccount, account_id)
     if not account:
         raise McpAuthError("NOT_FOUND", f"Account {account_id} not found")
@@ -39,6 +40,7 @@ def _get_cache_conn(account_id, dek, flask_app):
 def _contact_to_dict(row) -> dict[str, Any]:
     d: dict[str, Any] = _row_to_dict(row) if not isinstance(row, dict) else row
     from app.modules.contacts.services.vcard import parse_vcard
+
     vcard_raw = d.get("raw_vcard") or d.get("vcard_text")
     parsed = parse_vcard(vcard_raw) if vcard_raw else {}
     return {
@@ -57,16 +59,19 @@ def _contact_to_dict(row) -> dict[str, Any]:
 
 
 def _get_carddav_session(account, dek, flask_app):
-    from app.shared.models.core import Domain
-    from app.shared.db import db
     from app.modules.mail.services.secrets import decrypt_with_key
+    from app.shared.db import db
+    from app.shared.models.core import Domain
+
     domain = db.session.get(Domain, account.domain_id)
     if not domain or not domain.carddav_host:
         raise McpAuthError("NOT_CONFIGURED", "CardDAV is not configured for this domain")
     scheme = "https" if domain.carddav_use_tls else "http"
     base_url = f"{scheme}://{domain.carddav_host}:{domain.carddav_port or 5232}"
     try:
-        password = decrypt_with_key(account.encrypted_secret, dek) if account.encrypted_secret else ""
+        password = (
+            decrypt_with_key(account.encrypted_secret, dek) if account.encrypted_secret else ""
+        )
     except Exception as exc:
         raise McpAuthError(
             "DEK_MISMATCH",
@@ -75,6 +80,7 @@ def _get_carddav_session(account, dek, flask_app):
         ) from exc
     try:
         from app.modules.contacts.services import carddav
+
         s, abook_url, _ = carddav.discover_address_book(base_url, account.username, password)
         if not abook_url:
             abook_url = carddav.create_address_book(s, base_url, account.username)
@@ -101,7 +107,17 @@ def _build_vcard_data(data):
 
 def _merge_vcard_data(existing, updates):
     merged = {}
-    for key in ("fn", "email_work", "email_home", "tel_work", "tel_cell", "tel_home", "org", "title", "note"):
+    for key in (
+        "fn",
+        "email_work",
+        "email_home",
+        "tel_work",
+        "tel_cell",
+        "tel_home",
+        "org",
+        "title",
+        "note",
+    ):
         if key in updates and updates[key] is not None:
             merged[key] = updates[key]
         else:
@@ -119,18 +135,32 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
     @resilient_tool
     async def contacts_list(
         account_id: _AccId = None,
-        q: Annotated[str | None, Field(description="Search query to filter contacts by name or email")] = None,
+        q: Annotated[
+            str | None, Field(description="Search query to filter contacts by name or email")
+        ] = None,
         sort: Annotated[str | None, Field(description="Sort order: 'name' or 'email'")] = None,
-        max_results: Annotated[int | None, Field(description="Maximum number of contacts to return (1–200, default 50)", ge=1, le=200)] = None,
+        max_results: Annotated[
+            int | None,
+            Field(
+                description="Maximum number of contacts to return (1-200, default 50)", ge=1, le=200
+            ),
+        ] = None,
     ) -> str:
-        ctx, aid, dek = resolve_read(flask_app, "contacts", account_id)
+        _ctx, aid, dek = resolve_read(flask_app, "contacts", account_id)
         limit = max_results or 50
         with flask_app.app_context():
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
                 from app.modules.contacts.services.cache_db import (
-                    list_contacts as db_list, search_contacts as db_search, count_contacts,
+                    count_contacts,
                 )
+                from app.modules.contacts.services.cache_db import (
+                    list_contacts as db_list,
+                )
+                from app.modules.contacts.services.cache_db import (
+                    search_contacts as db_search,
+                )
+
                 rows = db_search(conn, q, per_page=limit) if q else db_list(conn, per_page=limit)
                 total = count_contacts(conn)
                 items = [_contact_to_dict(r) for r in rows]
@@ -150,11 +180,12 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         contact_id: Annotated[int, Field(description="ID of the contact to retrieve")],
         account_id: _AccId = None,
     ) -> str:
-        ctx, aid, dek = resolve_read(flask_app, "contacts", account_id)
+        _ctx, aid, dek = resolve_read(flask_app, "contacts", account_id)
         with flask_app.app_context():
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
                 from app.modules.contacts.services.cache_db import get_contact as db_get
+
                 row = db_get(conn, contact_id)
                 if not row:
                     return err("NOT_FOUND", "Contact not found")
@@ -173,19 +204,33 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
     )
     @resilient_tool
     async def contacts_search(
-        q: Annotated[str, Field(description="Search query string (matched against name and email)")],
-        max_results: Annotated[int | None, Field(description="Maximum number of results to return (1–200, default 50)", ge=1, le=200)] = None,
+        q: Annotated[
+            str, Field(description="Search query string (matched against name and email)")
+        ],
+        max_results: Annotated[
+            int | None,
+            Field(
+                description="Maximum number of results to return (1-200, default 50)", ge=1, le=200
+            ),
+        ] = None,
         account_id: _AccId = None,
     ) -> str:
-        ctx, aid, dek = resolve_read(flask_app, "contacts", account_id)
+        _ctx, aid, dek = resolve_read(flask_app, "contacts", account_id)
         limit = max_results or 50
         with flask_app.app_context():
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
                 from app.modules.contacts.services.cache_db import search_contacts_api
+
                 rows = search_contacts_api(conn, q, limit=limit)
                 rows = [_row_to_dict(r) for r in rows]
-                items = [{"name": r.get("fn", ""), "email": r["emails"][0]["email"] if r.get("emails") else ""} for r in rows]
+                items = [
+                    {
+                        "name": r.get("fn", ""),
+                        "email": r["emails"][0]["email"] if r.get("emails") else "",
+                    }
+                    for r in rows
+                ]
             finally:
                 conn.close()
         return ok(items)
@@ -204,7 +249,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         phone_work: Annotated[str | None, Field(description="Work phone number")] = None,
         phone_cell: Annotated[str | None, Field(description="Cell/mobile phone number")] = None,
         phone_home: Annotated[str | None, Field(description="Home phone number")] = None,
-        organization: Annotated[str | None, Field(description="Company or organization name")] = None,
+        organization: Annotated[
+            str | None, Field(description="Company or organization name")
+        ] = None,
         title: Annotated[str | None, Field(description="Job title")] = None,
         note: Annotated[str | None, Field(description="Free-form notes about the contact")] = None,
         account_id: _AccId = None,
@@ -212,23 +259,36 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         ctx, aid, dek = resolve_write(flask_app, "contacts", account_id)
         if not fn and not email_work:
             return err("VALIDATION_ERROR", "'fn' or 'email_work' is required")
-        data = {"fn": fn, "email_work": email_work, "email_home": email_home, "phone_work": phone_work, "phone_cell": phone_cell, "phone_home": phone_home, "organization": organization, "title": title, "note": note}
+        data = {
+            "fn": fn,
+            "email_work": email_work,
+            "email_home": email_home,
+            "phone_work": phone_work,
+            "phone_cell": phone_cell,
+            "phone_home": phone_home,
+            "organization": organization,
+            "title": title,
+            "note": note,
+        }
         vcard_data = _build_vcard_data(data)
         for key in vcard_data:
             if vcard_data[key] is None:
                 vcard_data[key] = ""
-        from app.modules.contacts.services.vcard import generate_vcard, extract_uid
+        from app.modules.contacts.services.vcard import extract_uid, generate_vcard
+
         vcard_text = generate_vcard(vcard_data)
         uid = extract_uid(vcard_text)
         with flask_app.app_context():
-            from app.shared.models.core import CustomerAccount
             from app.shared.db import db
+            from app.shared.models.core import CustomerAccount
+
             account = db.session.get(CustomerAccount, aid)
             if not account:
                 return err("NOT_FOUND", "Account not found")
             try:
                 s, abook_url, _ = _get_carddav_session(account, dek, flask_app)
                 from app.modules.contacts.services import carddav
+
                 href, etag = carddav.create_contact(s, abook_url, vcard_text)
             except McpAuthError:
                 raise
@@ -236,14 +296,21 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
                 return err("CARDDAV_ERROR", f"CardDAV operation failed: {exc}")
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
-                from app.modules.contacts.services.cache_db import upsert_contact, get_contact_by_uid as db_get_by_uid
+                from app.modules.contacts.services.cache_db import (
+                    get_contact_by_uid as db_get_by_uid,
+                )
+                from app.modules.contacts.services.cache_db import upsert_contact
+
                 upsert_contact(conn, uid, href, etag, vcard_text)
                 row = db_get_by_uid(conn, uid)
                 result = _contact_to_dict(row) if row else {"uid": uid, "fn": vcard_data["fn"]}
             finally:
                 conn.close()
         from app.shared.ui_events import push_ui_event
-        push_ui_event(ctx["customer_id"], "contacts", "contact_created", {"account_id": aid, "uid": uid})
+
+        push_ui_event(
+            ctx["customer_id"], "contacts", "contact_created", {"account_id": aid, "uid": uid}
+        )
         return ok(result)
 
     @mcp.tool(
@@ -261,17 +328,30 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         phone_work: Annotated[str | None, Field(description="Work phone number")] = None,
         phone_cell: Annotated[str | None, Field(description="Cell/mobile phone number")] = None,
         phone_home: Annotated[str | None, Field(description="Home phone number")] = None,
-        organization: Annotated[str | None, Field(description="Company or organization name")] = None,
+        organization: Annotated[
+            str | None, Field(description="Company or organization name")
+        ] = None,
         title: Annotated[str | None, Field(description="Job title")] = None,
         note: Annotated[str | None, Field(description="Free-form notes about the contact")] = None,
         account_id: _AccId = None,
     ) -> str:
         ctx, aid, dek = resolve_write(flask_app, "contacts", account_id)
-        data = {"fn": fn, "email_work": email_work, "email_home": email_home, "phone_work": phone_work, "phone_cell": phone_cell, "phone_home": phone_home, "organization": organization, "title": title, "note": note}
+        data = {
+            "fn": fn,
+            "email_work": email_work,
+            "email_home": email_home,
+            "phone_work": phone_work,
+            "phone_cell": phone_cell,
+            "phone_home": phone_home,
+            "organization": organization,
+            "title": title,
+            "note": note,
+        }
         with flask_app.app_context():
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
                 from app.modules.contacts.services.cache_db import get_contact as db_get
+
                 row = db_get(conn, contact_id)
                 if not row:
                     return err("NOT_FOUND", "Contact not found")
@@ -280,15 +360,17 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
                 conn.close()
             uid = d.get("uid")
             updates = _build_vcard_data(data)
-            from app.shared.models.core import CustomerAccount
             from app.shared.db import db
+            from app.shared.models.core import CustomerAccount
+
             account = db.session.get(CustomerAccount, aid)
             if not account:
                 return err("NOT_FOUND", "Account not found")
             try:
                 s, abook_url, _ = _get_carddav_session(account, dek, flask_app)
                 from app.modules.contacts.services import carddav
-                from app.modules.contacts.services.vcard import parse_vcard, generate_vcard
+                from app.modules.contacts.services.vcard import generate_vcard, parse_vcard
+
                 stored_href = d.get("href")
                 href = stored_href
                 if href and not href.startswith("http"):
@@ -315,21 +397,30 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
                 return err("CARDDAV_ERROR", f"CardDAV operation failed: {exc}")
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
-                from app.modules.contacts.services.cache_db import upsert_contact, get_contact_by_uid as db_get_by_uid
+                from app.modules.contacts.services.cache_db import (
+                    get_contact_by_uid as db_get_by_uid,
+                )
+                from app.modules.contacts.services.cache_db import upsert_contact
+
                 upsert_contact(conn, uid, href, etag, vcard_text)
                 row = db_get_by_uid(conn, uid)
                 result = _contact_to_dict(row) if row else {"uid": uid, "fn": merged.get("fn", "")}
             finally:
                 conn.close()
         from app.shared.ui_events import push_ui_event
-        push_ui_event(ctx["customer_id"], "contacts", "contact_updated", {"account_id": aid, "uid": uid})
+
+        push_ui_event(
+            ctx["customer_id"], "contacts", "contact_updated", {"account_id": aid, "uid": uid}
+        )
         return ok(result)
 
     @mcp.tool(
         name="contacts_delete",
         title="Delete Contact",
         description="Delete a contact by contact ID.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True),
+        annotations=ToolAnnotations(
+            readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True
+        ),
     )
     @resilient_tool
     async def contacts_delete(
@@ -340,7 +431,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         with flask_app.app_context():
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
-                from app.modules.contacts.services.cache_db import get_contact as db_get, delete_contact_by_uid
+                from app.modules.contacts.services.cache_db import delete_contact_by_uid
+                from app.modules.contacts.services.cache_db import get_contact as db_get
+
                 row = db_get(conn, contact_id)
                 if not row:
                     return err("NOT_FOUND", "Contact not found")
@@ -349,18 +442,29 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
             finally:
                 conn.close()
         from app.shared.ui_events import push_ui_event
-        push_ui_event(ctx["customer_id"], "contacts", "contact_deleted", {"account_id": aid, "contact_id": contact_id})
+
+        push_ui_event(
+            ctx["customer_id"],
+            "contacts",
+            "contact_deleted",
+            {"account_id": aid, "contact_id": contact_id},
+        )
         return ok()
 
     @mcp.tool(
         name="contacts_bulk_delete",
         title="Bulk Delete Contacts",
         description="Delete multiple contacts at once.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True),
+        annotations=ToolAnnotations(
+            readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True
+        ),
     )
     @resilient_tool
     async def contacts_bulk_delete(
-        items: Annotated[list[BulkContactIdItem], Field(description="Array of items to delete, each with a contact_id")],
+        items: Annotated[
+            list[BulkContactIdItem],
+            Field(description="Array of items to delete, each with a contact_id"),
+        ],
         account_id: _AccId = None,
     ) -> str:
         if not items or len(items) > 100:
@@ -372,7 +476,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         with flask_app.app_context():
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
-                from app.modules.contacts.services.cache_db import get_contact as db_get, delete_contact_by_uid
+                from app.modules.contacts.services.cache_db import delete_contact_by_uid
+                from app.modules.contacts.services.cache_db import get_contact as db_get
+
                 for i, v in enumerate(items):
                     row = db_get(conn, v.contact_id)
                     if not row:
@@ -384,5 +490,6 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
             finally:
                 conn.close()
         from app.shared.ui_events import push_ui_event
+
         push_ui_event(ctx["customer_id"], "contacts", "contacts_deleted", {"account_id": aid})
         return ok({"succeeded": succeeded, "failed": failed})

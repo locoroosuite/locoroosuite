@@ -3,7 +3,7 @@ import io
 import pytest
 
 from app.modules.docs.services import doc_meta
-from app.modules.docs.services.templates import empty_odt, empty_ods, empty_odp
+from app.modules.docs.services.templates import empty_odp, empty_ods, empty_odt
 
 
 @pytest.fixture
@@ -38,6 +38,7 @@ class TestInjectMetadata:
 
     def test_inject_preserves_zip_structure(self, odt_bytes):
         import zipfile
+
         metadata = {"id": "x", "name": "Y", "doc_type": "odt", "account_id": 1}
         patched = doc_meta.inject_metadata(odt_bytes, metadata)
         with zipfile.ZipFile(io.BytesIO(patched), "r") as zf:
@@ -63,7 +64,10 @@ class TestInjectMetadata:
 
     def test_inject_with_deleted_at(self, odt_bytes):
         metadata = {
-            "id": "d1", "name": "Trashed", "doc_type": "odt", "account_id": 1,
+            "id": "d1",
+            "name": "Trashed",
+            "doc_type": "odt",
+            "account_id": 1,
             "deleted_at": "2026-05-20 08:00:00",
         }
         patched = doc_meta.inject_metadata(odt_bytes, metadata)
@@ -86,6 +90,7 @@ class TestInjectMetadata:
         metadata = {"id": "c1", "name": "Test", "doc_type": "odt", "account_id": 1}
         patched = doc_meta.inject_metadata(odt_bytes, metadata)
         import zipfile
+
         with zipfile.ZipFile(io.BytesIO(patched), "r") as zf:
             content = zf.read("content.xml")
             assert b"office:text" in content
@@ -106,6 +111,7 @@ class TestExtractMetadata:
 
     def test_extract_from_zip_without_meta_xml(self):
         import zipfile
+
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
             zf.writestr("content.xml", "<content/>")
@@ -115,14 +121,15 @@ class TestExtractMetadata:
 
     def test_extract_from_meta_xml_without_locoroo_field(self):
         import zipfile
+
         meta_xml = (
             '<?xml version="1.0" encoding="UTF-8"?>'
             '<office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" '
             'xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0" office:version="1.2">'
-            '<meta:meta>'
+            "<meta:meta>"
             '<meta:user-defined meta:name="dc:title">Some Title</meta:user-defined>'
-            '</meta:meta>'
-            '</office:document-meta>'
+            "</meta:meta>"
+            "</office:document-meta>"
         )
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
@@ -133,14 +140,15 @@ class TestExtractMetadata:
 
     def test_extract_handles_corrupted_json(self):
         import zipfile
+
         meta_xml = (
             '<?xml version="1.0" encoding="UTF-8"?>'
             '<office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" '
             'xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0" office:version="1.2">'
-            '<meta:meta>'
+            "<meta:meta>"
             '<meta:user-defined meta:name="x-locoroo-meta">{not valid json}</meta:user-defined>'
-            '</meta:meta>'
-            '</office:document-meta>'
+            "</meta:meta>"
+            "</office:document-meta>"
         )
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
@@ -154,18 +162,21 @@ class TestEmptyTemplatesHaveMetaXml:
     def test_empty_odt_has_meta_xml(self):
         data = empty_odt().read()
         import zipfile
+
         with zipfile.ZipFile(io.BytesIO(data), "r") as zf:
             assert "meta.xml" in zf.namelist()
 
     def test_empty_ods_has_meta_xml(self):
         data = empty_ods().read()
         import zipfile
+
         with zipfile.ZipFile(io.BytesIO(data), "r") as zf:
             assert "meta.xml" in zf.namelist()
 
     def test_empty_odp_has_meta_xml(self):
         data = empty_odp().read()
         import zipfile
+
         with zipfile.ZipFile(io.BytesIO(data), "r") as zf:
             assert "meta.xml" in zf.namelist()
 

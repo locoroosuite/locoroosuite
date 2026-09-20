@@ -1,10 +1,9 @@
 import os
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from app.config import DATA_DIR
-
 
 UPLOAD_ROOT = DATA_DIR / "import_uploads"
 UPLOAD_ROOT.mkdir(exist_ok=True)
@@ -41,7 +40,11 @@ def ensure_upload_metadata(import_request, filename, total_size):
     )
     if same_upload:
         import_request.uploaded_bytes = part_path.stat().st_size
-        import_request.upload_status = "uploading" if import_request.uploaded_bytes < import_request.upload_size_bytes else "uploaded"
+        import_request.upload_status = (
+            "uploading"
+            if import_request.uploaded_bytes < import_request.upload_size_bytes
+            else "uploaded"
+        )
         return part_path, import_request.uploaded_bytes
 
     cleanup_upload_path(import_request.staged_upload_path)
@@ -80,13 +83,15 @@ def finalize_upload(import_request):
         raise ValueError("Uploaded file is missing from staging.")
     if int(import_request.uploaded_bytes or 0) != int(import_request.upload_size_bytes or 0):
         raise ValueError("Uploaded file size does not match the expected size.")
-    final_path = finalized_upload_path(import_request.id, import_request.upload_filename or "mail.mbox")
+    final_path = finalized_upload_path(
+        import_request.id, import_request.upload_filename or "mail.mbox"
+    )
     if final_path.exists():
         final_path.unlink()
     part_path.rename(final_path)
     import_request.staged_upload_path = str(final_path)
     import_request.upload_status = "uploaded"
-    import_request.upload_completed_at = datetime.now(timezone.utc)
+    import_request.upload_completed_at = datetime.now(UTC)
     return final_path
 
 

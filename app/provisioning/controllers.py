@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import contextlib
 import functools
 import logging
 
-from flask import Blueprint, current_app, request, jsonify
+from flask import Blueprint, current_app, jsonify, request
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,16 @@ def require_provisioning_auth(f):
     @functools.wraps(f)
     def decorated(*args, **kwargs):
         if not _check_provisioning_auth():
-            return jsonify({"error": {"code": "UNAUTHORIZED", "message": "Invalid or missing provisioning API key"}}), 401
+            return jsonify(
+                {
+                    "error": {
+                        "code": "UNAUTHORIZED",
+                        "message": "Invalid or missing provisioning API key",
+                    }
+                }
+            ), 401
         return f(*args, **kwargs)
+
     return decorated
 
 
@@ -42,6 +51,7 @@ def _error(code, message, status=400):
 
 def _get_mail_client():
     from app.admin.services.mail_server import get_mail_client
+
     client = get_mail_client()
     if not client:
         raise RuntimeError("Mail API is not configured")
@@ -77,8 +87,8 @@ def create_domain():
     if not domain:
         return _error("VALIDATION_ERROR", "domain is required")
     try:
-        from app.shared.models.core import Domain, DomainDnsConfig, PlatformServiceConfig
         from app.shared.db import db
+        from app.shared.models.core import Domain, DomainDnsConfig, PlatformServiceConfig
 
         domain_obj = Domain.query.filter_by(name=domain).first()
         if not domain_obj:
@@ -186,11 +196,12 @@ def create_mailbox():
         if max_emails_per_day is not None:
             client.set_sending_limit(email, max_emails_per_day)
 
-        from app.shared.models.core import User, Domain, CustomerAccount
-        from app.shared.db import db
         from werkzeug.security import generate_password_hash
 
-        local, domain_name = email.rsplit("@", 1)
+        from app.shared.db import db
+        from app.shared.models.core import CustomerAccount, Domain, User
+
+        _local, domain_name = email.rsplit("@", 1)
         domain_obj = Domain.query.filter_by(name=domain_name).first()
 
         existing_user = User.query.filter_by(email=email).first()
@@ -232,10 +243,8 @@ def delete_mailbox(email):
     try:
         client = _get_mail_client()
         client.remove_user(email)
-        try:
+        with contextlib.suppress(Exception):
             client.delete_sending_limit(email)
-        except Exception:
-            pass
         return _ok({"deleted": True})
     except FileNotFoundError:
         return _error("MAILBOX_NOT_FOUND", f"Mailbox {email} not found", 404)
@@ -268,11 +277,14 @@ def generate_dkim():
     try:
         client = _get_mail_client()
         key_data = client.generate_dkim_key(domain, selector=selector)
-        return _ok({
-            "selector": key_data.get("selector", "default"),
-            "public_key": key_data.get("public_key", ""),
-            "txt_record": key_data.get("txt_record", ""),
-        }, 201)
+        return _ok(
+            {
+                "selector": key_data.get("selector", "default"),
+                "public_key": key_data.get("public_key", ""),
+                "txt_record": key_data.get("txt_record", ""),
+            },
+            201,
+        )
     except Exception as exc:
         logger.error("generate-dkim failed for %s: %s", domain, exc)
         return _error("DKIM_GENERATE_FAILED", str(exc), 500)
@@ -283,15 +295,19 @@ def generate_dkim():
 def get_dns_records(domain):
     domain = domain.strip().lower()
     try:
-        from app.shared.models.core import PlatformDnsConfig, Domain, DomainDnsConfig
+        from app.shared.models.core import Domain, DomainDnsConfig, PlatformDnsConfig
 
         platform_dns = PlatformDnsConfig.query.first()
         domain_obj = Domain.query.filter_by(name=domain).first()
-        domain_dns = DomainDnsConfig.query.filter_by(domain_id=domain_obj.id).first() if domain_obj else None
+        domain_dns = (
+            DomainDnsConfig.query.filter_by(domain_id=domain_obj.id).first() if domain_obj else None
+        )
 
         mx_servers = []
         if platform_dns and platform_dns.mx_hostname:
-            mx_servers = [{"host": platform_dns.mx_hostname, "priority": platform_dns.mx_priority or 10}]
+            mx_servers = [
+                {"host": platform_dns.mx_hostname, "priority": platform_dns.mx_priority or 10}
+            ]
 
         spf_record = "v=spf1 mx ~all"
         mx_hosts = [s.get("host", "") for s in mx_servers if s.get("host")]
@@ -326,13 +342,15 @@ def get_dns_records(domain):
             if host:
                 mx_lines.append(f"@  IN  MX  {priority}  {host}.")
 
-        return _ok({
-            "mx": "\n".join(mx_lines),
-            "mx_hosts": mx_hosts,
-            "spf": spf_record,
-            "dkim": dkim_data,
-            "dmarc": dmarc_record,
-        })
+        return _ok(
+            {
+                "mx": "\n".join(mx_lines),
+                "mx_hosts": mx_hosts,
+                "spf": spf_record,
+                "dkim": dkim_data,
+                "dmarc": dmarc_record,
+            }
+        )
     except Exception as exc:
         logger.error("dns-records failed for %s: %s", domain, exc)
         return _error("DNS_RECORDS_FAILED", str(exc), 500)
@@ -343,13 +361,15 @@ def get_dns_records(domain):
 def validate_dns(domain):
     domain = domain.strip().lower()
     try:
-        from app.shared.models.core import PlatformDnsConfig
         from app.admin.services.dns_checks import run_all_dns_checks
+        from app.shared.models.core import PlatformDnsConfig
 
         platform_dns = PlatformDnsConfig.query.first()
         mx_servers = []
         if platform_dns and platform_dns.mx_hostname:
-            mx_servers = [{"host": platform_dns.mx_hostname, "priority": platform_dns.mx_priority or 10}]
+            mx_servers = [
+                {"host": platform_dns.mx_hostname, "priority": platform_dns.mx_priority or 10}
+            ]
 
         dkim_selector = "default"
         dkim_public_key = None
@@ -387,15 +407,27 @@ def validate_ownership(domain):
         return _error("VALIDATION_ERROR", "expected_value is required")
 
     try:
-        from app.admin.services.dns_checks import _get_authoritative_nameservers, _resolve_ns_ips, _query_record_at_ns
+        from app.admin.services.dns_checks import (
+            _get_authoritative_nameservers,
+            _query_record_at_ns,
+            _resolve_ns_ips,
+        )
 
         ns_names = _get_authoritative_nameservers(domain)
         if not ns_names:
-            return _ok({"verified": False, "found": [], "details": "Could not resolve authoritative nameservers"})
+            return _ok(
+                {
+                    "verified": False,
+                    "found": [],
+                    "details": "Could not resolve authoritative nameservers",
+                }
+            )
 
         ns_ips = _resolve_ns_ips(ns_names)
         if not ns_ips:
-            return _ok({"verified": False, "found": [], "details": "Could not resolve nameserver IPs"})
+            return _ok(
+                {"verified": False, "found": [], "details": "Could not resolve nameserver IPs"}
+            )
 
         all_found: list[str] = []
         verified_count = 0
@@ -425,8 +457,8 @@ def update_dmarc_rua():
     if not domain_name:
         return _error("VALIDATION_ERROR", "domain is required")
     try:
-        from app.shared.models.core import Domain, DomainDnsConfig
         from app.shared.db import db
+        from app.shared.models.core import Domain, DomainDnsConfig
 
         domain_obj = Domain.query.filter_by(name=domain_name).first()
         if not domain_obj:

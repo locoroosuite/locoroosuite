@@ -1,16 +1,16 @@
 from app.modules.mail.services.protection import (
     LOCKED_KEYWORD,
-    is_system_folder,
     folder_is_protected,
+    is_system_folder,
     load_protected_folders,
-    set_folder_protected,
     locked_keyword_enabled,
-    set_locked_keyword_enabled,
-    protect_starred_enabled,
     message_is_protected,
-    protection_reason,
-    protected_delete_message,
+    protect_starred_enabled,
     protected_badge_label,
+    protected_delete_message,
+    protection_reason,
+    set_folder_protected,
+    set_locked_keyword_enabled,
 )
 
 

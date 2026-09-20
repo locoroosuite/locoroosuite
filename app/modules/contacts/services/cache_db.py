@@ -1,3 +1,5 @@
+from datetime import UTC
+
 import sqlcipher3
 
 from app.modules.contacts.services.cache_migrations import CONTACTS_CACHE_MIGRATIONS
@@ -17,6 +19,7 @@ def open_cache(db_path, key):
     except (MemoryError, Exception) as exc:
         conn.close()
         import os as _os
+
         if _os.path.exists(db_path):
             _os.unlink(db_path)
         conn = sqlcipher3.connect(db_path)
@@ -63,7 +66,9 @@ def upsert_contact(conn, uid, href, etag, vcard_text):
     else:
         cols = ", ".join(fields.keys())
         placeholders = ", ".join("?" for _ in fields)
-        conn.execute(f"INSERT INTO contacts ({cols}) VALUES ({placeholders})", tuple(fields.values()))
+        conn.execute(
+            f"INSERT INTO contacts ({cols}) VALUES ({placeholders})", tuple(fields.values())
+        )
     conn.commit()
     return conn.execute("SELECT id FROM contacts WHERE uid = ?", (uid,)).fetchone()[0]
 
@@ -78,7 +83,7 @@ def get_contact(conn, contact_id):
     if not row:
         return None
     cols = [desc[0] for desc in conn.execute("SELECT * FROM contacts LIMIT 0").description]
-    return dict(zip(cols, row))
+    return dict(zip(cols, row, strict=False))
 
 
 def get_contact_by_uid(conn, uid):
@@ -86,7 +91,7 @@ def get_contact_by_uid(conn, uid):
     if not row:
         return None
     cols = [desc[0] for desc in conn.execute("SELECT * FROM contacts LIMIT 0").description]
-    return dict(zip(cols, row))
+    return dict(zip(cols, row, strict=False))
 
 
 def list_contacts(conn, page=1, per_page=50):
@@ -96,7 +101,7 @@ def list_contacts(conn, page=1, per_page=50):
         (per_page, offset),
     ).fetchall()
     cols = [desc[0] for desc in conn.execute("SELECT * FROM contacts LIMIT 0").description]
-    return [dict(zip(cols, r)) for r in rows]
+    return [dict(zip(cols, r, strict=False)) for r in rows]
 
 
 def count_contacts(conn):
@@ -119,7 +124,7 @@ def search_contacts(conn, query, page=1, per_page=50):
         (like, like, like, like, like, like, like, like, per_page, offset),
     ).fetchall()
     cols = [desc[0] for desc in conn.execute("SELECT * FROM contacts LIMIT 0").description]
-    return [dict(zip(cols, r)) for r in rows]
+    return [dict(zip(cols, r, strict=False)) for r in rows]
 
 
 def search_contacts_api(conn, query, limit=10):
@@ -161,7 +166,7 @@ def find_by_email(conn, email):
     if not row:
         return None
     cols = [desc[0] for desc in conn.execute("SELECT * FROM contacts LIMIT 0").description]
-    return dict(zip(cols, row))
+    return dict(zip(cols, row, strict=False))
 
 
 def get_sync_state(conn, href):
@@ -187,5 +192,6 @@ def set_sync_state(conn, href, sync_token=None):
 
 
 def _now():
-    from datetime import datetime, timezone
-    return datetime.now(timezone.utc).isoformat()
+    from datetime import datetime
+
+    return datetime.now(UTC).isoformat()

@@ -5,7 +5,18 @@ from app.modules.docs.services import cache_db, doc_meta, storage
 logger = logging.getLogger(__name__)
 
 
-def build_doc_metadata(doc_id, name, doc_type, account_id, original_format=None, deleted_at=None, created_at=None, updated_at=None, folder_path="", tags=None):
+def build_doc_metadata(
+    doc_id,
+    name,
+    doc_type,
+    account_id,
+    original_format=None,
+    deleted_at=None,
+    created_at=None,
+    updated_at=None,
+    folder_path="",
+    tags=None,
+):
     return {
         "id": doc_id,
         "name": name,
@@ -43,7 +54,9 @@ def inject_metadata_from_doc_row(user_id, account_id, doc):
         created_at=doc.get("created_at"),
         updated_at=doc.get("updated_at"),
         folder_path=doc.get("folder_path", ""),
-        tags=doc.get("tags") if isinstance(doc.get("tags"), list) else cache_db.parse_tags(doc.get("tags")),
+        tags=doc.get("tags")
+        if isinstance(doc.get("tags"), list)
+        else cache_db.parse_tags(doc.get("tags")),
     )
     if doc.get("original_format"):
         storage.write_sidecar(user_id, account_id, doc["id"], metadata)
@@ -108,9 +121,15 @@ def resync_docs(conn, user_id, account_id):
         if not isinstance(tags, list):
             tags = []
         cache_db.create_document(
-            conn, doc_id, name, doc_type, meta_account_id,
-            file_size=file_size, original_format=original_format,
-            folder_path=folder_path, tags=tags,
+            conn,
+            doc_id,
+            name,
+            doc_type,
+            meta_account_id,
+            file_size=file_size,
+            original_format=original_format,
+            folder_path=folder_path,
+            tags=tags,
         )
         if deleted_at:
             cache_db.soft_delete_document(conn, doc_id)
@@ -142,6 +161,7 @@ def _reconstruct_folders(conn, account_id):
     nothing to merge into — matching U13.90c.
     """
     from app.modules.docs.services import folders as folders_svc
+
     paths = cache_db.distinct_doc_folder_paths(conn, account_id)
     for p in paths:
         try:
@@ -165,8 +185,9 @@ def _guess_type_and_format(file_bytes):
     if file_bytes[:4] != b"PK\x03\x04":
         return "odt", None
     try:
-        import zipfile
         import io
+        import zipfile
+
         with zipfile.ZipFile(io.BytesIO(file_bytes), "r") as zf:
             if "meta.xml" in zf.namelist():
                 meta = zf.read("meta.xml")
@@ -187,8 +208,9 @@ def _guess_type_and_format(file_bytes):
 
 def _guess_office_format_from_zip(file_bytes):
     try:
-        import zipfile
         import io
+        import zipfile
+
         with zipfile.ZipFile(io.BytesIO(file_bytes), "r") as zf:
             names = zf.namelist()
             if "[Content_Types].xml" not in names:

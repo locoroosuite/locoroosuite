@@ -10,7 +10,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 
 from app.shared.models.oauth import OAuthClient
-from app.shared.oauth import get_public_key, _get_issuer
+from app.shared.oauth import _get_issuer, get_public_key
 
 
 @pytest.fixture(autouse=True)
@@ -23,9 +23,7 @@ def _set_server_name(app):
 def _generate_pkce():
     verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode()
     challenge = (
-        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest())
-        .rstrip(b"=")
-        .decode()
+        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     )
     return verifier, challenge
 
@@ -44,18 +42,24 @@ def _register_client(
     return json.loads(resp.data), resp.status_code
 
 
-def _full_oauth_params(client_id=None, redirect_uri=None, code_challenge=None, resource=None, scope="mail.read"):
+def _full_oauth_params(
+    client_id=None, redirect_uri=None, code_challenge=None, resource=None, scope="mail.read"
+):
     v, c = _generate_pkce()
-    return {
-        "client_id": client_id or "placeholder",
-        "redirect_uri": redirect_uri or "https://chatgpt.com/connector/oauth/test123",
-        "response_type": "code",
-        "scope": scope,
-        "resource": resource or "https://example.com",
-        "state": "test-state",
-        "code_challenge": code_challenge or c,
-        "code_challenge_method": "S256",
-    }, v, c
+    return (
+        {
+            "client_id": client_id or "placeholder",
+            "redirect_uri": redirect_uri or "https://chatgpt.com/connector/oauth/test123",
+            "response_type": "code",
+            "scope": scope,
+            "resource": resource or "https://example.com",
+            "state": "test-state",
+            "code_challenge": code_challenge or c,
+            "code_challenge_method": "S256",
+        },
+        v,
+        c,
+    )
 
 
 class TestOAuthMetadata:
@@ -131,15 +135,16 @@ class TestOAuthClientRegistration:
             assert oauth_client.client_name == "Test App"
 
     def test_register_client_validates_redirect_uri(self, app, client, _clean_db):
-        data, status = _register_client(
-            client, redirect_uri="https://evil.example.com/callback"
-        )
+        data, status = _register_client(client, redirect_uri="https://evil.example.com/callback")
         assert status == 400
         assert data["error"] == "invalid_redirect_uri"
         assert "not allowed" in data["error_description"]
 
     def test_register_client_missing_fields(self, app, client, _clean_db):
-        resp = client.post("/oauth/register", json={"redirect_uris": ["https://chatgpt.com/connector/oauth/test123"]})
+        resp = client.post(
+            "/oauth/register",
+            json={"redirect_uris": ["https://chatgpt.com/connector/oauth/test123"]},
+        )
         assert resp.status_code == 400
         data = json.loads(resp.data)
         assert data["error"] == "invalid_client_metadata"
@@ -167,7 +172,7 @@ class TestOAuthAuthorizeEndpoint:
         assert "/login" in resp.headers["Location"]
 
     def test_authorize_shows_consent(self, app, authed_client, _clean_db):
-        client, user_id, account_id = authed_client
+        client, _user_id, _account_id = authed_client
         reg_data, _ = _register_client(client)
         client_id = reg_data["client_id"]
 
@@ -183,7 +188,7 @@ class TestOAuthAuthorizeEndpoint:
         assert 'value="mail.read"' in body
 
     def test_authorize_missing_params(self, app, authed_client, _clean_db):
-        client, user_id, account_id = authed_client
+        client, _user_id, _account_id = authed_client
         resp = client.get("/oauth/authorize", query_string={"response_type": "code"})
         assert resp.status_code == 400
         data = json.loads(resp.data)
@@ -191,7 +196,7 @@ class TestOAuthAuthorizeEndpoint:
         assert "client_id is required" in data["error_description"]
 
     def test_authorize_invalid_response_type(self, app, authed_client, _clean_db):
-        client, user_id, account_id = authed_client
+        client, _user_id, _account_id = authed_client
         reg_data, _ = _register_client(client)
         client_id = reg_data["client_id"]
 
@@ -203,7 +208,7 @@ class TestOAuthAuthorizeEndpoint:
         assert "response_type must be 'code'" in data["error_description"]
 
     def test_authorize_unknown_client(self, app, authed_client, _clean_db):
-        client, user_id, account_id = authed_client
+        client, _user_id, _account_id = authed_client
         params, _, _ = _full_oauth_params(client_id="nonexistent-client-id")
         resp = client.get("/oauth/authorize", query_string=params)
         assert resp.status_code == 400
@@ -211,7 +216,7 @@ class TestOAuthAuthorizeEndpoint:
         assert data["error"] == "invalid_client"
 
     def test_authorize_unregistered_redirect_uri(self, app, authed_client, _clean_db):
-        client, user_id, account_id = authed_client
+        client, _user_id, _account_id = authed_client
         reg_data, _ = _register_client(client)
         client_id = reg_data["client_id"]
 
@@ -225,35 +230,41 @@ class TestOAuthAuthorizeEndpoint:
         assert "redirect_uri not registered" in data["error_description"]
 
     def test_authorize_missing_code_challenge(self, app, authed_client, _clean_db):
-        client, user_id, account_id = authed_client
+        client, _user_id, _account_id = authed_client
         reg_data, _ = _register_client(client)
         client_id = reg_data["client_id"]
 
-        resp = client.get("/oauth/authorize", query_string={
-            "client_id": client_id,
-            "redirect_uri": "https://chatgpt.com/connector/oauth/test123",
-            "response_type": "code",
-            "scope": "mail.read",
-            "resource": "https://example.com",
-        })
+        resp = client.get(
+            "/oauth/authorize",
+            query_string={
+                "client_id": client_id,
+                "redirect_uri": "https://chatgpt.com/connector/oauth/test123",
+                "response_type": "code",
+                "scope": "mail.read",
+                "resource": "https://example.com",
+            },
+        )
         assert resp.status_code == 400
         data = json.loads(resp.data)
         assert "code_challenge is required" in data["error_description"]
 
     def test_authorize_missing_resource(self, app, authed_client, _clean_db):
-        client, user_id, account_id = authed_client
+        client, _user_id, _account_id = authed_client
         reg_data, _ = _register_client(client)
         client_id = reg_data["client_id"]
-        v, c = _generate_pkce()
+        _v, c = _generate_pkce()
 
-        resp = client.get("/oauth/authorize", query_string={
-            "client_id": client_id,
-            "redirect_uri": "https://chatgpt.com/connector/oauth/test123",
-            "response_type": "code",
-            "scope": "mail.read",
-            "code_challenge": c,
-            "code_challenge_method": "S256",
-        })
+        resp = client.get(
+            "/oauth/authorize",
+            query_string={
+                "client_id": client_id,
+                "redirect_uri": "https://chatgpt.com/connector/oauth/test123",
+                "response_type": "code",
+                "scope": "mail.read",
+                "code_challenge": c,
+                "code_challenge_method": "S256",
+            },
+        )
         assert resp.status_code == 400
         data = json.loads(resp.data)
         assert "resource is required" in data["error_description"]
@@ -261,26 +272,29 @@ class TestOAuthAuthorizeEndpoint:
 
 class TestOAuthAuthorizeConsent:
     def test_authorize_approve_issues_code(self, app, authed_client, _clean_db):
-        client, user_id, account_id = authed_client
+        client, _user_id, _account_id = authed_client
         reg_data, _ = _register_client(client)
         client_id = reg_data["client_id"]
         redirect_uri = "https://chatgpt.com/connector/oauth/test123"
 
-        params, verifier, challenge = _full_oauth_params(
+        params, _verifier, challenge = _full_oauth_params(
             client_id=client_id, redirect_uri=redirect_uri
         )
-        resp = client.post("/oauth/authorize", data={
-            "action": "approve",
-            "client_id": client_id,
-            "redirect_uri": redirect_uri,
-            "scope": "mail.read",
-            "scopes": ["mail.read"],
-            "resource": params["resource"],
-            "state": "test-state",
-            "code_challenge": challenge,
-            "code_challenge_method": "S256",
-            "response_type": "code",
-        })
+        resp = client.post(
+            "/oauth/authorize",
+            data={
+                "action": "approve",
+                "client_id": client_id,
+                "redirect_uri": redirect_uri,
+                "scope": "mail.read",
+                "scopes": ["mail.read"],
+                "resource": params["resource"],
+                "state": "test-state",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "response_type": "code",
+            },
+        )
         assert resp.status_code == 302
         location = resp.headers["Location"]
         assert "code=" in location
@@ -288,14 +302,17 @@ class TestOAuthAuthorizeConsent:
         assert location.startswith(redirect_uri)
 
     def test_authorize_deny_redirects_with_error(self, app, authed_client, _clean_db):
-        client, user_id, account_id = authed_client
+        client, _user_id, _account_id = authed_client
         redirect_uri = "https://chatgpt.com/connector/oauth/test123"
 
-        resp = client.post("/oauth/authorize", data={
-            "action": "deny",
-            "redirect_uri": redirect_uri,
-            "state": "deny-state",
-        })
+        resp = client.post(
+            "/oauth/authorize",
+            data={
+                "action": "deny",
+                "redirect_uri": redirect_uri,
+                "state": "deny-state",
+            },
+        )
         assert resp.status_code == 302
         location = resp.headers["Location"]
         assert "error=access_denied" in location
@@ -316,18 +333,21 @@ class TestOAuthTokenEndpoint:
             sess["user_id"] = user_id
             sess["active_account_id"] = account_id
 
-        resp = client.post("/oauth/authorize", data={
-            "action": "approve",
-            "client_id": client_id,
-            "redirect_uri": redirect_uri,
-            "scope": scope,
-            "scopes": scope.split(),
-            "resource": resource,
-            "state": "test-state",
-            "code_challenge": challenge,
-            "code_challenge_method": "S256",
-            "response_type": "code",
-        })
+        resp = client.post(
+            "/oauth/authorize",
+            data={
+                "action": "approve",
+                "client_id": client_id,
+                "redirect_uri": redirect_uri,
+                "scope": scope,
+                "scopes": scope.split(),
+                "resource": resource,
+                "state": "test-state",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "response_type": "code",
+            },
+        )
         assert resp.status_code == 302
         location = resp.headers["Location"]
         code = location.split("code=")[1].split("&")[0]
@@ -340,13 +360,16 @@ class TestOAuthTokenEndpoint:
             app, client, user_id, account_id
         )
 
-        resp = client.post("/oauth/token", data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "client_id": client_id,
-            "code_verifier": verifier,
-        })
+        resp = client.post(
+            "/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": client_id,
+                "code_verifier": verifier,
+            },
+        )
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert data["token_type"] == "Bearer"
@@ -373,13 +396,16 @@ class TestOAuthTokenEndpoint:
         assert payload["exp"] > payload["iat"]
 
     def test_token_exchange_invalid_code(self, app, client, _clean_db):
-        resp = client.post("/oauth/token", data={
-            "grant_type": "authorization_code",
-            "code": "totally-invalid-code",
-            "redirect_uri": "https://chatgpt.com/connector/oauth/test123",
-            "client_id": "some-client",
-            "code_verifier": "any",
-        })
+        resp = client.post(
+            "/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": "totally-invalid-code",
+                "redirect_uri": "https://chatgpt.com/connector/oauth/test123",
+                "client_id": "some-client",
+                "code_verifier": "any",
+            },
+        )
         assert resp.status_code == 400
         data = json.loads(resp.data)
         assert data["error"] == "invalid_grant"
@@ -387,26 +413,32 @@ class TestOAuthTokenEndpoint:
 
     def test_token_exchange_code_reuse_rejected(self, app, authed_client, _clean_db):
         client, user_id, account_id = authed_client
-        client_id, redirect_uri, code, verifier, resource = self._run_full_flow(
+        client_id, redirect_uri, code, verifier, _resource = self._run_full_flow(
             app, client, user_id, account_id
         )
 
-        token_resp = client.post("/oauth/token", data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "client_id": client_id,
-            "code_verifier": verifier,
-        })
+        token_resp = client.post(
+            "/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": client_id,
+                "code_verifier": verifier,
+            },
+        )
         assert token_resp.status_code == 200
 
-        reuse_resp = client.post("/oauth/token", data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "client_id": client_id,
-            "code_verifier": verifier,
-        })
+        reuse_resp = client.post(
+            "/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": client_id,
+                "code_verifier": verifier,
+            },
+        )
         assert reuse_resp.status_code == 400
         data = json.loads(reuse_resp.data)
         assert data["error"] == "invalid_grant"
@@ -414,18 +446,21 @@ class TestOAuthTokenEndpoint:
 
     def test_token_exchange_pkce_failure(self, app, authed_client, _clean_db):
         client, user_id, account_id = authed_client
-        client_id, redirect_uri, code, verifier, resource = self._run_full_flow(
+        client_id, redirect_uri, code, _verifier, _resource = self._run_full_flow(
             app, client, user_id, account_id
         )
 
         wrong_verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode()
-        resp = client.post("/oauth/token", data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "client_id": client_id,
-            "code_verifier": wrong_verifier,
-        })
+        resp = client.post(
+            "/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": client_id,
+                "code_verifier": wrong_verifier,
+            },
+        )
         assert resp.status_code == 400
         data = json.loads(resp.data)
         assert data["error"] == "invalid_grant"
@@ -433,17 +468,20 @@ class TestOAuthTokenEndpoint:
 
     def test_token_exchange_wrong_client_id(self, app, authed_client, _clean_db):
         client, user_id, account_id = authed_client
-        client_id, redirect_uri, code, verifier, resource = self._run_full_flow(
+        _client_id, redirect_uri, code, verifier, _resource = self._run_full_flow(
             app, client, user_id, account_id
         )
 
-        resp = client.post("/oauth/token", data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "client_id": "wrong-client-id",
-            "code_verifier": verifier,
-        })
+        resp = client.post(
+            "/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": "wrong-client-id",
+                "code_verifier": verifier,
+            },
+        )
         assert resp.status_code == 400
         data = json.loads(resp.data)
         assert data["error"] == "invalid_grant"
@@ -451,37 +489,46 @@ class TestOAuthTokenEndpoint:
 
     def test_token_exchange_wrong_redirect_uri(self, app, authed_client, _clean_db):
         client, user_id, account_id = authed_client
-        client_id, redirect_uri, code, verifier, resource = self._run_full_flow(
+        client_id, _redirect_uri, code, verifier, _resource = self._run_full_flow(
             app, client, user_id, account_id
         )
 
-        resp = client.post("/oauth/token", data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": "https://chatgpt.com/connector/oauth/wrong",
-            "client_id": client_id,
-            "code_verifier": verifier,
-        })
+        resp = client.post(
+            "/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": "https://chatgpt.com/connector/oauth/wrong",
+                "client_id": client_id,
+                "code_verifier": verifier,
+            },
+        )
         assert resp.status_code == 400
         data = json.loads(resp.data)
         assert data["error"] == "invalid_grant"
         assert "redirect_uri mismatch" in data["error_description"]
 
     def test_token_unsupported_grant_type(self, app, client, _clean_db):
-        resp = client.post("/oauth/token", data={
-            "grant_type": "client_credentials",
-            "code": "x",
-            "redirect_uri": "x",
-            "client_id": "x",
-        })
+        resp = client.post(
+            "/oauth/token",
+            data={
+                "grant_type": "client_credentials",
+                "code": "x",
+                "redirect_uri": "x",
+                "client_id": "x",
+            },
+        )
         assert resp.status_code == 400
         data = json.loads(resp.data)
         assert data["error"] == "unsupported_grant_type"
 
     def test_token_missing_required_params(self, app, client, _clean_db):
-        resp = client.post("/oauth/token", data={
-            "grant_type": "authorization_code",
-        })
+        resp = client.post(
+            "/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+            },
+        )
         assert resp.status_code == 400
         data = json.loads(resp.data)
         assert data["error"] == "invalid_request"
@@ -489,17 +536,20 @@ class TestOAuthTokenEndpoint:
 
     def test_token_exchange_with_openid_scope_returns_id_token(self, app, authed_client, _clean_db):
         client, user_id, account_id = authed_client
-        client_id, redirect_uri, code, verifier, resource = self._run_full_flow(
+        client_id, redirect_uri, code, verifier, _resource = self._run_full_flow(
             app, client, user_id, account_id, scope="openid mail.read"
         )
 
-        resp = client.post("/oauth/token", data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "client_id": client_id,
-            "code_verifier": verifier,
-        })
+        resp = client.post(
+            "/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": client_id,
+                "code_verifier": verifier,
+            },
+        )
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert data["scope"] == "openid mail.read"
@@ -525,17 +575,20 @@ class TestOAuthTokenEndpoint:
 
     def test_token_exchange_without_openid_scope_no_id_token(self, app, authed_client, _clean_db):
         client, user_id, account_id = authed_client
-        client_id, redirect_uri, code, verifier, resource = self._run_full_flow(
+        client_id, redirect_uri, code, verifier, _resource = self._run_full_flow(
             app, client, user_id, account_id, scope="mail.read"
         )
 
-        resp = client.post("/oauth/token", data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "client_id": client_id,
-            "code_verifier": verifier,
-        })
+        resp = client.post(
+            "/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": client_id,
+                "code_verifier": verifier,
+            },
+        )
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert "id_token" not in data
@@ -546,17 +599,20 @@ class TestOAuthJWKSVerification:
         client, user_id, account_id = authed_client
 
         helper = TestOAuthTokenEndpoint()
-        client_id, redirect_uri, code, verifier, resource = helper._run_full_flow(
+        client_id, redirect_uri, code, verifier, _resource = helper._run_full_flow(
             app, client, user_id, account_id
         )
 
-        token_resp = client.post("/oauth/token", data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "client_id": client_id,
-            "code_verifier": verifier,
-        })
+        token_resp = client.post(
+            "/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": client_id,
+                "code_verifier": verifier,
+            },
+        )
         assert token_resp.status_code == 200
         token_data = json.loads(token_resp.data)
         access_token = token_data["access_token"]
@@ -566,6 +622,7 @@ class TestOAuthJWKSVerification:
         jwks = json.loads(jwks_resp.data)
 
         from jwt import PyJWK
+
         jwk_data = jwks["keys"][0]
         jwk_obj = PyJWK(jwk_data)
 
@@ -582,7 +639,7 @@ class TestOAuthJWKSVerification:
 
 class TestSelectiveScopeApproval:
     def test_consent_page_shows_checkboxes(self, app, authed_client, _clean_db):
-        client, user_id, account_id = authed_client
+        client, _user_id, _account_id = authed_client
         reg_data, _ = _register_client(client)
         client_id = reg_data["client_id"]
 
@@ -614,30 +671,36 @@ class TestSelectiveScopeApproval:
             sess["user_id"] = user_id
             sess["active_account_id"] = account_id
 
-        resp = client.post("/oauth/authorize", data={
-            "action": "approve",
-            "client_id": client_id,
-            "redirect_uri": redirect_uri,
-            "scope": requested_scope,
-            "scopes": ["mail.read"],
-            "resource": resource,
-            "state": "test-state",
-            "code_challenge": challenge,
-            "code_challenge_method": "S256",
-            "response_type": "code",
-        })
+        resp = client.post(
+            "/oauth/authorize",
+            data={
+                "action": "approve",
+                "client_id": client_id,
+                "redirect_uri": redirect_uri,
+                "scope": requested_scope,
+                "scopes": ["mail.read"],
+                "resource": resource,
+                "state": "test-state",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "response_type": "code",
+            },
+        )
         assert resp.status_code == 302
         location = resp.headers["Location"]
         assert "code=" in location
         code = location.split("code=")[1].split("&")[0]
 
-        token_resp = client.post("/oauth/token", data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "client_id": client_id,
-            "code_verifier": verifier,
-        })
+        token_resp = client.post(
+            "/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": client_id,
+                "code_verifier": verifier,
+            },
+        )
         assert token_resp.status_code == 200
         token_data = json.loads(token_resp.data)
         assert token_data["scope"] == "mail.read"
@@ -664,18 +727,21 @@ class TestSelectiveScopeApproval:
             sess["user_id"] = user_id
             sess["active_account_id"] = account_id
 
-        resp = client.post("/oauth/authorize", data={
-            "action": "approve",
-            "client_id": client_id,
-            "redirect_uri": redirect_uri,
-            "scope": "mail.read",
-            "scopes": [],
-            "resource": "https://example.com",
-            "state": "test-state",
-            "code_challenge": challenge,
-            "code_challenge_method": "S256",
-            "response_type": "code",
-        })
+        resp = client.post(
+            "/oauth/authorize",
+            data={
+                "action": "approve",
+                "client_id": client_id,
+                "redirect_uri": redirect_uri,
+                "scope": "mail.read",
+                "scopes": [],
+                "resource": "https://example.com",
+                "state": "test-state",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "response_type": "code",
+            },
+        )
         assert resp.status_code == 400
         data = json.loads(resp.data)
         assert data["error"] == "invalid_request"
@@ -694,30 +760,36 @@ class TestSelectiveScopeApproval:
             sess["user_id"] = user_id
             sess["active_account_id"] = account_id
 
-        resp = client.post("/oauth/authorize", data={
-            "action": "approve",
-            "client_id": client_id,
-            "redirect_uri": redirect_uri,
-            "scope": "mail.read",
-            "scopes": ["mail.read", "calendar.write"],
-            "resource": resource,
-            "state": "test-state",
-            "code_challenge": challenge,
-            "code_challenge_method": "S256",
-            "response_type": "code",
-        })
+        resp = client.post(
+            "/oauth/authorize",
+            data={
+                "action": "approve",
+                "client_id": client_id,
+                "redirect_uri": redirect_uri,
+                "scope": "mail.read",
+                "scopes": ["mail.read", "calendar.write"],
+                "resource": resource,
+                "state": "test-state",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "response_type": "code",
+            },
+        )
         assert resp.status_code == 302
         location = resp.headers["Location"]
         assert "code=" in location
         code = location.split("code=")[1].split("&")[0]
 
-        token_resp = client.post("/oauth/token", data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "client_id": client_id,
-            "code_verifier": verifier,
-        })
+        token_resp = client.post(
+            "/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": client_id,
+                "code_verifier": verifier,
+            },
+        )
         assert token_resp.status_code == 200
         token_data = json.loads(token_resp.data)
         assert token_data["scope"] == "mail.read"
@@ -736,29 +808,35 @@ class TestSelectiveScopeApproval:
             sess["user_id"] = user_id
             sess["active_account_id"] = account_id
 
-        resp = client.post("/oauth/authorize", data={
-            "action": "approve",
-            "client_id": client_id,
-            "redirect_uri": redirect_uri,
-            "scope": "openid mail.read",
-            "scopes": ["openid", "mail.read"],
-            "resource": resource,
-            "state": "test-state",
-            "code_challenge": challenge,
-            "code_challenge_method": "S256",
-            "response_type": "code",
-        })
+        resp = client.post(
+            "/oauth/authorize",
+            data={
+                "action": "approve",
+                "client_id": client_id,
+                "redirect_uri": redirect_uri,
+                "scope": "openid mail.read",
+                "scopes": ["openid", "mail.read"],
+                "resource": resource,
+                "state": "test-state",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "response_type": "code",
+            },
+        )
         assert resp.status_code == 302
         location = resp.headers["Location"]
         code = location.split("code=")[1].split("&")[0]
 
-        token_resp = client.post("/oauth/token", data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "client_id": client_id,
-            "code_verifier": verifier,
-        })
+        token_resp = client.post(
+            "/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": client_id,
+                "code_verifier": verifier,
+            },
+        )
         assert token_resp.status_code == 200
         token_data = json.loads(token_resp.data)
         assert "openid" in token_data["scope"]
@@ -769,22 +847,29 @@ class TestSelectiveScopeApproval:
 class TestScopeNormalization:
     def test_dot_notation_converted_to_colon(self):
         from app.mcp.auth import _normalize_scopes
+
         assert _normalize_scopes(["mail.read"]) == ["mail:read"]
         assert _normalize_scopes(["mail.write"]) == ["mail:write"]
-        assert _normalize_scopes(["contacts.read", "contacts.write"]) == ["contacts:read", "contacts:write"]
+        assert _normalize_scopes(["contacts.read", "contacts.write"]) == [
+            "contacts:read",
+            "contacts:write",
+        ]
 
     def test_full_access_scope_expanded(self):
         from app.mcp.auth import _normalize_scopes
+
         result = _normalize_scopes(["mail"])
         assert "mail:read" in result
         assert "mail:write" in result
 
     def test_openid_passes_through(self):
         from app.mcp.auth import _normalize_scopes
+
         assert _normalize_scopes(["openid"]) == ["openid"]
 
     def test_mixed_scopes(self):
         from app.mcp.auth import _normalize_scopes
+
         result = _normalize_scopes(["mail.read", "mail.write", "openid", "calendar"])
         assert "mail:read" in result
         assert "mail:write" in result
@@ -794,6 +879,7 @@ class TestScopeNormalization:
 
     def test_deduplication(self):
         from app.mcp.auth import _normalize_scopes
+
         result = _normalize_scopes(["mail.read", "mail.read"])
         assert result == ["mail:read"]
 
@@ -815,35 +901,42 @@ class TestScopeNormalization:
             sess["user_id"] = user_id
             sess["active_account_id"] = account_id
 
-        resp = client.post("/oauth/authorize", data={
-            "action": "approve",
-            "client_id": client_id,
-            "redirect_uri": redirect_uri,
-            "scope": chatgpt_scope,
-            "scopes": chatgpt_scope.split(),
-            "resource": resource,
-            "state": "test-state",
-            "code_challenge": challenge,
-            "code_challenge_method": "S256",
-            "response_type": "code",
-        })
+        resp = client.post(
+            "/oauth/authorize",
+            data={
+                "action": "approve",
+                "client_id": client_id,
+                "redirect_uri": redirect_uri,
+                "scope": chatgpt_scope,
+                "scopes": chatgpt_scope.split(),
+                "resource": resource,
+                "state": "test-state",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "response_type": "code",
+            },
+        )
         assert resp.status_code == 302
         location = resp.headers["Location"]
         assert "code=" in location
         code = location.split("code=")[1].split("&")[0]
 
-        token_resp = client.post("/oauth/token", data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "client_id": client_id,
-            "code_verifier": verifier,
-        })
+        token_resp = client.post(
+            "/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": client_id,
+                "code_verifier": verifier,
+            },
+        )
         assert token_resp.status_code == 200
         token_data = json.loads(token_resp.data)
         assert token_data["scope"] == chatgpt_scope
 
         from app.mcp.auth import _normalize_scopes
+
         normalized = _normalize_scopes(token_data["scope"].split())
         for module in ("mail", "contacts", "calendar", "docs"):
             assert f"{module}:read" in normalized

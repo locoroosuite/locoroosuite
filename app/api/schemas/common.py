@@ -23,7 +23,9 @@ class EmptyResponse(BaseModel):
 
 
 class AccountIdQuery(BaseModel):
-    account_id: int | None = Field(default=None, description="Mail account ID (defaults to primary account)")
+    account_id: int | None = Field(
+        default=None, description="Mail account ID (defaults to primary account)"
+    )
 
 
 class BulkResponse(BaseModel):

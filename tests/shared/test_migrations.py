@@ -42,6 +42,7 @@ class TestMigrationRunner:
         def make_fn(label):
             def fn(c):
                 calls.append(label)
+
             return fn
 
         migrations = (
@@ -118,7 +119,7 @@ class TestMigrationRunner:
 
         try:
             run_migrations(conn, (Migration("0001_good", good), Migration("0002_bad", bad)))
-            assert False, "should have raised"
+            raise AssertionError("should have raised")
         except RuntimeError as exc:
             assert "boom" in str(exc)
 
@@ -161,7 +162,7 @@ class TestMigrationNameValidation:
     def test_empty_name_rejected(self):
         try:
             Migration("", lambda c: None)
-            assert False
+            raise AssertionError()
         except ValueError:
             pass
 

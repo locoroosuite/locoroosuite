@@ -23,10 +23,12 @@ def ok(data: Any = None) -> str:
 
 
 def ok_paginated(items: list, next_cursor: Any = None, has_more: bool = False) -> str:
-    return json.dumps({
-        "data": items,
-        "pagination": {"next_cursor": next_cursor, "has_more": has_more},
-    })
+    return json.dumps(
+        {
+            "data": items,
+            "pagination": {"next_cursor": next_cursor, "has_more": has_more},
+        }
+    )
 
 
 def err(code: str, message: str) -> str:
@@ -44,7 +46,9 @@ def binary_response(data: bytes, mime_type: str, filename: str | None = None) ->
     return result
 
 
-def resolve_read(flask_app: Flask, module: str, account_id: int | None = None) -> tuple[dict, int, str]:
+def resolve_read(
+    flask_app: Flask, module: str, account_id: int | None = None
+) -> tuple[dict, int, str]:
     ctx = resolve_context(get_current_token(), flask_app)
     require_scope(ctx, module, "read")
     aid = get_account_id(ctx, flask_app, account_id)
@@ -52,7 +56,9 @@ def resolve_read(flask_app: Flask, module: str, account_id: int | None = None) -
     return ctx, aid, dek
 
 
-def resolve_write(flask_app: Flask, module: str, account_id: int | None = None) -> tuple[dict, int, str]:
+def resolve_write(
+    flask_app: Flask, module: str, account_id: int | None = None
+) -> tuple[dict, int, str]:
     ctx = resolve_context(get_current_token(), flask_app)
     require_scope(ctx, module, "write")
     aid = get_account_id(ctx, flask_app, account_id)

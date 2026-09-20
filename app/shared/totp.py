@@ -6,8 +6,7 @@ import io
 import json
 import logging
 import secrets
-
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pyotp
 
@@ -123,7 +122,7 @@ def _hash_token(token: str) -> str:
 
 def issue_trusted_device(user_id: int, user_agent: str | None, ip_address: str | None) -> str:
     token = generate_device_token()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     device = TrustedDevice(
         user_id=user_id,
         token_hash=_hash_token(token),
@@ -141,16 +140,18 @@ def validate_trusted_device(user_id: int, token: str | None) -> TrustedDevice | 
     if not token:
         return None
     device = TrustedDevice.query.filter_by(
-        token_hash=_hash_token(token), user_id=user_id, revoked_at=None,
+        token_hash=_hash_token(token),
+        user_id=user_id,
+        revoked_at=None,
     ).first()
     if not device:
         return None
     expires = device.expires_at
     if expires.tzinfo is None:
-        expires = expires.replace(tzinfo=timezone.utc)
-    if expires < datetime.now(timezone.utc):
+        expires = expires.replace(tzinfo=UTC)
+    if expires < datetime.now(UTC):
         return None
-    device.last_used_at = datetime.now(timezone.utc)
+    device.last_used_at = datetime.now(UTC)
     db.session.commit()
     return device
 
@@ -159,23 +160,23 @@ def revoke_trusted_device(device_id: int, user_id: int) -> bool:
     device = TrustedDevice.query.filter_by(id=device_id, user_id=user_id).first()
     if not device:
         return False
-    device.revoked_at = datetime.now(timezone.utc)
+    device.revoked_at = datetime.now(UTC)
     db.session.commit()
     return True
 
 
 def revoke_all_trusted_devices(user_id: int) -> int:
     count = TrustedDevice.query.filter_by(
-        user_id=user_id, revoked_at=None,
-    ).update({"revoked_at": datetime.now(timezone.utc)})
+        user_id=user_id,
+        revoked_at=None,
+    ).update({"revoked_at": datetime.now(UTC)})
     db.session.commit()
     return count
 
 
 def list_trusted_devices(user_id: int) -> list[TrustedDevice]:
     return (
-        TrustedDevice.query
-        .filter_by(user_id=user_id, revoked_at=None)
+        TrustedDevice.query.filter_by(user_id=user_id, revoked_at=None)
         .order_by(TrustedDevice.created_at.desc())
         .all()
     )

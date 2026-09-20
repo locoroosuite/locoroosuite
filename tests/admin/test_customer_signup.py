@@ -1,15 +1,17 @@
-from datetime import datetime, timedelta, timezone
-from unittest.mock import patch, MagicMock
+from datetime import UTC, datetime, timedelta
+from unittest.mock import MagicMock, patch
 
 from werkzeug.security import generate_password_hash
 
 from app.shared.db import db
-from app.shared.models.core import User, Domain, CustomerAccount
+from app.shared.models.core import CustomerAccount, Domain, User
 
 
 def _create_admin_and_domain(app):
     with app.app_context():
-        admin = User(role="admin", email="admin@test.local", password_hash=generate_password_hash("admin123"))
+        admin = User(
+            role="admin", email="admin@test.local", password_hash=generate_password_hash("admin123")
+        )
         db.session.add(admin)
         domain = Domain(
             name="test.local",
@@ -37,13 +39,19 @@ class TestCreateCustomerWithPassword:
         _login_admin(client, admin_id)
 
         mock_client = MagicMock()
-        with patch("app.admin.services.mail_server.get_mail_client_for_domain", return_value=mock_client):
-            resp = client.post("/admin/customers/new", data={
-                "username": "user",
-                "domain_id": domain_id,
-                "password": "secretpass",
-                "create_mode": "password",
-            }, follow_redirects=False)
+        with patch(
+            "app.admin.services.mail_server.get_mail_client_for_domain", return_value=mock_client
+        ):
+            resp = client.post(
+                "/admin/customers/new",
+                data={
+                    "username": "user",
+                    "domain_id": domain_id,
+                    "password": "secretpass",
+                    "create_mode": "password",
+                },
+                follow_redirects=False,
+            )
 
         assert resp.status_code == 302
 
@@ -62,20 +70,28 @@ class TestCreateCustomerWithPassword:
         admin_id, domain_id = _create_admin_and_domain(app)
         _login_admin(client, admin_id)
 
-        with patch("app.admin.services.mail_server.get_mail_client_for_domain", return_value=MagicMock()):
-            client.post("/admin/customers/new", data={
+        with patch(
+            "app.admin.services.mail_server.get_mail_client_for_domain", return_value=MagicMock()
+        ):
+            client.post(
+                "/admin/customers/new",
+                data={
+                    "username": "user",
+                    "domain_id": domain_id,
+                    "password": "secretpass",
+                    "create_mode": "password",
+                },
+            )
+
+        resp = client.post(
+            "/admin/customers/new",
+            data={
                 "username": "user",
                 "domain_id": domain_id,
-                "password": "secretpass",
+                "password": "otherpass",
                 "create_mode": "password",
-            })
-
-        resp = client.post("/admin/customers/new", data={
-            "username": "user",
-            "domain_id": domain_id,
-            "password": "otherpass",
-            "create_mode": "password",
-        })
+            },
+        )
         assert resp.status_code == 302
 
 
@@ -84,11 +100,14 @@ class TestCreateCustomerWithInvite:
         admin_id, domain_id = _create_admin_and_domain(app)
         _login_admin(client, admin_id)
 
-        resp = client.post("/admin/customers/new", data={
-            "username": "user",
-            "domain_id": domain_id,
-            "create_mode": "invite",
-        })
+        resp = client.post(
+            "/admin/customers/new",
+            data={
+                "username": "user",
+                "domain_id": domain_id,
+                "create_mode": "invite",
+            },
+        )
 
         assert resp.status_code == 200
         assert b"invitation link" in resp.data.lower() or b"Invitation link" in resp.data
@@ -106,10 +125,14 @@ class TestCreateCustomerWithInvite:
         admin_id, _ = _create_admin_and_domain(app)
         _login_admin(client, admin_id)
 
-        resp = client.post("/admin/customers/new", data={
-            "username": "user",
-            "create_mode": "invite",
-        }, follow_redirects=True)
+        resp = client.post(
+            "/admin/customers/new",
+            data={
+                "username": "user",
+                "create_mode": "invite",
+            },
+            follow_redirects=True,
+        )
 
         assert resp.status_code == 200
         assert b"domain" in resp.data.lower()
@@ -121,7 +144,15 @@ class TestSignupPage:
             user = User(role="customer", email="user@test.local")
             db.session.add(user)
             db.session.flush()
-            domain = Domain(name="test.local", imap_host="d", imap_port=143, smtp_host="p", smtp_port=587, smtp_tls_mode="starttls", status="complete")
+            domain = Domain(
+                name="test.local",
+                imap_host="d",
+                imap_port=143,
+                smtp_host="p",
+                smtp_port=587,
+                smtp_tls_mode="starttls",
+                status="complete",
+            )
             db.session.add(domain)
             db.session.flush()
             account = CustomerAccount(
@@ -131,7 +162,7 @@ class TestSignupPage:
                 auth_type="password",
                 username="user@test.local",
                 signup_token="test-token-123",
-                signup_expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+                signup_expires_at=datetime.now(UTC) + timedelta(days=7),
             )
             db.session.add(account)
             db.session.commit()
@@ -151,7 +182,15 @@ class TestSignupPage:
             user = User(role="customer", email="user@test.local")
             db.session.add(user)
             db.session.flush()
-            domain = Domain(name="test.local", imap_host="d", imap_port=143, smtp_host="p", smtp_port=587, smtp_tls_mode="starttls", status="complete")
+            domain = Domain(
+                name="test.local",
+                imap_host="d",
+                imap_port=143,
+                smtp_host="p",
+                smtp_port=587,
+                smtp_tls_mode="starttls",
+                status="complete",
+            )
             db.session.add(domain)
             db.session.flush()
             account = CustomerAccount(
@@ -161,7 +200,7 @@ class TestSignupPage:
                 auth_type="password",
                 username="user@test.local",
                 signup_token="expired-token",
-                signup_expires_at=datetime.now(timezone.utc) - timedelta(days=1),
+                signup_expires_at=datetime.now(UTC) - timedelta(days=1),
             )
             db.session.add(account)
             db.session.commit()
@@ -174,7 +213,15 @@ class TestSignupPage:
             user = User(role="customer", email="user@test.local")
             db.session.add(user)
             db.session.flush()
-            domain = Domain(name="test.local", imap_host="d", imap_port=143, smtp_host="p", smtp_port=587, smtp_tls_mode="starttls", status="complete")
+            domain = Domain(
+                name="test.local",
+                imap_host="d",
+                imap_port=143,
+                smtp_host="p",
+                smtp_port=587,
+                smtp_tls_mode="starttls",
+                status="complete",
+            )
             db.session.add(domain)
             db.session.flush()
             account = CustomerAccount(
@@ -184,7 +231,7 @@ class TestSignupPage:
                 auth_type="password",
                 username="user@test.local",
                 signup_token="used-token",
-                signup_expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+                signup_expires_at=datetime.now(UTC) + timedelta(days=7),
                 encrypted_secret=b"already-set",
             )
             db.session.add(account)
@@ -201,7 +248,15 @@ class TestSignupSubmit:
             user = User(role="customer", email="user@test.local")
             db.session.add(user)
             db.session.flush()
-            domain = Domain(name="test.local", imap_host="d", imap_port=143, smtp_host="p", smtp_port=587, smtp_tls_mode="starttls", status="complete")
+            domain = Domain(
+                name="test.local",
+                imap_host="d",
+                imap_port=143,
+                smtp_host="p",
+                smtp_port=587,
+                smtp_tls_mode="starttls",
+                status="complete",
+            )
             db.session.add(domain)
             db.session.flush()
             account = CustomerAccount(
@@ -211,7 +266,7 @@ class TestSignupSubmit:
                 auth_type="password",
                 username="user@test.local",
                 signup_token="action-check-token",
-                signup_expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+                signup_expires_at=datetime.now(UTC) + timedelta(days=7),
             )
             db.session.add(account)
             db.session.commit()
@@ -226,7 +281,15 @@ class TestSignupSubmit:
             user = User(role="customer", email="user@test.local")
             db.session.add(user)
             db.session.flush()
-            domain = Domain(name="test.local", imap_host="d", imap_port=143, smtp_host="p", smtp_port=587, smtp_tls_mode="starttls", status="complete")
+            domain = Domain(
+                name="test.local",
+                imap_host="d",
+                imap_port=143,
+                smtp_host="p",
+                smtp_port=587,
+                smtp_tls_mode="starttls",
+                status="complete",
+            )
             db.session.add(domain)
             db.session.flush()
             account = CustomerAccount(
@@ -236,21 +299,27 @@ class TestSignupSubmit:
                 auth_type="password",
                 username="user@test.local",
                 signup_token="valid-token",
-                signup_expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+                signup_expires_at=datetime.now(UTC) + timedelta(days=7),
             )
             db.session.add(account)
             db.session.commit()
 
-        resp = client.post("/signup/valid-token", data={
-            "password": "mypassword",
-            "password_confirm": "mypassword",
-        }, follow_redirects=False)
+        resp = client.post(
+            "/signup/valid-token",
+            data={
+                "password": "mypassword",
+                "password_confirm": "mypassword",
+            },
+            follow_redirects=False,
+        )
 
         assert resp.status_code == 302
         assert "/login" in resp.headers["Location"]
 
         with app.app_context():
-            account = CustomerAccount.query.filter_by(signup_token=None, email_address="user@test.local").first()
+            account = CustomerAccount.query.filter_by(
+                signup_token=None, email_address="user@test.local"
+            ).first()
             assert account is not None
             assert account.signup_token is None
             assert account.signup_expires_at is None
@@ -260,7 +329,15 @@ class TestSignupSubmit:
             user = User(role="customer", email="user@test.local")
             db.session.add(user)
             db.session.flush()
-            domain = Domain(name="test.local", imap_host="d", imap_port=143, smtp_host="p", smtp_port=587, smtp_tls_mode="starttls", status="complete")
+            domain = Domain(
+                name="test.local",
+                imap_host="d",
+                imap_port=143,
+                smtp_host="p",
+                smtp_port=587,
+                smtp_tls_mode="starttls",
+                status="complete",
+            )
             db.session.add(domain)
             db.session.flush()
             account = CustomerAccount(
@@ -270,15 +347,18 @@ class TestSignupSubmit:
                 auth_type="password",
                 username="user@test.local",
                 signup_token="mismatch-token",
-                signup_expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+                signup_expires_at=datetime.now(UTC) + timedelta(days=7),
             )
             db.session.add(account)
             db.session.commit()
 
-        resp = client.post("/signup/mismatch-token", data={
-            "password": "mypassword",
-            "password_confirm": "different",
-        })
+        resp = client.post(
+            "/signup/mismatch-token",
+            data={
+                "password": "mypassword",
+                "password_confirm": "different",
+            },
+        )
         assert resp.status_code == 200
         assert b"Passwords do not match" in resp.data
 
@@ -287,7 +367,15 @@ class TestSignupSubmit:
             user = User(role="customer", email="user@test.local")
             db.session.add(user)
             db.session.flush()
-            domain = Domain(name="test.local", imap_host="d", imap_port=143, smtp_host="p", smtp_port=587, smtp_tls_mode="starttls", status="complete")
+            domain = Domain(
+                name="test.local",
+                imap_host="d",
+                imap_port=143,
+                smtp_host="p",
+                smtp_port=587,
+                smtp_tls_mode="starttls",
+                status="complete",
+            )
             db.session.add(domain)
             db.session.flush()
             account = CustomerAccount(
@@ -297,14 +385,17 @@ class TestSignupSubmit:
                 auth_type="password",
                 username="user@test.local",
                 signup_token="empty-token",
-                signup_expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+                signup_expires_at=datetime.now(UTC) + timedelta(days=7),
             )
             db.session.add(account)
             db.session.commit()
 
-        resp = client.post("/signup/empty-token", data={
-            "password": "",
-            "password_confirm": "",
-        })
+        resp = client.post(
+            "/signup/empty-token",
+            data={
+                "password": "",
+                "password_confirm": "",
+            },
+        )
         assert resp.status_code == 200
         assert b"Password is required" in resp.data

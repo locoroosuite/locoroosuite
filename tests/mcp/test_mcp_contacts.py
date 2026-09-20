@@ -2,16 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 from mcp.server.fastmcp import FastMCP
-from app.shared.db import db as _db
-from app.shared.models.core import User, Domain, CustomerAccount
-from app.shared.keys import set_user_key, clear_user_key
-from app.api.token_service import create_api_token, generate_dek
 
+from app.api.token_service import create_api_token, generate_dek
+from app.shared.db import db as _db
+from app.shared.keys import clear_user_key, set_user_key
+from app.shared.models.core import CustomerAccount, Domain, User
 
 CONTACTS = "app.mcp.tools.contacts"
 CONTACTS_CACHE_DB = "app.modules.contacts.services.cache_db"
@@ -74,10 +73,12 @@ def mcp_contacts(app, _clean_db):
         )
 
     from app.mcp.auth import set_current_token
+
     set_current_token(token_value)
 
     mcp = FastMCP("test-contacts")
     from app.mcp.tools.contacts import register as register_contacts
+
     register_contacts(mcp, app)
 
     tools = mcp._tool_manager._tools
@@ -99,22 +100,60 @@ def _mock_conn():
     return conn
 
 
-def _mock_contact_row(contact_id=1, uid="uid-1", fn="Alice Smith",
-                      email_work="alice@example.com", email_home="",
-                      tel_work="+1234", tel_cell="", tel_home="",
-                      org="Acme", title="Engineer", note="",
-                      raw_vcard="", href="/alice.vcf", etag="etag1",
-                      updated_at="2025-01-01T00:00:00"):
-    keys = ["id", "uid", "href", "etag", "fn", "last_name", "first_name",
-            "email_work", "email_home", "tel_work", "tel_home", "tel_cell",
-            "org", "title", "note", "raw_vcard", "updated_at"]
+def _mock_contact_row(
+    contact_id=1,
+    uid="uid-1",
+    fn="Alice Smith",
+    email_work="alice@example.com",
+    email_home="",
+    tel_work="+1234",
+    tel_cell="",
+    tel_home="",
+    org="Acme",
+    title="Engineer",
+    note="",
+    raw_vcard="",
+    href="/alice.vcf",
+    etag="etag1",
+    updated_at="2025-01-01T00:00:00",
+):
+    keys = [
+        "id",
+        "uid",
+        "href",
+        "etag",
+        "fn",
+        "last_name",
+        "first_name",
+        "email_work",
+        "email_home",
+        "tel_work",
+        "tel_home",
+        "tel_cell",
+        "org",
+        "title",
+        "note",
+        "raw_vcard",
+        "updated_at",
+    ]
     vals = {
-        "id": contact_id, "uid": uid, "href": href, "etag": etag,
-        "fn": fn, "last_name": "", "first_name": "",
-        "email_work": email_work, "email_home": email_home,
-        "tel_work": tel_work, "tel_home": tel_home, "tel_cell": tel_cell,
-        "org": org, "title": title, "note": note,
-        "raw_vcard": raw_vcard, "updated_at": updated_at,
+        "id": contact_id,
+        "uid": uid,
+        "href": href,
+        "etag": etag,
+        "fn": fn,
+        "last_name": "",
+        "first_name": "",
+        "email_work": email_work,
+        "email_home": email_home,
+        "tel_work": tel_work,
+        "tel_home": tel_home,
+        "tel_cell": tel_cell,
+        "org": org,
+        "title": title,
+        "note": note,
+        "raw_vcard": raw_vcard,
+        "updated_at": updated_at,
     }
     r = MagicMock()
     r.__getitem__ = lambda self, k: vals[k]
@@ -127,10 +166,12 @@ class TestContactsListTools:
     def test_list_contacts(self, mcp_contacts):
         tools = mcp_contacts["tools"]
         mock_row = _mock_contact_row(1, fn="Alice Smith", email_work="alice@example.com")
-        with patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{CONTACTS_CACHE_DB}.list_contacts", return_value=[mock_row]):
-                with patch(f"{CONTACTS_CACHE_DB}.count_contacts", return_value=1):
-                    result = asyncio.run(tools["contacts_list"].fn())
+        with (
+            patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{CONTACTS_CACHE_DB}.list_contacts", return_value=[mock_row]),
+            patch(f"{CONTACTS_CACHE_DB}.count_contacts", return_value=1),
+        ):
+            result = asyncio.run(tools["contacts_list"].fn())
         data = json.loads(result)["data"]
         assert len(data) == 1
         assert data[0]["fn"] == "Alice Smith"
@@ -138,29 +179,37 @@ class TestContactsListTools:
 
     def test_list_contacts_empty(self, mcp_contacts):
         tools = mcp_contacts["tools"]
-        with patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{CONTACTS_CACHE_DB}.list_contacts", return_value=[]):
-                with patch(f"{CONTACTS_CACHE_DB}.count_contacts", return_value=0):
-                    result = asyncio.run(tools["contacts_list"].fn())
+        with (
+            patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{CONTACTS_CACHE_DB}.list_contacts", return_value=[]),
+            patch(f"{CONTACTS_CACHE_DB}.count_contacts", return_value=0),
+        ):
+            result = asyncio.run(tools["contacts_list"].fn())
         data = json.loads(result)["data"]
         assert data == []
 
     def test_list_contacts_with_search(self, mcp_contacts):
         tools = mcp_contacts["tools"]
         mock_row = _mock_contact_row(1, fn="Bob Jones")
-        with patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{CONTACTS_CACHE_DB}.search_contacts", return_value=[mock_row]):
-                with patch(f"{CONTACTS_CACHE_DB}.count_contacts", return_value=1):
-                    result = asyncio.run(tools["contacts_list"].fn(q="bob"))
+        with (
+            patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{CONTACTS_CACHE_DB}.search_contacts", return_value=[mock_row]),
+            patch(f"{CONTACTS_CACHE_DB}.count_contacts", return_value=1),
+        ):
+            result = asyncio.run(tools["contacts_list"].fn(q="bob"))
         data = json.loads(result)["data"]
         assert len(data) == 1
 
     def test_get_contact(self, mcp_contacts):
         tools = mcp_contacts["tools"]
-        mock_row = _mock_contact_row(1, fn="Alice Smith", raw_vcard="BEGIN:VCARD\nFN:Alice Smith\nEND:VCARD")
-        with patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{CONTACTS_CACHE_DB}.get_contact", return_value=mock_row):
-                result = asyncio.run(tools["contacts_get"].fn(contact_id=1))
+        mock_row = _mock_contact_row(
+            1, fn="Alice Smith", raw_vcard="BEGIN:VCARD\nFN:Alice Smith\nEND:VCARD"
+        )
+        with (
+            patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{CONTACTS_CACHE_DB}.get_contact", return_value=mock_row),
+        ):
+            result = asyncio.run(tools["contacts_get"].fn(contact_id=1))
         data = json.loads(result)["data"]
         assert data["id"] == 1
         assert data["fn"] == "Alice Smith"
@@ -168,9 +217,11 @@ class TestContactsListTools:
 
     def test_get_contact_not_found(self, mcp_contacts):
         tools = mcp_contacts["tools"]
-        with patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{CONTACTS_CACHE_DB}.get_contact", return_value=None):
-                result = asyncio.run(tools["contacts_get"].fn(contact_id=999))
+        with (
+            patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{CONTACTS_CACHE_DB}.get_contact", return_value=None),
+        ):
+            result = asyncio.run(tools["contacts_get"].fn(contact_id=999))
         data = json.loads(result)
         assert data["error"]["code"] == "NOT_FOUND"
 
@@ -180,9 +231,11 @@ class TestContactsListTools:
         mock_row = MagicMock()
         mock_row.__getitem__ = lambda self, k: raw_row[k]
         mock_row.keys = lambda: list(raw_row.keys())
-        with patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{CONTACTS_CACHE_DB}.search_contacts_api", return_value=[mock_row]):
-                result = asyncio.run(tools["contacts_search"].fn(q="alice"))
+        with (
+            patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{CONTACTS_CACHE_DB}.search_contacts_api", return_value=[mock_row]),
+        ):
+            result = asyncio.run(tools["contacts_search"].fn(q="alice"))
         data = json.loads(result)["data"]
         assert len(data) == 1
         assert data[0]["name"] == "Alice"
@@ -192,19 +245,23 @@ class TestContactsMutationTools:
     def test_delete_contact(self, mcp_contacts):
         tools = mcp_contacts["tools"]
         mock_row = _mock_contact_row(1, uid="uid-del")
-        with patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{CONTACTS_CACHE_DB}.get_contact", return_value=mock_row):
-                with patch(f"{CONTACTS_CACHE_DB}.delete_contact_by_uid"):
-                    with patch(f"{UI_EVENTS}.push_ui_event"):
-                        result = asyncio.run(tools["contacts_delete"].fn(contact_id=1))
+        with (
+            patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{CONTACTS_CACHE_DB}.get_contact", return_value=mock_row),
+            patch(f"{CONTACTS_CACHE_DB}.delete_contact_by_uid"),
+            patch(f"{UI_EVENTS}.push_ui_event"),
+        ):
+            result = asyncio.run(tools["contacts_delete"].fn(contact_id=1))
         data = json.loads(result)
         assert "error" not in data
 
     def test_delete_contact_not_found(self, mcp_contacts):
         tools = mcp_contacts["tools"]
-        with patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{CONTACTS_CACHE_DB}.get_contact", return_value=None):
-                result = asyncio.run(tools["contacts_delete"].fn(contact_id=999))
+        with (
+            patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{CONTACTS_CACHE_DB}.get_contact", return_value=None),
+        ):
+            result = asyncio.run(tools["contacts_delete"].fn(contact_id=999))
         data = json.loads(result)
         assert data["error"]["code"] == "NOT_FOUND"
 
@@ -217,13 +274,13 @@ class TestContactsMutationTools:
     def test_bulk_delete_success(self, mcp_contacts):
         tools = mcp_contacts["tools"]
         mock_row = _mock_contact_row(1, uid="uid-bd")
-        with patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{CONTACTS_CACHE_DB}.get_contact", return_value=mock_row):
-                with patch(f"{CONTACTS_CACHE_DB}.delete_contact_by_uid"):
-                    with patch(f"{UI_EVENTS}.push_ui_event"):
-                        result = asyncio.run(
-                            tools["contacts_bulk_delete"].fn(items=[{"contact_id": 1}])
-                        )
+        with (
+            patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{CONTACTS_CACHE_DB}.get_contact", return_value=mock_row),
+            patch(f"{CONTACTS_CACHE_DB}.delete_contact_by_uid"),
+            patch(f"{UI_EVENTS}.push_ui_event"),
+        ):
+            result = asyncio.run(tools["contacts_bulk_delete"].fn(items=[{"contact_id": 1}]))
         data = json.loads(result)["data"]
         assert len(data["succeeded"]) == 1
         assert data["succeeded"][0]["contact_id"] == 1
@@ -231,15 +288,15 @@ class TestContactsMutationTools:
     def test_bulk_delete_partial_failure(self, mcp_contacts):
         tools = mcp_contacts["tools"]
         mock_row = _mock_contact_row(1, uid="uid-ok")
-        with patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{CONTACTS_CACHE_DB}.get_contact", side_effect=[mock_row, None]):
-                with patch(f"{CONTACTS_CACHE_DB}.delete_contact_by_uid"):
-                    with patch(f"{UI_EVENTS}.push_ui_event"):
-                        result = asyncio.run(
-                            tools["contacts_bulk_delete"].fn(
-                                items=[{"contact_id": 1}, {"contact_id": 999}]
-                            )
-                        )
+        with (
+            patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{CONTACTS_CACHE_DB}.get_contact", side_effect=[mock_row, None]),
+            patch(f"{CONTACTS_CACHE_DB}.delete_contact_by_uid"),
+            patch(f"{UI_EVENTS}.push_ui_event"),
+        ):
+            result = asyncio.run(
+                tools["contacts_bulk_delete"].fn(items=[{"contact_id": 1}, {"contact_id": 999}])
+            )
         data = json.loads(result)["data"]
         assert len(data["succeeded"]) == 1
         assert len(data["failed"]) == 1
@@ -248,16 +305,44 @@ class TestContactsMutationTools:
 class TestContactsResponseShape:
     def test_contact_to_dict_has_expected_fields(self):
         from app.mcp.tools.contacts import _contact_to_dict
-        keys = ["id", "uid", "href", "etag", "fn", "last_name", "first_name",
-                "email_work", "email_home", "tel_work", "tel_home", "tel_cell",
-                "org", "title", "note", "raw_vcard", "updated_at"]
+
+        keys = [
+            "id",
+            "uid",
+            "href",
+            "etag",
+            "fn",
+            "last_name",
+            "first_name",
+            "email_work",
+            "email_home",
+            "tel_work",
+            "tel_home",
+            "tel_cell",
+            "org",
+            "title",
+            "note",
+            "raw_vcard",
+            "updated_at",
+        ]
         vals = {
-            "id": 1, "uid": "uid-1", "href": "/a.vcf", "etag": "e1",
-            "fn": "Test", "last_name": "", "first_name": "",
-            "email_work": "t@e.com", "email_home": "",
-            "tel_work": "", "tel_home": "", "tel_cell": "",
-            "org": "", "title": "", "note": "",
-            "raw_vcard": "", "updated_at": "2025-01-01T00:00:00",
+            "id": 1,
+            "uid": "uid-1",
+            "href": "/a.vcf",
+            "etag": "e1",
+            "fn": "Test",
+            "last_name": "",
+            "first_name": "",
+            "email_work": "t@e.com",
+            "email_home": "",
+            "tel_work": "",
+            "tel_home": "",
+            "tel_cell": "",
+            "org": "",
+            "title": "",
+            "note": "",
+            "raw_vcard": "",
+            "updated_at": "2025-01-01T00:00:00",
         }
         r = MagicMock()
         r.__getitem__ = lambda self, k: vals[k]

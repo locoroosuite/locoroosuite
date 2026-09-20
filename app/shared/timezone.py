@@ -1,5 +1,6 @@
+import contextlib
 import logging
-from datetime import timezone
+from datetime import UTC
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import session as flask_session
@@ -63,10 +64,8 @@ def resolve_user_timezone(settings_timezone):
             ZoneInfo(cached)
             return cached
         except ZoneInfoNotFoundError:
-            try:
+            with contextlib.suppress(RuntimeError):
                 flask_session.pop("_browser_tz", None)
-            except RuntimeError:
-                pass
 
     return "UTC"
 
@@ -74,8 +73,8 @@ def resolve_user_timezone(settings_timezone):
 def resolve_tzinfo(settings_timezone):
     name = resolve_user_timezone(settings_timezone)
     if name == "UTC":
-        return timezone.utc
+        return UTC
     try:
         return ZoneInfo(name)
     except ZoneInfoNotFoundError:
-        return timezone.utc
+        return UTC

@@ -1,7 +1,7 @@
 """Versioned schema migrations for the calendar cache database.
 
 Previously the calendar cache used a ``try/except: pass`` pattern around
-``ALTER TABLE`` statements (lines 144–155 of the old ``cache_db.py``), which
+``ALTER TABLE`` statements (lines 144-155 of the old ``cache_db.py``), which
 silently swallowed errors and violated the project's error-handling rules.
 This replaces that pattern with proper self-guarding migrations.
 """

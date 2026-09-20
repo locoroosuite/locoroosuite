@@ -1,25 +1,24 @@
-import tempfile
 import os
+import tempfile
 
 from app.modules.contacts.services.cache_db import (
-    open_cache,
-    upsert_contact,
+    count_contacts,
+    delete_contact_by_uid,
     get_contact,
     get_contact_by_uid,
+    get_sync_state,
     list_contacts,
-    count_contacts,
+    open_cache,
     search_contacts,
     search_contacts_api,
-    delete_contact_by_uid,
-    get_sync_state,
     set_sync_state,
+    upsert_contact,
 )
 
 
 def _make_cache():
-    f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    path = f.name
-    f.close()
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp_file:
+        path = tmp_file.name
     key = "0" * 64
     conn = open_cache(path, key)
     return conn, path, key
@@ -31,9 +30,12 @@ def _cleanup(conn, path):
 
 
 def test_init_schema():
-    conn, path, key = _make_cache()
+    conn, path, _key = _make_cache()
     try:
-        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        tables = {
+            r[0]
+            for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        }
         assert "contacts" in tables
         assert "addressbook_state" in tables
     finally:
@@ -41,7 +43,7 @@ def test_init_schema():
 
 
 def test_upsert_and_get():
-    conn, path, key = _make_cache()
+    conn, path, _key = _make_cache()
     try:
         vcard = "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid1\r\nFN:Alice\r\nEND:VCARD"
         cid = upsert_contact(conn, "uid1", "/a.vcf", "etag1", vcard)
@@ -54,7 +56,7 @@ def test_upsert_and_get():
 
 
 def test_upsert_updates_existing():
-    conn, path, key = _make_cache()
+    conn, path, _key = _make_cache()
     try:
         vcard1 = "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid1\r\nFN:Alice\r\nEND:VCARD"
         vcard2 = "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid1\r\nFN:Alice Updated\r\nEND:VCARD"
@@ -68,10 +70,22 @@ def test_upsert_updates_existing():
 
 
 def test_list_contacts_sorted():
-    conn, path, key = _make_cache()
+    conn, path, _key = _make_cache()
     try:
-        upsert_contact(conn, "uid-b", "/b.vcf", "e2", "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid-b\r\nFN:Bob\r\nEND:VCARD")
-        upsert_contact(conn, "uid-a", "/a.vcf", "e1", "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid-a\r\nFN:Alice\r\nEND:VCARD")
+        upsert_contact(
+            conn,
+            "uid-b",
+            "/b.vcf",
+            "e2",
+            "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid-b\r\nFN:Bob\r\nEND:VCARD",
+        )
+        upsert_contact(
+            conn,
+            "uid-a",
+            "/a.vcf",
+            "e1",
+            "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid-a\r\nFN:Alice\r\nEND:VCARD",
+        )
         contacts = list_contacts(conn)
         assert len(contacts) == 2
         assert contacts[0]["fn"] == "Alice"
@@ -81,11 +95,16 @@ def test_list_contacts_sorted():
 
 
 def test_list_contacts_pagination():
-    conn, path, key = _make_cache()
+    conn, path, _key = _make_cache()
     try:
         for i in range(5):
-            upsert_contact(conn, f"uid-{i}", f"/{i}.vcf", f"e{i}",
-                           f"BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid-{i}\r\nFN:Contact {i:03d}\r\nEND:VCARD")
+            upsert_contact(
+                conn,
+                f"uid-{i}",
+                f"/{i}.vcf",
+                f"e{i}",
+                f"BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid-{i}\r\nFN:Contact {i:03d}\r\nEND:VCARD",
+            )
         page1 = list_contacts(conn, page=1, per_page=2)
         page2 = list_contacts(conn, page=2, per_page=2)
         assert len(page1) == 2
@@ -96,19 +115,31 @@ def test_list_contacts_pagination():
 
 
 def test_count_contacts():
-    conn, path, key = _make_cache()
+    conn, path, _key = _make_cache()
     try:
         assert count_contacts(conn) == 0
-        upsert_contact(conn, "uid1", "/1.vcf", "e1", "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid1\r\nFN:A\r\nEND:VCARD")
+        upsert_contact(
+            conn,
+            "uid1",
+            "/1.vcf",
+            "e1",
+            "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid1\r\nFN:A\r\nEND:VCARD",
+        )
         assert count_contacts(conn) == 1
     finally:
         _cleanup(conn, path)
 
 
 def test_delete_contact():
-    conn, path, key = _make_cache()
+    conn, path, _key = _make_cache()
     try:
-        upsert_contact(conn, "uid1", "/1.vcf", "e1", "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid1\r\nFN:A\r\nEND:VCARD")
+        upsert_contact(
+            conn,
+            "uid1",
+            "/1.vcf",
+            "e1",
+            "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid1\r\nFN:A\r\nEND:VCARD",
+        )
         assert count_contacts(conn) == 1
         delete_contact_by_uid(conn, "uid1")
         assert count_contacts(conn) == 0
@@ -117,12 +148,22 @@ def test_delete_contact():
 
 
 def test_search_contacts():
-    conn, path, key = _make_cache()
+    conn, path, _key = _make_cache()
     try:
-        upsert_contact(conn, "uid-a", "/a.vcf", "e1",
-                       "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid-a\r\nFN:Alice Smith\r\nEMAIL;TYPE=WORK:alice@example.com\r\nEND:VCARD")
-        upsert_contact(conn, "uid-b", "/b.vcf", "e2",
-                       "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid-b\r\nFN:Bob Jones\r\nEMAIL;TYPE=WORK:bob@example.com\r\nEND:VCARD")
+        upsert_contact(
+            conn,
+            "uid-a",
+            "/a.vcf",
+            "e1",
+            "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid-a\r\nFN:Alice Smith\r\nEMAIL;TYPE=WORK:alice@example.com\r\nEND:VCARD",
+        )
+        upsert_contact(
+            conn,
+            "uid-b",
+            "/b.vcf",
+            "e2",
+            "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid-b\r\nFN:Bob Jones\r\nEMAIL;TYPE=WORK:bob@example.com\r\nEND:VCARD",
+        )
         results = search_contacts(conn, "Alice")
         assert len(results) == 1
         assert results[0]["fn"] == "Alice Smith"
@@ -131,13 +172,18 @@ def test_search_contacts():
 
 
 def test_search_contacts_api():
-    conn, path, key = _make_cache()
+    conn, path, _key = _make_cache()
     try:
-        upsert_contact(conn, "uid-api", "/api.vcf", "e1",
-                       "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid-api\r\nFN:Api User\r\n"
-                       "EMAIL;TYPE=WORK:api@example.com\r\n"
-                       "EMAIL;TYPE=HOME:home@example.com\r\n"
-                       "END:VCARD")
+        upsert_contact(
+            conn,
+            "uid-api",
+            "/api.vcf",
+            "e1",
+            "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:uid-api\r\nFN:Api User\r\n"
+            "EMAIL;TYPE=WORK:api@example.com\r\n"
+            "EMAIL;TYPE=HOME:home@example.com\r\n"
+            "END:VCARD",
+        )
         results = search_contacts_api(conn, "api")
         assert len(results) == 1
         assert results[0]["fn"] == "Api User"
@@ -149,7 +195,7 @@ def test_search_contacts_api():
 
 
 def test_sync_state():
-    conn, path, key = _make_cache()
+    conn, path, _key = _make_cache()
     try:
         assert get_sync_state(conn, "/ab/") is None
         set_sync_state(conn, "/ab/", "token-1")
@@ -164,7 +210,7 @@ def test_sync_state():
 
 
 def test_get_contact_not_found():
-    conn, path, key = _make_cache()
+    conn, path, _key = _make_cache()
     try:
         assert get_contact(conn, 999) is None
         assert get_contact_by_uid(conn, "nope") is None

@@ -1,19 +1,19 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from app.admin.services.dns_checks import (
-    _check_mx,
-    _check_spf,
+    STATUS_MISMATCH,
+    STATUS_NOT_CONFIGURED,
+    STATUS_PROPAGATING,
+    STATUS_VERIFIED,
     _check_dkim,
     _check_dmarc,
+    _check_mx,
+    _check_spf,
     _get_instructions,
     _parse_spf_record,
     _spf_covers_mx,
-    validate_mx_hostname,
     run_all_dns_checks,
-    STATUS_NOT_CONFIGURED,
-    STATUS_MISMATCH,
-    STATUS_PROPAGATING,
-    STATUS_VERIFIED,
+    validate_mx_hostname,
 )
 
 
@@ -189,10 +189,42 @@ class TestValidateMxHostname:
 @patch("app.admin.services.dns_checks.run_all_dns_checks")
 def test_run_all_returns_four_records(mock_checks):
     mock_checks.return_value = {
-        "mx": {"status": "verified", "expected": "", "found": None, "nameservers_checked": 0, "nameservers_ok": 0, "details": "", "instructions": ""},
-        "spf": {"status": "verified", "expected": "", "found": None, "nameservers_checked": 0, "nameservers_ok": 0, "details": "", "instructions": ""},
-        "dkim": {"status": "verified", "expected": "", "found": None, "nameservers_checked": 0, "nameservers_ok": 0, "details": "", "instructions": ""},
-        "dmarc": {"status": "verified", "expected": "", "found": None, "nameservers_checked": 0, "nameservers_ok": 0, "details": "", "instructions": ""},
+        "mx": {
+            "status": "verified",
+            "expected": "",
+            "found": None,
+            "nameservers_checked": 0,
+            "nameservers_ok": 0,
+            "details": "",
+            "instructions": "",
+        },
+        "spf": {
+            "status": "verified",
+            "expected": "",
+            "found": None,
+            "nameservers_checked": 0,
+            "nameservers_ok": 0,
+            "details": "",
+            "instructions": "",
+        },
+        "dkim": {
+            "status": "verified",
+            "expected": "",
+            "found": None,
+            "nameservers_checked": 0,
+            "nameservers_ok": 0,
+            "details": "",
+            "instructions": "",
+        },
+        "dmarc": {
+            "status": "verified",
+            "expected": "",
+            "found": None,
+            "nameservers_checked": 0,
+            "nameservers_ok": 0,
+            "details": "",
+            "instructions": "",
+        },
     }
     result = mock_checks(
         domain_name="example.com",
@@ -225,12 +257,20 @@ class TestGetInstructions:
         assert "#dkim-settings" in instr
 
     def test_dkim_not_configured_dns_missing(self):
-        instr = _get_instructions("dkim", STATUS_NOT_CONFIGURED, "0/2 nameservers have matching DKIM records.", domain_name="example.com", dkim_selector="default")
+        instr = _get_instructions(
+            "dkim",
+            STATUS_NOT_CONFIGURED,
+            "0/2 nameservers have matching DKIM records.",
+            domain_name="example.com",
+            dkim_selector="default",
+        )
         assert "default._domainkey.example.com" in instr
         assert "#dkim-settings" in instr
 
     def test_dkim_mismatch(self):
-        instr = _get_instructions("dkim", STATUS_MISMATCH, domain_name="example.com", dkim_selector="default")
+        instr = _get_instructions(
+            "dkim", STATUS_MISMATCH, domain_name="example.com", dkim_selector="default"
+        )
         assert "does not match" in instr
         assert "default._domainkey.example.com" in instr
 

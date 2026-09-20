@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 LOCKED_KEYWORD = "$Locked"
 
@@ -115,13 +116,9 @@ def protected_delete_message(reason: str) -> str:
     nothing to retry.
     """
     if reason == "locked":
-        return (
-            "This message is locked. Click Unlock in the \u22ef menu to allow deletion."
-        )
+        return "This message is locked. Click Unlock in the \u22ef menu to allow deletion."
     if reason == "starred":
-        return (
-            "This message is starred. Click Unstar in the \u22ef menu to allow deletion."
-        )
+        return "This message is starred. Click Unstar in the \u22ef menu to allow deletion."
     # starred+locked (or any unexpected value) - resolve both.
     return (
         "This message is starred and locked. Unstar and Unlock it in the \u22ef menu "

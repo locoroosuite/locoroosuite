@@ -52,6 +52,7 @@ def _normalize_vapid_subject(subject: str) -> str:
         f"(got {subject!r}); e.g. 'mailto:admin@locoroo.net'."
     )
 
+
 # Category -> CustomerSettings column (U24.27). "test" bypasses gating.
 CATEGORY_SETTINGS = {
     "mail": "notify_mail_enabled",

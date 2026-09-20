@@ -1,18 +1,17 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
 import json
 import os
 import re
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 
 import sqlcipher3
 
-from app.modules.mail.services.folder_sort import UNREAD_EXCLUDED_FOLDERS
 from app.modules.mail.services.cache_migrations import MAIL_CACHE_MIGRATIONS
+from app.modules.mail.services.folder_sort import UNREAD_EXCLUDED_FOLDERS
 from app.shared.cache_errors import CacheKeyMismatchError
 from app.shared.migrations import run_migrations
-
 
 # Cache DB paths that have already had their schema initialized/migrated in
 # this process. open_cache() is called ~per-request, but the schema check only
@@ -50,6 +49,7 @@ def open_cache(db_path, key):
     except (MemoryError, Exception) as exc:
         conn.close()
         import os as _os
+
         if _os.path.exists(db_path):
             _os.unlink(db_path)
             clear_cache_schema_memo(db_path)
@@ -80,14 +80,14 @@ def _date_to_unix(date_value):
     if not dt:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return int(dt.timestamp())
 
 
 def parse_references_header(value):
     if not value:
         return []
-    return re.findall(r'<([^>]+)>', str(value))
+    return re.findall(r"<([^>]+)>", str(value))
 
 
 def compute_thread_id(message_id, in_reply_to, ref_list):
@@ -99,7 +99,7 @@ def compute_thread_id(message_id, in_reply_to, ref_list):
         return irt_refs[0]
     if message_id:
         mid = str(message_id).strip()
-        if mid.startswith('<') and mid.endswith('>'):
+        if mid.startswith("<") and mid.endswith(">"):
             mid = mid[1:-1]
         return mid or None
     return None
@@ -141,7 +141,15 @@ def get_folder_state(conn, folder):
     return cursor.fetchone()
 
 
-def upsert_folder_state(conn, folder, uidvalidity=None, uidnext=None, highestmodseq=None, last_sync_at=None, last_new_at=None):
+def upsert_folder_state(
+    conn,
+    folder,
+    uidvalidity=None,
+    uidnext=None,
+    highestmodseq=None,
+    last_sync_at=None,
+    last_new_at=None,
+):
     conn.execute(
         """
         INSERT INTO folder_state(folder, uidvalidity, uidnext, highestmodseq, last_sync_at, last_new_at)
@@ -181,9 +189,7 @@ def list_recent_active_folders(conn, since_iso):
 
 
 def has_completed_sync(conn):
-    cursor = conn.execute(
-        "SELECT 1 FROM folder_state WHERE last_sync_at IS NOT NULL LIMIT 1"
-    )
+    cursor = conn.execute("SELECT 1 FROM folder_state WHERE last_sync_at IS NOT NULL LIMIT 1")
     return cursor.fetchone() is not None
 
 
@@ -537,7 +543,9 @@ def list_tags(conn):
 
 
 def tag_message(conn, message_id, tag_id):
-    conn.execute("INSERT OR IGNORE INTO message_tags(message_id, tag_id) VALUES (?, ?)", (message_id, tag_id))
+    conn.execute(
+        "INSERT OR IGNORE INTO message_tags(message_id, tag_id) VALUES (?, ?)", (message_id, tag_id)
+    )
     conn.commit()
 
 

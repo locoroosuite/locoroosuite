@@ -1,6 +1,7 @@
+import contextlib
 import json
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -8,18 +9,16 @@ from app.shared.models.core import Domain
 
 
 def _safe_unlink(path):
-    try:
+    with contextlib.suppress(OSError):
         os.unlink(path)
-    except OSError:
-        pass
 
 
 def _setup_test_env(app, account_id, with_carddav=True, with_cache=True):
     paths = {}
     with app.app_context():
+        from app.modules.contacts.services.cache import get_cache_path
         from app.shared.db import db
         from app.shared.models.core import CustomerAccount
-        from app.modules.contacts.services.cache import get_cache_path
 
         account = db.session.get(CustomerAccount, account_id)
         domain = db.session.get(Domain, account.domain_id)
@@ -36,7 +35,7 @@ def _setup_test_env(app, account_id, with_carddav=True, with_cache=True):
 
 
 def test_contact_list_no_carddav_config(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id, with_carddav=False)
     try:
         resp = client.get("/app/contacts/")
@@ -48,7 +47,7 @@ def test_contact_list_no_carddav_config(authed_client, app):
 
 
 def test_contact_list_empty(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         with patch("app.modules.contacts.controllers.contacts._sync_contacts"):
@@ -133,7 +132,7 @@ def test_contact_detail(authed_client, app):
 
 
 def test_contact_detail_not_found(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.get(f"/app/contacts/{account_id}/nonexistent")
@@ -143,7 +142,7 @@ def test_contact_detail_not_found(authed_client, app):
 
 
 def test_contact_new_get(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.get("/app/contacts/new")
@@ -154,7 +153,7 @@ def test_contact_new_get(authed_client, app):
 
 
 def test_contact_new_post_validation_error(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         resp = client.post("/app/contacts/new", data={"fn": "", "first_name": "", "last_name": ""})
@@ -278,14 +277,14 @@ def test_api_search(authed_client, app):
 
 
 def test_api_search_too_short(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, _account_id = authed_client
     resp = client.get("/app/contacts/api/search?q=a")
     assert resp.status_code == 200
     assert json.loads(resp.data) == []
 
 
 def test_contact_sync(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
         with patch("app.modules.contacts.controllers.contacts._sync_contacts") as mock_sync:
@@ -384,7 +383,7 @@ def test_api_auto_save_existing_recipient(authed_client, app):
 
 
 def test_api_auto_save_no_carddav(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id, with_carddav=False)
 
     try:
@@ -407,7 +406,7 @@ def test_api_auto_save_no_carddav(authed_client, app):
 
 
 def test_api_auto_save_invalid_request(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, _account_id = authed_client
 
     resp = client.post(
         "/app/contacts/api/auto-save",
@@ -420,7 +419,7 @@ def test_api_auto_save_invalid_request(authed_client, app):
 
 
 def test_api_auto_save_empty_recipients(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
 
     resp = client.post(
         "/app/contacts/api/auto-save",
@@ -433,7 +432,7 @@ def test_api_auto_save_empty_recipients(authed_client, app):
 
 
 def test_api_auto_save_carddav_down(authed_client, app):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
 
     try:
@@ -516,7 +515,7 @@ def test_api_auto_save_no_name(authed_client, app):
     ],
 )
 def test_api_auto_save_invalid_email(authed_client, app, invalid_email):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
 
     try:

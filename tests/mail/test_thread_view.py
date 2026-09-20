@@ -404,7 +404,7 @@ class TestLoadThreadForDetail:
 
 class TestThreadConversationView:
     def test_thread_messages_rendered(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1"
         mock_msg = {
             "id": 1,
@@ -491,11 +491,11 @@ class TestThreadConversationView:
         assert "2 messages in this conversation" in html
         assert 'data-thread-msg-id="2"' in html
         assert 'data-thread-msg-id="1"' in html
-        assert "Show trimmed content" not in html or True
+        assert True
         assert "data-expand-icon" in html
 
     def test_single_message_no_thread_label(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1"
         mock_msg = {
             "id": 1,
@@ -560,7 +560,7 @@ class TestThreadConversationView:
         assert "data-thread-expanded" not in html or 'data-thread-expanded="true"' in html
 
     def test_sent_message_indigo_styling(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1"
         mock_msg = {
             "id": 1,
@@ -648,7 +648,7 @@ class TestThreadConversationView:
         assert "You" in html
 
     def test_sent_message_shows_cc(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1"
         mock_msg = {
             "id": 1,
@@ -736,7 +736,7 @@ class TestThreadConversationView:
         assert "cc cc@test.com" in html
 
     def test_draft_message_shows_cc(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1"
         mock_msg = {
             "id": 1,
@@ -908,7 +908,7 @@ class TestBuildThreads:
         threads, pagination = _build_threads(conn, "INBOX")
         assert pagination["total_messages"] == 2
         assert len(threads) == 1
-        group = list(threads.values())[0]
+        group = next(iter(threads.values()))
         assert len(group) == 2
 
     def test_subject_fallback_no_thread_id(self, tmp_path):
@@ -941,7 +941,7 @@ class TestBuildThreads:
         threads, pagination = _build_threads(conn, "INBOX")
         assert pagination["total_messages"] == 2
         assert len(threads) == 1
-        group = list(threads.values())[0]
+        group = next(iter(threads.values()))
         assert len(group) == 2
 
     def test_different_thread_ids_same_subject_merged(self, tmp_path):
@@ -992,7 +992,7 @@ class TestBuildThreads:
         threads, pagination = _build_threads(conn, "INBOX")
         assert pagination["total_messages"] == 4
         assert len(threads) == 1
-        group = list(threads.values())[0]
+        group = next(iter(threads.values()))
         assert len(group) == 4
 
     def test_mixed_thread_ids_and_null(self, tmp_path):
@@ -1033,7 +1033,7 @@ class TestBuildThreads:
         threads, pagination = _build_threads(conn, "INBOX")
         assert pagination["total_messages"] == 3
         assert len(threads) == 1
-        group = list(threads.values())[0]
+        group = next(iter(threads.values()))
         assert len(group) == 3
 
     def test_different_subjects_not_merged(self, tmp_path):
@@ -1090,9 +1090,9 @@ class TestBuildThreads:
             thread_id="thread-abc",
         )
 
-        threads, pagination = _build_threads(conn, "INBOX", account_email="me@test.com")
+        threads, _pagination = _build_threads(conn, "INBOX", account_email="me@test.com")
         assert len(threads) == 1
-        group = list(threads.values())[0]
+        group = next(iter(threads.values()))
         assert len(group) == 2
         assert any(r.get("is_sent") for r in group)
 
@@ -1131,9 +1131,9 @@ class TestBuildThreads:
             thread_id="thread-a",
         )
 
-        threads, pagination = _build_threads(conn, "INBOX", account_email="me@test.com")
+        threads, _pagination = _build_threads(conn, "INBOX", account_email="me@test.com")
         assert len(threads) == 1
-        group = list(threads.values())[0]
+        group = next(iter(threads.values()))
         assert len(group) == 3
 
     def test_many_messages_cross_thread_ids_triggers_collapse(self, tmp_path):
@@ -1156,7 +1156,7 @@ class TestBuildThreads:
         threads, pagination = _build_threads(conn, "INBOX")
         assert pagination["total_messages"] == 11
         assert len(threads) == 1
-        group = list(threads.values())[0]
+        group = next(iter(threads.values()))
         assert len(group) == 11
 
     def test_large_thread_capped_at_max(self, tmp_path):
@@ -1178,7 +1178,7 @@ class TestBuildThreads:
         threads, pagination = _build_threads(conn, "INBOX")
         assert pagination["total_messages"] == 60
         assert len(threads) == 1
-        key = list(threads.keys())[0]
+        key = next(iter(threads.keys()))
         assert len(threads[key]) == MAX_MESSAGES_PER_THREAD
         assert pagination["thread_counts"][key] == 60
         assert pagination["thread_omitted"][key] == 60 - MAX_MESSAGES_PER_THREAD
@@ -1200,7 +1200,7 @@ class TestBuildThreads:
             )
 
         threads, pagination = _build_threads(conn, "INBOX")
-        key = list(threads.keys())[0]
+        key = next(iter(threads.keys()))
         assert pagination["thread_omitted"][key] == 0
         assert pagination["thread_counts"][key] == 5
         assert len(threads[key]) == 5
@@ -1229,7 +1229,7 @@ class TestFolderThreadCollapse:
         }
 
     def test_five_messages_shows_collapse_bar(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         msgs = {"Re: Thread test": [self._make_msg(i) for i in range(1, 6)]}
         with (
             patch("app.modules.mail.controllers.mailbox.open_cache", return_value=MagicMock()),
@@ -1264,7 +1264,7 @@ class TestFolderThreadCollapse:
         assert "thread-count" in html
 
     def test_four_messages_no_collapse_bar(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         msgs = {"Re: Thread test": [self._make_msg(i) for i in range(1, 5)]}
         with (
             patch("app.modules.mail.controllers.mailbox.open_cache", return_value=MagicMock()),
@@ -1298,7 +1298,7 @@ class TestFolderThreadCollapse:
         assert "thread-count" in html
 
     def test_eleven_messages_collapse_bar_count(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         msgs = {"Re: Thread test": [self._make_msg(i) for i in range(1, 12)]}
         with (
             patch("app.modules.mail.controllers.mailbox.open_cache", return_value=MagicMock()),

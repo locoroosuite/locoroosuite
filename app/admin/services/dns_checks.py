@@ -6,8 +6,8 @@ import socket
 from dataclasses import dataclass
 from typing import Any
 
-import dns.resolver
 import dns.rdatatype
+import dns.resolver
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +41,20 @@ DNS_INSTRUCTIONS: dict[str, dict[str, str]] = {
 }
 
 
-def _get_instructions(record_type: str, status: str, details: str = "", *, domain_name: str = "", dkim_selector: str = "") -> str:
+def _get_instructions(
+    record_type: str,
+    status: str,
+    details: str = "",
+    *,
+    domain_name: str = "",
+    dkim_selector: str = "",
+) -> str:
     if record_type == "dkim":
-        dns_name = f"{dkim_selector}._domainkey.{domain_name}" if dkim_selector and domain_name else "&lt;selector&gt;._domainkey.&lt;your-domain&gt;"
+        dns_name = (
+            f"{dkim_selector}._domainkey.{domain_name}"
+            if dkim_selector and domain_name
+            else "&lt;selector&gt;._domainkey.&lt;your-domain&gt;"
+        )
         if status == STATUS_NOT_CONFIGURED:
             if "No DKIM public key" in details:
                 return 'No DKIM signing key exists yet. Generate one in the <a href="#dkim-settings" class="underline font-medium">DKIM signing key</a> section above, then add the resulting TXT record to your DNS.'
@@ -203,7 +214,7 @@ def _parse_spf_record(txt: str) -> dict[str, Any]:
             mechanisms.append(("all", part[0] if len(part) == 4 else "+"))
         elif part.startswith("mx"):
             mechanisms.append(("mx", part))
-        elif part.startswith("ip4:") or part.startswith("ip6:"):
+        elif part.startswith(("ip4:", "ip6:")):
             mechanisms.append(("ip", part))
         elif part.startswith("include:"):
             mechanisms.append(("include", part))
@@ -218,7 +229,7 @@ def _parse_spf_record(txt: str) -> dict[str, Any]:
 
 def _spf_covers_mx(spf_txt: str, mx_hosts: list[str]) -> bool:
     parsed = _parse_spf_record(spf_txt)
-    for mech_type, mech_val in parsed["mechanisms"]:
+    for mech_type, _mech_val in parsed["mechanisms"]:
         if mech_type == "mx":
             return True
         if mech_type == "ip":
@@ -274,7 +285,9 @@ def _check_spf(domain: str, mx_hosts: list[str]) -> DnsCheckResult:
 
     detail = f"{ns_ok}/{total} nameservers have valid SPF records."
     if found_records and status == STATUS_MISMATCH:
-        detail = f"SPF record found but does not cover our mail servers. {ns_ok}/{total} nameservers OK."
+        detail = (
+            f"SPF record found but does not cover our mail servers. {ns_ok}/{total} nameservers OK."
+        )
 
     return DnsCheckResult(
         record_type="SPF",
@@ -326,7 +339,7 @@ def _check_dkim(domain: str, selector: str, expected_public_key: str | None) -> 
         if dkim_records:
             found_records = dkim_records
             for rec in dkim_records:
-                p_match = re.search(r'p=([A-Za-z0-9+/=]+)', rec)
+                p_match = re.search(r"p=([A-Za-z0-9+/=]+)", rec)
                 if p_match and p_match.group(1) == expected_public_key:
                     ns_ok += 1
                     break
@@ -390,11 +403,13 @@ def _check_dmarc(domain: str, expected_policy: str, expected_rua: str | None) ->
             rec = dmarc_records[0]
             has_valid_policy = False
             has_valid_rua = True
-            p_match = re.search(r'p\s*=\s*(none|quarantine|reject)', rec, re.IGNORECASE)
+            p_match = re.search(r"p\s*=\s*(none|quarantine|reject)", rec, re.IGNORECASE)
             if p_match:
                 has_valid_policy = True
             if expected_rua:
-                rua_match = re.search(r'rua\s*=\s*mailto:' + re.escape(expected_rua), rec, re.IGNORECASE)
+                rua_match = re.search(
+                    r"rua\s*=\s*mailto:" + re.escape(expected_rua), rec, re.IGNORECASE
+                )
                 has_valid_rua = bool(rua_match)
             if has_valid_policy and has_valid_rua:
                 ns_ok += 1
@@ -448,7 +463,7 @@ def validate_mx_hostname(hostname: str) -> dict[str, Any]:
         try:
             with socket.create_connection((hostname, 25), timeout=DNS_TIMEOUT):
                 port_ok = True
-        except (OSError, socket.timeout):
+        except (TimeoutError, OSError):
             pass
 
     return {
@@ -501,7 +516,13 @@ def run_all_dns_checks(
             "nameservers_checked": dkim_result.nameservers_checked,
             "nameservers_ok": dkim_result.nameservers_ok,
             "details": dkim_result.details,
-            "instructions": _get_instructions("dkim", dkim_result.status, dkim_result.details, domain_name=domain_name, dkim_selector=dkim_selector),
+            "instructions": _get_instructions(
+                "dkim",
+                dkim_result.status,
+                dkim_result.details,
+                domain_name=domain_name,
+                dkim_selector=dkim_selector,
+            ),
         },
         "dmarc": {
             "status": dmarc_result.status,
@@ -510,6 +531,8 @@ def run_all_dns_checks(
             "nameservers_checked": dmarc_result.nameservers_checked,
             "nameservers_ok": dmarc_result.nameservers_ok,
             "details": dmarc_result.details,
-            "instructions": _get_instructions("dmarc", dmarc_result.status, domain_name=domain_name),
+            "instructions": _get_instructions(
+                "dmarc", dmarc_result.status, domain_name=domain_name
+            ),
         },
     }

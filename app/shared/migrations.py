@@ -41,7 +41,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 _logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ MigrationFn = Callable[[Any], None]
 class Migration:
     """A named, self-guarding schema migration."""
 
-    __slots__ = ("name", "fn")
+    __slots__ = ("fn", "name")
 
     def __init__(self, name: str, fn: MigrationFn):
         if not name or not name.strip():
@@ -105,10 +105,7 @@ def run_migrations(
     """
     log = logger or _logger
     ensure_migrations_table(conn)
-    already = {
-        row[0]
-        for row in conn.execute("SELECT name FROM _schema_migrations").fetchall()
-    }
+    already = {row[0] for row in conn.execute("SELECT name FROM _schema_migrations").fetchall()}
     applied = 0
     for migration in migrations:
         if migration.name in already:
@@ -122,7 +119,7 @@ def run_migrations(
             raise
         conn.execute(
             "INSERT INTO _schema_migrations(name, applied_at) VALUES (?, ?)",
-            (migration.name, datetime.now(timezone.utc).isoformat()),
+            (migration.name, datetime.now(UTC).isoformat()),
         )
         conn.commit()
         applied += 1
@@ -147,10 +144,7 @@ def table_columns(conn: Any, table: str) -> set[str]:
     """Return the set of column names for ``table`` (empty if table missing)."""
     if not has_table(conn, table):
         return set()
-    return {
-        row[1]
-        for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
-    }
+    return {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
 
 
 def has_index(conn: Any, index_name: str) -> bool:

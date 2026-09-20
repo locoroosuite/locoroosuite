@@ -10,7 +10,6 @@ from app.modules.mail.controllers.helpers import mail_bp
 from app.modules.mail.services import attachments as staging
 from app.shared.auth import require_customer
 
-
 logger = logging.getLogger(__name__)
 
 _DEFAULT_MAX_FILE = 25 * 1024 * 1024
@@ -45,7 +44,9 @@ def _ttl_hours():
 
 
 def _get_session_id():
-    sid = (request.form.get("compose_session_id") or request.args.get("compose_session_id") or "").strip()
+    sid = (
+        request.form.get("compose_session_id") or request.args.get("compose_session_id") or ""
+    ).strip()
     if not staging.is_valid_id(sid):
         return None
     return sid
@@ -89,44 +90,46 @@ def stage_attachment():
 
     compose_session_id = _get_session_id()
     if not compose_session_id:
-        return jsonify({
-            "error": {"code": "invalid_session", "message": "Invalid or missing compose session."}
-        }), 400
+        return jsonify(
+            {"error": {"code": "invalid_session", "message": "Invalid or missing compose session."}}
+        ), 400
 
     uploaded = request.files.get("file")
     if not uploaded or not uploaded.filename:
-        return jsonify({
-            "error": {"code": "no_file", "message": "No file was provided."}
-        }), 400
+        return jsonify({"error": {"code": "no_file", "message": "No file was provided."}}), 400
 
     raw = uploaded.read()
     size = len(raw)
     max_file = _max_file_bytes()
     if size <= 0:
-        return jsonify({
-            "error": {"code": "empty_file", "message": "The selected file is empty."}
-        }), 400
+        return jsonify(
+            {"error": {"code": "empty_file", "message": "The selected file is empty."}}
+        ), 400
     if size > max_file:
-        return jsonify({
-            "error": {
-                "code": "file_too_large",
-                "message": "This file exceeds the per-file size limit.",
-                "limit": max_file,
-                "size": size,
+        return jsonify(
+            {
+                "error": {
+                    "code": "file_too_large",
+                    "message": "This file exceeds the per-file size limit.",
+                    "limit": max_file,
+                    "size": size,
+                }
             }
-        }), 413
+        ), 413
 
     current_total = staging.session_size(user_id, compose_session_id)
     max_total = _max_total_bytes()
     if current_total + size > max_total:
-        return jsonify({
-            "error": {
-                "code": "total_too_large",
-                "message": "Adding this file exceeds the total attachment size limit.",
-                "limit": max_total,
-                "used": current_total,
+        return jsonify(
+            {
+                "error": {
+                    "code": "total_too_large",
+                    "message": "Adding this file exceeds the total attachment size limit.",
+                    "limit": max_total,
+                    "used": current_total,
+                }
             }
-        }), 413
+        ), 413
 
     file_id = uuid.uuid4().hex
     name = _sanitize_filename(uploaded.filename)
@@ -135,20 +138,27 @@ def stage_attachment():
         staging.stage_file(user_id, compose_session_id, file_id, raw, name, mime)
     except Exception:
         logger.exception("failed to stage attachment user_id=%s", user_id)
-        return jsonify({
-            "error": {"code": "stage_failed", "message": "Unable to store the file. Please retry."}
-        }), 500
+        return jsonify(
+            {
+                "error": {
+                    "code": "stage_failed",
+                    "message": "Unable to store the file. Please retry.",
+                }
+            }
+        ), 500
 
     _maybe_gc()
-    return jsonify({
-        "id": file_id,
-        "name": name,
-        "size": size,
-        "mime": mime,
-        "compose_session_id": compose_session_id,
-        "used": current_total + size,
-        "limit": max_total,
-    })
+    return jsonify(
+        {
+            "id": file_id,
+            "name": name,
+            "size": size,
+            "mime": mime,
+            "compose_session_id": compose_session_id,
+            "used": current_total + size,
+            "limit": max_total,
+        }
+    )
 
 
 @mail_bp.route("/mail/attachments/<file_id>", methods=["DELETE"])
@@ -160,9 +170,9 @@ def delete_attachment(file_id):
 
     compose_session_id = _get_session_id()
     if not compose_session_id or not staging.is_valid_id(file_id):
-        return jsonify({
-            "error": {"code": "invalid_request", "message": "Invalid attachment or session."}
-        }), 400
+        return jsonify(
+            {"error": {"code": "invalid_request", "message": "Invalid attachment or session."}}
+        ), 400
 
     staging.delete_staged(user_id, compose_session_id, file_id)
     return jsonify({"ok": True})
@@ -177,14 +187,16 @@ def list_attachments():
 
     compose_session_id = _get_session_id()
     if not compose_session_id:
-        return jsonify({
-            "error": {"code": "invalid_session", "message": "Invalid or missing compose session."}
-        }), 400
+        return jsonify(
+            {"error": {"code": "invalid_session", "message": "Invalid or missing compose session."}}
+        ), 400
 
     items = staging.list_staged(user_id, compose_session_id)
     used = sum(item["size"] for item in items)
-    return jsonify({
-        "attachments": items,
-        "used": used,
-        "limit": _max_total_bytes(),
-    })
+    return jsonify(
+        {
+            "attachments": items,
+            "used": used,
+            "limit": _max_total_bytes(),
+        }
+    )

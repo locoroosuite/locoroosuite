@@ -4,18 +4,18 @@ import base64
 import hashlib
 import json
 import secrets
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import jwt as pyjwt
 import pytest
 from cryptography.hazmat.primitives import serialization
 from starlette.testclient import TestClient
 
-from app.shared.db import db as _db
-from app.shared.models.core import User, Domain, CustomerAccount
-from app.shared.keys import set_user_key, clear_user_key
-from app.shared.oauth import get_public_key, _get_issuer
 from app.api.token_service import generate_dek, wrap_dek_with_credential
+from app.shared.db import db as _db
+from app.shared.keys import clear_user_key, set_user_key
+from app.shared.models.core import CustomerAccount, Domain, User
+from app.shared.oauth import _get_issuer, get_public_key
 
 
 @pytest.fixture(autouse=True)
@@ -28,9 +28,7 @@ def _set_server_name(app):
 def _generate_pkce():
     verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode()
     challenge = (
-        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest())
-        .rstrip(b"=")
-        .decode()
+        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     )
     return verifier, challenge
 
@@ -61,29 +59,35 @@ def _run_oauth_flask_flow(flask_client, user_id, account_id, scope="mail.read ma
         sess["user_id"] = user_id
         sess["active_account_id"] = account_id
 
-    resp = flask_client.post("/oauth/authorize", data={
-        "action": "approve",
-        "client_id": client_id,
-        "redirect_uri": redirect_uri,
-        "scope": scope,
-        "scopes": scope.split(),
-        "resource": resource,
-        "state": "test-state",
-        "code_challenge": challenge,
-        "code_challenge_method": "S256",
-        "response_type": "code",
-    })
+    resp = flask_client.post(
+        "/oauth/authorize",
+        data={
+            "action": "approve",
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "scope": scope,
+            "scopes": scope.split(),
+            "resource": resource,
+            "state": "test-state",
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+            "response_type": "code",
+        },
+    )
     assert resp.status_code == 302
     location = resp.headers["Location"]
     code = location.split("code=")[1].split("&")[0]
 
-    resp = flask_client.post("/oauth/token", data={
-        "grant_type": "authorization_code",
-        "code": code,
-        "redirect_uri": redirect_uri,
-        "client_id": client_id,
-        "code_verifier": verifier,
-    })
+    resp = flask_client.post(
+        "/oauth/token",
+        data={
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": redirect_uri,
+            "client_id": client_id,
+            "code_verifier": verifier,
+        },
+    )
     assert resp.status_code == 200
     token_data = json.loads(resp.data)
     return token_data["access_token"], client_id, resource
@@ -201,14 +205,18 @@ class TestOAuthMCPIntegration:
         assert metadata["registration_endpoint"] == f"{issuer}/oauth/register"
 
         access_token, _, resource = _run_oauth_flask_flow(
-            client, user_id, account_id,
+            client,
+            user_id,
+            account_id,
         )
 
         with app.app_context():
             pub_key_bytes = get_public_key(app)
         pub_key = serialization.load_pem_public_key(pub_key_bytes)
         payload = pyjwt.decode(
-            access_token, pub_key, algorithms=["RS256"],
+            access_token,
+            pub_key,
+            algorithms=["RS256"],
             options={"verify_aud": False},
         )
         assert payload["iss"] == issuer
@@ -216,6 +224,7 @@ class TestOAuthMCPIntegration:
         assert payload["aud"] == resource
 
         from app.mcp import create_asgi_app
+
         with patch("app.workers.manager.WorkerManager") as MockWM:
             MockWM.return_value = MagicMock()
             asgi_app = create_asgi_app()
@@ -250,6 +259,7 @@ class TestOAuthMCPIntegration:
 
     def test_mcp_rejects_missing_token(self, app, _clean_db):
         from app.mcp import create_asgi_app
+
         with patch("app.workers.manager.WorkerManager") as MockWM:
             MockWM.return_value = MagicMock()
             asgi_app = create_asgi_app()
@@ -275,6 +285,7 @@ class TestOAuthMCPIntegration:
 
     def test_mcp_rejects_invalid_token(self, app, _clean_db):
         from app.mcp import create_asgi_app
+
         with patch("app.workers.manager.WorkerManager") as MockWM:
             MockWM.return_value = MagicMock()
             asgi_app = create_asgi_app()
@@ -303,6 +314,7 @@ class TestOAuthMCPIntegration:
 
     def test_mcp_protected_resource_metadata(self, app, _clean_db):
         from app.mcp import create_asgi_app
+
         with patch("app.workers.manager.WorkerManager") as MockWM:
             MockWM.return_value = MagicMock()
             asgi_app = create_asgi_app()
@@ -322,14 +334,18 @@ class TestOAuthMCPIntegration:
             issuer = _get_issuer(app)
 
         access_token, _, resource = _run_oauth_flask_flow(
-            client, user_id, account_id,
+            client,
+            user_id,
+            account_id,
         )
 
         with app.app_context():
             pub_key_bytes = get_public_key(app)
         pub_key = serialization.load_pem_public_key(pub_key_bytes)
         payload = pyjwt.decode(
-            access_token, pub_key, algorithms=["RS256"],
+            access_token,
+            pub_key,
+            algorithms=["RS256"],
             options={"verify_aud": False},
         )
 
@@ -340,10 +356,14 @@ class TestOAuthMCPIntegration:
         user_id, account_id = oauth_user
 
         access_token, _, _ = _run_oauth_flask_flow(
-            client, user_id, account_id, scope="mail.read mail.write",
+            client,
+            user_id,
+            account_id,
+            scope="mail.read mail.write",
         )
 
         from app.mcp import create_asgi_app
+
         with patch("app.workers.manager.WorkerManager") as MockWM:
             MockWM.return_value = MagicMock()
             with patch("app.mcp._create_flask_app", return_value=app):
@@ -402,8 +422,10 @@ class TestOAuthMCPIntegration:
             tool_names = [t["name"] for t in tools_data["result"]["tools"]]
             assert "mail_list_folders" in tool_names
 
-            with patch("app.mcp.tools.mail._get_cache_conn", return_value=mock_conn), \
-                 patch("app.modules.mail.services.cache_db.list_cached_folders", return_value=[]):
+            with (
+                patch("app.mcp.tools.mail._get_cache_conn", return_value=mock_conn),
+                patch("app.modules.mail.services.cache_db.list_cached_folders", return_value=[]),
+            ):
                 list_folders_resp = mcp_client.post(
                     "/mcp",
                     json={
@@ -429,9 +451,7 @@ class TestOAuthMCPIntegration:
             assert "No Flask context" not in content[0]["text"]
             assert "INTERNAL" not in content[0]["text"]
 
-    def test_stale_session_redirect_preserves_next_to_authorize(
-        self, app, client, oauth_user
-    ):
+    def test_stale_session_redirect_preserves_next_to_authorize(self, app, client, oauth_user):
         user_id, account_id = oauth_user
 
         reg_data, _ = _register_client(client)
@@ -466,10 +486,13 @@ class TestOAuthMCPIntegration:
         user_id, account_id, expected_dek = oauth_user_with_dek
 
         access_token, _, _ = _run_oauth_flask_flow(
-            client, user_id, account_id,
+            client,
+            user_id,
+            account_id,
         )
 
-        from app.mcp.auth import resolve_context, get_dek, set_current_token
+        from app.mcp.auth import get_dek, resolve_context, set_current_token
+
         set_current_token(access_token)
         auth_ctx = resolve_context(access_token, app)
         assert auth_ctx["token_type"] == "jwt"
@@ -480,31 +503,39 @@ class TestOAuthMCPIntegration:
 
     def test_full_oauth_to_mcp_tool_with_real_dek(self, app, client, oauth_user_with_dek):
         """End-to-end: OAuth → JWT → MCP tool call with real DEK unwrapping and real cache DB."""
-        import tempfile
         import os
+        import tempfile
+
         user_id, account_id, expected_dek = oauth_user_with_dek
 
         with app.app_context():
             from app.shared.models.core import CustomerAccount
+
             account = _db.session.get(CustomerAccount, account_id)
-            tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-            tmp.close()
-            account.cache_db_path = tmp.name
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+                db_path = tmp.name
+            account.cache_db_path = db_path
             _db.session.commit()
 
             from app.modules.mail.services.cache_db import open_cache
-            conn = open_cache(tmp.name, expected_dek)
+
+            conn = open_cache(db_path, expected_dek)
             from app.modules.mail.services.cache_db import upsert_folder
+
             upsert_folder(conn, "INBOX", 0)
             upsert_folder(conn, "Sent", 0)
             conn.close()
 
         try:
             access_token, _, _ = _run_oauth_flask_flow(
-                client, user_id, account_id, scope="mail.read mail.write",
+                client,
+                user_id,
+                account_id,
+                scope="mail.read mail.write",
             )
 
             from app.mcp import create_asgi_app
+
             with patch("app.workers.manager.WorkerManager") as MockWM:
                 MockWM.return_value = MagicMock()
                 with patch("app.mcp._create_flask_app", return_value=app):
@@ -565,31 +596,36 @@ class TestOAuthMCPIntegration:
                 assert "INBOX" in folder_names
                 assert "Sent" in folder_names
         finally:
-            os.unlink(tmp.name)
+            os.unlink(db_path)
 
     def test_oauth_to_mcp_after_user_keys_wipe(self, app, client, oauth_user_with_dek):
         """Simulate server restart: _user_keys wiped, session survives, OAuth re-seeds keys."""
-        import tempfile
         import os
+        import tempfile
+
         user_id, account_id, expected_dek = oauth_user_with_dek
 
         with app.app_context():
             from app.shared.models.core import CustomerAccount
+
             account = _db.session.get(CustomerAccount, account_id)
-            tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-            tmp.close()
-            account.cache_db_path = tmp.name
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+                db_path = tmp.name
+            account.cache_db_path = db_path
             _db.session.commit()
 
-            from app.modules.mail.services.cache_db import open_cache
-            from app.modules.mail.services.cache_db import upsert_folder
-            conn = open_cache(tmp.name, expected_dek)
+            from app.modules.mail.services.cache_db import open_cache, upsert_folder
+
+            conn = open_cache(db_path, expected_dek)
             upsert_folder(conn, "INBOX", 0)
             conn.close()
 
         try:
             access_token, _, _ = _run_oauth_flask_flow(
-                client, user_id, account_id, scope="mail.read",
+                client,
+                user_id,
+                account_id,
+                scope="mail.read",
             )
 
             clear_user_key(user_id)
@@ -600,7 +636,6 @@ class TestOAuthMCPIntegration:
                 MockWM.return_value = MagicMock()
                 with patch("app.mcp._create_flask_app", return_value=app):
                     asgi_app = create_asgi_app()
-
 
             with TestClient(asgi_app) as mcp_client:
                 mcp_client.post(
@@ -641,7 +676,9 @@ class TestOAuthMCPIntegration:
                 data = resp.json()
                 text = data["result"]["content"][0]["text"]
                 parsed = json.loads(text)
-                assert "error" not in parsed, f"MCP tool returned error after _user_keys wipe: {parsed}"
+                assert "error" not in parsed, (
+                    f"MCP tool returned error after _user_keys wipe: {parsed}"
+                )
                 assert "data" in parsed
         finally:
-            os.unlink(tmp.name)
+            os.unlink(db_path)

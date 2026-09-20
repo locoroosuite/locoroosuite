@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-
 import pytest
-
 from mcp.server.fastmcp import FastMCP
-from app.shared.db import db as _db
-from app.shared.models.core import User, Domain, CustomerAccount
-from app.shared.keys import set_user_key, clear_user_key
-from app.api.token_service import create_api_token, generate_dek
 
+from app.api.token_service import create_api_token, generate_dek
+from app.shared.db import db as _db
+from app.shared.keys import clear_user_key, set_user_key
+from app.shared.models.core import CustomerAccount, Domain, User
 
 LIST_TOOLS_WITH_MAX_RESULTS = [
     "contacts_list",
@@ -93,22 +91,31 @@ def mcp_all_tools(app, _clean_db):
     token_value = None
     with app.app_context():
         token_value, _ = create_api_token(
-            user_id, dek, "test-token", [
-                "mail:read", "mail:write",
-                "contacts:read", "contacts:write",
-                "calendar:read", "calendar:write",
-                "docs:read", "docs:write",
-            ]
+            user_id,
+            dek,
+            "test-token",
+            [
+                "mail:read",
+                "mail:write",
+                "contacts:read",
+                "contacts:write",
+                "calendar:read",
+                "calendar:write",
+                "docs:read",
+                "docs:write",
+            ],
         )
 
     from app.mcp.auth import set_current_token
+
     set_current_token(token_value)
 
     mcp = FastMCP("test")
-    from app.mcp.tools.contacts import register as register_contacts
-    from app.mcp.tools.mail import register as register_mail
     from app.mcp.tools.calendar import register as register_calendar
+    from app.mcp.tools.contacts import register as register_contacts
     from app.mcp.tools.docs import register as register_docs
+    from app.mcp.tools.mail import register as register_mail
+
     register_contacts(mcp, app)
     register_mail(mcp, app)
     register_calendar(mcp, app)
@@ -148,7 +155,9 @@ class TestSchemaChatGPTCompatibility:
             else:
                 int_schema = mr
             assert int_schema.get("minimum") == 1, f"Tool '{name}' max_results missing minimum=1"
-            assert int_schema.get("maximum") == 200, f"Tool '{name}' max_results missing maximum=200"
+            assert int_schema.get("maximum") == 200, (
+                f"Tool '{name}' max_results missing maximum=200"
+            )
             assert "description" in mr, f"Tool '{name}' max_results missing description"
 
     def test_all_params_have_descriptions(self, mcp_all_tools):
@@ -196,10 +205,15 @@ class TestSchemaChatGPTCompatibility:
     def test_destructive_tools_have_hint(self, mcp_all_tools):
         tools = mcp_all_tools["tools"]
         destructive_tools = [
-            "contacts_delete", "contacts_bulk_delete",
-            "mail_delete_message", "mail_bulk_delete", "mail_delete_draft",
-            "calendar_delete_calendar", "calendar_delete_event",
-            "docs_delete_document", "docs_discard_draft",
+            "contacts_delete",
+            "contacts_bulk_delete",
+            "mail_delete_message",
+            "mail_bulk_delete",
+            "mail_delete_draft",
+            "calendar_delete_calendar",
+            "calendar_delete_event",
+            "docs_delete_document",
+            "docs_discard_draft",
         ]
         for name in destructive_tools:
             tool = tools[name]

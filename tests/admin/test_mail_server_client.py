@@ -1,4 +1,4 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests as real_requests
@@ -89,9 +89,11 @@ def test_check_user_not_found():
 def test_connection_error():
     client = MailApiClient("http://mail-api:8800", "test-key")
 
-    with patch(PATCH_TARGET, side_effect=real_requests.ConnectionError("refused")):
-        with pytest.raises(real_requests.ConnectionError):
-            client.add_domain("test.com")
+    with (
+        patch(PATCH_TARGET, side_effect=real_requests.ConnectionError("refused")),
+        pytest.raises(real_requests.ConnectionError),
+    ):
+        client.add_domain("test.com")
 
 
 def test_is_available_true():

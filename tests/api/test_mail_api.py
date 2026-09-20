@@ -1,9 +1,9 @@
 import json
-from unittest.mock import patch, MagicMock, ANY
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
-from tests.api.conftest import setup_cache_db, cleanup_cache_db, create_api_token, auth_header
+from tests.api.conftest import auth_header, cleanup_cache_db, create_api_token, setup_cache_db
 
 
 @pytest.fixture()
@@ -18,11 +18,14 @@ def mail_api(app, api_customer):
 
 def _seed_mail_cache(cache_path, dek="a" * 64):
     from app.modules.mail.services.cache_db import open_cache, upsert_folder, upsert_message
+
     conn = open_cache(cache_path, dek)
     upsert_folder(conn, "INBOX", unread_count=2)
     upsert_folder(conn, "Sent", unread_count=0)
     upsert_message(
-        conn, uid="100", folder="INBOX",
+        conn,
+        uid="100",
+        folder="INBOX",
         subject="Chief Effectiveness Officer - Offer",
         sender="Alice <alice@example.com>",
         recipients="bob@example.com",
@@ -35,7 +38,9 @@ def _seed_mail_cache(cache_path, dek="a" * 64):
         thread_id="offer-thread-001",
     )
     upsert_message(
-        conn, uid="101", folder="INBOX",
+        conn,
+        uid="101",
+        folder="INBOX",
         subject="Weekly standup notes",
         sender="Charlie <charlie@example.com>",
         recipients="bob@example.com",
@@ -52,9 +57,10 @@ def _seed_mail_cache(cache_path, dek="a" * 64):
 
 
 def _set_account_secret(app, account_id, dek="a" * 64):
+    from app.modules.mail.services.secrets import encrypt_with_key
     from app.shared.db import db as _db
     from app.shared.models.core import CustomerAccount
-    from app.modules.mail.services.secrets import encrypt_with_key
+
     with app.app_context():
         account = _db.session.get(CustomerAccount, account_id)
         account.encrypted_secret = encrypt_with_key("testpass", dek)
@@ -63,7 +69,7 @@ def _set_account_secret(app, account_id, dek="a" * 64):
 
 class TestListFolders:
     def test_empty_state(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.get("/api/v1/mail/folders", headers=auth_header(token))
         assert resp.status_code == 200
         data = json.loads(resp.data)
@@ -71,7 +77,7 @@ class TestListFolders:
         assert data["data"] == []
 
     def test_returns_seeded_folders(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed_mail_cache(cache_path)
         resp = client.get("/api/v1/mail/folders", headers=auth_header(token))
         assert resp.status_code == 200
@@ -82,7 +88,7 @@ class TestListFolders:
         assert "Sent" in names
 
     def test_folder_has_unread_count(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed_mail_cache(cache_path)
         resp = client.get("/api/v1/mail/folders", headers=auth_header(token))
         assert resp.status_code == 200
@@ -91,7 +97,7 @@ class TestListFolders:
         assert inbox["unread_count"] == 2
 
     def test_folder_id_equals_name(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed_mail_cache(cache_path)
         resp = client.get("/api/v1/mail/folders", headers=auth_header(token))
         assert resp.status_code == 200
@@ -104,7 +110,7 @@ class TestListFolders:
 
 class TestSearchMessages:
     def test_missing_query_returns_422(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.get("/api/v1/mail/search", headers=auth_header(token))
         assert resp.status_code == 422
         data = json.loads(resp.data)
@@ -112,12 +118,12 @@ class TestSearchMessages:
         assert data[0]["type"] == "missing"
 
     def test_empty_query_returns_400(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.get("/api/v1/mail/search?q=", headers=auth_header(token))
         assert resp.status_code == 400
 
     def test_search_returns_matching_messages(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed_mail_cache(cache_path)
         resp = client.get(
             "/api/v1/mail/search?q=Chief+Effectiveness+Officer",
@@ -137,7 +143,7 @@ class TestSearchMessages:
         assert isinstance(msg["flagged"], bool)
 
     def test_search_no_results(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed_mail_cache(cache_path)
         resp = client.get(
             "/api/v1/mail/search?q=nonexistent+xyzzy",
@@ -148,7 +154,7 @@ class TestSearchMessages:
         assert data["data"] == []
 
     def test_search_response_has_pagination(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed_mail_cache(cache_path)
         resp = client.get("/api/v1/mail/search?q=standup", headers=auth_header(token))
         assert resp.status_code == 200
@@ -159,14 +165,14 @@ class TestSearchMessages:
 
 class TestListMessages:
     def test_empty_folder(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.get("/api/v1/mail/folders/INBOX/messages", headers=auth_header(token))
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert data["data"] == []
 
     def test_returns_seeded_messages(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed_mail_cache(cache_path)
         resp = client.get("/api/v1/mail/folders/INBOX/messages", headers=auth_header(token))
         assert resp.status_code == 200
@@ -177,23 +183,34 @@ class TestListMessages:
         assert "Weekly standup notes" in subjects
 
     def test_message_has_expected_fields(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed_mail_cache(cache_path)
         resp = client.get("/api/v1/mail/folders/INBOX/messages", headers=auth_header(token))
         data = json.loads(resp.data)
         msg = data["data"][0]
-        for key in ("id", "folder", "subject", "from", "to", "date", "flags", "snippet", "unread", "flagged"):
+        for key in (
+            "id",
+            "folder",
+            "subject",
+            "from",
+            "to",
+            "date",
+            "flags",
+            "snippet",
+            "unread",
+            "flagged",
+        ):
             assert key in msg, f"Missing field: {key}"
 
 
 class TestGetMessage:
     def test_not_found(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.get("/api/v1/mail/messages/99999", headers=auth_header(token))
         assert resp.status_code == 404
 
     def test_returns_message_detail(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed_mail_cache(cache_path)
         list_resp = client.get("/api/v1/mail/folders/INBOX/messages", headers=auth_header(token))
         msg_id = json.loads(list_resp.data)["data"][0]["id"]
@@ -206,7 +223,7 @@ class TestGetMessage:
         assert "body_plain" in data
 
     def test_default_does_not_mark_read(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed_mail_cache(cache_path)
         list_resp = client.get("/api/v1/mail/folders/INBOX/messages", headers=auth_header(token))
         msgs = json.loads(list_resp.data)["data"]
@@ -244,7 +261,7 @@ class TestGetMessage:
         mock_set_flag.assert_called_once_with(mock_imap, ANY, "\\Seen", add=True)
 
     def test_mark_read_on_already_read_message(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed_mail_cache(cache_path)
         list_resp = client.get("/api/v1/mail/folders/INBOX/messages", headers=auth_header(token))
         msgs = json.loads(list_resp.data)["data"]
@@ -278,7 +295,7 @@ class TestGetMessage:
         assert data["unread"] is False
 
     def test_mark_read_not_found(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.get(
             "/api/v1/mail/messages/99999?mark_read=true",
             headers=auth_header(token),
@@ -288,14 +305,14 @@ class TestGetMessage:
 
 class TestGetThread:
     def test_empty_thread(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.get("/api/v1/mail/threads/nonexistent-thread", headers=auth_header(token))
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert data["data"] == []
 
     def test_returns_thread_messages(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed_mail_cache(cache_path)
         resp = client.get(
             "/api/v1/mail/threads/offer-thread-001",
@@ -309,7 +326,7 @@ class TestGetThread:
 
 class TestUpdateFlags:
     def test_not_found(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.patch(
             "/api/v1/mail/messages/99999",
             json={"flags": {"read": True}},
@@ -396,7 +413,7 @@ class TestUpdateFlags:
         mock_set_flag.assert_called_once_with(mock_imap, ANY, "\\Flagged", add=True)
 
     def test_no_imap_call_when_no_flags_changed(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed_mail_cache(cache_path)
         list_resp = client.get("/api/v1/mail/folders/INBOX/messages", headers=auth_header(token))
         msgs = json.loads(list_resp.data)["data"]
@@ -434,7 +451,7 @@ class TestUpdateFlags:
 
 class TestBulkFlag:
     def test_empty_items_returns_400(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.post(
             "/api/v1/mail/bulk/flag",
             json={"items": []},
@@ -443,7 +460,7 @@ class TestBulkFlag:
         assert resp.status_code == 400
 
     def test_bulk_flag_happy_path(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed_mail_cache(cache_path)
         list_resp = client.get("/api/v1/mail/folders/INBOX/messages", headers=auth_header(token))
         msgs = json.loads(list_resp.data)["data"]
@@ -467,7 +484,7 @@ class TestBulkFlag:
         assert "\\Flagged" in stored_flags
 
     def test_bulk_flag_unflag(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed_mail_cache(cache_path)
         list_resp = client.get("/api/v1/mail/folders/INBOX/messages", headers=auth_header(token))
         msgs = json.loads(list_resp.data)["data"]
@@ -491,7 +508,7 @@ class TestBulkFlag:
         assert "\\Flagged" not in stored_flags
 
     def test_bulk_flag_not_found(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.post(
             "/api/v1/mail/bulk/flag",
             json={"items": [{"message_id": 99999, "flags": {"read": True}}]},
@@ -504,7 +521,7 @@ class TestBulkFlag:
 
 class TestBulkDelete:
     def test_empty_items_returns_400(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.post(
             "/api/v1/mail/bulk/delete",
             json={"items": []},
@@ -513,7 +530,7 @@ class TestBulkDelete:
         assert resp.status_code == 400
 
     def test_bulk_delete_not_found(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.post(
             "/api/v1/mail/bulk/delete",
             json={"items": [{"message_id": 99999}]},
@@ -535,7 +552,10 @@ class TestBulkDelete:
         mock_client = MagicMock()
         with (
             patch("app.api.controllers.mail._imap_connect", return_value=mock_client),
-            patch("app.modules.mail.services.imap_client.list_folders", return_value=["INBOX", "Sent", "Trash"]),
+            patch(
+                "app.modules.mail.services.imap_client.list_folders",
+                return_value=["INBOX", "Sent", "Trash"],
+            ),
             patch("app.modules.mail.services.imap_client.select_folder"),
             patch("app.modules.mail.services.imap_client.move_message"),
         ):
@@ -563,7 +583,9 @@ class TestBulkDelete:
         mock_client = MagicMock()
         with (
             patch("app.api.controllers.mail._imap_connect", return_value=mock_client),
-            patch("app.modules.mail.services.imap_client.list_folders", return_value=["INBOX", "Sent"]),
+            patch(
+                "app.modules.mail.services.imap_client.list_folders", return_value=["INBOX", "Sent"]
+            ),
             patch("app.modules.mail.services.imap_client.create_folder") as mock_create,
             patch("app.modules.mail.services.imap_client.select_folder"),
             patch("app.modules.mail.services.imap_client.move_message"),
@@ -586,7 +608,10 @@ class TestBulkDelete:
         mock_client = MagicMock()
         with (
             patch("app.api.controllers.mail._imap_connect", return_value=mock_client),
-            patch("app.modules.mail.services.imap_client.list_folders", return_value=["INBOX", "Trash"]),
+            patch(
+                "app.modules.mail.services.imap_client.list_folders",
+                return_value=["INBOX", "Trash"],
+            ),
             patch("app.modules.mail.services.imap_client.select_folder"),
             patch("app.modules.mail.services.imap_client.move_message"),
         ):
@@ -602,7 +627,7 @@ class TestBulkDelete:
         assert data["failed"][0]["error"]["code"] == "NOT_FOUND"
 
     def test_bulk_delete_missing_message_id(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.post(
             "/api/v1/mail/bulk/delete",
             json={"items": [{}]},
@@ -626,7 +651,10 @@ class TestDeleteMessage:
         mock_client = MagicMock()
         with (
             patch("app.api.controllers.mail._imap_connect", return_value=mock_client),
-            patch("app.modules.mail.services.imap_client.list_folders", return_value=["INBOX", "Sent", "Trash"]),
+            patch(
+                "app.modules.mail.services.imap_client.list_folders",
+                return_value=["INBOX", "Sent", "Trash"],
+            ),
             patch("app.modules.mail.services.imap_client.select_folder"),
             patch("app.modules.mail.services.imap_client.move_message"),
         ):
@@ -640,7 +668,7 @@ class TestDeleteMessage:
         assert get_resp.status_code == 404
 
     def test_delete_message_not_found(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.delete("/api/v1/mail/messages/99999", headers=auth_header(token))
         assert resp.status_code == 404
 
@@ -655,7 +683,10 @@ class TestDeleteMessage:
         mock_client = MagicMock()
         with (
             patch("app.api.controllers.mail._imap_connect", return_value=mock_client),
-            patch("app.modules.mail.services.imap_client.list_folders", return_value=["INBOX", "Sent", "Trash"]),
+            patch(
+                "app.modules.mail.services.imap_client.list_folders",
+                return_value=["INBOX", "Sent", "Trash"],
+            ),
             patch("app.modules.mail.services.imap_client.select_folder"),
             patch("app.modules.mail.services.imap_client.move_message"),
         ):
@@ -675,7 +706,7 @@ class TestDeleteMessage:
 
 class TestBulkMove:
     def test_empty_items_returns_400(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.post(
             "/api/v1/mail/bulk/move",
             json={"items": [], "folder_id": "Archive"},
@@ -684,7 +715,7 @@ class TestBulkMove:
         assert resp.status_code == 400
 
     def test_missing_destination_returns_400(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.post(
             "/api/v1/mail/bulk/move",
             json={"items": [{"message_id": 1}]},
@@ -718,7 +749,7 @@ class TestBulkMove:
         mock_client.expunge.assert_called_once()
 
     def test_bulk_move_not_found(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.post(
             "/api/v1/mail/bulk/move",
             json={"items": [{"message_id": 99999}], "folder_id": "Archive"},
@@ -730,7 +761,7 @@ class TestBulkMove:
         assert data["failed"][0]["error"]["code"] == "NOT_FOUND"
 
     def test_bulk_move_missing_message_id(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.post(
             "/api/v1/mail/bulk/move",
             json={"items": [{}], "folder_id": "Archive"},
@@ -744,7 +775,7 @@ class TestBulkMove:
 
 class TestCreateDraft:
     def test_create_draft_happy_path(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, account_id, _cache_path = mail_api
         _set_account_secret(app, account_id)
 
         mock_imap = MagicMock()
@@ -767,11 +798,14 @@ class TestCreateDraft:
         assert data["draft_uid"] == "42"
         assert data["message_id"] is not None
         app.sync_manager.enqueue_sync.assert_any_call(
-            account_id, folder="Drafts", reason="draft_saved", priority=5,
+            account_id,
+            folder="Drafts",
+            reason="draft_saved",
+            priority=5,
         )
 
     def test_create_draft_with_html_body(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, account_id, _cache_path = mail_api
         _set_account_secret(app, account_id)
 
         mock_imap = MagicMock()
@@ -797,7 +831,7 @@ class TestCreateDraft:
         assert data["draft_uid"] == "55"
 
     def test_create_draft_creates_folder_if_missing(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, account_id, _cache_path = mail_api
         _set_account_secret(app, account_id)
 
         mock_imap = MagicMock()
@@ -823,7 +857,7 @@ class TestCreateDraft:
         mock_create.assert_called_once()
 
     def test_create_draft_replace_uid_deletes_old(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, account_id, _cache_path = mail_api
         _set_account_secret(app, account_id)
 
         mock_imap = MagicMock()
@@ -849,7 +883,7 @@ class TestCreateDraft:
         mock_del.assert_called_once_with(mock_imap, "42")
 
     def test_create_draft_no_body_still_saves(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, account_id, _cache_path = mail_api
         _set_account_secret(app, account_id)
 
         mock_imap = MagicMock()
@@ -868,7 +902,7 @@ class TestCreateDraft:
         assert resp.status_code == 201
 
     def test_create_draft_string_to_field(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, account_id, _cache_path = mail_api
         _set_account_secret(app, account_id)
 
         mock_imap = MagicMock()
@@ -888,7 +922,7 @@ class TestCreateDraft:
         assert resp.status_code == 201
 
     def test_create_draft_imap_failure(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, account_id, _cache_path = mail_api
         _set_account_secret(app, account_id)
 
         with (
@@ -906,7 +940,7 @@ class TestCreateDraft:
         assert resp.status_code == 500
 
     def test_save_draft_returns_draft_id_and_uid(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, account_id, _cache_path = mail_api
         _set_account_secret(app, account_id)
 
         mock_imap = MagicMock()
@@ -935,7 +969,7 @@ class TestCreateDraft:
 
 class TestDeleteDraft:
     def test_delete_draft_happy_path(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, account_id, _cache_path = mail_api
         _set_account_secret(app, account_id)
 
         mock_imap = MagicMock()
@@ -956,7 +990,7 @@ class TestDeleteDraft:
         mock_del.assert_called_once_with(mock_imap, "42")
 
     def test_delete_draft_imap_failure(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, account_id, _cache_path = mail_api
         _set_account_secret(app, account_id)
 
         with (
@@ -969,7 +1003,7 @@ class TestDeleteDraft:
         assert resp.status_code == 500
 
     def test_delete_draft_returns_draft_id(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, account_id, _cache_path = mail_api
         _set_account_secret(app, account_id)
 
         mock_imap = MagicMock()
@@ -993,7 +1027,7 @@ class TestDeleteDraft:
 
 class TestSendWithDraftCleanup:
     def test_send_with_draft_uid_deletes_draft(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, account_id, _cache_path = mail_api
         _set_account_secret(app, account_id)
 
         mock_smtp = MagicMock()
@@ -1032,14 +1066,20 @@ class TestSendWithDraftCleanup:
         assert args[1] == "Drafts"
         assert args[2] == ["42"]
         app.sync_manager.enqueue_sync.assert_any_call(
-            account_id, folder="Sent", reason="send_complete", priority=5,
+            account_id,
+            folder="Sent",
+            reason="send_complete",
+            priority=5,
         )
         app.sync_manager.enqueue_sync.assert_any_call(
-            account_id, folder="Drafts", reason="send_complete", priority=5,
+            account_id,
+            folder="Drafts",
+            reason="send_complete",
+            priority=5,
         )
 
     def test_send_without_draft_uid_skips_cleanup(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, account_id, _cache_path = mail_api
         _set_account_secret(app, account_id)
 
         mock_smtp = MagicMock()
@@ -1065,7 +1105,7 @@ class TestSendWithDraftCleanup:
         assert mock_imap.uid.call_count == 0
 
     def test_send_draft_cleanup_failure_does_not_affect_send(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, account_id, _cache_path = mail_api
         _set_account_secret(app, account_id)
 
         mock_smtp = MagicMock()
@@ -1084,7 +1124,10 @@ class TestSendWithDraftCleanup:
             patch("app.modules.mail.services.smtp_client.smtp_connect", return_value=mock_smtp),
             patch("app.modules.mail.services.smtp_client.smtp_login"),
             patch("app.modules.mail.services.smtp_client.smtp_send"),
-            patch("app.modules.mail.services.send._imap_connect", side_effect=_imap_connect_side_effect),
+            patch(
+                "app.modules.mail.services.send._imap_connect",
+                side_effect=_imap_connect_side_effect,
+            ),
         ):
             resp = client.post(
                 "/api/v1/mail/messages",
@@ -1101,7 +1144,7 @@ class TestSendWithDraftCleanup:
         assert data["status"] == "sent"
 
     def test_send_returns_full_object(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, account_id, _cache_path = mail_api
         _set_account_secret(app, account_id)
 
         mock_smtp = MagicMock()

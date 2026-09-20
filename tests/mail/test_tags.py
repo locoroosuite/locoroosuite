@@ -1,14 +1,15 @@
-from unittest.mock import patch, MagicMock
-
+from unittest.mock import MagicMock, patch
 
 
 def test_create_tag(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     with (
         patch("app.modules.mail.controllers.tags.open_cache", return_value=MagicMock()),
         patch("app.modules.mail.services.cache_db.create_tag") as mock_create_tag,
     ):
-        resp = client.post("/app/mail/tags", data={"name": "Important", "account_id": str(account_id)})
+        resp = client.post(
+            "/app/mail/tags", data={"name": "Important", "account_id": str(account_id)}
+        )
     assert resp.status_code == 302
     mock_create_tag.assert_called_once()
 
@@ -16,19 +17,34 @@ def test_create_tag(authed_client):
 def test_tag_view_with_messages_passes_correct_encryption_key(authed_client):
     client, user_id, account_id = authed_client
     from app.shared.keys import get_user_key
+
     expected_key = get_user_key(user_id)
     mock_row = {
-        "id": 1, "subject": "Tagged Subject", "sender": "sender@example.com",
-        "snippet": "snippet", "date": "2025-01-01", "flags": '["\\Seen"]',
-        "body": "body text", "folder": "INBOX", "thread_id": "thread-1",
-        "recipients": "dest@example.com", "sort_ts": 1735689600,
-        "is_bounce": 0, "bounce_reason": None, "original_subject": None,
+        "id": 1,
+        "subject": "Tagged Subject",
+        "sender": "sender@example.com",
+        "snippet": "snippet",
+        "date": "2025-01-01",
+        "flags": '["\\Seen"]',
+        "body": "body text",
+        "folder": "INBOX",
+        "thread_id": "thread-1",
+        "recipients": "dest@example.com",
+        "sort_ts": 1735689600,
+        "is_bounce": 0,
+        "bounce_reason": None,
+        "original_subject": None,
         "has_attachments": 0,
     }
     with (
         patch("app.modules.mail.controllers.tags.open_cache", return_value=MagicMock()),
-        patch("app.modules.mail.controllers.tags._get_or_create_settings", return_value=MagicMock()),
-        patch("app.modules.mail.controllers.tags._folder_sidebar_context", return_value=([], [], {}, [], 0, None)) as mock_sidebar,
+        patch(
+            "app.modules.mail.controllers.tags._get_or_create_settings", return_value=MagicMock()
+        ),
+        patch(
+            "app.modules.mail.controllers.tags._folder_sidebar_context",
+            return_value=([], [], {}, [], 0, None),
+        ) as mock_sidebar,
         patch("app.modules.mail.controllers.tags._consume_send_failure_notice", return_value=None),
         patch("app.modules.mail.controllers.tags._current_undo_action", return_value=None),
         patch("app.modules.mail.controllers.tags._spam_action_enabled", return_value=False),

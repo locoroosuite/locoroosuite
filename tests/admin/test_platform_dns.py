@@ -1,12 +1,14 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from app.shared.db import db
-from app.shared.models.core import Domain, PlatformDnsConfig, PlatformServiceConfig, DomainDnsConfig
+from app.shared.models.core import Domain, DomainDnsConfig, PlatformDnsConfig, PlatformServiceConfig
 
 
 def _setup_admin(client, app):
     from werkzeug.security import generate_password_hash
+
     from app.shared.models.core import User
+
     with app.app_context():
         user = User(
             email="admin@test.com",
@@ -50,11 +52,15 @@ class TestPlatformDnsPage:
 class TestSavePlatformDns:
     def test_save_single_mx(self, app, client, _clean_db):
         _setup_admin(client, app)
-        resp = client.post("/admin/platform-dns/save", data={
-            "dkim_selector": "default",
-            "mx_hostnames": "mx.example.com",
-            "mx_priorities": "10",
-        }, follow_redirects=True)
+        resp = client.post(
+            "/admin/platform-dns/save",
+            data={
+                "dkim_selector": "default",
+                "mx_hostnames": "mx.example.com",
+                "mx_priorities": "10",
+            },
+            follow_redirects=True,
+        )
         assert resp.status_code == 200
         with app.app_context():
             entries = PlatformDnsConfig.query.order_by(PlatformDnsConfig.mx_priority).all()
@@ -64,11 +70,15 @@ class TestSavePlatformDns:
 
     def test_save_multiple_mx(self, app, client, _clean_db):
         _setup_admin(client, app)
-        resp = client.post("/admin/platform-dns/save", data={
-            "dkim_selector": "myselector",
-            "mx_hostnames": "mx1.example.com\nmx2.example.com",
-            "mx_priorities": "10\n20",
-        }, follow_redirects=True)
+        resp = client.post(
+            "/admin/platform-dns/save",
+            data={
+                "dkim_selector": "myselector",
+                "mx_hostnames": "mx1.example.com\nmx2.example.com",
+                "mx_priorities": "10\n20",
+            },
+            follow_redirects=True,
+        )
         assert resp.status_code == 200
         with app.app_context():
             entries = PlatformDnsConfig.query.order_by(PlatformDnsConfig.mx_priority).all()
@@ -83,10 +93,14 @@ class TestSavePlatformDns:
         with app.app_context():
             db.session.add(PlatformDnsConfig(mx_hostname="old.example.com", mx_priority=10))
             db.session.commit()
-        client.post("/admin/platform-dns/save", data={
-            "mx_hostnames": "new.example.com",
-            "mx_priorities": "5",
-        }, follow_redirects=True)
+        client.post(
+            "/admin/platform-dns/save",
+            data={
+                "mx_hostnames": "new.example.com",
+                "mx_priorities": "5",
+            },
+            follow_redirects=True,
+        )
         with app.app_context():
             entries = PlatformDnsConfig.query.all()
             assert len(entries) == 1
@@ -94,11 +108,15 @@ class TestSavePlatformDns:
 
     def test_auto_assigns_priority(self, app, client, _clean_db):
         _setup_admin(client, app)
-        client.post("/admin/platform-dns/save", data={
-            "dkim_selector": "default",
-            "mx_hostnames": "mx1.example.com\nmx2.example.com",
-            "mx_priorities": "10",
-        }, follow_redirects=True)
+        client.post(
+            "/admin/platform-dns/save",
+            data={
+                "dkim_selector": "default",
+                "mx_hostnames": "mx1.example.com\nmx2.example.com",
+                "mx_priorities": "10",
+            },
+            follow_redirects=True,
+        )
         with app.app_context():
             entries = PlatformDnsConfig.query.order_by(PlatformDnsConfig.mx_priority).all()
             assert len(entries) == 2
@@ -117,9 +135,11 @@ class TestValidatePlatformDns:
             "port_25_reachable": True,
             "valid": True,
         }
-        resp = client.post("/admin/platform-dns/validate",
-                           json={"hostname": "mx.example.com"},
-                           content_type="application/json")
+        resp = client.post(
+            "/admin/platform-dns/validate",
+            json={"hostname": "mx.example.com"},
+            content_type="application/json",
+        )
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["ok"] is True
@@ -135,9 +155,11 @@ class TestValidatePlatformDns:
             "port_25_reachable": False,
             "valid": False,
         }
-        resp = client.post("/admin/platform-dns/validate",
-                           json={"hostname": "bad.example.com"},
-                           content_type="application/json")
+        resp = client.post(
+            "/admin/platform-dns/validate",
+            json={"hostname": "bad.example.com"},
+            content_type="application/json",
+        )
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["ok"] is True
@@ -145,9 +167,9 @@ class TestValidatePlatformDns:
 
     def test_validate_empty_hostname(self, app, client, _clean_db):
         _setup_admin(client, app)
-        resp = client.post("/admin/platform-dns/validate",
-                           json={"hostname": ""},
-                           content_type="application/json")
+        resp = client.post(
+            "/admin/platform-dns/validate", json={"hostname": ""}, content_type="application/json"
+        )
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["ok"] is False
@@ -178,11 +200,14 @@ class TestSelfHostedToggle:
     def test_enable_self_hosted(self, app, client, _clean_db):
         _setup_admin(client, app)
         domain_id = self._setup_domain(app)
-        resp = client.post(f"/admin/domains/{domain_id}/self-hosted", data={
-            "is_self_hosted": "1",
-            "dmarc_policy": "none",
-            "dmarc_rua": "dmarc@example.com",
-        })
+        resp = client.post(
+            f"/admin/domains/{domain_id}/self-hosted",
+            data={
+                "is_self_hosted": "1",
+                "dmarc_policy": "none",
+                "dmarc_rua": "dmarc@example.com",
+            },
+        )
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["ok"] is True
@@ -200,11 +225,14 @@ class TestSelfHostedToggle:
             cfg = DomainDnsConfig(domain_id=domain_id, is_self_hosted=True)
             db.session.add(cfg)
             db.session.commit()
-        resp = client.post(f"/admin/domains/{domain_id}/self-hosted", data={
-            "is_self_hosted": "0",
-            "dmarc_policy": "none",
-            "dmarc_rua": "",
-        })
+        resp = client.post(
+            f"/admin/domains/{domain_id}/self-hosted",
+            data={
+                "is_self_hosted": "0",
+                "dmarc_policy": "none",
+                "dmarc_rua": "",
+            },
+        )
         assert resp.status_code == 200
         with app.app_context():
             cfg = DomainDnsConfig.query.filter_by(domain_id=domain_id).first()
@@ -228,11 +256,14 @@ class TestSelfHostedToggle:
             db.session.flush()
             domain_id = domain.id
             db.session.commit()
-        resp = client.post(f"/admin/domains/{domain_id}/self-hosted", data={
-            "is_self_hosted": "1",
-            "dmarc_policy": "none",
-            "dmarc_rua": "",
-        })
+        resp = client.post(
+            f"/admin/domains/{domain_id}/self-hosted",
+            data={
+                "is_self_hosted": "1",
+                "dmarc_policy": "none",
+                "dmarc_rua": "",
+            },
+        )
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["ok"] is False
@@ -241,11 +272,14 @@ class TestSelfHostedToggle:
     def test_dmarc_policy_default(self, app, client, _clean_db):
         _setup_admin(client, app)
         domain_id = self._setup_domain(app)
-        resp = client.post(f"/admin/domains/{domain_id}/self-hosted", data={
-            "is_self_hosted": "1",
-            "dmarc_policy": "invalid_policy",
-            "dmarc_rua": "",
-        })
+        resp = client.post(
+            f"/admin/domains/{domain_id}/self-hosted",
+            data={
+                "is_self_hosted": "1",
+                "dmarc_policy": "invalid_policy",
+                "dmarc_rua": "",
+            },
+        )
         assert resp.status_code == 200
         with app.app_context():
             cfg = DomainDnsConfig.query.filter_by(domain_id=domain_id).first()
@@ -272,7 +306,12 @@ class TestDnsCheckEndpoint:
             db.session.add(domain)
             db.session.flush()
             domain_id = domain.id
-            cfg = DomainDnsConfig(domain_id=domain_id, is_self_hosted=True, dmarc_policy="none", dmarc_rua="dmarc@example.com")
+            cfg = DomainDnsConfig(
+                domain_id=domain_id,
+                is_self_hosted=True,
+                dmarc_policy="none",
+                dmarc_rua="dmarc@example.com",
+            )
             db.session.add(cfg)
             db.session.add(PlatformDnsConfig(mx_hostname="mx.example.com", mx_priority=10))
             db.session.commit()
@@ -306,10 +345,42 @@ class TestDnsCheckEndpoint:
         mock_client.return_value = MagicMock()
         mock_client.return_value.get_dkim_key.return_value = {"public_key": "ABC123"}
         mock_checks.return_value = {
-            "mx": {"status": "verified", "expected": "@  IN  MX  10  mx.example.com.", "found": ["10 mx.example.com"], "nameservers_checked": 2, "nameservers_ok": 2, "details": "2/2 NS OK", "instructions": ""},
-            "spf": {"status": "not_configured", "expected": "v=spf1 mx ~all", "found": None, "nameservers_checked": 2, "nameservers_ok": 0, "details": "0/2 NS OK", "instructions": "Add a TXT record"},
-            "dkim": {"status": "propagating", "expected": "v=DKIM1; k=rsa; p=ABC123", "found": ["v=DKIM1; k=rsa; p=ABC123"], "nameservers_checked": 2, "nameservers_ok": 1, "details": "1/2 NS OK", "instructions": "DNS propagation"},
-            "dmarc": {"status": "verified", "expected": "v=DMARC1; p=none; rua=mailto:dmarc@example.com", "found": ["v=DMARC1; p=none; rua=mailto:dmarc@example.com"], "nameservers_checked": 2, "nameservers_ok": 2, "details": "2/2 NS OK", "instructions": ""},
+            "mx": {
+                "status": "verified",
+                "expected": "@  IN  MX  10  mx.example.com.",
+                "found": ["10 mx.example.com"],
+                "nameservers_checked": 2,
+                "nameservers_ok": 2,
+                "details": "2/2 NS OK",
+                "instructions": "",
+            },
+            "spf": {
+                "status": "not_configured",
+                "expected": "v=spf1 mx ~all",
+                "found": None,
+                "nameservers_checked": 2,
+                "nameservers_ok": 0,
+                "details": "0/2 NS OK",
+                "instructions": "Add a TXT record",
+            },
+            "dkim": {
+                "status": "propagating",
+                "expected": "v=DKIM1; k=rsa; p=ABC123",
+                "found": ["v=DKIM1; k=rsa; p=ABC123"],
+                "nameservers_checked": 2,
+                "nameservers_ok": 1,
+                "details": "1/2 NS OK",
+                "instructions": "DNS propagation",
+            },
+            "dmarc": {
+                "status": "verified",
+                "expected": "v=DMARC1; p=none; rua=mailto:dmarc@example.com",
+                "found": ["v=DMARC1; p=none; rua=mailto:dmarc@example.com"],
+                "nameservers_checked": 2,
+                "nameservers_ok": 2,
+                "details": "2/2 NS OK",
+                "instructions": "",
+            },
         }
         resp = client.post(f"/admin/domains/{domain_id}/dns-check")
         assert resp.status_code == 200
@@ -482,19 +553,23 @@ class TestDkimGenerateEndpoint:
 class TestSavePlatformServiceConfig:
     def test_save_service_config_creates_row(self, app, client, _clean_db):
         _setup_admin(client, app)
-        resp = client.post("/admin/platform-dns/save", data={
-            "mx_hostnames": "mx.example.com",
-            "mx_priorities": "10",
-            "imap_host": "mail.example.com",
-            "imap_port": "993",
-            "smtp_host": "mail.example.com",
-            "smtp_port": "587",
-            "smtp_tls_mode": "starttls",
-            "carddav_host": "radicale.example.com",
-            "carddav_port": "5232",
-            "caldav_host": "radicale.example.com",
-            "caldav_port": "5232",
-        }, follow_redirects=True)
+        resp = client.post(
+            "/admin/platform-dns/save",
+            data={
+                "mx_hostnames": "mx.example.com",
+                "mx_priorities": "10",
+                "imap_host": "mail.example.com",
+                "imap_port": "993",
+                "smtp_host": "mail.example.com",
+                "smtp_port": "587",
+                "smtp_tls_mode": "starttls",
+                "carddav_host": "radicale.example.com",
+                "carddav_port": "5232",
+                "caldav_host": "radicale.example.com",
+                "caldav_port": "5232",
+            },
+            follow_redirects=True,
+        )
         assert resp.status_code == 200
         with app.app_context():
             svc = PlatformServiceConfig.query.first()
@@ -512,14 +587,18 @@ class TestSavePlatformServiceConfig:
             svc = PlatformServiceConfig(imap_host="old.example.com", smtp_host="old.example.com")
             db.session.add(svc)
             db.session.commit()
-        client.post("/admin/platform-dns/save", data={
-            "mx_hostnames": "",
-            "imap_host": "new.example.com",
-            "imap_port": "993",
-            "smtp_host": "new.example.com",
-            "smtp_port": "587",
-            "smtp_tls_mode": "starttls",
-        }, follow_redirects=True)
+        client.post(
+            "/admin/platform-dns/save",
+            data={
+                "mx_hostnames": "",
+                "imap_host": "new.example.com",
+                "imap_port": "993",
+                "smtp_host": "new.example.com",
+                "smtp_port": "587",
+                "smtp_tls_mode": "starttls",
+            },
+            follow_redirects=True,
+        )
         with app.app_context():
             svc = PlatformServiceConfig.query.first()
             assert svc.imap_host == "new.example.com"
@@ -546,7 +625,8 @@ class TestSavePlatformServiceConfig:
 
 class TestDeleteDomain:
     def _setup_domain_with_accounts(self, app):
-        from app.shared.models.core import User, CustomerAccount
+        from app.shared.models.core import CustomerAccount, User
+
         with app.app_context():
             domain = Domain(
                 name="deleteme.com",
@@ -593,7 +673,8 @@ class TestDeleteDomain:
         assert resp.status_code == 200
         with app.app_context():
             from app.shared.db import db as _db
-            from app.shared.models.core import User, CustomerAccount
+            from app.shared.models.core import CustomerAccount, User
+
             assert _db.session.get(Domain, domain_id) is None
             assert DomainDnsConfig.query.filter_by(domain_id=domain_id).first() is None
             assert CustomerAccount.query.filter_by(domain_id=domain_id).first() is None

@@ -1,19 +1,19 @@
 import logging
 
-from flask import jsonify, session, request
+from flask import jsonify, request, session
 
-from app.shared.auth import require_customer
-from app.shared.email_validation import is_valid_email
 from app.modules.contacts.controllers.helpers import (
-    contacts_bp,
+    _carddav_base_url,
     _get_account,
     _get_carddav_config,
     _get_credentials,
     _open_cache_for_account,
-    _carddav_base_url,
+    contacts_bp,
 )
-from app.modules.contacts.services import carddav, cache_db
-from app.modules.contacts.services.vcard import generate_vcard, extract_uid
+from app.modules.contacts.services import cache_db, carddav
+from app.modules.contacts.services.vcard import extract_uid, generate_vcard
+from app.shared.auth import require_customer
+from app.shared.email_validation import is_valid_email
 
 logger = logging.getLogger(__name__)
 
@@ -112,9 +112,7 @@ def api_auto_save():
             uid = extract_uid(vcard_text)
 
             try:
-                href, etag = carddav.create_contact(
-                    dav_session, abook_url, vcard_text, uid=uid
-                )
+                href, etag = carddav.create_contact(dav_session, abook_url, vcard_text, uid=uid)
                 cache_db.upsert_contact(conn, uid, href, etag, vcard_text)
                 saved += 1
             except Exception:

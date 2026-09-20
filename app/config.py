@@ -1,6 +1,7 @@
 import os
 import secrets as _secrets
 from pathlib import Path
+from typing import ClassVar
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
@@ -34,12 +35,10 @@ class AppConfig:
     PREFERRED_URL_SCHEME = "https"
     IMAP_IDLE_FALLBACK_SECONDS = int(os.environ.get("IMAP_IDLE_FALLBACK_SECONDS", "60"))
     LOG_LEVEL = os.environ.get("LOG_LEVEL", "WARNING" if APP_ENV == "production" else "INFO")
-    SNIPPET_DEBUG = os.environ.get(
-        "SNIPPET_DEBUG", "0" if APP_ENV == "production" else "1"
-    ) == "1"
+    SNIPPET_DEBUG = os.environ.get("SNIPPET_DEBUG", "0" if APP_ENV == "production" else "1") == "1"
     GOOGLE_IMPORT_CLIENT_ID = os.environ.get("GOOGLE_IMPORT_CLIENT_ID", "")
     GOOGLE_IMPORT_CLIENT_SECRET = os.environ.get("GOOGLE_IMPORT_CLIENT_SECRET", "")
-    GOOGLE_IMPORT_SCOPES = [
+    GOOGLE_IMPORT_SCOPES: ClassVar[list[str]] = [
         scope.strip()
         for scope in os.environ.get(
             "GOOGLE_IMPORT_SCOPES",
@@ -64,7 +63,15 @@ class AppConfig:
     APP_URL = os.environ.get("APP_URL", "http://localhost:5001")
     DOCS_DIR = os.environ.get("DOCS_DIR", str(DATA_DIR / "docs"))
     PROVISIONING_API_KEY = os.environ.get("PROVISIONING_API_KEY", "")
-    MAIL_ATTACHMENTS_DIR = os.environ.get("MAIL_ATTACHMENTS_DIR", str(DATA_DIR / "mail_attachments"))
-    MAIL_ATTACHMENT_MAX_FILE_BYTES = int(os.environ.get("MAIL_ATTACHMENT_MAX_FILE_BYTES", str(25 * 1024 * 1024)))
-    MAIL_ATTACHMENT_MAX_TOTAL_BYTES = int(os.environ.get("MAIL_ATTACHMENT_MAX_TOTAL_BYTES", str(50 * 1024 * 1024)))
-    MAIL_ATTACHMENT_STAGING_TTL_HOURS = int(os.environ.get("MAIL_ATTACHMENT_STAGING_TTL_HOURS", "24"))
+    MAIL_ATTACHMENTS_DIR = os.environ.get(
+        "MAIL_ATTACHMENTS_DIR", str(DATA_DIR / "mail_attachments")
+    )
+    MAIL_ATTACHMENT_MAX_FILE_BYTES = int(
+        os.environ.get("MAIL_ATTACHMENT_MAX_FILE_BYTES", str(25 * 1024 * 1024))
+    )
+    MAIL_ATTACHMENT_MAX_TOTAL_BYTES = int(
+        os.environ.get("MAIL_ATTACHMENT_MAX_TOTAL_BYTES", str(50 * 1024 * 1024))
+    )
+    MAIL_ATTACHMENT_STAGING_TTL_HOURS = int(
+        os.environ.get("MAIL_ATTACHMENT_STAGING_TTL_HOURS", "24")
+    )

@@ -1,12 +1,21 @@
 import logging
-
-from flask import request, jsonify, session, redirect, url_for, render_template, current_app, make_response
 from urllib.parse import quote
 
+from flask import (
+    current_app,
+    jsonify,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
+
+from app.modules.docs.controllers.helpers import docs_bp
+from app.modules.docs.services import collabora, sharing, wopi_token
 from app.shared.auth import require_customer
 from app.shared.models.core import CustomerAccount, DocShare
-from app.modules.docs.controllers.helpers import docs_bp
-from app.modules.docs.services import wopi_token, sharing, collabora
 
 logger = logging.getLogger(__name__)
 
@@ -20,23 +29,27 @@ def list_shares(doc_id):
         return jsonify({"error": "no account"}), 400
 
     CustomerAccount.query.filter_by(
-        id=account_id, customer_id=user_id, is_active=True,
+        id=account_id,
+        customer_id=user_id,
+        is_active=True,
     ).first_or_404()
 
     shares = sharing.get_active_shares_for_doc(doc_id)
     shares_owned = [s for s in shares if s.owner_user_id == user_id]
     result = []
     for s in shares_owned:
-        result.append({
-            "id": s.id,
-            "recipient_email": s.recipient_email,
-            "permission": s.permission,
-            "share_type": s.share_type,
-            "share_token": s.share_token,
-            "view_count": s.view_count,
-            "last_accessed_at": s.last_accessed_at.isoformat() if s.last_accessed_at else None,
-            "created_at": s.created_at.isoformat() if s.created_at else None,
-        })
+        result.append(
+            {
+                "id": s.id,
+                "recipient_email": s.recipient_email,
+                "permission": s.permission,
+                "share_type": s.share_type,
+                "share_token": s.share_token,
+                "view_count": s.view_count,
+                "last_accessed_at": s.last_accessed_at.isoformat() if s.last_accessed_at else None,
+                "created_at": s.created_at.isoformat() if s.created_at else None,
+            }
+        )
     return jsonify({"shares": result})
 
 
@@ -49,16 +62,20 @@ def add_shares(doc_id):
         return jsonify({"error": "no account"}), 400
 
     account = CustomerAccount.query.filter_by(
-        id=account_id, customer_id=user_id, is_active=True,
+        id=account_id,
+        customer_id=user_id,
+        is_active=True,
     ).first_or_404()
 
     from app.modules.docs.controllers.helpers import _open_cache_for_account
+
     conn = _open_cache_for_account(account)
     if not conn:
         return jsonify({"error": "unauthorized"}), 401
 
     try:
         from app.modules.docs.services import cache_db
+
         doc = cache_db.get_document(conn, doc_id)
         if not doc or doc.get("deleted_at"):
             return jsonify({"error": "document not found"}), 404
@@ -95,12 +112,14 @@ def add_shares(doc_id):
 
     result = []
     for s in created:
-        result.append({
-            "id": s.id,
-            "recipient_email": s.recipient_email,
-            "permission": s.permission,
-            "share_type": s.share_type,
-        })
+        result.append(
+            {
+                "id": s.id,
+                "recipient_email": s.recipient_email,
+                "permission": s.permission,
+                "share_type": s.share_type,
+            }
+        )
 
     return jsonify({"shares": result}), 201
 
@@ -119,7 +138,9 @@ def revoke_share(doc_id, share_id):
 def public_share_view(share_token):
     share = sharing.get_share_by_token(share_token)
     if not share:
-        return render_template("docs_share_error.html", message="This link has been revoked or does not exist."), 404
+        return render_template(
+            "docs_share_error.html", message="This link has been revoked or does not exist."
+        ), 404
 
     sharing.record_share_access(share)
 
@@ -133,37 +154,36 @@ def public_share_view(share_token):
         writable=writable,
     )
 
-    collabora_internal = (
-        current_app.config.get("COLLABORA_INTERNAL_URL")
-        or current_app.config.get("COLLABORA_URL", "http://localhost:9980")
+    collabora_internal = current_app.config.get("COLLABORA_INTERNAL_URL") or current_app.config.get(
+        "COLLABORA_URL", "http://localhost:9980"
     )
-    collabora_public = (
-        current_app.config.get("COLLABORA_PUBLIC_URL")
-        or collabora_internal
-    )
+    collabora_public = current_app.config.get("COLLABORA_PUBLIC_URL") or collabora_internal
 
     wopi_host_url = current_app.config.get("WOPI_HOST_URL", "")
     if not wopi_host_url:
         wopi_host_url = request.host_url.rstrip("/")
     wopi_src = wopi_host_url + url_for("docs.wopi_check_file_info", doc_id=share.doc_id)
-    edit_base = collabora.get_edit_url(share.doc_type or "odt", collabora_internal) or f"{collabora_public}/browser/dist/cool.html?"
+    edit_base = (
+        collabora.get_edit_url(share.doc_type or "odt", collabora_internal)
+        or f"{collabora_public}/browser/dist/cool.html?"
+    )
 
     edit_base_http = edit_base.replace("https://", "http://", 1)
     if edit_base_http.startswith(collabora_internal):
-        edit_base = collabora_public + edit_base_http[len(collabora_internal):]
+        edit_base = collabora_public + edit_base_http[len(collabora_internal) :]
 
     collabora_src = (
-        f"{edit_base}"
-        f"WOPISrc={quote(wopi_src, safe='')}"
-        f"&access_token={quote(token, safe='')}"
+        f"{edit_base}WOPISrc={quote(wopi_src, safe='')}&access_token={quote(token, safe='')}"
     )
 
-    response = make_response(render_template(
-        "docs_share_view.html",
-        share=share,
-        collabora_src=collabora_src,
-        token=token,
-    ))
+    response = make_response(
+        render_template(
+            "docs_share_view.html",
+            share=share,
+            collabora_src=collabora_src,
+            token=token,
+        )
+    )
     response.set_cookie(
         "share_access",
         share_token,
@@ -184,9 +204,14 @@ def open_shared_doc(doc_id):
         return redirect(url_for("docs.index"))
 
     user_emails = _get_user_emails(user_id)
-    share = DocShare.query.filter_by(
-        doc_id=doc_id, revoked_at=None,
-    ).filter(DocShare.recipient_email.in_(user_emails)).first()
+    share = (
+        DocShare.query.filter_by(
+            doc_id=doc_id,
+            revoked_at=None,
+        )
+        .filter(DocShare.recipient_email.in_(user_emails))
+        .first()
+    )
 
     if not share:
         return redirect(url_for("docs.index"))
@@ -201,32 +226,30 @@ def open_shared_doc(doc_id):
         writable=writable,
     )
 
-    collabora_internal = (
-        current_app.config.get("COLLABORA_INTERNAL_URL")
-        or current_app.config.get("COLLABORA_URL", "http://localhost:9980")
+    collabora_internal = current_app.config.get("COLLABORA_INTERNAL_URL") or current_app.config.get(
+        "COLLABORA_URL", "http://localhost:9980"
     )
-    collabora_public = (
-        current_app.config.get("COLLABORA_PUBLIC_URL")
-        or collabora_internal
-    )
+    collabora_public = current_app.config.get("COLLABORA_PUBLIC_URL") or collabora_internal
 
     wopi_host_url = current_app.config.get("WOPI_HOST_URL", "")
     if not wopi_host_url:
         wopi_host_url = request.host_url.rstrip("/")
     wopi_src = wopi_host_url + url_for("docs.wopi_check_file_info", doc_id=share.doc_id)
-    edit_base = collabora.get_edit_url(share.doc_type or "odt", collabora_internal) or f"{collabora_public}/browser/dist/cool.html?"
+    edit_base = (
+        collabora.get_edit_url(share.doc_type or "odt", collabora_internal)
+        or f"{collabora_public}/browser/dist/cool.html?"
+    )
 
     edit_base_http = edit_base.replace("https://", "http://", 1)
     if edit_base_http.startswith(collabora_internal):
-        edit_base = collabora_public + edit_base_http[len(collabora_internal):]
+        edit_base = collabora_public + edit_base_http[len(collabora_internal) :]
 
     collabora_src = (
-        f"{edit_base}"
-        f"WOPISrc={quote(wopi_src, safe='')}"
-        f"&access_token={quote(token, safe='')}"
+        f"{edit_base}WOPISrc={quote(wopi_src, safe='')}&access_token={quote(token, safe='')}"
     )
 
     from app.shared.models.core import CustomerAccount
+
     owner_account = CustomerAccount.query.get(share.owner_account_id)
 
     return render_template(
@@ -240,6 +263,7 @@ def open_shared_doc(doc_id):
 
 def _get_user_emails(user_id):
     accounts = CustomerAccount.query.filter_by(
-        customer_id=user_id, is_active=True,
+        customer_id=user_id,
+        is_active=True,
     ).all()
     return [a.email_address.lower() for a in accounts]

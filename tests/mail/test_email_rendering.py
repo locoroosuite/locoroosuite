@@ -1,7 +1,5 @@
-
-from app.modules.mail.utils.sanitize import sanitize_html, wrap_email_html
 from app.modules.mail.controllers.helpers import _rewrite_cid_urls
-
+from app.modules.mail.utils.sanitize import sanitize_html, wrap_email_html
 
 MARTIAN_LOGIC_EMAIL = """
 <table style='width:100%; max-width:475px' border='0' align='center' cellpadding='0' cellspacing='0'>
@@ -80,7 +78,7 @@ class TestEmailButtonRendering:
             '<table cellpadding="10"><tr>'
             '<td bgcolor="#37b056">'
             '<a href="#" style="color:#ffffff;text-decoration:none;">REPLY</a>'
-            '</td></tr></table>'
+            "</td></tr></table>"
         )
         result = sanitize_html(html, allow_images=True)
         assert 'bgcolor="#37b056"' in result
@@ -251,7 +249,7 @@ class TestRegressionMartianLogicEmail:
         html = (
             '<table><tr><td bgcolor="#37b056">'
             '<a href="#" style="color:#ffffff;text-transform:uppercase;">REPLY</a>'
-            '</td></tr></table>'
+            "</td></tr></table>"
         )
         result = sanitize_html(html, allow_images=True)
         assert 'bgcolor="#37b056"' in result
@@ -278,13 +276,13 @@ class TestCIDInlineImages:
         html = '<p>Hello</p><img src="cid:image001.png@01DCED0F.C6C76180" alt="Logo">'
         result = sanitize_html(html, allow_images=False)
         assert "<img" in result
-        assert 'cid:image001.png@01DCED0F.C6C76180' in result
+        assert "cid:image001.png@01DCED0F.C6C76180" in result
 
     def test_cid_image_without_alt_preserved_when_images_blocked(self):
         html = '<p>Hello</p><img src="cid:image001.png@01DCED0F.C6C76180">'
         result = sanitize_html(html, allow_images=False)
         assert "<img" in result
-        assert 'cid:image001.png@01DCED0F.C6C76180' in result
+        assert "cid:image001.png@01DCED0F.C6C76180" in result
 
     def test_external_image_removed_when_cid_present(self):
         html = (

@@ -1,18 +1,17 @@
-from flask import session, request, redirect, url_for
-
-from app.shared.models.core import CustomerAccount
-from app.shared.keys import get_user_key
-from app.modules.mail.services.secrets import decrypt_with_key
-from app.modules.mail.services.imap_client import select_folder, set_flag, move_message
-from app.modules.mail.services.cache_db import open_cache, get_message
-from app.shared.auth import require_customer
+from flask import redirect, request, session, url_for
 
 from app.modules.mail.controllers.helpers import (
-    mail_bp,
-    _imap_for_account,
     _get_or_create_settings,
+    _imap_for_account,
     _parse_flags,
+    mail_bp,
 )
+from app.modules.mail.services.cache_db import get_message, open_cache
+from app.modules.mail.services.imap_client import move_message, select_folder, set_flag
+from app.modules.mail.services.secrets import decrypt_with_key
+from app.shared.auth import require_customer
+from app.shared.keys import get_user_key
+from app.shared.models.core import CustomerAccount
 
 
 @mail_bp.route("/mail/bulk", methods=["POST"])
@@ -23,7 +22,9 @@ def bulk_action():
     action = request.form.get("action")
     account_id = int(request.form.get("account_id"))
     ids = request.form.getlist("message_ids")
-    account = CustomerAccount.query.filter_by(id=account_id, customer_id=session.get("user_id")).first_or_404()
+    account = CustomerAccount.query.filter_by(
+        id=account_id, customer_id=session.get("user_id")
+    ).first_or_404()
     key = get_user_key(session.get("user_id"))
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)

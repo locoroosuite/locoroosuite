@@ -65,7 +65,9 @@ class MailApiClient:
         return resp.json()
 
     def set_sending_limit(self, email: str, max_per_day: int) -> dict[str, Any]:
-        resp = self._request("POST", f"/api/users/{email}/sending-limit", json={"max_per_day": max_per_day})
+        resp = self._request(
+            "POST", f"/api/users/{email}/sending-limit", json={"max_per_day": max_per_day}
+        )
         resp.raise_for_status()
         return resp.json()
 

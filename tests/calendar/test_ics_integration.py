@@ -1,9 +1,8 @@
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from app.shared.models.core import Domain, CustomerAccount
 from app.shared.db import db
-
+from app.shared.models.core import CustomerAccount, Domain
 
 SAMPLE_ICS_REQUEST = (
     "BEGIN:VCALENDAR\r\n"
@@ -62,10 +61,11 @@ def _setup_caldav_domain(app):
 
 
 def _create_temp_cache(app, user_id, account_id):
-    from app.shared.keys import get_user_key
-    from app.modules.calendar.services.cache_db import open_cache
-    from app.modules.calendar.services.cache import get_cache_path
     import os
+
+    from app.modules.calendar.services.cache import get_cache_path
+    from app.modules.calendar.services.cache_db import open_cache
+    from app.shared.keys import get_user_key
 
     with app.app_context():
         account = db.session.get(CustomerAccount, account_id)
@@ -81,7 +81,7 @@ def _create_temp_cache(app, user_id, account_id):
 
 class TestIcsParse:
     def test_parse_valid_request(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, _account_id = authed_client
         resp = client.post(
             "/app/calendar/api/ics-parse",
             data=json.dumps({"ical_text": SAMPLE_ICS_REQUEST}),
@@ -172,8 +172,9 @@ class TestIcsImport:
         _setup_caldav_domain(app)
         client, user_id, account_id = authed_client
 
-        from app.modules.calendar.services import cache_db
         import os
+
+        from app.modules.calendar.services import cache_db
 
         conn, path, key = _create_temp_cache(app, user_id, account_id)
         cal_id = cache_db.upsert_calendar(
@@ -248,9 +249,10 @@ class TestIcsRsvp:
         _setup_caldav_domain(app)
         client, user_id, account_id = authed_client
 
+        import os
+
         from app.modules.calendar.services import cache_db
         from app.modules.calendar.services.cache_db import open_cache
-        import os
 
         conn, path, key = _create_temp_cache(app, user_id, account_id)
         cal_id = cache_db.upsert_calendar(
@@ -310,7 +312,7 @@ class TestIcsCancel:
     def test_cancel_event_not_found(self, app, authed_client):
         client, user_id, account_id = authed_client
 
-        conn, path, key = _create_temp_cache(app, user_id, account_id)
+        conn, path, _key = _create_temp_cache(app, user_id, account_id)
         conn.close()
 
         resp = client.post(
@@ -329,9 +331,10 @@ class TestIcsCancel:
     def test_cancel_marks_event_cancelled(self, app, authed_client):
         client, user_id, account_id = authed_client
 
+        import os
+
         from app.modules.calendar.services import cache_db
         from app.modules.calendar.services.cache_db import open_cache
-        import os
 
         conn, path, key = _create_temp_cache(app, user_id, account_id)
         cal_id = cache_db.upsert_calendar(conn, "cal-uid-x", "http://localhost/x/", displayname="X")
@@ -376,10 +379,11 @@ class TestEventPrefill:
         _setup_caldav_domain(app)
         client, user_id, account_id = authed_client
 
-        from app.modules.calendar.services import cache_db
         import os
 
-        conn, path, key = _create_temp_cache(app, user_id, account_id)
+        from app.modules.calendar.services import cache_db
+
+        conn, path, _key = _create_temp_cache(app, user_id, account_id)
         cache_db.upsert_calendar(conn, "cal-uid-pf", "http://localhost/pf/", displayname="My Cal")
         conn.close()
 
@@ -399,10 +403,11 @@ class TestEventDetailEmailLink:
         _setup_caldav_domain(app)
         client, user_id, account_id = authed_client
 
-        from app.modules.calendar.services import cache_db
         import os
 
-        conn, path, key = _create_temp_cache(app, user_id, account_id)
+        from app.modules.calendar.services import cache_db
+
+        conn, path, _key = _create_temp_cache(app, user_id, account_id)
         cal_id = cache_db.upsert_calendar(
             conn, "cal-uid-el", "http://localhost/el/", displayname="EL"
         )
@@ -430,10 +435,11 @@ class TestEventDetailEmailLink:
         _setup_caldav_domain(app)
         client, user_id, account_id = authed_client
 
-        from app.modules.calendar.services import cache_db
         import os
 
-        conn, path, key = _create_temp_cache(app, user_id, account_id)
+        from app.modules.calendar.services import cache_db
+
+        conn, path, _key = _create_temp_cache(app, user_id, account_id)
         cal_id = cache_db.upsert_calendar(
             conn, "cal-uid-nl", "http://localhost/nl/", displayname="NL"
         )
@@ -460,10 +466,11 @@ class TestConflicts:
     def test_conflict_detection(self, app, authed_client):
         client, user_id, account_id = authed_client
 
-        from app.modules.calendar.services import cache_db
         import os
 
-        conn, path, key = _create_temp_cache(app, user_id, account_id)
+        from app.modules.calendar.services import cache_db
+
+        conn, path, _key = _create_temp_cache(app, user_id, account_id)
         cal_id = cache_db.upsert_calendar(
             conn, "cal-uid-cf", "http://localhost/cf/", displayname="CF"
         )

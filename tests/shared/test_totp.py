@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-
 import pyotp
 
+from app.shared import totp as totp_mod
 from app.shared.db import db
 from app.shared.models.core import User
-from app.shared import totp as totp_mod
 
 
 def _make_user(app, email="user@example.com", role="customer"):

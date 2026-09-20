@@ -1,27 +1,47 @@
 from flask import g
 
-from app.api.openapi import create_api_blueprint
 from app.api.controllers.helpers import (
-    api_response, api_paginated, api_error, require_api_token, require_scope,
-    get_api_account_id, ApiError,
+    ApiError,
+    api_error,
+    api_paginated,
+    api_response,
+    get_api_account_id,
+    require_api_token,
+    require_scope,
 )
-from app.api.schemas.common import ErrorResponse, BulkResponse, EmptyResponse
+from app.api.openapi import create_api_blueprint
+from app.api.schemas.common import BulkResponse, EmptyResponse, ErrorResponse
 from app.api.schemas.contacts import (
-    ContactListResponse, ContactDetailResponse, ContactSearchResponse,
-    ContactPath, ListContactsQuery, SearchContactsQuery,
-    CreateContactBody, UpdateContactBody, BulkDeleteContactsBody,
+    BulkDeleteContactsBody,
+    ContactDetailResponse,
+    ContactListResponse,
+    ContactPath,
+    ContactSearchResponse,
+    CreateContactBody,
+    ListContactsQuery,
+    SearchContactsQuery,
+    UpdateContactBody,
 )
-from app.shared.models.core import CustomerAccount
 from app.modules.contacts.services.cache import get_cache_path
 from app.modules.contacts.services.cache_db import (
-    open_cache, list_contacts as db_list_contacts,
-    get_contact as db_get_contact,
-    get_contact_by_uid as db_get_contact_by_uid,
-    search_contacts as db_search_contacts,
-    delete_contact_by_uid,
     count_contacts,
+    delete_contact_by_uid,
+    open_cache,
+)
+from app.modules.contacts.services.cache_db import (
+    get_contact as db_get_contact,
+)
+from app.modules.contacts.services.cache_db import (
+    get_contact_by_uid as db_get_contact_by_uid,
+)
+from app.modules.contacts.services.cache_db import (
+    list_contacts as db_list_contacts,
+)
+from app.modules.contacts.services.cache_db import (
+    search_contacts as db_search_contacts,
 )
 from app.modules.contacts.services.vcard import parse_vcard
+from app.shared.models.core import CustomerAccount
 from app.shared.ui_events import push_ui_event
 
 bp = create_api_blueprint("contacts", "Contacts management")
@@ -30,7 +50,7 @@ bp = create_api_blueprint("contacts", "Contacts management")
 def _row_to_dict(row):
     if row is None:
         return None
-    return {k: row[k] for k in row.keys()}
+    return {k: row[k] for k in row.keys()}  # noqa: SIM118 — sqlite3.Row iteration yields values, not keys
 
 
 def _get_cache_conn(account_id, dek):
@@ -60,7 +80,12 @@ def _contact_to_dict(row):
     }
 
 
-@bp.get("/contacts", summary="List contacts", description="Returns paginated contacts for the authenticated account. Supports optional search filtering and page-based pagination. Requires `contacts:read` scope.", responses={"200": ContactListResponse, "401": ErrorResponse})
+@bp.get(
+    "/contacts",
+    summary="List contacts",
+    description="Returns paginated contacts for the authenticated account. Supports optional search filtering and page-based pagination. Requires `contacts:read` scope.",
+    responses={"200": ContactListResponse, "401": ErrorResponse},
+)
 @require_api_token(scopes=["contacts:read"])
 @require_scope("contacts", "read")
 def api_list_contacts(query: ListContactsQuery):
@@ -84,7 +109,12 @@ def api_list_contacts(query: ListContactsQuery):
         conn.close()
 
 
-@bp.get("/contacts/<int:contact_id>", summary="Get contact detail", description="Returns a single contact by ID, including the raw vCard source. Requires `contacts:read` scope.", responses={"200": ContactDetailResponse, "404": ErrorResponse})
+@bp.get(
+    "/contacts/<int:contact_id>",
+    summary="Get contact detail",
+    description="Returns a single contact by ID, including the raw vCard source. Requires `contacts:read` scope.",
+    responses={"200": ContactDetailResponse, "404": ErrorResponse},
+)
 @require_api_token(scopes=["contacts:read"])
 @require_scope("contacts", "read")
 def api_get_contact(path: ContactPath):
@@ -104,7 +134,12 @@ def api_get_contact(path: ContactPath):
         conn.close()
 
 
-@bp.get("/contacts/search", summary="Search contacts", description="Searches contacts by name, email, or phone number. Returns simplified results with name and primary email. Requires `contacts:read` scope.", responses={"200": ContactSearchResponse, "400": ErrorResponse})
+@bp.get(
+    "/contacts/search",
+    summary="Search contacts",
+    description="Searches contacts by name, email, or phone number. Returns simplified results with name and primary email. Requires `contacts:read` scope.",
+    responses={"200": ContactSearchResponse, "400": ErrorResponse},
+)
 @require_api_token(scopes=["contacts:read"])
 @require_scope("contacts", "read")
 def api_search_contacts(query: SearchContactsQuery):
@@ -117,15 +152,24 @@ def api_search_contacts(query: SearchContactsQuery):
     conn = _get_cache_conn(account_id, dek)
     try:
         from app.modules.contacts.services.cache_db import search_contacts_api
+
         rows = search_contacts_api(conn, q, limit=limit)
         rows = [_row_to_dict(r) for r in rows]
-        items = [{"name": r.get("fn", ""), "email": r["emails"][0]["email"] if r.get("emails") else ""} for r in rows]
+        items = [
+            {"name": r.get("fn", ""), "email": r["emails"][0]["email"] if r.get("emails") else ""}
+            for r in rows
+        ]
         return api_response(items)
     finally:
         conn.close()
 
 
-@bp.delete("/contacts/<int:contact_id>", summary="Delete contact", description="Permanently deletes a contact by ID from both the CardDAV server and the local cache. Requires `contacts:write` scope.", responses={"204": EmptyResponse, "404": ErrorResponse})
+@bp.delete(
+    "/contacts/<int:contact_id>",
+    summary="Delete contact",
+    description="Permanently deletes a contact by ID from both the CardDAV server and the local cache. Requires `contacts:write` scope.",
+    responses={"204": EmptyResponse, "404": ErrorResponse},
+)
 @require_api_token(scopes=["contacts:write"])
 @require_scope("contacts", "write")
 def api_delete_contact(path: ContactPath):
@@ -139,13 +183,23 @@ def api_delete_contact(path: ContactPath):
             return api_error("NOT_FOUND", "Contact not found", 404)
         d = _row_to_dict(row)
         delete_contact_by_uid(conn, d["uid"])
-        push_ui_event(g.api_context["customer_id"], "contacts", "contact_deleted", {"account_id": account_id, "contact_id": contact_id})
+        push_ui_event(
+            g.api_context["customer_id"],
+            "contacts",
+            "contact_deleted",
+            {"account_id": account_id, "contact_id": contact_id},
+        )
         return api_response(None, 204)
     finally:
         conn.close()
 
 
-@bp.post("/contacts/bulk/delete", summary="Bulk delete contacts", description="Permanently deletes up to 100 contacts by ID from both the CardDAV server and the local cache. Requires `contacts:write` scope.", responses={"200": BulkResponse, "400": ErrorResponse})
+@bp.post(
+    "/contacts/bulk/delete",
+    summary="Bulk delete contacts",
+    description="Permanently deletes up to 100 contacts by ID from both the CardDAV server and the local cache. Requires `contacts:write` scope.",
+    responses={"200": BulkResponse, "400": ErrorResponse},
+)
 @require_api_token(scopes=["contacts:write"])
 @require_scope("contacts", "write")
 def api_bulk_delete_contacts(body: BulkDeleteContactsBody):
@@ -170,7 +224,9 @@ def api_bulk_delete_contacts(body: BulkDeleteContactsBody):
             d = _row_to_dict(row)
             delete_contact_by_uid(conn, d["uid"])
             succeeded.append({"contact_id": cid})
-        push_ui_event(g.api_context["customer_id"], "contacts", "contacts_deleted", {"account_id": account_id})
+        push_ui_event(
+            g.api_context["customer_id"], "contacts", "contacts_deleted", {"account_id": account_id}
+        )
         return api_response({"succeeded": succeeded, "failed": failed})
     finally:
         conn.close()
@@ -178,18 +234,25 @@ def api_bulk_delete_contacts(body: BulkDeleteContactsBody):
 
 def _get_carddav_session(account):
     from app.shared.models.core import Domain
+
     domain = Domain.query.filter_by(id=account.domain_id).first()
     config = {}
     if domain.carddav_host:
-        config = {"host": domain.carddav_host, "port": domain.carddav_port or 5232, "use_tls": domain.carddav_use_tls}
+        config = {
+            "host": domain.carddav_host,
+            "port": domain.carddav_port or 5232,
+            "use_tls": domain.carddav_use_tls,
+        }
     if not config:
         raise ApiError("NOT_CONFIGURED", "CardDAV is not configured for this domain", 400)
     base_url = f"{'https' if config['use_tls'] else 'http'}://{config['host']}:{config['port']}"
-    from app.modules.mail.services.secrets import decrypt_with_key
     from app.api.controllers.helpers import g as flask_g
+    from app.modules.mail.services.secrets import decrypt_with_key
+
     dek = flask_g.api_context["dek"]
     password = decrypt_with_key(account.encrypted_secret, dek)
     from app.modules.contacts.services import carddav
+
     s, abook_url, _ = carddav.discover_address_book(base_url, account.username, password)
     if not abook_url:
         abook_url = carddav.create_address_book(s, base_url, account.username)
@@ -212,7 +275,17 @@ def _build_vcard_data_from_api(data):
 
 def _merge_vcard_data(existing_parsed, updates):
     merged = {}
-    for key in ("fn", "email_work", "email_home", "tel_work", "tel_cell", "tel_home", "org", "title", "note"):
+    for key in (
+        "fn",
+        "email_work",
+        "email_home",
+        "tel_work",
+        "tel_cell",
+        "tel_home",
+        "org",
+        "title",
+        "note",
+    ):
         if key in updates and updates[key] is not None:
             merged[key] = updates[key]
         else:
@@ -220,7 +293,12 @@ def _merge_vcard_data(existing_parsed, updates):
     return merged
 
 
-@bp.post("/contacts", summary="Create contact", description="Creates a new contact via CardDAV and caches it locally. At least a formatted name (fn) or work email is required. Requires `contacts:write` scope.", responses={"201": ContactDetailResponse, "400": ErrorResponse})
+@bp.post(
+    "/contacts",
+    summary="Create contact",
+    description="Creates a new contact via CardDAV and caches it locally. At least a formatted name (fn) or work email is required. Requires `contacts:write` scope.",
+    responses={"201": ContactDetailResponse, "400": ErrorResponse},
+)
 @require_api_token(scopes=["contacts:write"])
 @require_scope("contacts", "write")
 def api_create_contact(body: CreateContactBody):
@@ -236,12 +314,14 @@ def api_create_contact(body: CreateContactBody):
     for key in vcard_data:
         if vcard_data[key] is None:
             vcard_data[key] = ""
-    from app.modules.contacts.services.vcard import generate_vcard, extract_uid
+    from app.modules.contacts.services.vcard import extract_uid, generate_vcard
+
     vcard_text = generate_vcard(vcard_data)
     uid = extract_uid(vcard_text)
     try:
         s, abook_url, _ = _get_carddav_session(account)
         from app.modules.contacts.services import carddav
+
         href, etag = carddav.create_contact(s, abook_url, vcard_text)
     except ApiError:
         raise
@@ -250,16 +330,27 @@ def api_create_contact(body: CreateContactBody):
     conn = _get_cache_conn(account_id, dek)
     try:
         from app.modules.contacts.services.cache_db import upsert_contact
+
         upsert_contact(conn, uid, href, etag, vcard_text)
         row = db_get_contact_by_uid(conn, uid)
         result = _contact_to_dict(row) if row else {"uid": uid, "fn": vcard_data["fn"]}
     finally:
         conn.close()
-    push_ui_event(g.api_context["customer_id"], "contacts", "contact_created", {"account_id": account_id, "uid": uid})
+    push_ui_event(
+        g.api_context["customer_id"],
+        "contacts",
+        "contact_created",
+        {"account_id": account_id, "uid": uid},
+    )
     return api_response(result, 201)
 
 
-@bp.put("/contacts/<int:contact_id>", summary="Update contact", description="Updates an existing contact by merging provided fields with the existing vCard data, then syncs via CardDAV. Only non-null fields are updated. Requires `contacts:write` scope.", responses={"200": ContactDetailResponse, "404": ErrorResponse})
+@bp.put(
+    "/contacts/<int:contact_id>",
+    summary="Update contact",
+    description="Updates an existing contact by merging provided fields with the existing vCard data, then syncs via CardDAV. Only non-null fields are updated. Requires `contacts:write` scope.",
+    responses={"200": ContactDetailResponse, "404": ErrorResponse},
+)
 @require_api_token(scopes=["contacts:write"])
 @require_scope("contacts", "write")
 def api_update_contact(path: ContactPath, body: UpdateContactBody):
@@ -283,6 +374,7 @@ def api_update_contact(path: ContactPath, body: UpdateContactBody):
     try:
         s, abook_url, _ = _get_carddav_session(account)
         from app.modules.contacts.services import carddav
+
         stored_href = d.get("href")
         href = stored_href
         if href and not href.startswith("http"):
@@ -298,6 +390,7 @@ def api_update_contact(path: ContactPath, body: UpdateContactBody):
     except Exception as e:
         return api_error("CARDDAV_ERROR", str(e), 502)
     from app.modules.contacts.services.vcard import generate_vcard
+
     vcard_text = generate_vcard(merged, uid=uid)
     try:
         if href:
@@ -311,10 +404,16 @@ def api_update_contact(path: ContactPath, body: UpdateContactBody):
     conn = _get_cache_conn(account_id, dek)
     try:
         from app.modules.contacts.services.cache_db import upsert_contact
+
         upsert_contact(conn, uid, href, etag, vcard_text)
         row = db_get_contact_by_uid(conn, uid)
         result = _contact_to_dict(row) if row else {"uid": uid, "fn": merged.get("fn", "")}
     finally:
         conn.close()
-    push_ui_event(g.api_context["customer_id"], "contacts", "contact_updated", {"account_id": account_id, "uid": uid})
+    push_ui_event(
+        g.api_context["customer_id"],
+        "contacts",
+        "contact_updated",
+        {"account_id": account_id, "uid": uid},
+    )
     return api_response(result)

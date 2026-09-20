@@ -1,10 +1,10 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.shared.db import db
 
 
 def _utcnow():
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class ImportRequest(db.Model):
@@ -71,7 +71,9 @@ class ImportRun(db.Model):
 class ImportedMessage(db.Model):
     __tablename__ = "imported_messages"
     __table_args__ = (
-        db.UniqueConstraint("import_request_id", "source_message_id", name="uq_import_message_source"),
+        db.UniqueConstraint(
+            "import_request_id", "source_message_id", name="uq_import_message_source"
+        ),
     )
 
     id = db.Column(db.Integer, primary_key=True)

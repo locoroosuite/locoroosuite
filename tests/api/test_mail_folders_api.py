@@ -135,7 +135,7 @@ class TestCreateFolder:
         mock_create.assert_called_once_with(mock_client, "Work/Sub")
 
     def test_create_folder_requires_name(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.post("/api/v1/mail/folders", json={"name": ""}, headers=auth_header(token))
         assert resp.status_code == 400
 
@@ -184,7 +184,7 @@ class TestRenameFolder:
         mock_rename.assert_called_once_with(mock_client, "LifeLenz", "LifeLenz2")
 
     def test_rename_system_folder_refused(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.post(
             "/api/v1/mail/folders/INBOX/rename",
             json={"name": "Other"},
@@ -238,7 +238,7 @@ class TestDeleteFolder:
         mock_delete.assert_called_once_with(mock_client, "LifeLenz")
 
     def test_delete_system_folder_refused(self, app, mail_api):
-        client, token, account_id, _ = mail_api
+        client, token, _account_id, _ = mail_api
         resp = client.delete("/api/v1/mail/folders/INBOX", headers=auth_header(token))
         assert resp.status_code == 409
         assert json.loads(resp.data)["error"]["code"] == "PROTECTED"
@@ -287,7 +287,7 @@ class TestLockFlag:
         assert locked_calls[0].kwargs.get("add") is True
 
     def test_bulk_flag_lock(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed(cache_path)
         msg_id = json.loads(
             client.get("/api/v1/mail/folders/INBOX/messages", headers=auth_header(token)).data
@@ -341,7 +341,7 @@ class TestLockFlag:
 
 class TestDeleteProtection:
     def test_starred_message_refuses_delete(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed(cache_path)
         msgs = json.loads(
             client.get("/api/v1/mail/folders/INBOX/messages", headers=auth_header(token)).data
@@ -356,7 +356,7 @@ class TestDeleteProtection:
         assert "unstar" in body["error"]["message"].lower()
 
     def test_locked_message_refuses_delete(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed(cache_path)
         msgs = json.loads(
             client.get("/api/v1/mail/folders/INBOX/messages", headers=auth_header(token)).data
@@ -404,7 +404,7 @@ class TestDeleteProtection:
         assert len(data["succeeded"]) == 1
 
     def test_move_to_trash_refuses_for_protected(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed(cache_path)
         msgs = json.loads(
             client.get("/api/v1/mail/folders/INBOX/messages", headers=auth_header(token)).data
@@ -421,7 +421,7 @@ class TestDeleteProtection:
 class TestProtectedField:
     def test_message_list_surfaces_protected(self, app, mail_api):
         # HLD U5.15h: the protected state is visible before a delete is attempted.
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed(cache_path)
         msgs = json.loads(
             client.get("/api/v1/mail/folders/INBOX/messages", headers=auth_header(token)).data
@@ -433,7 +433,7 @@ class TestProtectedField:
         assert by_flag[False]["protected"] is False
 
     def test_message_detail_surfaces_protected(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed(cache_path)
         list_data = json.loads(
             client.get("/api/v1/mail/folders/INBOX/messages", headers=auth_header(token)).data
@@ -445,7 +445,7 @@ class TestProtectedField:
         assert detail["protected"] is True
 
     def test_folder_list_surfaces_protected(self, app, mail_api):
-        client, token, account_id, cache_path = mail_api
+        client, token, _account_id, cache_path = mail_api
         _seed(cache_path)
         folders = json.loads(client.get("/api/v1/mail/folders", headers=auth_header(token)).data)[
             "data"

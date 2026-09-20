@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import BaseModel, Field, BeforeValidator
+from pydantic import BaseModel, BeforeValidator, Field
 
 
 def _str_to_list(v):
@@ -66,12 +66,16 @@ class FolderPath(BaseModel):
 class CreateFolderBody(BaseModel):
     name: str = Field(..., description="Mailbox/folder name to create")
     parent: str | None = Field(default=None, description="Optional parent folder for nesting")
-    account_id: int | None = Field(default=None, description="Mail account ID (defaults to primary account)")
+    account_id: int | None = Field(
+        default=None, description="Mail account ID (defaults to primary account)"
+    )
 
 
 class RenameFolderBody(BaseModel):
     name: str = Field(..., description="New folder name")
-    account_id: int | None = Field(default=None, description="Mail account ID (defaults to primary account)")
+    account_id: int | None = Field(
+        default=None, description="Mail account ID (defaults to primary account)"
+    )
 
 
 class MessagePath(BaseModel):
@@ -83,7 +87,9 @@ class ThreadPath(BaseModel):
 
 
 class UpdateFlagsBody(BaseModel):
-    flags: dict[str, bool] = Field(..., description="Flags to update, e.g. {\"read\": true, \"flagged\": false, \"locked\": true}")
+    flags: dict[str, bool] = Field(
+        ..., description='Flags to update, e.g. {"read": true, "flagged": false, "locked": true}'
+    )
 
 
 class MoveMessageBody(BaseModel):
@@ -123,12 +129,16 @@ class AttachmentPath(BaseModel):
 
 class SearchQuery(BaseModel):
     q: str = Field(..., description="Search query string")
-    account_id: int | None = Field(default=None, description="Mail account ID (defaults to primary account)")
+    account_id: int | None = Field(
+        default=None, description="Mail account ID (defaults to primary account)"
+    )
     max_results: int = Field(default=50, ge=1, le=200, description="Maximum results (1-200)")
 
 
 class ListMessagesQuery(BaseModel):
-    account_id: int | None = Field(default=None, description="Mail account ID (defaults to primary account)")
+    account_id: int | None = Field(
+        default=None, description="Mail account ID (defaults to primary account)"
+    )
     max_results: int = Field(default=50, ge=1, le=200, description="Maximum results (1-200)")
     cursor: str | None = Field(default=None, description="Pagination cursor (message ID)")
     unread: str | None = Field(default=None, description="Filter: 'true' for unread only")
@@ -136,7 +146,9 @@ class ListMessagesQuery(BaseModel):
 
 
 class GetMessageQuery(BaseModel):
-    account_id: int | None = Field(default=None, description="Mail account ID (defaults to primary account)")
+    account_id: int | None = Field(
+        default=None, description="Mail account ID (defaults to primary account)"
+    )
     mark_read: str | None = Field(default=None, description="Set to 'true' to mark as read")
 
 

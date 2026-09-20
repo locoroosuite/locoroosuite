@@ -2,11 +2,10 @@ import logging
 
 from flask import Blueprint, session
 
-from app.shared.models.core import CustomerAccount
-from app.shared.keys import get_user_key
 from app.modules.docs.services.cache import get_cache_path
 from app.modules.docs.services.cache_db import open_cache as open_docs_cache
-
+from app.shared.keys import get_user_key
+from app.shared.models.core import CustomerAccount
 
 docs_bp = Blueprint("docs", __name__, template_folder="../templates")
 logger = logging.getLogger(__name__)

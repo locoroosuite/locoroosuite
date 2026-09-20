@@ -2,18 +2,18 @@ from __future__ import annotations
 
 import pytest
 
-from app.shared.db import db as _db
-from app.shared.models.core import User, Domain, CustomerAccount
 from app.api.token_service import create_api_token, generate_dek
 from app.mcp.auth import (
     McpAuthError,
-    resolve_context,
     get_account_id,
+    get_current_token,
     get_dek,
     require_scope,
+    resolve_context,
     set_current_token,
-    get_current_token,
 )
+from app.shared.db import db as _db
+from app.shared.models.core import CustomerAccount, Domain, User
 
 
 def _create_test_user(app, email="mcp@example.com", account_active=True):
@@ -58,7 +58,7 @@ def _create_test_user(app, email="mcp@example.com", account_active=True):
 
 class TestApiKeyAuth:
     def test_resolve_api_key_valid(self, app, _clean_db):
-        user_id, account_id, dek = _create_test_user(app)
+        user_id, _account_id, dek = _create_test_user(app)
         with app.app_context():
             token_value, _ = create_api_token(
                 user_id, dek, "test-token", ["mail:read", "mail:write"]

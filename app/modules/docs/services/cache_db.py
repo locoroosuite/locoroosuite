@@ -8,7 +8,6 @@ from app.modules.docs.services.cache_migrations import DOCS_CACHE_MIGRATIONS
 from app.shared.cache_errors import CacheKeyMismatchError
 from app.shared.migrations import run_migrations
 
-
 # Cache DB paths that have already had their schema initialized/migrated in
 # this process. open_cache() is called ~per-request, but the schema check only
 # needs to run once per process per cache file. Mirrors the mail cache pattern.
@@ -65,11 +64,30 @@ def parse_tags(raw):
         return []
 
 
-def create_document(conn, doc_id, name, doc_type, account_id, file_size=0, original_format=None, folder_path="", tags=None):
+def create_document(
+    conn,
+    doc_id,
+    name,
+    doc_type,
+    account_id,
+    file_size=0,
+    original_format=None,
+    folder_path="",
+    tags=None,
+):
     conn.execute(
         "INSERT INTO documents (id, name, doc_type, original_format, file_size, account_id, folder_path, tags) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (doc_id, name, doc_type, original_format, file_size, account_id, folder_path, json.dumps(tags or [])),
+        (
+            doc_id,
+            name,
+            doc_type,
+            original_format,
+            file_size,
+            account_id,
+            folder_path,
+            json.dumps(tags or []),
+        ),
     )
     conn.commit()
 
@@ -79,15 +97,17 @@ def get_document(conn, doc_id):
     if not row:
         return None
     cols = [desc[0] for desc in conn.execute("SELECT * FROM documents LIMIT 0").description]
-    return dict(zip(cols, row))
+    return dict(zip(cols, row, strict=False))
 
 
 def get_active_document(conn, doc_id):
-    row = conn.execute("SELECT * FROM documents WHERE id = ? AND deleted_at IS NULL", (doc_id,)).fetchone()
+    row = conn.execute(
+        "SELECT * FROM documents WHERE id = ? AND deleted_at IS NULL", (doc_id,)
+    ).fetchone()
     if not row:
         return None
     cols = [desc[0] for desc in conn.execute("SELECT * FROM documents LIMIT 0").description]
-    return dict(zip(cols, row))
+    return dict(zip(cols, row, strict=False))
 
 
 def list_documents(conn, account_id, include_trash=False, folder=None, tag=None):
@@ -101,7 +121,7 @@ def list_documents(conn, account_id, include_trash=False, folder=None, tag=None)
     query += " ORDER BY updated_at DESC"
     rows = conn.execute(query, params).fetchall()
     cols = [desc[0] for desc in conn.execute("SELECT * FROM documents LIMIT 0").description]
-    docs = [dict(zip(cols, r)) for r in rows]
+    docs = [dict(zip(cols, r, strict=False)) for r in rows]
     if tag:
         docs = [d for d in docs if tag in parse_tags(d.get("tags"))]
     return docs
@@ -113,7 +133,7 @@ def list_trash(conn, account_id):
         (account_id,),
     ).fetchall()
     cols = [desc[0] for desc in conn.execute("SELECT * FROM documents LIMIT 0").description]
-    return [dict(zip(cols, r)) for r in rows]
+    return [dict(zip(cols, r, strict=False)) for r in rows]
 
 
 def rename_document(conn, doc_id, name):
@@ -165,6 +185,7 @@ def count_documents(conn, account_id):
 # Tags
 # ---------------------------------------------------------------------------
 
+
 def get_document_tags(conn, doc_id):
     row = conn.execute("SELECT tags FROM documents WHERE id = ?", (doc_id,)).fetchone()
     return parse_tags(row["tags"]) if row else []
@@ -207,6 +228,7 @@ def list_all_tags(conn, account_id):
 # Folders
 # ---------------------------------------------------------------------------
 
+
 def create_folder(conn, account_id, path, name):
     folder_id = uuid.uuid4().hex
     conn.execute(
@@ -225,7 +247,7 @@ def get_folder_by_path(conn, account_id, path):
     if not row:
         return None
     cols = [desc[0] for desc in conn.execute("SELECT * FROM folders LIMIT 0").description]
-    return dict(zip(cols, row))
+    return dict(zip(cols, row, strict=False))
 
 
 def folder_exists(conn, account_id, path):
@@ -238,7 +260,7 @@ def list_folders(conn, account_id):
         (account_id,),
     ).fetchall()
     cols = [desc[0] for desc in conn.execute("SELECT * FROM folders LIMIT 0").description]
-    return [dict(zip(cols, r)) for r in rows]
+    return [dict(zip(cols, r, strict=False)) for r in rows]
 
 
 def delete_folder_subtree_rows(conn, account_id, path):
@@ -264,7 +286,7 @@ def rename_folder_subtree(conn, account_id, old_prefix, new_prefix):
     ).fetchall()
     for r in folder_rows:
         old_path = r["path"]
-        new_path = new_prefix + old_path[len(old_prefix):]
+        new_path = new_prefix + old_path[len(old_prefix) :]
         leaf = new_path.rsplit("/", 1)[-1]
         conn.execute(
             "UPDATE folders SET path = ?, name = ? WHERE id = ?",
@@ -276,7 +298,7 @@ def rename_folder_subtree(conn, account_id, old_prefix, new_prefix):
     ).fetchall()
     for r in doc_rows:
         old_path = r["folder_path"]
-        new_path = new_prefix + old_path[len(old_prefix):]
+        new_path = new_prefix + old_path[len(old_prefix) :]
         conn.execute(
             "UPDATE documents SET folder_path = ?, updated_at = datetime('now') WHERE id = ?",
             (new_path, r["id"]),
@@ -303,7 +325,7 @@ def subtree_documents(conn, account_id, path):
         (account_id, path, like),
     ).fetchall()
     cols = [desc[0] for desc in conn.execute("SELECT * FROM documents LIMIT 0").description]
-    return [dict(zip(cols, r)) for r in rows]
+    return [dict(zip(cols, r, strict=False)) for r in rows]
 
 
 def set_document_folder(conn, doc_id, folder_path):

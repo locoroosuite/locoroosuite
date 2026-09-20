@@ -1,3 +1,4 @@
+import contextlib
 import json
 import logging
 from pathlib import Path
@@ -317,12 +318,10 @@ def rename_folder_route(account_id, folder):
         rename_folder_in_cache(conn, folder, new_name)
     finally:
         conn.close()
-    try:
+    with contextlib.suppress(Exception):
         current_app.sync_manager.enqueue_sync(
             account.id, folder=new_name, reason="folder_renamed", priority=5
         )
-    except Exception:
-        pass
     return redirect(url_for("mail.folder_view", account_id=account_id, folder=new_name))
 
 

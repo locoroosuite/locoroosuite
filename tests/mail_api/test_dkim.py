@@ -1,7 +1,7 @@
 import os
 import tempfile
-import pytest
 
+import pytest
 from managers.opendkim import OpenDKIMManager
 
 
@@ -23,7 +23,7 @@ def tmp_dirs():
 
 class TestOpenDKIMManager:
     def test_generate_key(self, tmp_dirs):
-        manager, keys_dir, key_table, signing_table = tmp_dirs
+        manager, keys_dir, _key_table, _signing_table = tmp_dirs
         result = manager.generate_key("example.com")
 
         assert result["domain"] == "example.com"
@@ -34,7 +34,7 @@ class TestOpenDKIMManager:
         assert os.path.exists(os.path.join(keys_dir, "default.example.com.txt"))
 
     def test_generate_key_writes_tables(self, tmp_dirs):
-        manager, keys_dir, key_table, signing_table = tmp_dirs
+        manager, _keys_dir, key_table, signing_table = tmp_dirs
         manager.generate_key("example.com")
 
         with open(key_table) as f:
@@ -47,7 +47,7 @@ class TestOpenDKIMManager:
         assert "*@example.com" in content
 
     def test_get_key(self, tmp_dirs):
-        manager, keys_dir, key_table, signing_table = tmp_dirs
+        manager, _keys_dir, _key_table, _signing_table = tmp_dirs
         generated = manager.generate_key("example.com")
         fetched = manager.get_key("example.com")
 
@@ -55,18 +55,18 @@ class TestOpenDKIMManager:
         assert fetched["selector"] == "default"
 
     def test_get_key_not_found(self, tmp_dirs):
-        manager, keys_dir, key_table, signing_table = tmp_dirs
+        manager, _keys_dir, _key_table, _signing_table = tmp_dirs
         with pytest.raises(FileNotFoundError):
             manager.get_key("nonexistent.com")
 
     def test_domain_has_key(self, tmp_dirs):
-        manager, keys_dir, key_table, signing_table = tmp_dirs
+        manager, _keys_dir, _key_table, _signing_table = tmp_dirs
         assert manager.domain_has_key("example.com") is False
         manager.generate_key("example.com")
         assert manager.domain_has_key("example.com") is True
 
     def test_remove_key(self, tmp_dirs):
-        manager, keys_dir, key_table, signing_table = tmp_dirs
+        manager, _keys_dir, key_table, signing_table = tmp_dirs
         manager.generate_key("example.com")
         assert manager.domain_has_key("example.com") is True
 
@@ -79,11 +79,11 @@ class TestOpenDKIMManager:
             assert "example.com" not in f.read()
 
     def test_remove_key_idempotent(self, tmp_dirs):
-        manager, keys_dir, key_table, signing_table = tmp_dirs
+        manager, _keys_dir, _key_table, _signing_table = tmp_dirs
         manager.remove_key("nonexistent.com")
 
     def test_multiple_domains(self, tmp_dirs):
-        manager, keys_dir, key_table, signing_table = tmp_dirs
+        manager, _keys_dir, key_table, _signing_table = tmp_dirs
         manager.generate_key("a.com")
         manager.generate_key("b.com")
 
@@ -100,11 +100,12 @@ class TestOpenDKIMManager:
         assert manager.domain_has_key("b.com")
 
     def test_key_is_valid_rsa(self, tmp_dirs):
-        manager, keys_dir, key_table, signing_table = tmp_dirs
+        manager, keys_dir, _key_table, _signing_table = tmp_dirs
         manager.generate_key("example.com")
         priv_path = os.path.join(keys_dir, "default.example.com.private")
 
         from cryptography.hazmat.primitives import serialization
+
         with open(priv_path, "rb") as f:
             key = serialization.load_pem_private_key(f.read(), password=None)
         assert key.key_size == 2048
@@ -131,7 +132,7 @@ class TestOpenDKIMManagerCustomSelector:
         assert "*@example.com mail2026._domainkey.example.com" in content
 
     def test_get_key_custom_selector(self, tmp_dirs):
-        manager, keys_dir, key_table, signing_table = tmp_dirs
+        manager, _keys_dir, _key_table, _signing_table = tmp_dirs
         generated = manager.generate_key("example.com", selector="mail2026")
         fetched = manager.get_key("example.com", selector="mail2026")
 
@@ -142,7 +143,7 @@ class TestOpenDKIMManagerCustomSelector:
             manager.get_key("example.com")
 
     def test_generate_key_replaces_old_style_entry(self, tmp_dirs):
-        manager, keys_dir, key_table, signing_table = tmp_dirs
+        manager, _keys_dir, key_table, signing_table = tmp_dirs
 
         old_key_entry = "mail2026._domainkey.example.com example.com:mail2026:/etc/opendkim/keys/example.com/mail2026.private"
         old_signing_entry = "*@example.com mail2026._domainkey.example.com"
@@ -180,7 +181,7 @@ class TestOpenDKIMManagerCustomSelector:
             assert "example.com" not in f.read()
 
     def test_custom_and_default_selectors_coexist(self, tmp_dirs):
-        manager, keys_dir, key_table, signing_table = tmp_dirs
+        manager, _keys_dir, _key_table, _signing_table = tmp_dirs
         manager.generate_key("example.com", selector="default")
         manager.generate_key("example.com", selector="mail2026")
 

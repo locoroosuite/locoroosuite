@@ -140,9 +140,11 @@ class TestDocsListTools:
     def test_list_documents(self, mcp_docs):
         tools = mcp_docs["tools"]
         mock_row = _mock_doc_row("doc-1", "Report.odt", file_size=1024)
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.list_documents", return_value=[mock_row]):
-                result = asyncio.run(tools["docs_list_documents"].fn())
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.list_documents", return_value=[mock_row]),
+        ):
+            result = asyncio.run(tools["docs_list_documents"].fn())
         data = json.loads(result)["data"]
         assert len(data) == 1
         assert data[0]["id"] == "doc-1"
@@ -152,9 +154,11 @@ class TestDocsListTools:
 
     def test_list_documents_empty(self, mcp_docs):
         tools = mcp_docs["tools"]
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.list_documents", return_value=[]):
-                result = asyncio.run(tools["docs_list_documents"].fn())
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.list_documents", return_value=[]),
+        ):
+            result = asyncio.run(tools["docs_list_documents"].fn())
         data = json.loads(result)["data"]
         assert data == []
 
@@ -162,9 +166,11 @@ class TestDocsListTools:
         tools = mcp_docs["tools"]
         odt_row = _mock_doc_row("doc-1", "Report.odt", doc_type="odt")
         ods_row = _mock_doc_row("doc-2", "Sheet.ods", doc_type="ods")
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.list_documents", return_value=[odt_row, ods_row]):
-                result = asyncio.run(tools["docs_list_documents"].fn(type="ods"))
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.list_documents", return_value=[odt_row, ods_row]),
+        ):
+            result = asyncio.run(tools["docs_list_documents"].fn(type="ods"))
         data = json.loads(result)["data"]
         assert len(data) == 1
         assert data[0]["type"] == "ods"
@@ -173,9 +179,11 @@ class TestDocsListTools:
         tools = mcp_docs["tools"]
         row1 = _mock_doc_row("doc-1", "Quarterly Report")
         row2 = _mock_doc_row("doc-2", "Meeting Notes")
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.list_documents", return_value=[row1, row2]):
-                result = asyncio.run(tools["docs_list_documents"].fn(search="report"))
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.list_documents", return_value=[row1, row2]),
+        ):
+            result = asyncio.run(tools["docs_list_documents"].fn(search="report"))
         data = json.loads(result)["data"]
         assert len(data) == 1
         assert data[0]["name"] == "Quarterly Report"
@@ -183,9 +191,11 @@ class TestDocsListTools:
     def test_get_document(self, mcp_docs):
         tools = mcp_docs["tools"]
         mock_row = _mock_doc_row("doc-1", "Report.odt", file_size=2048)
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=mock_row):
-                result = asyncio.run(tools["docs_get_document"].fn(document_id="doc-1"))
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=mock_row),
+        ):
+            result = asyncio.run(tools["docs_get_document"].fn(document_id="doc-1"))
         data = json.loads(result)["data"]
         assert data["id"] == "doc-1"
         assert data["name"] == "Report.odt"
@@ -195,10 +205,12 @@ class TestDocsListTools:
 
     def test_get_document_not_found(self, mcp_docs):
         tools = mcp_docs["tools"]
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=None):
-                with patch(f"{DOCS_CACHE_DB}.get_document", return_value=None):
-                    result = asyncio.run(tools["docs_get_document"].fn(document_id="nonexistent"))
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=None),
+            patch(f"{DOCS_CACHE_DB}.get_document", return_value=None),
+        ):
+            result = asyncio.run(tools["docs_get_document"].fn(document_id="nonexistent"))
         data = json.loads(result)
         assert data["error"]["code"] == "NOT_FOUND"
 
@@ -209,24 +221,20 @@ class TestDocsCreateDocument:
         mock_row = _mock_doc_row("new-doc", "New Doc.odt", doc_type="odt", file_size=8000)
         mock_buf = MagicMock()
         mock_buf.read.return_value = b"\x00" * 8000
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.create_document"):
-                with patch(f"{DOCS_TEMPLATES}.empty_odt", return_value=mock_buf):
-                    with patch(
-                        "app.modules.docs.services.doc_meta.inject_metadata",
-                        side_effect=lambda data, metadata: data,
-                    ):
-                        with patch(f"{DOCS_STORAGE}.write_file"):
-                            with patch(f"{DOCS_CACHE_DB}.update_file_size"):
-                                with patch(
-                                    f"{DOCS_CACHE_DB}.get_active_document", return_value=mock_row
-                                ):
-                                    with patch(f"{UI_EVENTS}.push_ui_event"):
-                                        result = asyncio.run(
-                                            tools["docs_create_document"].fn(
-                                                name="New Doc.odt", type="odt"
-                                            )
-                                        )
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.create_document"),
+            patch(f"{DOCS_TEMPLATES}.empty_odt", return_value=mock_buf),
+            patch(
+                "app.modules.docs.services.doc_meta.inject_metadata",
+                side_effect=lambda data, metadata: data,
+            ),
+            patch(f"{DOCS_STORAGE}.write_file"),
+            patch(f"{DOCS_CACHE_DB}.update_file_size"),
+            patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=mock_row),
+            patch(f"{UI_EVENTS}.push_ui_event"),
+        ):
+            result = asyncio.run(tools["docs_create_document"].fn(name="New Doc.odt", type="odt"))
         data = json.loads(result)["data"]
         assert data["id"] == "new-doc"
         assert data["name"] == "New Doc.odt"
@@ -245,24 +253,20 @@ class TestDocsCreateDocument:
         mock_row = _mock_doc_row("new-ods", "Sheet.ods", doc_type="ods", file_size=6000)
         mock_buf = MagicMock()
         mock_buf.read.return_value = b"\x00" * 6000
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.create_document"):
-                with patch(f"{DOCS_TEMPLATES}.empty_ods", return_value=mock_buf):
-                    with patch(
-                        "app.modules.docs.services.doc_meta.inject_metadata",
-                        side_effect=lambda data, metadata: data,
-                    ):
-                        with patch(f"{DOCS_STORAGE}.write_file"):
-                            with patch(f"{DOCS_CACHE_DB}.update_file_size"):
-                                with patch(
-                                    f"{DOCS_CACHE_DB}.get_active_document", return_value=mock_row
-                                ):
-                                    with patch(f"{UI_EVENTS}.push_ui_event"):
-                                        result = asyncio.run(
-                                            tools["docs_create_document"].fn(
-                                                name="Sheet.ods", type="ods"
-                                            )
-                                        )
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.create_document"),
+            patch(f"{DOCS_TEMPLATES}.empty_ods", return_value=mock_buf),
+            patch(
+                "app.modules.docs.services.doc_meta.inject_metadata",
+                side_effect=lambda data, metadata: data,
+            ),
+            patch(f"{DOCS_STORAGE}.write_file"),
+            patch(f"{DOCS_CACHE_DB}.update_file_size"),
+            patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=mock_row),
+            patch(f"{UI_EVENTS}.push_ui_event"),
+        ):
+            result = asyncio.run(tools["docs_create_document"].fn(name="Sheet.ods", type="ods"))
         data = json.loads(result)["data"]
         assert data["type"] == "ods"
 
@@ -272,15 +276,15 @@ class TestDocsMutationTools:
         tools = mcp_docs["tools"]
         existing_row = _mock_doc_row("doc-1", "Old Name")
         renamed_row = _mock_doc_row("doc-1", "New Name")
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(
-                f"{DOCS_CACHE_DB}.get_active_document", side_effect=[existing_row, renamed_row]
-            ):
-                with patch(f"{DOCS_CACHE_DB}.rename_document"):
-                    with patch(f"{UI_EVENTS}.push_ui_event"):
-                        result = asyncio.run(
-                            tools["docs_rename_document"].fn(document_id="doc-1", name="New Name")
-                        )
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.get_active_document", side_effect=[existing_row, renamed_row]),
+            patch(f"{DOCS_CACHE_DB}.rename_document"),
+            patch(f"{UI_EVENTS}.push_ui_event"),
+        ):
+            result = asyncio.run(
+                tools["docs_rename_document"].fn(document_id="doc-1", name="New Name")
+            )
         data = json.loads(result)["data"]
         assert data["name"] == "New Name"
 
@@ -292,30 +296,36 @@ class TestDocsMutationTools:
 
     def test_rename_document_not_found(self, mcp_docs):
         tools = mcp_docs["tools"]
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=None):
-                result = asyncio.run(
-                    tools["docs_rename_document"].fn(document_id="missing", name="New")
-                )
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=None),
+        ):
+            result = asyncio.run(
+                tools["docs_rename_document"].fn(document_id="missing", name="New")
+            )
         data = json.loads(result)
         assert data["error"]["code"] == "NOT_FOUND"
 
     def test_delete_document(self, mcp_docs):
         tools = mcp_docs["tools"]
         mock_row = _mock_doc_row("doc-1", "To Delete")
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=mock_row):
-                with patch(f"{DOCS_CACHE_DB}.soft_delete_document"):
-                    with patch(f"{UI_EVENTS}.push_ui_event"):
-                        result = asyncio.run(tools["docs_delete_document"].fn(document_id="doc-1"))
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=mock_row),
+            patch(f"{DOCS_CACHE_DB}.soft_delete_document"),
+            patch(f"{UI_EVENTS}.push_ui_event"),
+        ):
+            result = asyncio.run(tools["docs_delete_document"].fn(document_id="doc-1"))
         data = json.loads(result)
         assert "error" not in data
 
     def test_delete_document_not_found(self, mcp_docs):
         tools = mcp_docs["tools"]
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=None):
-                result = asyncio.run(tools["docs_delete_document"].fn(document_id="missing"))
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=None),
+        ):
+            result = asyncio.run(tools["docs_delete_document"].fn(document_id="missing"))
         data = json.loads(result)
         assert data["error"]["code"] == "NOT_FOUND"
 
@@ -335,22 +345,20 @@ class TestDocsConvertTool:
         new_row = _mock_doc_row("new-odg-1", "Contract", doc_type="odg", original_format=None)
         fake_odg = b"PK\x03\x04odg-body"
 
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.get_active_document", side_effect=[source_row, new_row]):
-                with patch(f"{DOCS_STORAGE}.read_file", return_value=b"%PDF-1.4 data"):
-                    with patch(
-                        "app.modules.docs.services.collabora.convert_upload",
-                        return_value=io.BytesIO(fake_odg),
-                    ) as mock_convert:
-                        with patch(f"{DOCS_STORAGE}.write_file"):
-                            with patch(f"{DOCS_CACHE_DB}.create_document"):
-                                with patch(f"{DOCS_CACHE_DB}.update_file_size"):
-                                    with patch(f"{UI_EVENTS}.push_ui_event"):
-                                        result = asyncio.run(
-                                            tools["docs_convert_document"].fn(
-                                                document_id="src-pdf-1"
-                                            )
-                                        )
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.get_active_document", side_effect=[source_row, new_row]),
+            patch(f"{DOCS_STORAGE}.read_file", return_value=b"%PDF-1.4 data"),
+            patch(
+                "app.modules.docs.services.collabora.convert_upload",
+                return_value=io.BytesIO(fake_odg),
+            ) as mock_convert,
+            patch(f"{DOCS_STORAGE}.write_file"),
+            patch(f"{DOCS_CACHE_DB}.create_document"),
+            patch(f"{DOCS_CACHE_DB}.update_file_size"),
+            patch(f"{UI_EVENTS}.push_ui_event"),
+        ):
+            result = asyncio.run(tools["docs_convert_document"].fn(document_id="src-pdf-1"))
 
         data = json.loads(result)["data"]
         assert data["type"] == "odg"
@@ -360,17 +368,21 @@ class TestDocsConvertTool:
     def test_convert_already_editable_returns_error(self, mcp_docs):
         tools = mcp_docs["tools"]
         native_row = _mock_doc_row("src-1", "Native", doc_type="odt", original_format=None)
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=native_row):
-                result = asyncio.run(tools["docs_convert_document"].fn(document_id="src-1"))
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=native_row),
+        ):
+            result = asyncio.run(tools["docs_convert_document"].fn(document_id="src-1"))
         data = json.loads(result)
         assert data["error"]["code"] == "VALIDATION_ERROR"
 
     def test_convert_not_found(self, mcp_docs):
         tools = mcp_docs["tools"]
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=None):
-                result = asyncio.run(tools["docs_convert_document"].fn(document_id="missing"))
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=None),
+        ):
+            result = asyncio.run(tools["docs_convert_document"].fn(document_id="missing"))
         data = json.loads(result)
         assert data["error"]["code"] == "NOT_FOUND"
 
@@ -379,16 +391,16 @@ class TestDocsConvertTool:
 
         tools = mcp_docs["tools"]
         source_row = _mock_doc_row("src-pdf-2", "Contract", doc_type="odt", original_format="pdf")
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=source_row):
-                with patch(f"{DOCS_STORAGE}.read_file", return_value=b"%PDF-1.4 data"):
-                    with patch(
-                        "app.modules.docs.services.collabora.convert_upload",
-                        side_effect=ConversionError("savefailed"),
-                    ):
-                        result = asyncio.run(
-                            tools["docs_convert_document"].fn(document_id="src-pdf-2")
-                        )
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=source_row),
+            patch(f"{DOCS_STORAGE}.read_file", return_value=b"%PDF-1.4 data"),
+            patch(
+                "app.modules.docs.services.collabora.convert_upload",
+                side_effect=ConversionError("savefailed"),
+            ),
+        ):
+            result = asyncio.run(tools["docs_convert_document"].fn(document_id="src-pdf-2"))
         data = json.loads(result)
         assert data["error"]["code"] == "CONVERSION_ERROR"
 
@@ -435,35 +447,37 @@ class TestDocsTags:
     def test_get_tags(self, mcp_docs):
         tools = mcp_docs["tools"]
         mock_row = _mock_doc_row("doc-1", "Report")
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.get_document", return_value=mock_row):
-                with patch(f"{DOCS_CACHE_DB}.get_document_tags", return_value=["urgent"]):
-                    result = asyncio.run(tools["docs_get_tags"].fn(document_id="doc-1"))
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.get_document", return_value=mock_row),
+            patch(f"{DOCS_CACHE_DB}.get_document_tags", return_value=["urgent"]),
+        ):
+            result = asyncio.run(tools["docs_get_tags"].fn(document_id="doc-1"))
         data = json.loads(result)["data"]
         assert data["tags"] == ["urgent"]
 
     def test_get_tags_not_found(self, mcp_docs):
         tools = mcp_docs["tools"]
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.get_document", return_value=None):
-                result = asyncio.run(tools["docs_get_tags"].fn(document_id="missing"))
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.get_document", return_value=None),
+        ):
+            result = asyncio.run(tools["docs_get_tags"].fn(document_id="missing"))
         data = json.loads(result)
         assert data["error"]["code"] == "NOT_FOUND"
 
     def test_update_tags_add_remove(self, mcp_docs):
         tools = mcp_docs["tools"]
         mock_row = _mock_doc_row("doc-1", "Report")
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.get_document", return_value=mock_row):
-                with patch(f"{DOCS_CACHE_DB}.update_document_tags") as mock_update:
-                    with patch(f"{DOCS_CACHE_DB}.get_document_tags", return_value=["finance"]):
-                        with patch("app.modules.docs.services.resync.inject_metadata_from_doc_row"):
-                            with patch(f"{UI_EVENTS}.push_ui_event"):
-                                result = asyncio.run(
-                                    tools["docs_update_tags"].fn(
-                                        document_id="doc-1", add=["finance"]
-                                    )
-                                )
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.get_document", return_value=mock_row),
+            patch(f"{DOCS_CACHE_DB}.update_document_tags") as mock_update,
+            patch(f"{DOCS_CACHE_DB}.get_document_tags", return_value=["finance"]),
+            patch("app.modules.docs.services.resync.inject_metadata_from_doc_row"),
+            patch(f"{UI_EVENTS}.push_ui_event"),
+        ):
+            result = asyncio.run(tools["docs_update_tags"].fn(document_id="doc-1", add=["finance"]))
         data = json.loads(result)["data"]
         assert data["tags"] == ["finance"]
         mock_update.assert_called_once()
@@ -471,20 +485,16 @@ class TestDocsTags:
     def test_update_tags_set_replaces_all(self, mcp_docs):
         tools = mcp_docs["tools"]
         mock_row = _mock_doc_row("doc-1", "Report")
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.get_document", return_value=mock_row):
-                with patch(f"{DOCS_CACHE_DB}.set_document_tags") as mock_set:
-                    with patch(f"{DOCS_CACHE_DB}.update_document_tags") as mock_update:
-                        with patch(f"{DOCS_CACHE_DB}.get_document_tags", return_value=["new"]):
-                            with patch(
-                                "app.modules.docs.services.resync.inject_metadata_from_doc_row"
-                            ):
-                                with patch(f"{UI_EVENTS}.push_ui_event"):
-                                    result = asyncio.run(
-                                        tools["docs_update_tags"].fn(
-                                            document_id="doc-1", set=["new"]
-                                        )
-                                    )
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.get_document", return_value=mock_row),
+            patch(f"{DOCS_CACHE_DB}.set_document_tags") as mock_set,
+            patch(f"{DOCS_CACHE_DB}.update_document_tags") as mock_update,
+            patch(f"{DOCS_CACHE_DB}.get_document_tags", return_value=["new"]),
+            patch("app.modules.docs.services.resync.inject_metadata_from_doc_row"),
+            patch(f"{UI_EVENTS}.push_ui_event"),
+        ):
+            result = asyncio.run(tools["docs_update_tags"].fn(document_id="doc-1", set=["new"]))
         data = json.loads(result)["data"]
         assert data["tags"] == ["new"]
         mock_set.assert_called_once()
@@ -492,17 +502,21 @@ class TestDocsTags:
 
     def test_list_tags(self, mcp_docs):
         tools = mcp_docs["tools"]
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.list_all_tags", return_value=["apple", "zebra"]):
-                result = asyncio.run(tools["docs_list_tags"].fn())
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.list_all_tags", return_value=["apple", "zebra"]),
+        ):
+            result = asyncio.run(tools["docs_list_tags"].fn())
         data = json.loads(result)["data"]
         assert data == ["apple", "zebra"]
 
     def test_list_tags_empty(self, mcp_docs):
         tools = mcp_docs["tools"]
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.list_all_tags", return_value=[]):
-                result = asyncio.run(tools["docs_list_tags"].fn())
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.list_all_tags", return_value=[]),
+        ):
+            result = asyncio.run(tools["docs_list_tags"].fn())
         data = json.loads(result)["data"]
         assert data == []
 

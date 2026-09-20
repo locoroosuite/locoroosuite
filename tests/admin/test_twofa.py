@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import pyotp
 from unittest.mock import patch
+
+import pyotp
 from werkzeug.security import generate_password_hash
 
-from app.shared.db import db
-from app.shared.models.core import User, TrustedDevice
 from app.shared import totp as totp_mod
+from app.shared.db import db
+from app.shared.models.core import TrustedDevice, User
 
 
 def _create_admin(app, email="admin@example.com", password="admin123", enable_2fa=False):
@@ -34,16 +35,22 @@ class TestAdminLoginWithout2FA:
     @patch("app.admin.controllers.auth.log_audit")
     @patch("app.admin.controllers.auth.clear_failed_login")
     @patch("app.admin.controllers.auth.is_locked", return_value=False)
-    def test_login_no_2fa_redirects_dashboard(self, mock_locked, mock_clear, mock_audit, app, client, _clean_db):
+    def test_login_no_2fa_redirects_dashboard(
+        self, mock_locked, mock_clear, mock_audit, app, client, _clean_db
+    ):
         _create_admin(app)
-        resp = client.post("/admin/login", data={"email": "admin@example.com", "password": "admin123"})
+        resp = client.post(
+            "/admin/login", data={"email": "admin@example.com", "password": "admin123"}
+        )
         assert resp.status_code == 302
         assert "/admin/" in resp.headers["Location"]
 
     @patch("app.admin.controllers.auth.log_audit")
     @patch("app.admin.controllers.auth.clear_failed_login")
     @patch("app.admin.controllers.auth.is_locked", return_value=False)
-    def test_login_wrong_password_same_error(self, mock_locked, mock_clear, mock_audit, app, client, _clean_db):
+    def test_login_wrong_password_same_error(
+        self, mock_locked, mock_clear, mock_audit, app, client, _clean_db
+    ):
         _create_admin(app, enable_2fa=True)
         resp = client.post("/admin/login", data={"email": "admin@example.com", "password": "wrong"})
         assert resp.status_code == 200
@@ -54,9 +61,13 @@ class TestAdminLoginWith2FA:
     @patch("app.admin.controllers.auth.log_audit")
     @patch("app.admin.controllers.auth.clear_failed_login")
     @patch("app.admin.controllers.auth.is_locked", return_value=False)
-    def test_valid_password_renders_totp_page(self, mock_locked, mock_clear, mock_audit, app, client, _clean_db):
+    def test_valid_password_renders_totp_page(
+        self, mock_locked, mock_clear, mock_audit, app, client, _clean_db
+    ):
         _create_admin(app, enable_2fa=True)
-        resp = client.post("/admin/login", data={"email": "admin@example.com", "password": "admin123"})
+        resp = client.post(
+            "/admin/login", data={"email": "admin@example.com", "password": "admin123"}
+        )
         assert resp.status_code == 200
         html = resp.data.decode()
         assert "verification code" in html.lower() or "two-factor" in html.lower()
@@ -64,7 +75,9 @@ class TestAdminLoginWith2FA:
     @patch("app.admin.controllers.auth.log_audit")
     @patch("app.admin.controllers.auth.clear_failed_login")
     @patch("app.admin.controllers.auth.is_locked", return_value=False)
-    def test_role_not_set_during_pending_2fa(self, mock_locked, mock_clear, mock_audit, app, client, _clean_db):
+    def test_role_not_set_during_pending_2fa(
+        self, mock_locked, mock_clear, mock_audit, app, client, _clean_db
+    ):
         _create_admin(app, enable_2fa=True)
         client.post("/admin/login", data={"email": "admin@example.com", "password": "admin123"})
         with client.session_transaction() as sess:
@@ -89,7 +102,7 @@ class TestAdminLoginWith2FA:
     @patch("app.admin.controllers.auth.record_failed_login")
     @patch("app.admin.controllers.auth.is_locked", return_value=False)
     def test_totp_verify_invalid_code(self, mock_locked, mock_record, app, client, _clean_db):
-        uid, secret = _create_admin(app, enable_2fa=True)
+        uid, _secret = _create_admin(app, enable_2fa=True)
         with client.session_transaction() as sess:
             sess["_pending_2fa_user_id"] = uid
             sess["_pending_2fa_role"] = "admin"
@@ -108,7 +121,7 @@ class TestAdminLoginWith2FA:
     @patch("app.admin.controllers.auth.clear_failed_login")
     @patch("app.admin.controllers.auth.is_locked", return_value=False)
     def test_backup_code_login(self, mock_locked, mock_clear, app, client, _clean_db):
-        uid, secret = _create_admin(app, enable_2fa=True)
+        uid, _secret = _create_admin(app, enable_2fa=True)
         with app.app_context():
             user = db.session.get(User, uid)
             codes = totp_mod.enable_2fa(user, user.totp_secret)
@@ -134,12 +147,16 @@ class TestAdminLoginWith2FA:
     @patch("app.admin.controllers.auth.log_audit")
     @patch("app.admin.controllers.auth.clear_failed_login")
     @patch("app.admin.controllers.auth.is_locked", return_value=False)
-    def test_trusted_device_skips_2fa(self, mock_locked, mock_clear, mock_audit, app, client, _clean_db):
-        uid, secret = _create_admin(app, enable_2fa=True)
+    def test_trusted_device_skips_2fa(
+        self, mock_locked, mock_clear, mock_audit, app, client, _clean_db
+    ):
+        uid, _secret = _create_admin(app, enable_2fa=True)
         with app.app_context():
             token = totp_mod.issue_trusted_device(uid, "Chrome", "127.0.0.1")
         client.set_cookie(totp_mod.TRUSTED_DEVICE_COOKIE, token)
-        resp = client.post("/admin/login", data={"email": "admin@example.com", "password": "admin123"})
+        resp = client.post(
+            "/admin/login", data={"email": "admin@example.com", "password": "admin123"}
+        )
         assert resp.status_code == 302
         assert "/admin/" in resp.headers["Location"]
         with client.session_transaction() as sess:
@@ -154,14 +171,14 @@ class TestAdmin2FASettings:
         assert "Enable 2FA" in resp.data.decode()
 
     def test_enable_creates_pending_secret(self, admin_client, app):
-        client, uid = admin_client
+        client, _uid = admin_client
         resp = client.post("/admin/settings/security/enable")
         assert resp.status_code == 302
         with client.session_transaction() as sess:
             assert sess.get("_pending_totp_secret") is not None
 
     def test_confirm_page_shows_qr(self, admin_client, app):
-        client, uid = admin_client
+        client, _uid = admin_client
         with client.session_transaction() as sess:
             sess["_pending_totp_secret"] = pyotp.random_base32()
         resp = client.get("/admin/settings/security/confirm")
@@ -182,7 +199,7 @@ class TestAdmin2FASettings:
             assert user.totp_enabled is True
 
     def test_confirm_invalid_code_shows_error(self, admin_client, app):
-        client, uid = admin_client
+        client, _uid = admin_client
         with client.session_transaction() as sess:
             sess["_pending_totp_secret"] = pyotp.random_base32()
         resp = client.post("/admin/settings/security/confirm", data={"code": "000000"})

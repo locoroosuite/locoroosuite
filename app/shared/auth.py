@@ -1,5 +1,6 @@
 from functools import wraps
-from flask import session, redirect, url_for
+
+from flask import redirect, session, url_for
 
 
 def require_role(role):
@@ -9,7 +10,9 @@ def require_role(role):
             if session.get("role") != role:
                 return redirect(url_for("auth.login"))
             return fn(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -19,4 +22,5 @@ def require_customer(fn):
         if session.get("role") != "customer":
             return redirect(url_for("mail.login"))
         return fn(*args, **kwargs)
+
     return wrapper

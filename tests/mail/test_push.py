@@ -83,9 +83,8 @@ class TestVapidSubject:
         monkeypatch.setenv("PUSH_VAPID_PUBLIC_KEY", "env-pub")
         monkeypatch.setenv("PUSH_VAPID_PRIVATE_KEY", "env-priv")
         monkeypatch.setenv("PUSH_VAPID_SUBJECT", "not an email")
-        with app.app_context():
-            with pytest.raises(RuntimeError, match="PUSH_VAPID_SUBJECT"):
-                push_mod.load_vapid_config()
+        with app.app_context(), pytest.raises(RuntimeError, match="PUSH_VAPID_SUBJECT"):
+            push_mod.load_vapid_config()
 
 
 class TestPushSubscribe:

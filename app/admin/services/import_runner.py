@@ -3,18 +3,29 @@ import hashlib
 import json
 import logging
 import mailbox
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from sqlalchemy.exc import IntegrityError
 
-from app.shared.db import db
-from app.shared.models.imports import ImportCheckpoint, ImportedMessage, ImportRequest, ImportRun
-from app.admin.services.google_import import gmail_get_raw_message, gmail_list_messages, refresh_google_access_token
-from app.modules.mail.services.imap_client import append_message, connect_imap, create_folder, list_folders, login_imap, safe_logout
+from app.admin.services.google_import import (
+    gmail_get_raw_message,
+    gmail_list_messages,
+    refresh_google_access_token,
+)
 from app.admin.services.import_security import decrypt_import_secret, is_request_expired
 from app.admin.services.takeout_uploads import cleanup_upload_path
+from app.modules.mail.services.imap_client import (
+    append_message,
+    connect_imap,
+    create_folder,
+    list_folders,
+    login_imap,
+    safe_logout,
+)
+from app.shared.db import db
+from app.shared.models.imports import ImportCheckpoint, ImportedMessage, ImportRequest, ImportRun
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +36,9 @@ GMAIL_TO_IMAP_FOLDER = {
     "INBOX": "INBOX",
 }
 
+
 def _utcnow_naive():
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def _folder_for_labels(label_ids):
@@ -60,7 +72,7 @@ def _internal_date_for_message(payload):
         timestamp = int(raw_value) / 1000.0
     except (TypeError, ValueError):
         return None
-    return datetime.fromtimestamp(timestamp, tz=timezone.utc)
+    return datetime.fromtimestamp(timestamp, tz=UTC)
 
 
 def _ensure_folder(client, folder_name, known_folders):
@@ -97,7 +109,9 @@ def _message_imported(import_request_id, source_message_id):
 
 
 def _prepare_destination(import_request):
-    destination_password = decrypt_import_secret(import_request.id, "destination_secret", import_request.encrypted_destination_secret)
+    destination_password = decrypt_import_secret(
+        import_request.id, "destination_secret", import_request.encrypted_destination_secret
+    )
     client = connect_imap(
         import_request.destination_imap_host,
         import_request.destination_imap_port,
@@ -187,12 +201,14 @@ def _takeout_message_date(message_obj):
     except (TypeError, ValueError, IndexError):
         return None
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _import_google_messages(import_request, run):
-    refresh_token = decrypt_import_secret(import_request.id, "source_refresh", import_request.encrypted_source_refresh_token)
+    refresh_token = decrypt_import_secret(
+        import_request.id, "source_refresh", import_request.encrypted_source_refresh_token
+    )
     token_data = refresh_google_access_token(
         import_request_app_config("GOOGLE_IMPORT_CLIENT_ID"),
         import_request_app_config("GOOGLE_IMPORT_CLIENT_SECRET"),
@@ -272,7 +288,9 @@ def _import_takeout_messages(import_request, run):
     staged_path = Path(import_request.staged_upload_path)
     if not staged_path.exists():
         import_request.status = "pending_upload"
-        import_request.last_error = "The staged Takeout file is no longer available. Upload it again."
+        import_request.last_error = (
+            "The staged Takeout file is no longer available. Upload it again."
+        )
         import_request.upload_status = "pending_upload"
         import_request.staged_upload_path = None
         import_request.uploaded_bytes = 0
@@ -362,7 +380,9 @@ def run_import(import_request_id, run_id=None):
 
     run = db.session.get(ImportRun, run_id) if run_id else None
     if run is None:
-        run = ImportRun(import_request_id=import_request.id, status="running", current_phase="starting")
+        run = ImportRun(
+            import_request_id=import_request.id, status="running", current_phase="starting"
+        )
         db.session.add(run)
         db.session.commit()
         run_id = run.id
@@ -395,7 +415,9 @@ def run_import(import_request_id, run_id=None):
         db.session.commit()
         return True
     except Exception as exc:
-        logger.exception("import run failed import_request_id=%s run_id=%s", import_request.id, run.id)
+        logger.exception(
+            "import run failed import_request_id=%s run_id=%s", import_request.id, run.id
+        )
         error_message = str(exc)[:500] or "import failed"
         run.status = "failed"
         run.last_error = error_message

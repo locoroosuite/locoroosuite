@@ -11,7 +11,7 @@ def parse_vcard(text):
         if not stripped:
             continue
         upper = stripped.upper()
-        if upper.startswith("BEGIN:") or upper.startswith("END:") or upper.startswith("VERSION:") or upper.startswith("PRODID:"):
+        if upper.startswith(("BEGIN:", "END:", "VERSION:", "PRODID:")):
             continue
         name, params, value = _parse_property(stripped)
         key = name.upper()
@@ -97,7 +97,7 @@ def _parse_property(line):
     if colon_idx == -1:
         return line.upper(), {}, ""
     left = line[:colon_idx]
-    value = line[colon_idx + 1:]
+    value = line[colon_idx + 1 :]
     parts = left.split(";")
     name = parts[0].split(".", 1)[-1].upper()
     params = {}

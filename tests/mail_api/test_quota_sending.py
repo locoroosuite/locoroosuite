@@ -1,7 +1,7 @@
+import importlib.util
 import os
 import sys
 import tempfile
-import importlib.util
 
 import pytest
 
@@ -17,7 +17,7 @@ InMemoryDovecotManager = _mod.InMemoryDovecotManager
 InMemoryPostfixManager = _mod.InMemoryPostfixManager
 del _spec, _mod
 
-from unittest.mock import patch  # noqa: E402 (must come after dynamic module loading above)
+from unittest.mock import patch
 
 
 @pytest.fixture()
@@ -32,16 +32,18 @@ def mail_api_app():
     flask_app.config["MAIL_API_KEY"] = "test-api-key"
     server_module.API_KEY = "test-api-key"
 
-    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    tmp.close()
-    flask_app.config["SENDING_LIMITS_DB"] = tmp.name
-    server_module.SENDING_LIMITS_DB = tmp.name
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+        db_path = tmp.name
+    flask_app.config["SENDING_LIMITS_DB"] = db_path
+    server_module.SENDING_LIMITS_DB = db_path
 
-    with patch.object(server_module, "dovecot", InMemoryDovecotManager()):
-        with patch.object(server_module, "postfix", InMemoryPostfixManager()):
-            yield flask_app
+    with (
+        patch.object(server_module, "dovecot", InMemoryDovecotManager()),
+        patch.object(server_module, "postfix", InMemoryPostfixManager()),
+    ):
+        yield flask_app
 
-    os.unlink(tmp.name)
+    os.unlink(db_path)
 
 
 @pytest.fixture()
@@ -55,50 +57,76 @@ def auth_headers():
 
 
 def test_add_user_with_quota(client, auth_headers):
-    resp = client.post("/api/users", json={
-        "email": "user@example.com",
-        "password": "secret",
-        "quota_bytes": 5368709120,
-    }, headers=auth_headers)
+    resp = client.post(
+        "/api/users",
+        json={
+            "email": "user@example.com",
+            "password": "secret",
+            "quota_bytes": 5368709120,
+        },
+        headers=auth_headers,
+    )
     assert resp.status_code == 201
     data = resp.get_json()
     assert data["email"] == "user@example.com"
 
 
 def test_add_user_without_quota(client, auth_headers):
-    resp = client.post("/api/users", json={
-        "email": "user2@example.com",
-        "password": "secret",
-    }, headers=auth_headers)
+    resp = client.post(
+        "/api/users",
+        json={
+            "email": "user2@example.com",
+            "password": "secret",
+        },
+        headers=auth_headers,
+    )
     assert resp.status_code == 201
 
 
 def test_set_quota(client, auth_headers):
-    client.post("/api/users", json={"email": "q@example.com", "password": "x"}, headers=auth_headers)
-    resp = client.put("/api/users/q@example.com/quota", json={"quota_bytes": 10737418240}, headers=auth_headers)
+    client.post(
+        "/api/users", json={"email": "q@example.com", "password": "x"}, headers=auth_headers
+    )
+    resp = client.put(
+        "/api/users/q@example.com/quota", json={"quota_bytes": 10737418240}, headers=auth_headers
+    )
     assert resp.status_code == 200
 
 
 def test_set_quota_user_not_found(client, auth_headers):
-    resp = client.put("/api/users/noone@example.com/quota", json={"quota_bytes": 1000}, headers=auth_headers)
+    resp = client.put(
+        "/api/users/noone@example.com/quota", json={"quota_bytes": 1000}, headers=auth_headers
+    )
     assert resp.status_code == 404
 
 
 def test_set_quota_invalid(client, auth_headers):
-    client.post("/api/users", json={"email": "q2@example.com", "password": "x"}, headers=auth_headers)
-    resp = client.put("/api/users/q2@example.com/quota", json={"quota_bytes": -1}, headers=auth_headers)
+    client.post(
+        "/api/users", json={"email": "q2@example.com", "password": "x"}, headers=auth_headers
+    )
+    resp = client.put(
+        "/api/users/q2@example.com/quota", json={"quota_bytes": -1}, headers=auth_headers
+    )
     assert resp.status_code == 400
 
 
 def test_set_sending_limit(client, auth_headers):
-    client.post("/api/users", json={"email": "sl@example.com", "password": "x"}, headers=auth_headers)
-    resp = client.post("/api/users/sl@example.com/sending-limit", json={"max_per_day": 200}, headers=auth_headers)
+    client.post(
+        "/api/users", json={"email": "sl@example.com", "password": "x"}, headers=auth_headers
+    )
+    resp = client.post(
+        "/api/users/sl@example.com/sending-limit", json={"max_per_day": 200}, headers=auth_headers
+    )
     assert resp.status_code == 201
 
 
 def test_get_sending_limit(client, auth_headers):
-    client.post("/api/users", json={"email": "gl@example.com", "password": "x"}, headers=auth_headers)
-    client.post("/api/users/gl@example.com/sending-limit", json={"max_per_day": 100}, headers=auth_headers)
+    client.post(
+        "/api/users", json={"email": "gl@example.com", "password": "x"}, headers=auth_headers
+    )
+    client.post(
+        "/api/users/gl@example.com/sending-limit", json={"max_per_day": 100}, headers=auth_headers
+    )
     resp = client.get("/api/users/gl@example.com/sending-limit", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.get_json()
@@ -112,8 +140,12 @@ def test_get_sending_limit_not_found(client, auth_headers):
 
 
 def test_delete_sending_limit(client, auth_headers):
-    client.post("/api/users", json={"email": "dl@example.com", "password": "x"}, headers=auth_headers)
-    client.post("/api/users/dl@example.com/sending-limit", json={"max_per_day": 50}, headers=auth_headers)
+    client.post(
+        "/api/users", json={"email": "dl@example.com", "password": "x"}, headers=auth_headers
+    )
+    client.post(
+        "/api/users/dl@example.com/sending-limit", json={"max_per_day": 50}, headers=auth_headers
+    )
     resp = client.delete("/api/users/dl@example.com/sending-limit", headers=auth_headers)
     assert resp.status_code == 200
     resp = client.get("/api/users/dl@example.com/sending-limit", headers=auth_headers)
@@ -121,5 +153,7 @@ def test_delete_sending_limit(client, auth_headers):
 
 
 def test_sending_limit_invalid_max(client, auth_headers):
-    resp = client.post("/api/users/x@example.com/sending-limit", json={"max_per_day": -5}, headers=auth_headers)
+    resp = client.post(
+        "/api/users/x@example.com/sending-limit", json={"max_per_day": -5}, headers=auth_headers
+    )
     assert resp.status_code == 400

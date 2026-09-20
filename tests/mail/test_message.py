@@ -1,24 +1,35 @@
-from unittest.mock import patch, MagicMock
-from email.mime.text import MIMEText
+import json
+from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
-from email import encoders
-import json
-
-
+from email.mime.text import MIMEText
+from typing import ClassVar
+from unittest.mock import MagicMock, patch
 
 MOVE_URL = "/app/mail/message/{account_id}/{message_id}/move"
 
 MOCK_MSG = {
-    "id": 1, "uid": "100", "folder": "INBOX", "subject": "Test Subject",
-    "sender": "sender@test.com", "recipients": "recip@test.com", "date": "date",
-    "flags": '["\\\\Seen"]', "snippet": "body text", "body": "",
-    "body_html": "<p>html body</p>", "has_attachments": 0,
-    "message_id": "<msg-id@test.com>", "thread_id": "thread-123", "cc": "",
+    "id": 1,
+    "uid": "100",
+    "folder": "INBOX",
+    "subject": "Test Subject",
+    "sender": "sender@test.com",
+    "recipients": "recip@test.com",
+    "date": "date",
+    "flags": '["\\\\Seen"]',
+    "snippet": "body text",
+    "body": "",
+    "body_html": "<p>html body</p>",
+    "has_attachments": 0,
+    "message_id": "<msg-id@test.com>",
+    "thread_id": "thread-123",
+    "cc": "",
 }
 
 
-def _make_message_with_attachment(filename="report.docx", content=b"fake-docx-data", content_type="application/octet-stream"):
+def _make_message_with_attachment(
+    filename="report.docx", content=b"fake-docx-data", content_type="application/octet-stream"
+):
     msg = MIMEMultipart()
     msg["Subject"] = "Test"
     msg["From"] = "sender@test.com"
@@ -43,7 +54,7 @@ class TestMoveMessageValidation:
         assert "/login" in resp.headers.get("Location", "")
 
     def test_move_missing_destination_xhr(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         resp = client.post(
             MOVE_URL.format(account_id=account_id, message_id=999),
             data={},
@@ -54,7 +65,7 @@ class TestMoveMessageValidation:
         assert "destination" in data["error"].lower()
 
     def test_move_missing_destination_non_xhr(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         resp = client.post(
             MOVE_URL.format(account_id=account_id, message_id=999),
             data={},
@@ -62,7 +73,7 @@ class TestMoveMessageValidation:
         assert resp.status_code == 302
 
     def test_move_nonexistent_message_xhr(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         with patch("app.modules.mail.controllers.message.open_cache") as mock_cache:
             mock_conn = MagicMock()
             mock_conn.execute.return_value.fetchone.return_value = None
@@ -77,14 +88,25 @@ class TestMoveMessageValidation:
         assert "not found" in data["error"].lower()
 
     def test_move_to_same_folder_xhr(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         with patch("app.modules.mail.controllers.message.open_cache") as mock_cache:
             mock_conn = MagicMock()
             mock_conn.execute.return_value.fetchone.return_value = {
-                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
-                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
-                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
-                "message_id": "msgid", "thread_id": None, "cc": "",
+                "id": 1,
+                "uid": 100,
+                "folder": "INBOX",
+                "subject": "subject",
+                "sender": "sender",
+                "recipients": "recip",
+                "date": "date",
+                "flags": "[]",
+                "snippet": "body",
+                "body": "",
+                "body_html": None,
+                "has_attachments": 0,
+                "message_id": "msgid",
+                "thread_id": None,
+                "cc": "",
             }
             mock_cache.return_value = mock_conn
             resp = client.post(
@@ -97,7 +119,7 @@ class TestMoveMessageValidation:
         assert "already" in data["error"].lower()
 
     def test_move_nonexistent_account(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, _account_id = authed_client
         resp = client.post(
             MOVE_URL.format(account_id=99999, message_id=1),
             data={"destination": "Archive"},
@@ -105,15 +127,28 @@ class TestMoveMessageValidation:
         assert resp.status_code == 404
 
     def test_move_success_xhr(self, app, authed_client):
-        client, user_id, account_id = authed_client
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap:
+        client, _user_id, account_id = authed_client
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+        ):
             mock_conn = MagicMock()
             mock_conn.execute.return_value.fetchone.return_value = {
-                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
-                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
-                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
-                "message_id": "msgid", "thread_id": None, "cc": "",
+                "id": 1,
+                "uid": 100,
+                "folder": "INBOX",
+                "subject": "subject",
+                "sender": "sender",
+                "recipients": "recip",
+                "date": "date",
+                "flags": "[]",
+                "snippet": "body",
+                "body": "",
+                "body_html": None,
+                "has_attachments": 0,
+                "message_id": "msgid",
+                "thread_id": None,
+                "cc": "",
             }
             mock_cache.return_value = mock_conn
             mock_client = MagicMock()
@@ -131,15 +166,28 @@ class TestMoveMessageValidation:
         assert data["destination"] == "Archive"
 
     def test_move_success_non_xhr_redirects(self, app, authed_client):
-        client, user_id, account_id = authed_client
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap:
+        client, _user_id, account_id = authed_client
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+        ):
             mock_conn = MagicMock()
             mock_conn.execute.return_value.fetchone.return_value = {
-                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
-                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
-                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
-                "message_id": "msgid", "thread_id": None, "cc": "",
+                "id": 1,
+                "uid": 100,
+                "folder": "INBOX",
+                "subject": "subject",
+                "sender": "sender",
+                "recipients": "recip",
+                "date": "date",
+                "flags": "[]",
+                "snippet": "body",
+                "body": "",
+                "body_html": None,
+                "has_attachments": 0,
+                "message_id": "msgid",
+                "thread_id": None,
+                "cc": "",
             }
             mock_cache.return_value = mock_conn
             mock_client = MagicMock()
@@ -154,15 +202,28 @@ class TestMoveMessageValidation:
         assert "Archive" in resp.headers.get("Location", "")
 
     def test_move_imap_error_xhr(self, app, authed_client):
-        client, user_id, account_id = authed_client
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap:
+        client, _user_id, account_id = authed_client
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+        ):
             mock_conn = MagicMock()
             mock_conn.execute.return_value.fetchone.return_value = {
-                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
-                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
-                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
-                "message_id": "msgid", "thread_id": None, "cc": "",
+                "id": 1,
+                "uid": 100,
+                "folder": "INBOX",
+                "subject": "subject",
+                "sender": "sender",
+                "recipients": "recip",
+                "date": "date",
+                "flags": "[]",
+                "snippet": "body",
+                "body": "",
+                "body_html": None,
+                "has_attachments": 0,
+                "message_id": "msgid",
+                "thread_id": None,
+                "cc": "",
             }
             mock_cache.return_value = mock_conn
             mock_imap.side_effect = Exception("IMAP connection failed")
@@ -176,57 +237,77 @@ class TestMoveMessageValidation:
 
 class TestMessageView:
     def test_message_view(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1"
-        with patch("app.modules.mail.controllers.message._load_message_detail") as mock_load, \
-             patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings, \
-             patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders, \
-             patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam, \
-             patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread:
+        with (
+            patch("app.modules.mail.controllers.message._load_message_detail") as mock_load,
+            patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings,
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders,
+            patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam,
+            patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread,
+        ):
             mock_load.return_value = (MOCK_MSG, "<p>body</p>", [], ["\\Seen"], ("", ""), [], "")
             mock_settings.return_value = MagicMock()
             mock_cache.return_value = MagicMock()
             mock_folders.return_value = []
             mock_spam.return_value = False
-            mock_thread.return_value = [{
-                "id": 1, "uid": "100", "folder": "INBOX",
-                "subject": "Test Subject", "sender": "sender@test.com",
-                "sender_display": "sender", "sender_tooltip": "sender@test.com",
-                "recipients": "recip@test.com", "recipients_display": "recip",
-                "date": "date", "date_display": "Jan 1", "date_ts": 0,
-                "flags": ["\\Seen"], "is_unread": False, "is_flagged": False,
-                "is_sent": False, "is_current": True, "snippet": "body",
-                "body_html": "<html></html>", "has_attachments": False,
-                "cc": "",
-            }]
+            mock_thread.return_value = [
+                {
+                    "id": 1,
+                    "uid": "100",
+                    "folder": "INBOX",
+                    "subject": "Test Subject",
+                    "sender": "sender@test.com",
+                    "sender_display": "sender",
+                    "sender_tooltip": "sender@test.com",
+                    "recipients": "recip@test.com",
+                    "recipients_display": "recip",
+                    "date": "date",
+                    "date_display": "Jan 1",
+                    "date_ts": 0,
+                    "flags": ["\\Seen"],
+                    "is_unread": False,
+                    "is_flagged": False,
+                    "is_sent": False,
+                    "is_current": True,
+                    "snippet": "body",
+                    "body_html": "<html></html>",
+                    "has_attachments": False,
+                    "cc": "",
+                }
+            ]
             resp = client.get(url)
         assert resp.status_code == 200
 
     def test_message_preview(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/preview"
-        with patch("app.modules.mail.controllers.message._load_message_detail") as mock_load, \
-             patch("app.modules.mail.controllers.message._snippet_debug_enabled") as mock_snippet:
+        with (
+            patch("app.modules.mail.controllers.message._load_message_detail") as mock_load,
+            patch("app.modules.mail.controllers.message._snippet_debug_enabled") as mock_snippet,
+        ):
             mock_load.return_value = (MOCK_MSG, "<p>body</p>", [], ["\\Seen"], ("", ""), [], "")
             mock_snippet.return_value = False
             resp = client.get(url)
         assert resp.status_code == 200
 
     def test_mark_message_read_xhr(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/mark"
         mock_client = MagicMock()
         mock_conn = MagicMock()
         mock_conn.execute.return_value.fetchone.return_value = MOCK_MSG
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message.get_message") as mock_get, \
-             patch("app.modules.mail.controllers.message._parse_flags") as mock_parse, \
-             patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt, \
-             patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap, \
-             patch("app.modules.mail.controllers.message.select_folder"), \
-             patch("app.modules.mail.controllers.message.set_flag"), \
-             patch("app.modules.mail.controllers.message.update_flags"):
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message") as mock_get,
+            patch("app.modules.mail.controllers.message._parse_flags") as mock_parse,
+            patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+            patch("app.modules.mail.controllers.message.select_folder"),
+            patch("app.modules.mail.controllers.message.set_flag"),
+            patch("app.modules.mail.controllers.message.update_flags"),
+        ):
             mock_cache.return_value = mock_conn
             mock_get.return_value = MOCK_MSG
             mock_parse.return_value = []
@@ -242,19 +323,21 @@ class TestMessageView:
         assert data["status"] == "ok"
 
     def test_flag_message_xhr(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/flag"
         mock_client = MagicMock()
         mock_conn = MagicMock()
         mock_conn.execute.return_value.fetchone.return_value = MOCK_MSG
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message.get_message") as mock_get, \
-             patch("app.modules.mail.controllers.message._parse_flags") as mock_parse, \
-             patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt, \
-             patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap, \
-             patch("app.modules.mail.controllers.message.select_folder"), \
-             patch("app.modules.mail.controllers.message.set_flag"), \
-             patch("app.modules.mail.controllers.message.update_flags"):
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message") as mock_get,
+            patch("app.modules.mail.controllers.message._parse_flags") as mock_parse,
+            patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+            patch("app.modules.mail.controllers.message.select_folder"),
+            patch("app.modules.mail.controllers.message.set_flag"),
+            patch("app.modules.mail.controllers.message.update_flags"),
+        ):
             mock_cache.return_value = mock_conn
             mock_get.return_value = MOCK_MSG
             mock_parse.return_value = []
@@ -270,18 +353,20 @@ class TestMessageView:
         assert data["status"] == "ok"
 
     def test_delete_message_xhr(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/delete"
         mock_client = MagicMock()
         mock_conn = MagicMock()
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message.get_message") as mock_get, \
-             patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt, \
-             patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap, \
-             patch("app.modules.mail.controllers.message.select_folder"), \
-             patch("app.modules.mail.controllers.message.move_message"), \
-             patch("app.modules.mail.controllers.message._set_undo_action") as mock_undo, \
-             patch("app.modules.mail.controllers.message._current_undo_action") as mock_current:
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message") as mock_get,
+            patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+            patch("app.modules.mail.controllers.message.select_folder"),
+            patch("app.modules.mail.controllers.message.move_message"),
+            patch("app.modules.mail.controllers.message._set_undo_action") as mock_undo,
+            patch("app.modules.mail.controllers.message._current_undo_action") as mock_current,
+        ):
             mock_cache.return_value = mock_conn
             mock_get.return_value = MOCK_MSG
             mock_decrypt.return_value = "secret"
@@ -297,20 +382,22 @@ class TestMessageView:
         assert undo_args[0][3] == "<msg-id@test.com>"
 
     def test_archive_message_xhr(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/archive"
         mock_client = MagicMock()
         mock_conn = MagicMock()
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message.get_message") as mock_get, \
-             patch("app.modules.mail.controllers.message._parse_flags") as mock_parse, \
-             patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt, \
-             patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap, \
-             patch("app.modules.mail.controllers.message.select_folder"), \
-             patch("app.modules.mail.controllers.message.move_message"), \
-             patch("app.modules.mail.controllers.message.create_folder"), \
-             patch("app.modules.mail.controllers.message._set_undo_action") as mock_undo, \
-             patch("app.modules.mail.controllers.message._current_undo_action") as mock_current:
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message") as mock_get,
+            patch("app.modules.mail.controllers.message._parse_flags") as mock_parse,
+            patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+            patch("app.modules.mail.controllers.message.select_folder"),
+            patch("app.modules.mail.controllers.message.move_message"),
+            patch("app.modules.mail.controllers.message.create_folder"),
+            patch("app.modules.mail.controllers.message._set_undo_action") as mock_undo,
+            patch("app.modules.mail.controllers.message._current_undo_action") as mock_current,
+        ):
             mock_cache.return_value = mock_conn
             mock_get.return_value = MOCK_MSG
             mock_parse.return_value = []
@@ -327,16 +414,18 @@ class TestMessageView:
         assert undo_args[0][3] == "<msg-id@test.com>"
 
     def test_download_message(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/download"
         mock_client = MagicMock()
         mock_conn = MagicMock()
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message.get_message") as mock_get, \
-             patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt, \
-             patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap, \
-             patch("app.modules.mail.controllers.message.select_folder"), \
-             patch("app.modules.mail.controllers.message.fetch_raw_message") as mock_fetch:
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message") as mock_get,
+            patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+            patch("app.modules.mail.controllers.message.select_folder"),
+            patch("app.modules.mail.controllers.message.fetch_raw_message") as mock_fetch,
+        ):
             mock_cache.return_value = mock_conn
             mock_get.return_value = MOCK_MSG
             mock_decrypt.return_value = "secret"
@@ -347,29 +436,43 @@ class TestMessageView:
         assert "message/rfc822" in resp.content_type
 
     def test_print_message(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/print"
         mock_conn = MagicMock()
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message.get_message") as mock_get:
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message") as mock_get,
+        ):
             mock_cache.return_value = mock_conn
             mock_get.return_value = MOCK_MSG
             resp = client.get(url)
         assert resp.status_code == 200
 
     def test_print_message_shows_cc(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/print"
         msg_with_cc = {
-            "id": 1, "uid": "100", "folder": "INBOX", "subject": "Test Subject",
-            "sender": "sender@test.com", "recipients": "recip@test.com", "date": "date",
-            "flags": '["\\\\Seen"]', "snippet": "body text", "body": "", "body_html": None,
-            "has_attachments": 0, "message_id": "<msg-id@test.com>", "thread_id": "thread-123",
+            "id": 1,
+            "uid": "100",
+            "folder": "INBOX",
+            "subject": "Test Subject",
+            "sender": "sender@test.com",
+            "recipients": "recip@test.com",
+            "date": "date",
+            "flags": '["\\\\Seen"]',
+            "snippet": "body text",
+            "body": "",
+            "body_html": None,
+            "has_attachments": 0,
+            "message_id": "<msg-id@test.com>",
+            "thread_id": "thread-123",
             "cc": "cc-person@test.com",
         }
         mock_conn = MagicMock()
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message.get_message") as mock_get:
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message") as mock_get,
+        ):
             mock_cache.return_value = mock_conn
             mock_get.return_value = msg_with_cc
             resp = client.get(url)
@@ -378,11 +481,13 @@ class TestMessageView:
         assert "cc-person@test.com" in html
 
     def test_print_message_no_cc(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/print"
         mock_conn = MagicMock()
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message.get_message") as mock_get:
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message") as mock_get,
+        ):
             mock_cache.return_value = mock_conn
             mock_get.return_value = MOCK_MSG
             resp = client.get(url)
@@ -409,11 +514,19 @@ class TestDeleteProtection:
         return s
 
     def test_delete_starred_message_refused(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/delete"
-        with patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()), \
-             patch("app.modules.mail.controllers.message.get_message", return_value=self._msg_with_flags(["\\Flagged"])), \
-             patch("app.modules.mail.controllers.message._get_or_create_settings", return_value=self._protect_starred_settings()):
+        with (
+            patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()),
+            patch(
+                "app.modules.mail.controllers.message.get_message",
+                return_value=self._msg_with_flags(["\\Flagged"]),
+            ),
+            patch(
+                "app.modules.mail.controllers.message._get_or_create_settings",
+                return_value=self._protect_starred_settings(),
+            ),
+        ):
             resp = client.post(url, headers={"X-Requested-With": "XMLHttpRequest"})
         assert resp.status_code == 409
         data = json.loads(resp.data)
@@ -423,11 +536,19 @@ class TestDeleteProtection:
         assert "unstar" in data["error"].lower()
 
     def test_delete_locked_message_refused(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/delete"
-        with patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()), \
-             patch("app.modules.mail.controllers.message.get_message", return_value=self._msg_with_flags(["$Locked"])), \
-             patch("app.modules.mail.controllers.message._get_or_create_settings", return_value=self._protect_starred_settings()):
+        with (
+            patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()),
+            patch(
+                "app.modules.mail.controllers.message.get_message",
+                return_value=self._msg_with_flags(["$Locked"]),
+            ),
+            patch(
+                "app.modules.mail.controllers.message._get_or_create_settings",
+                return_value=self._protect_starred_settings(),
+            ),
+        ):
             resp = client.post(url, headers={"X-Requested-With": "XMLHttpRequest"})
         assert resp.status_code == 409
         data = json.loads(resp.data)
@@ -436,11 +557,19 @@ class TestDeleteProtection:
         assert "unlock" in data["error"].lower()
 
     def test_delete_starred_and_locked_message_refused(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/delete"
-        with patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()), \
-             patch("app.modules.mail.controllers.message.get_message", return_value=self._msg_with_flags(["\\Flagged", "$Locked"])), \
-             patch("app.modules.mail.controllers.message._get_or_create_settings", return_value=self._protect_starred_settings()):
+        with (
+            patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()),
+            patch(
+                "app.modules.mail.controllers.message.get_message",
+                return_value=self._msg_with_flags(["\\Flagged", "$Locked"]),
+            ),
+            patch(
+                "app.modules.mail.controllers.message._get_or_create_settings",
+                return_value=self._protect_starred_settings(),
+            ),
+        ):
             resp = client.post(url, headers={"X-Requested-With": "XMLHttpRequest"})
         assert resp.status_code == 409
         data = json.loads(resp.data)
@@ -450,38 +579,67 @@ class TestDeleteProtection:
 
     def test_delete_refused_message_omits_retry_guidance(self, app, authed_client):
         # HLD U5.15g: protection errors must not suggest a retry.
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/delete"
-        with patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()), \
-             patch("app.modules.mail.controllers.message.get_message", return_value=self._msg_with_flags(["\\Flagged"])), \
-             patch("app.modules.mail.controllers.message._get_or_create_settings", return_value=self._protect_starred_settings()):
+        with (
+            patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()),
+            patch(
+                "app.modules.mail.controllers.message.get_message",
+                return_value=self._msg_with_flags(["\\Flagged"]),
+            ),
+            patch(
+                "app.modules.mail.controllers.message._get_or_create_settings",
+                return_value=self._protect_starred_settings(),
+            ),
+        ):
             resp = client.post(url, headers={"X-Requested-With": "XMLHttpRequest"})
         data = json.loads(resp.data)
         assert "retry" not in data["error"].lower()
 
     def test_starred_not_protected_when_policy_disabled(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/delete"
-        with patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()), \
-             patch("app.modules.mail.controllers.message.get_message", return_value=self._msg_with_flags(["\\Flagged"])), \
-             patch("app.modules.mail.controllers.message._get_or_create_settings", return_value=self._protect_starred_settings(protect_starred=False)), \
-             patch("app.modules.mail.controllers.message.decrypt_with_key", return_value="secret"), \
-             patch("app.modules.mail.controllers.message._imap_for_account", return_value=(MagicMock(), MagicMock())), \
-             patch("app.modules.mail.controllers.message.select_folder"), \
-             patch("app.modules.mail.controllers.message.move_message"), \
-             patch("app.modules.mail.controllers.message._set_undo_action", return_value="token"), \
-             patch("app.modules.mail.controllers.message._current_undo_action", return_value=None):
+        with (
+            patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()),
+            patch(
+                "app.modules.mail.controllers.message.get_message",
+                return_value=self._msg_with_flags(["\\Flagged"]),
+            ),
+            patch(
+                "app.modules.mail.controllers.message._get_or_create_settings",
+                return_value=self._protect_starred_settings(protect_starred=False),
+            ),
+            patch("app.modules.mail.controllers.message.decrypt_with_key", return_value="secret"),
+            patch(
+                "app.modules.mail.controllers.message._imap_for_account",
+                return_value=(MagicMock(), MagicMock()),
+            ),
+            patch("app.modules.mail.controllers.message.select_folder"),
+            patch("app.modules.mail.controllers.message.move_message"),
+            patch("app.modules.mail.controllers.message._set_undo_action", return_value="token"),
+            patch("app.modules.mail.controllers.message._current_undo_action", return_value=None),
+        ):
             resp = client.post(url, headers={"X-Requested-With": "XMLHttpRequest"})
         assert resp.status_code == 200
         assert json.loads(resp.data)["status"] == "ok"
 
     def test_move_to_trash_starred_refused(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = MOVE_URL.format(account_id=account_id, message_id=1)
-        with patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()), \
-             patch("app.modules.mail.controllers.message.get_message", return_value=self._msg_with_flags(["\\Flagged"])), \
-             patch("app.modules.mail.controllers.message._get_or_create_settings", return_value=self._protect_starred_settings()):
-            resp = client.post(url, data={"destination": "Trash"}, headers={"X-Requested-With": "XMLHttpRequest"})
+        with (
+            patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()),
+            patch(
+                "app.modules.mail.controllers.message.get_message",
+                return_value=self._msg_with_flags(["\\Flagged"]),
+            ),
+            patch(
+                "app.modules.mail.controllers.message._get_or_create_settings",
+                return_value=self._protect_starred_settings(),
+            ),
+        ):
+            resp = client.post(
+                url, data={"destination": "Trash"}, headers={"X-Requested-With": "XMLHttpRequest"}
+            )
         assert resp.status_code == 409
         data = json.loads(resp.data)
         assert data["code"] == "PROTECTED"
@@ -489,19 +647,34 @@ class TestDeleteProtection:
 
     def test_move_to_real_folder_allowed_when_starred(self, app, authed_client):
         # U5.15d: reorganizing (move to a non-Trash folder) stays allowed.
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = MOVE_URL.format(account_id=account_id, message_id=1)
         mock_client = MagicMock()
         mock_client.select.return_value = ("OK", [b"1"])
         mock_client._quote = lambda x: x
-        with patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()), \
-             patch("app.modules.mail.controllers.message.get_message", return_value=self._msg_with_flags(["\\Flagged"])), \
-             patch("app.modules.mail.controllers.message._get_or_create_settings", return_value=self._protect_starred_settings()), \
-             patch("app.modules.mail.controllers.message.decrypt_with_key", return_value="secret"), \
-             patch("app.modules.mail.controllers.message._imap_for_account", return_value=(mock_client, MagicMock())), \
-             patch("app.modules.mail.controllers.message.select_folder"), \
-             patch("app.modules.mail.controllers.message.move_message"):
-            resp = client.post(url, data={"destination": "Projects"}, headers={"X-Requested-With": "XMLHttpRequest"})
+        with (
+            patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()),
+            patch(
+                "app.modules.mail.controllers.message.get_message",
+                return_value=self._msg_with_flags(["\\Flagged"]),
+            ),
+            patch(
+                "app.modules.mail.controllers.message._get_or_create_settings",
+                return_value=self._protect_starred_settings(),
+            ),
+            patch("app.modules.mail.controllers.message.decrypt_with_key", return_value="secret"),
+            patch(
+                "app.modules.mail.controllers.message._imap_for_account",
+                return_value=(mock_client, MagicMock()),
+            ),
+            patch("app.modules.mail.controllers.message.select_folder"),
+            patch("app.modules.mail.controllers.message.move_message"),
+        ):
+            resp = client.post(
+                url,
+                data={"destination": "Projects"},
+                headers={"X-Requested-With": "XMLHttpRequest"},
+            )
         assert resp.status_code == 200
         assert json.loads(resp.data)["destination"] == "Projects"
 
@@ -509,18 +682,25 @@ class TestDeleteProtection:
 class TestLockUnlock:
     def test_lock_unlock_removes_locked_keyword(self, app, authed_client):
         # The previously-untested unlock half of the /lock endpoint.
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/lock"
         msg = dict(MOCK_MSG)
         msg["flags"] = json.dumps(["\\Seen", "$Locked"])
-        with patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()), \
-             patch("app.modules.mail.controllers.message.get_message", return_value=msg), \
-             patch("app.modules.mail.controllers.message.decrypt_with_key", return_value="secret"), \
-             patch("app.modules.mail.controllers.message._imap_for_account", return_value=(MagicMock(), MagicMock())), \
-             patch("app.modules.mail.controllers.message.select_folder"), \
-             patch("app.modules.mail.controllers.message.set_flag") as mock_set, \
-             patch("app.modules.mail.controllers.message.update_flags") as mock_update:
-            resp = client.post(url, data={"action": "remove"}, headers={"X-Requested-With": "XMLHttpRequest"})
+        with (
+            patch("app.modules.mail.controllers.message.open_cache", return_value=MagicMock()),
+            patch("app.modules.mail.controllers.message.get_message", return_value=msg),
+            patch("app.modules.mail.controllers.message.decrypt_with_key", return_value="secret"),
+            patch(
+                "app.modules.mail.controllers.message._imap_for_account",
+                return_value=(MagicMock(), MagicMock()),
+            ),
+            patch("app.modules.mail.controllers.message.select_folder"),
+            patch("app.modules.mail.controllers.message.set_flag") as mock_set,
+            patch("app.modules.mail.controllers.message.update_flags") as mock_update,
+        ):
+            resp = client.post(
+                url, data={"action": "remove"}, headers={"X-Requested-With": "XMLHttpRequest"}
+            )
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert data["status"] == "ok"
@@ -534,39 +714,74 @@ class TestLockUnlock:
 
 
 class TestMessageViewDraft:
-    MOCK_DRAFT_MSG = {
-        "id": 1, "uid": "100", "folder": "Drafts", "subject": "Test Subject",
-        "sender": "sender@test.com", "recipients": "recip@test.com", "date": "date",
-        "flags": '["\\\\Draft"]', "snippet": "body text", "body": "",
-        "body_html": None, "has_attachments": 0,
-        "message_id": "<msg-id@test.com>", "thread_id": "thread-123", "cc": "",
+    MOCK_DRAFT_MSG: ClassVar[dict] = {
+        "id": 1,
+        "uid": "100",
+        "folder": "Drafts",
+        "subject": "Test Subject",
+        "sender": "sender@test.com",
+        "recipients": "recip@test.com",
+        "date": "date",
+        "flags": '["\\\\Draft"]',
+        "snippet": "body text",
+        "body": "",
+        "body_html": None,
+        "has_attachments": 0,
+        "message_id": "<msg-id@test.com>",
+        "thread_id": "thread-123",
+        "cc": "",
     }
 
     def test_draft_message_shows_draft_banner(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1"
-        with patch("app.modules.mail.controllers.message._load_message_detail") as mock_load, \
-             patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings, \
-             patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders, \
-             patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam, \
-             patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread:
-            mock_load.return_value = (self.MOCK_DRAFT_MSG, "<p>body</p>", [], ["\\Draft"], ("", ""), [], "")
+        with (
+            patch("app.modules.mail.controllers.message._load_message_detail") as mock_load,
+            patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings,
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders,
+            patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam,
+            patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread,
+        ):
+            mock_load.return_value = (
+                self.MOCK_DRAFT_MSG,
+                "<p>body</p>",
+                [],
+                ["\\Draft"],
+                ("", ""),
+                [],
+                "",
+            )
             mock_settings.return_value = MagicMock()
             mock_cache.return_value = MagicMock()
             mock_folders.return_value = []
             mock_spam.return_value = False
-            mock_thread.return_value = [{
-                "id": 1, "uid": "100", "folder": "Drafts",
-                "subject": "Test Subject", "sender": "sender@test.com",
-                "sender_display": "sender", "sender_tooltip": "sender@test.com",
-                "recipients": "recip@test.com", "recipients_display": "recip",
-                "date": "date", "date_display": "Jan 1", "date_ts": 0,
-                "flags": ["\\Draft"], "is_unread": False, "is_flagged": False,
-                "is_sent": False, "is_draft": True, "is_current": True,
-                "snippet": "body", "body_html": "<html></html>",
-                "has_attachments": False, "cc": "",
-            }]
+            mock_thread.return_value = [
+                {
+                    "id": 1,
+                    "uid": "100",
+                    "folder": "Drafts",
+                    "subject": "Test Subject",
+                    "sender": "sender@test.com",
+                    "sender_display": "sender",
+                    "sender_tooltip": "sender@test.com",
+                    "recipients": "recip@test.com",
+                    "recipients_display": "recip",
+                    "date": "date",
+                    "date_display": "Jan 1",
+                    "date_ts": 0,
+                    "flags": ["\\Draft"],
+                    "is_unread": False,
+                    "is_flagged": False,
+                    "is_sent": False,
+                    "is_draft": True,
+                    "is_current": True,
+                    "snippet": "body",
+                    "body_html": "<html></html>",
+                    "has_attachments": False,
+                    "cc": "",
+                }
+            ]
             resp = client.get(url)
         assert resp.status_code == 200
         html = resp.data.decode()
@@ -575,44 +790,16 @@ class TestMessageViewDraft:
         assert "Discard" in html
 
     def test_non_draft_message_no_draft_banner(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1"
-        with patch("app.modules.mail.controllers.message._load_message_detail") as mock_load, \
-             patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings, \
-             patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders, \
-             patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam, \
-             patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread:
-            mock_load.return_value = (MOCK_MSG, "<p>body</p>", [], ["\\Seen"], ("", ""), [], "")
-            mock_settings.return_value = MagicMock()
-            mock_cache.return_value = MagicMock()
-            mock_folders.return_value = []
-            mock_spam.return_value = False
-            mock_thread.return_value = [{
-                "id": 1, "uid": "100", "folder": "INBOX",
-                "subject": "Test Subject", "sender": "sender@test.com",
-                "sender_display": "sender", "sender_tooltip": "sender@test.com",
-                "recipients": "recip@test.com", "recipients_display": "recip",
-                "date": "date", "date_display": "Jan 1", "date_ts": 0,
-                "flags": ["\\Seen"], "is_unread": False, "is_flagged": False,
-                "is_sent": False, "is_draft": False, "is_current": True,
-                "snippet": "body", "body_html": "<html></html>",
-                "has_attachments": False, "cc": "",
-            }]
-            resp = client.get(url)
-        assert resp.status_code == 200
-        html = resp.data.decode()
-        assert "This message has not been sent yet" not in html
-
-    def test_thread_draft_shows_edit_discard_actions(self, app, authed_client):
-        client, user_id, account_id = authed_client
-        url = f"/app/mail/message/{account_id}/1"
-        with patch("app.modules.mail.controllers.message._load_message_detail") as mock_load, \
-             patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings, \
-             patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders, \
-             patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam, \
-             patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread:
+        with (
+            patch("app.modules.mail.controllers.message._load_message_detail") as mock_load,
+            patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings,
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders,
+            patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam,
+            patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread,
+        ):
             mock_load.return_value = (MOCK_MSG, "<p>body</p>", [], ["\\Seen"], ("", ""), [], "")
             mock_settings.return_value = MagicMock()
             mock_cache.return_value = MagicMock()
@@ -620,26 +807,99 @@ class TestMessageViewDraft:
             mock_spam.return_value = False
             mock_thread.return_value = [
                 {
-                    "id": 1, "uid": "100", "folder": "INBOX",
-                    "subject": "Test Subject", "sender": "sender@test.com",
-                    "sender_display": "sender", "sender_tooltip": "sender@test.com",
-                    "recipients": "recip@test.com", "recipients_display": "recip",
-                    "date": "date", "date_display": "Jan 1", "date_ts": 0,
-                    "flags": ["\\Seen"], "is_unread": False, "is_flagged": False,
-                    "is_sent": False, "is_draft": False, "is_current": True,
-                    "snippet": "body", "body_html": "<html></html>",
-                    "has_attachments": False, "cc": "",
+                    "id": 1,
+                    "uid": "100",
+                    "folder": "INBOX",
+                    "subject": "Test Subject",
+                    "sender": "sender@test.com",
+                    "sender_display": "sender",
+                    "sender_tooltip": "sender@test.com",
+                    "recipients": "recip@test.com",
+                    "recipients_display": "recip",
+                    "date": "date",
+                    "date_display": "Jan 1",
+                    "date_ts": 0,
+                    "flags": ["\\Seen"],
+                    "is_unread": False,
+                    "is_flagged": False,
+                    "is_sent": False,
+                    "is_draft": False,
+                    "is_current": True,
+                    "snippet": "body",
+                    "body_html": "<html></html>",
+                    "has_attachments": False,
+                    "cc": "",
+                }
+            ]
+            resp = client.get(url)
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert "This message has not been sent yet" not in html
+
+    def test_thread_draft_shows_edit_discard_actions(self, app, authed_client):
+        client, _user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1"
+        with (
+            patch("app.modules.mail.controllers.message._load_message_detail") as mock_load,
+            patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings,
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders,
+            patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam,
+            patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread,
+        ):
+            mock_load.return_value = (MOCK_MSG, "<p>body</p>", [], ["\\Seen"], ("", ""), [], "")
+            mock_settings.return_value = MagicMock()
+            mock_cache.return_value = MagicMock()
+            mock_folders.return_value = []
+            mock_spam.return_value = False
+            mock_thread.return_value = [
+                {
+                    "id": 1,
+                    "uid": "100",
+                    "folder": "INBOX",
+                    "subject": "Test Subject",
+                    "sender": "sender@test.com",
+                    "sender_display": "sender",
+                    "sender_tooltip": "sender@test.com",
+                    "recipients": "recip@test.com",
+                    "recipients_display": "recip",
+                    "date": "date",
+                    "date_display": "Jan 1",
+                    "date_ts": 0,
+                    "flags": ["\\Seen"],
+                    "is_unread": False,
+                    "is_flagged": False,
+                    "is_sent": False,
+                    "is_draft": False,
+                    "is_current": True,
+                    "snippet": "body",
+                    "body_html": "<html></html>",
+                    "has_attachments": False,
+                    "cc": "",
                 },
                 {
-                    "id": 2, "uid": "50", "folder": "Drafts",
-                    "subject": "Re: Test Subject", "sender": "me@test.com",
-                    "sender_display": "me", "sender_tooltip": "me@test.com",
-                    "recipients": "sender@test.com", "recipients_display": "sender",
-                    "date": "date2", "date_display": "Jan 2", "date_ts": 0,
-                    "flags": ["\\Draft"], "is_unread": False, "is_flagged": False,
-                    "is_sent": False, "is_draft": True, "is_current": False,
-                    "snippet": "draft body", "body_html": "<html></html>",
-                    "has_attachments": False, "cc": "",
+                    "id": 2,
+                    "uid": "50",
+                    "folder": "Drafts",
+                    "subject": "Re: Test Subject",
+                    "sender": "me@test.com",
+                    "sender_display": "me",
+                    "sender_tooltip": "me@test.com",
+                    "recipients": "sender@test.com",
+                    "recipients_display": "sender",
+                    "date": "date2",
+                    "date_display": "Jan 2",
+                    "date_ts": 0,
+                    "flags": ["\\Draft"],
+                    "is_unread": False,
+                    "is_flagged": False,
+                    "is_sent": False,
+                    "is_draft": True,
+                    "is_current": False,
+                    "snippet": "draft body",
+                    "body_html": "<html></html>",
+                    "has_attachments": False,
+                    "cc": "",
                 },
             ]
             resp = client.get(url)
@@ -651,24 +911,31 @@ class TestMessageViewDraft:
 
 class TestLoadMessageDetailReturnShape:
     def test_not_found_returns_seven_values(self, app, authed_client):
-        client, user_id, account_id = authed_client
-        with app.test_request_context():
-            with patch("app.modules.mail.controllers.helpers.open_cache") as mock_cache, \
-                 patch("app.modules.mail.controllers.helpers.get_user_key"):
-                mock_cache.return_value.execute.return_value.fetchone.return_value = None
-                account = type("FakeAccount", (), {
+        _client, _user_id, _account_id = authed_client
+        with (
+            app.test_request_context(),
+            patch("app.modules.mail.controllers.helpers.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.helpers.get_user_key"),
+        ):
+            mock_cache.return_value.execute.return_value.fetchone.return_value = None
+            account = type(
+                "FakeAccount",
+                (),
+                {
                     "cache_db_path": "/tmp/test.db",
                     "encrypted_secret": None,
                     "id": 99999,
-                })()
-                from app.modules.mail.controllers.helpers import _load_message_detail
-                result = _load_message_detail(account, 999999)
+                },
+            )()
+            from app.modules.mail.controllers.helpers import _load_message_detail
+
+            result = _load_message_detail(account, 999999)
         assert len(result) == 7
         assert result[0] is None
         assert result[6] == ""
 
     def test_not_found_returns_seven_values_via_controller(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/999999"
         with patch("app.modules.mail.controllers.message._load_message_detail") as mock_load:
             mock_load.return_value = (None, None, None, None, None, None, "")
@@ -678,16 +945,18 @@ class TestLoadMessageDetailReturnShape:
 
 class TestAttachmentDownload:
     def test_download_attachment_success(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/attachment/0"
         raw_msg = _make_message_with_attachment("report.docx", b"docx-content")
         mock_client = MagicMock()
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message.get_message") as mock_get, \
-             patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt, \
-             patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap, \
-             patch("app.modules.mail.controllers.message.select_folder"), \
-             patch("app.modules.mail.controllers.message.fetch_message") as mock_fetch:
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message") as mock_get,
+            patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+            patch("app.modules.mail.controllers.message.select_folder"),
+            patch("app.modules.mail.controllers.message.fetch_message") as mock_fetch,
+        ):
             mock_cache.return_value = MagicMock()
             mock_get.return_value = MOCK_MSG
             mock_decrypt.return_value = "secret"
@@ -698,26 +967,30 @@ class TestAttachmentDownload:
         assert resp.data == b"docx-content"
 
     def test_download_attachment_not_found_message(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/999/attachment/0"
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message.get_message") as mock_get:
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message") as mock_get,
+        ):
             mock_cache.return_value = MagicMock()
             mock_get.return_value = None
             resp = client.get(url)
         assert resp.status_code == 302
 
     def test_download_attachment_index_out_of_range(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/attachment/99"
         raw_msg = _make_message_with_attachment("report.docx", b"docx-content")
         mock_client = MagicMock()
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message.get_message") as mock_get, \
-             patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt, \
-             patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap, \
-             patch("app.modules.mail.controllers.message.select_folder"), \
-             patch("app.modules.mail.controllers.message.fetch_message") as mock_fetch:
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message") as mock_get,
+            patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+            patch("app.modules.mail.controllers.message.select_folder"),
+            patch("app.modules.mail.controllers.message.fetch_message") as mock_fetch,
+        ):
             mock_cache.return_value = MagicMock()
             mock_get.return_value = MOCK_MSG
             mock_decrypt.return_value = "secret"
@@ -727,16 +1000,18 @@ class TestAttachmentDownload:
         assert resp.status_code == 302
 
     def test_download_attachment_filename_with_newline(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/attachment/0"
         raw_msg = _make_message_with_attachment("report\n.docx", b"docx-content")
         mock_client = MagicMock()
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message.get_message") as mock_get, \
-             patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt, \
-             patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap, \
-             patch("app.modules.mail.controllers.message.select_folder"), \
-             patch("app.modules.mail.controllers.message.fetch_message") as mock_fetch:
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message") as mock_get,
+            patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+            patch("app.modules.mail.controllers.message.select_folder"),
+            patch("app.modules.mail.controllers.message.fetch_message") as mock_fetch,
+        ):
             mock_cache.return_value = MagicMock()
             mock_get.return_value = MOCK_MSG
             mock_decrypt.return_value = "secret"
@@ -746,11 +1021,14 @@ class TestAttachmentDownload:
         assert resp.status_code == 200
         assert resp.data == b"docx-content"
         assert "report .docx" in resp.headers.get("Content-Disposition", "")
+
     def test_view_attachment_docx_success(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/attachment/0/view"
-        with patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch, \
-             patch("app.shared.pandoc_formats.convert_to_html") as mock_convert:
+        with (
+            patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch,
+            patch("app.shared.pandoc_formats.convert_to_html") as mock_convert,
+        ):
             mock_fetch.return_value = ("report.docx", b"docx-content", "application/octet-stream")
             mock_convert.return_value = "<html><body>Report content</body></html>"
             resp = client.get(url)
@@ -760,10 +1038,12 @@ class TestAttachmentDownload:
         assert "Report content" in html
 
     def test_view_attachment_txt_success(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/attachment/0/view"
-        with patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch, \
-             patch("app.shared.pandoc_formats.convert_to_html") as mock_convert:
+        with (
+            patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch,
+            patch("app.shared.pandoc_formats.convert_to_html") as mock_convert,
+        ):
             mock_fetch.return_value = ("notes.txt", b"some text", "text/plain")
             mock_convert.return_value = "<html><body>some text</body></html>"
             resp = client.get(url)
@@ -772,7 +1052,7 @@ class TestAttachmentDownload:
         assert "notes.txt" in html
 
     def test_view_attachment_non_viewable_redirects_to_download(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/attachment/0/view"
         with patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch:
             mock_fetch.return_value = ("archive.zip", b"zip-data", "application/zip")
@@ -782,17 +1062,19 @@ class TestAttachmentDownload:
         assert "/view" not in resp.headers["Location"]
 
     def test_view_attachment_pandoc_failure_redirects_to_download(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/attachment/0/view"
-        with patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch, \
-             patch("app.shared.pandoc_formats.convert_to_html") as mock_convert:
+        with (
+            patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch,
+            patch("app.shared.pandoc_formats.convert_to_html") as mock_convert,
+        ):
             mock_fetch.return_value = ("report.docx", b"docx-content", "application/octet-stream")
             mock_convert.return_value = None
             resp = client.get(url)
         assert resp.status_code == 302
 
     def test_view_attachment_message_not_found(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/attachment/0/view"
         with patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch:
             mock_fetch.return_value = (None, None, None)
@@ -805,10 +1087,12 @@ class TestAttachmentDownload:
         assert "/login" in resp.headers.get("Location", "")
 
     def test_view_attachment_html_has_open_in_docs_button(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/attachment/0/view"
-        with patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch, \
-             patch("app.shared.pandoc_formats.convert_to_html") as mock_convert:
+        with (
+            patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch,
+            patch("app.shared.pandoc_formats.convert_to_html") as mock_convert,
+        ):
             mock_fetch.return_value = ("report.docx", b"docx-content", "application/octet-stream")
             mock_convert.return_value = "<html><body>Report</body></html>"
             resp = client.get(url)
@@ -818,7 +1102,7 @@ class TestAttachmentDownload:
         assert "Open in Docs" in html
 
     def test_view_attachment_pdf_served_inline(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/attachment/0/view"
         with patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch:
             mock_fetch.return_value = ("document.pdf", b"%PDF-1.4 fake", "application/pdf")
@@ -828,7 +1112,7 @@ class TestAttachmentDownload:
         assert "inline" in resp.headers.get("Content-Disposition", "")
 
     def test_view_attachment_image_served_inline(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/attachment/0/view"
         with patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch:
             mock_fetch.return_value = ("photo.jpg", b"\xff\xd8\xff\xe0", "image/jpeg")
@@ -840,18 +1124,31 @@ class TestAttachmentDownload:
 
 class TestDownloadAttachmentInline:
     def test_download_uses_attachment_disposition_by_default(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/attachment/0"
         msg = _make_message_with_attachment("photo.jpg", b"\xff\xd8\xff\xe0", "image/jpeg")
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap, \
-             patch("app.modules.mail.controllers.message.fetch_message", return_value=msg):
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+            patch("app.modules.mail.controllers.message.fetch_message", return_value=msg),
+        ):
             mock_conn = MagicMock()
             mock_conn.execute.return_value.fetchone.return_value = {
-                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
-                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
-                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
-                "message_id": "msgid", "thread_id": None, "cc": "",
+                "id": 1,
+                "uid": 100,
+                "folder": "INBOX",
+                "subject": "subject",
+                "sender": "sender",
+                "recipients": "recip",
+                "date": "date",
+                "flags": "[]",
+                "snippet": "body",
+                "body": "",
+                "body_html": None,
+                "has_attachments": 0,
+                "message_id": "msgid",
+                "thread_id": None,
+                "cc": "",
             }
             mock_cache.return_value = mock_conn
             mock_client = MagicMock()
@@ -863,18 +1160,31 @@ class TestDownloadAttachmentInline:
         assert "attachment" in resp.headers.get("Content-Disposition", "")
 
     def test_download_uses_inline_disposition_with_query_param(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/attachment/0?inline=1"
         msg = _make_message_with_attachment("photo.jpg", b"\xff\xd8\xff\xe0", "image/jpeg")
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap, \
-             patch("app.modules.mail.controllers.message.fetch_message", return_value=msg):
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+            patch("app.modules.mail.controllers.message.fetch_message", return_value=msg),
+        ):
             mock_conn = MagicMock()
             mock_conn.execute.return_value.fetchone.return_value = {
-                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
-                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
-                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
-                "message_id": "msgid", "thread_id": None, "cc": "",
+                "id": 1,
+                "uid": 100,
+                "folder": "INBOX",
+                "subject": "subject",
+                "sender": "sender",
+                "recipients": "recip",
+                "date": "date",
+                "flags": "[]",
+                "snippet": "body",
+                "body": "",
+                "body_html": None,
+                "has_attachments": 0,
+                "message_id": "msgid",
+                "thread_id": None,
+                "cc": "",
             }
             mock_cache.return_value = mock_conn
             mock_client = MagicMock()

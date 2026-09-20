@@ -3,18 +3,26 @@ import uuid
 
 from flask import current_app, jsonify, redirect, render_template, request, session, url_for
 
-from app.shared.db import db
-from app.shared.models.imports import ImportRequest, ImportRun
-from app.admin.services.google_import import build_google_auth_url, exchange_google_code, gmail_profile
+from app.admin import imports_bp
+from app.admin.services.google_import import (
+    build_google_auth_url,
+    exchange_google_code,
+    gmail_profile,
+)
 from app.admin.services.import_security import (
     build_import_token,
     encrypt_import_secret,
     is_request_expired,
     parse_import_token,
 )
-from app.admin.services.takeout_uploads import append_upload_chunk, ensure_upload_metadata, finalize_upload
+from app.admin.services.takeout_uploads import (
+    append_upload_chunk,
+    ensure_upload_metadata,
+    finalize_upload,
+)
 from app.shared.audit import log_audit
-from app.admin import imports_bp
+from app.shared.db import db
+from app.shared.models.imports import ImportRequest, ImportRun
 
 
 def _google_import_ready():
@@ -96,7 +104,13 @@ def start_google_oauth(token):
     if error:
         return redirect(url_for("imports.view_request", token=token, error=error))
     if import_request.source_type != "google":
-        return redirect(url_for("imports.view_request", token=token, error="This import link expects a Google Takeout upload, not Google OAuth."))
+        return redirect(
+            url_for(
+                "imports.view_request",
+                token=token,
+                error="This import link expects a Google Takeout upload, not Google OAuth.",
+            )
+        )
     if not _google_import_ready():
         return redirect(
             url_for(
@@ -323,7 +337,9 @@ def init_takeout_upload(token):
     if not filename or total_size <= 0:
         return jsonify({"ok": False, "error": "Select a valid MBOX file before uploading."}), 400
     if not filename.lower().endswith(".mbox"):
-        return jsonify({"ok": False, "error": "Only MBOX files are supported for Google Takeout imports."}), 400
+        return jsonify(
+            {"ok": False, "error": "Only MBOX files are supported for Google Takeout imports."}
+        ), 400
 
     ensure_upload_metadata(import_request, filename, total_size)
     import_request.status = "pending_upload" if import_request.uploaded_bytes == 0 else "uploading"
@@ -361,7 +377,7 @@ def upload_takeout_chunk(token):
 
     try:
         ensure_upload_metadata(import_request, filename, total_size)
-        _path, uploaded_bytes = append_upload_chunk(import_request, offset, upload_file.read())
+        _path, _uploaded_bytes = append_upload_chunk(import_request, offset, upload_file.read())
         if is_last:
             finalize_upload(import_request)
             import_request.status = "ready"

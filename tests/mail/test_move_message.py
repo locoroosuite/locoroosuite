@@ -1,19 +1,19 @@
-from unittest.mock import patch, MagicMock
 import json
-
-
+from unittest.mock import MagicMock, patch
 
 MOVE_URL = "/app/mail/message/{account_id}/{message_id}/move"
 
 
 class TestMoveMessageValidation:
     def test_move_requires_auth(self, client):
-        resp = client.post(MOVE_URL.format(account_id=1, message_id=1), data={"destination": "Archive"})
+        resp = client.post(
+            MOVE_URL.format(account_id=1, message_id=1), data={"destination": "Archive"}
+        )
         assert resp.status_code == 302
         assert "/login" in resp.headers.get("Location", "")
 
     def test_move_missing_destination_xhr(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         resp = client.post(
             MOVE_URL.format(account_id=account_id, message_id=999),
             data={},
@@ -24,7 +24,7 @@ class TestMoveMessageValidation:
         assert "destination" in data["error"].lower()
 
     def test_move_missing_destination_non_xhr(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         resp = client.post(
             MOVE_URL.format(account_id=account_id, message_id=999),
             data={},
@@ -32,7 +32,7 @@ class TestMoveMessageValidation:
         assert resp.status_code == 302
 
     def test_move_nonexistent_message_xhr(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         with patch("app.modules.mail.controllers.message.open_cache") as mock_cache:
             mock_conn = MagicMock()
             mock_conn.execute.return_value.fetchone.return_value = None
@@ -47,14 +47,25 @@ class TestMoveMessageValidation:
         assert "not found" in data["error"].lower()
 
     def test_move_to_same_folder_xhr(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, account_id = authed_client
         with patch("app.modules.mail.controllers.message.open_cache") as mock_cache:
             mock_conn = MagicMock()
             mock_conn.execute.return_value.fetchone.return_value = {
-                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
-                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
-                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
-                "message_id": "msgid", "thread_id": None, "cc": "",
+                "id": 1,
+                "uid": 100,
+                "folder": "INBOX",
+                "subject": "subject",
+                "sender": "sender",
+                "recipients": "recip",
+                "date": "date",
+                "flags": "[]",
+                "snippet": "body",
+                "body": "",
+                "body_html": None,
+                "has_attachments": 0,
+                "message_id": "msgid",
+                "thread_id": None,
+                "cc": "",
             }
             mock_cache.return_value = mock_conn
             resp = client.post(
@@ -67,7 +78,7 @@ class TestMoveMessageValidation:
         assert "already" in data["error"].lower()
 
     def test_move_nonexistent_account(self, app, authed_client):
-        client, user_id, account_id = authed_client
+        client, _user_id, _account_id = authed_client
         resp = client.post(
             MOVE_URL.format(account_id=99999, message_id=1),
             data={"destination": "Archive"},
@@ -75,15 +86,28 @@ class TestMoveMessageValidation:
         assert resp.status_code == 404
 
     def test_move_success_xhr(self, app, authed_client):
-        client, user_id, account_id = authed_client
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap:
+        client, _user_id, account_id = authed_client
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+        ):
             mock_conn = MagicMock()
             mock_conn.execute.return_value.fetchone.return_value = {
-                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
-                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
-                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
-                "message_id": "msgid", "thread_id": None, "cc": "",
+                "id": 1,
+                "uid": 100,
+                "folder": "INBOX",
+                "subject": "subject",
+                "sender": "sender",
+                "recipients": "recip",
+                "date": "date",
+                "flags": "[]",
+                "snippet": "body",
+                "body": "",
+                "body_html": None,
+                "has_attachments": 0,
+                "message_id": "msgid",
+                "thread_id": None,
+                "cc": "",
             }
             mock_cache.return_value = mock_conn
             mock_client = MagicMock()
@@ -101,15 +125,28 @@ class TestMoveMessageValidation:
         assert data["destination"] == "Archive"
 
     def test_move_success_non_xhr_redirects(self, app, authed_client):
-        client, user_id, account_id = authed_client
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap:
+        client, _user_id, account_id = authed_client
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+        ):
             mock_conn = MagicMock()
             mock_conn.execute.return_value.fetchone.return_value = {
-                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
-                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
-                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
-                "message_id": "msgid", "thread_id": None, "cc": "",
+                "id": 1,
+                "uid": 100,
+                "folder": "INBOX",
+                "subject": "subject",
+                "sender": "sender",
+                "recipients": "recip",
+                "date": "date",
+                "flags": "[]",
+                "snippet": "body",
+                "body": "",
+                "body_html": None,
+                "has_attachments": 0,
+                "message_id": "msgid",
+                "thread_id": None,
+                "cc": "",
             }
             mock_cache.return_value = mock_conn
             mock_client = MagicMock()
@@ -124,15 +161,28 @@ class TestMoveMessageValidation:
         assert "Archive" in resp.headers.get("Location", "")
 
     def test_move_imap_error_xhr(self, app, authed_client):
-        client, user_id, account_id = authed_client
-        with patch("app.modules.mail.controllers.message.open_cache") as mock_cache, \
-             patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap:
+        client, _user_id, account_id = authed_client
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+        ):
             mock_conn = MagicMock()
             mock_conn.execute.return_value.fetchone.return_value = {
-                "id": 1, "uid": 100, "folder": "INBOX", "subject": "subject",
-                "sender": "sender", "recipients": "recip", "date": "date", "flags": "[]",
-                "snippet": "body", "body": "", "body_html": None, "has_attachments": 0,
-                "message_id": "msgid", "thread_id": None, "cc": "",
+                "id": 1,
+                "uid": 100,
+                "folder": "INBOX",
+                "subject": "subject",
+                "sender": "sender",
+                "recipients": "recip",
+                "date": "date",
+                "flags": "[]",
+                "snippet": "body",
+                "body": "",
+                "body_html": None,
+                "has_attachments": 0,
+                "message_id": "msgid",
+                "thread_id": None,
+                "cc": "",
             }
             mock_cache.return_value = mock_conn
             mock_imap.side_effect = Exception("IMAP connection failed")

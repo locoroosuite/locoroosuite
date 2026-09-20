@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import logging
 
-from flask import session, request, redirect, url_for, render_template, Response
+from flask import Response, redirect, render_template, request, session, url_for
 
+from app.modules.mail.controllers.helpers import mail_bp
+from app.shared import totp as totp_mod
+from app.shared.auth import require_customer
 from app.shared.db import db
 from app.shared.models.core import User
-from app.shared.auth import require_customer
-from app.shared import totp as totp_mod
-from app.modules.mail.controllers.helpers import mail_bp
 
 logger = logging.getLogger(__name__)
 

@@ -2,7 +2,6 @@ from email.message import Message
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-
 from app.modules.mail.services.imap_sync import _extract_bounce_info, _prepare_message_args
 
 
@@ -212,8 +211,9 @@ class TestPrepareMessageArgs:
 
 
 def _make_thread_db(tmp_path):
-    from app.modules.mail.services.cache_db import init_cache_schema
     import sqlcipher3
+
+    from app.modules.mail.services.cache_db import init_cache_schema
 
     db_path = str(tmp_path / "test.db")
     conn = sqlcipher3.connect(db_path)
@@ -225,33 +225,63 @@ def _make_thread_db(tmp_path):
 
 class TestBounceThreading:
     def test_bounce_grouped_with_original_thread(self, tmp_path):
-        from app.modules.mail.services.cache_db import upsert_message
         from app.modules.mail.controllers.helpers import _build_threads
+        from app.modules.mail.services.cache_db import upsert_message
 
         conn = _make_thread_db(tmp_path)
         upsert_message(
-            conn, "1", "INBOX", "Re: Project discussion", "a@b.com", "user@example.com",
-            "Mon, 1 Jan 2024 10:00:00 +0000", [], "snip1", "body1", False,
-            "<msg1@test.com>", thread_id="root@test.com",
+            conn,
+            "1",
+            "INBOX",
+            "Re: Project discussion",
+            "a@b.com",
+            "user@example.com",
+            "Mon, 1 Jan 2024 10:00:00 +0000",
+            [],
+            "snip1",
+            "body1",
+            False,
+            "<msg1@test.com>",
+            thread_id="root@test.com",
         )
         upsert_message(
-            conn, "2", "INBOX", "Re: Project discussion", "c@d.com", "user@example.com",
-            "Mon, 1 Jan 2024 11:00:00 +0000", [], "snip2", "body2", False,
-            "<msg2@test.com>", thread_id="root@test.com",
+            conn,
+            "2",
+            "INBOX",
+            "Re: Project discussion",
+            "c@d.com",
+            "user@example.com",
+            "Mon, 1 Jan 2024 11:00:00 +0000",
+            [],
+            "snip2",
+            "body2",
+            False,
+            "<msg2@test.com>",
+            thread_id="root@test.com",
         )
         upsert_message(
-            conn, "3", "INBOX", "Undelivered Mail Returned to Sender",
-            "MAILER-DAEMON@example.com", "user@example.com",
-            "Mon, 1 Jan 2024 12:00:00 +0000", [], "Delivery failed", "bounce body", False,
-            "<bounce@test.com>", thread_id="root@test.com",
-            is_bounce=True, bounce_reason="smtp; 550 error",
+            conn,
+            "3",
+            "INBOX",
+            "Undelivered Mail Returned to Sender",
+            "MAILER-DAEMON@example.com",
+            "user@example.com",
+            "Mon, 1 Jan 2024 12:00:00 +0000",
+            [],
+            "Delivery failed",
+            "bounce body",
+            False,
+            "<bounce@test.com>",
+            thread_id="root@test.com",
+            is_bounce=True,
+            bounce_reason="smtp; 550 error",
             original_subject="Re: Project discussion",
         )
 
         threads, pagination = _build_threads(conn, "INBOX")
         assert pagination["total_messages"] == 3
         assert len(threads) == 1
-        group = list(threads.values())[0]
+        group = next(iter(threads.values()))
         assert len(group) == 3
         bounce_msgs = [m for m in group if m.get("is_bounce")]
         assert len(bounce_msgs) == 1
@@ -259,68 +289,118 @@ class TestBounceThreading:
         assert "550 error" in bounce_msgs[0]["bounce_reason"]
 
     def test_bounce_displays_original_subject(self, tmp_path):
-        from app.modules.mail.services.cache_db import upsert_message
         from app.modules.mail.controllers.helpers import _build_threads
+        from app.modules.mail.services.cache_db import upsert_message
 
         conn = _make_thread_db(tmp_path)
         upsert_message(
-            conn, "1", "INBOX", "Re: Project discussion", "a@b.com", "user@example.com",
-            "Mon, 1 Jan 2024 10:00:00 +0000", [], "snip1", "body1", False,
-            "<msg1@test.com>", thread_id="root@test.com",
+            conn,
+            "1",
+            "INBOX",
+            "Re: Project discussion",
+            "a@b.com",
+            "user@example.com",
+            "Mon, 1 Jan 2024 10:00:00 +0000",
+            [],
+            "snip1",
+            "body1",
+            False,
+            "<msg1@test.com>",
+            thread_id="root@test.com",
         )
         upsert_message(
-            conn, "2", "INBOX", "Undelivered Mail Returned to Sender",
-            "MAILER-DAEMON@example.com", "user@example.com",
-            "Mon, 1 Jan 2024 11:00:00 +0000", [], "Delivery failed", "bounce body", False,
-            "<bounce@test.com>", thread_id="root@test.com",
-            is_bounce=True, bounce_reason="smtp; 550 error",
+            conn,
+            "2",
+            "INBOX",
+            "Undelivered Mail Returned to Sender",
+            "MAILER-DAEMON@example.com",
+            "user@example.com",
+            "Mon, 1 Jan 2024 11:00:00 +0000",
+            [],
+            "Delivery failed",
+            "bounce body",
+            False,
+            "<bounce@test.com>",
+            thread_id="root@test.com",
+            is_bounce=True,
+            bounce_reason="smtp; 550 error",
             original_subject="Re: Project discussion",
         )
 
-        threads, pagination = _build_threads(conn, "INBOX")
-        group = list(threads.values())[0]
+        threads, _pagination = _build_threads(conn, "INBOX")
+        group = next(iter(threads.values()))
         bounce_msgs = [m for m in group if m.get("is_bounce")]
         assert len(bounce_msgs) == 1
         assert bounce_msgs[0]["subject"] == "Re: Project discussion"
 
     def test_bounce_standalone_without_original_thread(self, tmp_path):
-        from app.modules.mail.services.cache_db import upsert_message
         from app.modules.mail.controllers.helpers import _build_threads
+        from app.modules.mail.services.cache_db import upsert_message
 
         conn = _make_thread_db(tmp_path)
         upsert_message(
-            conn, "1", "INBOX", "Undelivered Mail Returned to Sender",
-            "MAILER-DAEMON@example.com", "user@example.com",
-            "Mon, 1 Jan 2024 10:00:00 +0000", [], "failed", "bounce", False,
-            "<bounce@test.com>", thread_id="standalone@test.com",
-            is_bounce=True, bounce_reason="smtp; 550 error",
+            conn,
+            "1",
+            "INBOX",
+            "Undelivered Mail Returned to Sender",
+            "MAILER-DAEMON@example.com",
+            "user@example.com",
+            "Mon, 1 Jan 2024 10:00:00 +0000",
+            [],
+            "failed",
+            "bounce",
+            False,
+            "<bounce@test.com>",
+            thread_id="standalone@test.com",
+            is_bounce=True,
+            bounce_reason="smtp; 550 error",
             original_subject="Re: Something else",
         )
 
         threads, pagination = _build_threads(conn, "INBOX")
         assert pagination["total_messages"] == 1
         assert len(threads) == 1
-        group = list(threads.values())[0]
+        group = next(iter(threads.values()))
         assert group[0]["is_bounce"] is True
 
 
 class TestBounceThreadDetail:
     def test_bounce_in_thread_detail(self, tmp_path):
-        from app.modules.mail.services.cache_db import upsert_message
         from app.modules.mail.controllers.helpers import _load_thread_for_detail
+        from app.modules.mail.services.cache_db import upsert_message
 
         conn = _make_thread_db(tmp_path)
         upsert_message(
-            conn, "1", "INBOX", "Re: Project discussion", "a@b.com", "user@example.com",
-            "Mon, 1 Jan 2024 10:00:00 +0000", [], "snip1", "body1", False,
-            "<msg1@test.com>", thread_id="root@test.com",
+            conn,
+            "1",
+            "INBOX",
+            "Re: Project discussion",
+            "a@b.com",
+            "user@example.com",
+            "Mon, 1 Jan 2024 10:00:00 +0000",
+            [],
+            "snip1",
+            "body1",
+            False,
+            "<msg1@test.com>",
+            thread_id="root@test.com",
         )
         upsert_message(
-            conn, "2", "INBOX", "Undelivered Mail Returned to Sender",
-            "MAILER-DAEMON@example.com", "user@example.com",
-            "Mon, 1 Jan 2024 11:00:00 +0000", [], "failed", "bounce body", False,
-            "<bounce@test.com>", thread_id="root@test.com",
-            is_bounce=True, bounce_reason="smtp; 550 Access denied",
+            conn,
+            "2",
+            "INBOX",
+            "Undelivered Mail Returned to Sender",
+            "MAILER-DAEMON@example.com",
+            "user@example.com",
+            "Mon, 1 Jan 2024 11:00:00 +0000",
+            [],
+            "failed",
+            "bounce body",
+            False,
+            "<bounce@test.com>",
+            thread_id="root@test.com",
+            is_bounce=True,
+            bounce_reason="smtp; 550 Access denied",
             original_subject="Re: Project discussion",
         )
 
@@ -333,26 +413,46 @@ class TestBounceThreadDetail:
         assert bounce_tm[0]["subject"] == "Re: Project discussion"
 
     def test_bounce_as_current_message(self, tmp_path):
-        from app.modules.mail.services.cache_db import upsert_message
         from app.modules.mail.controllers.helpers import _load_thread_for_detail
+        from app.modules.mail.services.cache_db import upsert_message
 
         conn = _make_thread_db(tmp_path)
         upsert_message(
-            conn, "1", "INBOX", "Re: Project discussion", "a@b.com", "user@example.com",
-            "Mon, 1 Jan 2024 10:00:00 +0000", [], "snip1", "body1", False,
-            "<msg1@test.com>", thread_id="root@test.com",
+            conn,
+            "1",
+            "INBOX",
+            "Re: Project discussion",
+            "a@b.com",
+            "user@example.com",
+            "Mon, 1 Jan 2024 10:00:00 +0000",
+            [],
+            "snip1",
+            "body1",
+            False,
+            "<msg1@test.com>",
+            thread_id="root@test.com",
         )
         upsert_message(
-            conn, "2", "INBOX", "Undelivered Mail Returned to Sender",
-            "MAILER-DAEMON@example.com", "user@example.com",
-            "Mon, 1 Jan 2024 11:00:00 +0000", [], "failed", "bounce body", False,
-            "<bounce@test.com>", thread_id="root@test.com",
-            is_bounce=True, bounce_reason="smtp; 550 error",
+            conn,
+            "2",
+            "INBOX",
+            "Undelivered Mail Returned to Sender",
+            "MAILER-DAEMON@example.com",
+            "user@example.com",
+            "Mon, 1 Jan 2024 11:00:00 +0000",
+            [],
+            "failed",
+            "bounce body",
+            False,
+            "<bounce@test.com>",
+            thread_id="root@test.com",
+            is_bounce=True,
+            bounce_reason="smtp; 550 error",
             original_subject="Re: Project discussion",
         )
 
         result = _load_thread_for_detail(conn, "root@test.com", 2, "Re: Project discussion")
-        bounce_tm = [tm for tm in result if tm["id"] == 2][0]
+        bounce_tm = next(tm for tm in result if tm["id"] == 2)
         assert bounce_tm["is_bounce"] is True
         assert bounce_tm["is_current"] is True
 
@@ -365,6 +465,7 @@ class TestBounceSchema:
         conn = sqlcipher3.connect(db_path)
         conn.execute(f"PRAGMA key = \"x'{'0' * 64}'\"")
         from app.modules.mail.services.cache_db import init_cache_schema
+
         init_cache_schema(conn)
 
         columns = {row[1] for row in conn.execute("PRAGMA table_info(messages)").fetchall()}
@@ -373,21 +474,33 @@ class TestBounceSchema:
         assert "original_subject" in columns
 
     def test_upsert_and_retrieve_bounce(self, tmp_path):
-        from app.modules.mail.services.cache_db import upsert_message
         import sqlcipher3
+
+        from app.modules.mail.services.cache_db import upsert_message
 
         db_path = str(tmp_path / "test.db")
         conn = sqlcipher3.connect(db_path)
         conn.execute(f"PRAGMA key = \"x'{'0' * 64}'\"")
         from app.modules.mail.services.cache_db import init_cache_schema
+
         init_cache_schema(conn)
 
         upsert_message(
-            conn, "1", "INBOX", "Undelivered Mail Returned to Sender",
-            "MAILER-DAEMON@test.com", "user@test.com",
-            "Mon, 1 Jan 2024 10:00:00 +0000", [], "snip", "body", False,
-            "<bounce@test.com>", thread_id="orig@test.com",
-            is_bounce=True, bounce_reason="smtp; 550 error",
+            conn,
+            "1",
+            "INBOX",
+            "Undelivered Mail Returned to Sender",
+            "MAILER-DAEMON@test.com",
+            "user@test.com",
+            "Mon, 1 Jan 2024 10:00:00 +0000",
+            [],
+            "snip",
+            "body",
+            False,
+            "<bounce@test.com>",
+            thread_id="orig@test.com",
+            is_bounce=True,
+            bounce_reason="smtp; 550 error",
             original_subject="Re: Original thread",
         )
 
@@ -399,18 +512,29 @@ class TestBounceSchema:
         assert row[2] == "Re: Original thread"
 
     def test_non_bounce_defaults(self, tmp_path):
-        from app.modules.mail.services.cache_db import upsert_message
         import sqlcipher3
+
+        from app.modules.mail.services.cache_db import upsert_message
 
         db_path = str(tmp_path / "test.db")
         conn = sqlcipher3.connect(db_path)
         conn.execute(f"PRAGMA key = \"x'{'0' * 64}'\"")
         from app.modules.mail.services.cache_db import init_cache_schema
+
         init_cache_schema(conn)
 
         upsert_message(
-            conn, "1", "INBOX", "Regular email", "a@b.com", "c@d.com",
-            "Mon, 1 Jan 2024 10:00:00 +0000", [], "snip", "body", False,
+            conn,
+            "1",
+            "INBOX",
+            "Regular email",
+            "a@b.com",
+            "c@d.com",
+            "Mon, 1 Jan 2024 10:00:00 +0000",
+            [],
+            "snip",
+            "body",
+            False,
             "<msg@test.com>",
         )
 

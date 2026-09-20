@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 from mcp.server.fastmcp import FastMCP
-from app.shared.db import db as _db
-from app.shared.models.core import User, Domain, CustomerAccount
-from app.shared.keys import set_user_key, clear_user_key
+
 from app.api.token_service import create_api_token, generate_dek
-from app.mcp.errors import structured_error, get_registry_snapshot, health_check
+from app.mcp.errors import get_registry_snapshot, health_check, structured_error
+from app.shared.db import db as _db
+from app.shared.keys import clear_user_key, set_user_key
+from app.shared.models.core import CustomerAccount, Domain, User
 
 MAIL = "app.mcp.tools.mail"
 CONTACTS = "app.mcp.tools.contacts"
@@ -79,22 +79,31 @@ def mcp_all(app, _clean_db):
     token_value = None
     with app.app_context():
         token_value, _ = create_api_token(
-            user_id, dek, "test-token", [
-                "mail:read", "mail:write",
-                "contacts:read", "contacts:write",
-                "calendar:read", "calendar:write",
-                "docs:read", "docs:write",
-            ]
+            user_id,
+            dek,
+            "test-token",
+            [
+                "mail:read",
+                "mail:write",
+                "contacts:read",
+                "contacts:write",
+                "calendar:read",
+                "calendar:write",
+                "docs:read",
+                "docs:write",
+            ],
         )
 
     from app.mcp.auth import set_current_token
+
     set_current_token(token_value)
 
     mcp = FastMCP("test-resilience")
-    from app.mcp.tools.contacts import register as register_contacts
-    from app.mcp.tools.mail import register as register_mail
     from app.mcp.tools.calendar import register as register_calendar
+    from app.mcp.tools.contacts import register as register_contacts
     from app.mcp.tools.docs import register as register_docs
+    from app.mcp.tools.mail import register as register_mail
+
     register_contacts(mcp, app)
     register_mail(mcp, app)
     register_calendar(mcp, app)
@@ -148,11 +157,13 @@ class TestEndpointExceptionBoundary:
     def test_write_tool_exception_returns_structured_error(self, mcp_all):
         tools = mcp_all["tools"]
         with patch(f"{MAIL}._get_cache_conn", side_effect=ConnectionError("smtp down")):
-            result = asyncio.run(tools["mail_send"].fn(
-                to=["test@example.com"],
-                subject="Test",
-                body_plain="Hello",
-            ))
+            result = asyncio.run(
+                tools["mail_send"].fn(
+                    to=["test@example.com"],
+                    subject="Test",
+                    body_plain="Hello",
+                )
+            )
             data = json.loads(result)
             assert "error" in data
             assert data["error"]["code"] in ("INTERNAL_ERROR", "SERVICE_UNAVAILABLE")
@@ -183,24 +194,33 @@ class TestRegistryStability:
         tools = mcp_all["tools"]
         with patch(f"{MAIL}._get_cache_conn", side_effect=RuntimeError("neighbor crash")):
             asyncio.run(tools["mail_list_folders"].fn())
-        with patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{CONTACTS_CACHE_DB}.list_contacts", return_value=[]):
-                with patch(f"{CONTACTS_CACHE_DB}.count_contacts", return_value=0):
-                    result = asyncio.run(tools["contacts_list"].fn())
-                    data = json.loads(result)
-                    assert "data" in data
+        with (
+            patch(f"{CONTACTS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{CONTACTS_CACHE_DB}.list_contacts", return_value=[]),
+            patch(f"{CONTACTS_CACHE_DB}.count_contacts", return_value=0),
+        ):
+            result = asyncio.run(tools["contacts_list"].fn())
+            data = json.loads(result)
+            assert "data" in data
 
     def test_cross_module_failure_does_not_affect_other_modules(self, mcp_all):
         tools = mcp_all["tools"]
         with patch(f"{CALENDAR}._get_cache_conn", side_effect=RuntimeError("calendar crash")):
-            asyncio.run(tools["calendar_create_event"].fn(
-                calendar_id=1, summary="Test", start="2025-01-01T10:00:00+00:00", end="2025-01-01T11:00:00+00:00"
-            ))
-        with patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{DOCS_CACHE_DB}.list_documents", return_value=[]):
-                result = asyncio.run(tools["docs_list_documents"].fn())
-                data = json.loads(result)
-                assert "data" in data
+            asyncio.run(
+                tools["calendar_create_event"].fn(
+                    calendar_id=1,
+                    summary="Test",
+                    start="2025-01-01T10:00:00+00:00",
+                    end="2025-01-01T11:00:00+00:00",
+                )
+            )
+        with (
+            patch(f"{DOCS}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{DOCS_CACHE_DB}.list_documents", return_value=[]),
+        ):
+            result = asyncio.run(tools["docs_list_documents"].fn())
+            data = json.loads(result)
+            assert "data" in data
 
 
 class TestRepeatedFailures:
@@ -218,11 +238,13 @@ class TestRepeatedFailures:
         for _ in range(5):
             with patch(f"{MAIL}._get_cache_conn", side_effect=RuntimeError("fail")):
                 asyncio.run(tools["mail_list_folders"].fn())
-        with patch(f"{MAIL}._get_cache_conn", return_value=_mock_conn()):
-            with patch(f"{MAIL_CACHE_DB}.list_cached_folders", return_value=[]):
-                result = asyncio.run(tools["mail_list_folders"].fn())
-                data = json.loads(result)
-                assert "data" in data
+        with (
+            patch(f"{MAIL}._get_cache_conn", return_value=_mock_conn()),
+            patch(f"{MAIL_CACHE_DB}.list_cached_folders", return_value=[]),
+        ):
+            result = asyncio.run(tools["mail_list_folders"].fn())
+            data = json.loads(result)
+            assert "data" in data
 
 
 class TestHealthEndpoint:
@@ -264,10 +286,11 @@ class TestStructuredErrorSchema:
 class TestServerRestartSimulation:
     def test_fresh_mcp_instance_registers_all_tools(self, app, _clean_db):
         mcp = FastMCP("test-restart")
-        from app.mcp.tools.contacts import register as register_contacts
-        from app.mcp.tools.mail import register as register_mail
         from app.mcp.tools.calendar import register as register_calendar
+        from app.mcp.tools.contacts import register as register_contacts
         from app.mcp.tools.docs import register as register_docs
+        from app.mcp.tools.mail import register as register_mail
+
         register_contacts(mcp, app)
         register_mail(mcp, app)
         register_calendar(mcp, app)
@@ -279,6 +302,7 @@ class TestServerRestartSimulation:
         mcp1 = FastMCP("instance-1")
         mcp2 = FastMCP("instance-2")
         from app.mcp.tools.mail import register as register_mail
+
         register_mail(mcp1, app)
         register_mail(mcp2, app)
         tools1 = mcp1._tool_manager._tools
@@ -292,8 +316,12 @@ class TestServerRestartSimulation:
 class TestAuthErrorPropagation:
     def test_mcp_auth_error_returns_actual_code(self, mcp_all):
         from app.mcp.auth import McpAuthError
+
         tools = mcp_all["tools"]
-        with patch(f"{MAIL}._get_cache_conn", side_effect=McpAuthError("NO_DEK", "No encryption key available")):
+        with patch(
+            f"{MAIL}._get_cache_conn",
+            side_effect=McpAuthError("NO_DEK", "No encryption key available"),
+        ):
             result = asyncio.run(tools["mail_list_folders"].fn())
         data = json.loads(result)
         assert data["error"]["code"] == "NO_DEK"
@@ -302,11 +330,21 @@ class TestAuthErrorPropagation:
 
     def test_scope_denied_returns_actual_code(self, mcp_all):
         from app.mcp.auth import McpAuthError
+
         tools = mcp_all["tools"]
-        with patch(f"{MAIL}.resolve_write", side_effect=McpAuthError("SCOPE_DENIED", "This action requires the 'mail:write' permission.")):
-            result = asyncio.run(tools["mail_send"].fn(
-                to=["test@example.com"], subject="Test", body_plain="Hello",
-            ))
+        with patch(
+            f"{MAIL}.resolve_write",
+            side_effect=McpAuthError(
+                "SCOPE_DENIED", "This action requires the 'mail:write' permission."
+            ),
+        ):
+            result = asyncio.run(
+                tools["mail_send"].fn(
+                    to=["test@example.com"],
+                    subject="Test",
+                    body_plain="Hello",
+                )
+            )
         data = json.loads(result)
         assert data["error"]["code"] == "SCOPE_DENIED"
         assert "mail:write" in data["error"]["message"]
@@ -314,23 +352,35 @@ class TestAuthErrorPropagation:
 
     def test_auth_invalid_returns_actual_code(self, mcp_all):
         from app.mcp.auth import McpAuthError
+
         tools = mcp_all["tools"]
-        with patch(f"{MAIL}._get_cache_conn", side_effect=McpAuthError("AUTH_INVALID", "Invalid or expired API token")):
+        with patch(
+            f"{MAIL}._get_cache_conn",
+            side_effect=McpAuthError("AUTH_INVALID", "Invalid or expired API token"),
+        ):
             result = asyncio.run(tools["mail_list_folders"].fn())
         data = json.loads(result)
         assert data["error"]["code"] == "AUTH_INVALID"
 
     def test_unknown_auth_error_code_mapped_to_auth_error(self, mcp_all):
         from app.mcp.auth import McpAuthError
+
         tools = mcp_all["tools"]
-        with patch(f"{MAIL}._get_cache_conn", side_effect=McpAuthError("SOME_NEW_CODE", "something")):
+        with patch(
+            f"{MAIL}._get_cache_conn", side_effect=McpAuthError("SOME_NEW_CODE", "something")
+        ):
             result = asyncio.run(tools["mail_list_folders"].fn())
         data = json.loads(result)
         assert data["error"]["code"] == "AUTH_ERROR"
 
     def test_internal_error_does_not_leak_exception_details(self, mcp_all):
         tools = mcp_all["tools"]
-        with patch(f"{MAIL}._get_cache_conn", side_effect=RuntimeError("database connection string: postgresql://admin:secret@db:5432")):
+        with patch(
+            f"{MAIL}._get_cache_conn",
+            side_effect=RuntimeError(
+                "database connection string: postgresql://admin:secret@db:5432"
+            ),
+        ):
             result = asyncio.run(tools["mail_list_folders"].fn())
         data = json.loads(result)
         assert data["error"]["code"] == "INTERNAL_ERROR"

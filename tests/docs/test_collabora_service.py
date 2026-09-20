@@ -4,14 +4,19 @@ These exercise ``collabora._convert`` / ``_is_valid_output`` / ``_mime_for_ext``
 directly (mocking ``requests``). Previously this module had no tests at all — it
 was only ever mocked at controller call sites, which hid the PDF conversion bug.
 """
+
 import io
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from app.modules.docs.services import collabora
 from app.modules.docs.services.collabora import (
-    ConversionError, _convert, _is_valid_output, _mime_for_ext, get_edit_url,
+    ConversionError,
+    _convert,
+    _is_valid_output,
+    _mime_for_ext,
+    get_edit_url,
 )
 
 
@@ -33,10 +38,12 @@ def _mock_response(content=b"PK\x03\x04odt-data", status=200):
 class TestConvertRequestShape:
     def test_convert_posts_to_cool_convert_with_target_format(self, app):
         app.config["COLLABORA_INTERNAL_URL"] = "http://cool:9980"
-        with patch("app.modules.docs.services.collabora.requests.post", return_value=_mock_response()) as mock_post:
+        with patch(
+            "app.modules.docs.services.collabora.requests.post", return_value=_mock_response()
+        ) as mock_post:
             _convert(io.BytesIO(b"%PDF-1.4 data"), "contract.pdf", "odg")
 
-        url, *args = mock_post.call_args.args
+        url, *_args = mock_post.call_args.args
         assert url == "http://cool:9980/cool/convert-to"
         kwargs = mock_post.call_args.kwargs
         assert kwargs["data"] == {"format": "odg"}
@@ -50,14 +57,18 @@ class TestConvertRequestShape:
     def test_convert_uses_internal_url_over_default(self, app):
         app.config["COLLABORA_INTERNAL_URL"] = "http://internal:9980"
         app.config["COLLABORA_URL"] = "http://fallback:9980"
-        with patch("app.modules.docs.services.collabora.requests.post", return_value=_mock_response()) as mock_post:
+        with patch(
+            "app.modules.docs.services.collabora.requests.post", return_value=_mock_response()
+        ) as mock_post:
             _convert(io.BytesIO(b"PK\x03\x04x"), "d.odt", "odt")
         assert mock_post.call_args.args[0] == "http://internal:9980/cool/convert-to"
 
     def test_convert_returns_bytesio(self, app):
         app.config["COLLABORA_INTERNAL_URL"] = "http://cool:9980"
-        with patch("app.modules.docs.services.collabora.requests.post",
-                   return_value=_mock_response(content=b"PK\x03\x04payload")):
+        with patch(
+            "app.modules.docs.services.collabora.requests.post",
+            return_value=_mock_response(content=b"PK\x03\x04payload"),
+        ):
             result = _convert(io.BytesIO(b"data"), "d.odt", "odt")
         assert isinstance(result, io.BytesIO)
         assert result.read() == b"PK\x03\x04payload"
@@ -65,7 +76,9 @@ class TestConvertRequestShape:
     def test_convert_reads_bytes_or_filestream(self, app):
         app.config["COLLABORA_INTERNAL_URL"] = "http://cool:9980"
         # Passing raw bytes (not a stream) must also work.
-        with patch("app.modules.docs.services.collabora.requests.post", return_value=_mock_response()) as mock_post:
+        with patch(
+            "app.modules.docs.services.collabora.requests.post", return_value=_mock_response()
+        ) as mock_post:
             _convert(b"raw-bytes", "d.odt", "odt")
         assert mock_post.call_args.kwargs["files"]["data"][1] == b"raw-bytes"
 
@@ -73,14 +86,19 @@ class TestConvertRequestShape:
 class TestConvertErrors:
     def test_convert_raises_on_http_error(self, app):
         import requests
+
         app.config["COLLABORA_INTERNAL_URL"] = "http://cool:9980"
-        with patch("app.modules.docs.services.collabora.requests.post",
-                   return_value=_mock_response(status=401, content=b"")):
+        with patch(
+            "app.modules.docs.services.collabora.requests.post",
+            return_value=_mock_response(status=401, content=b""),
+        ):
             resp = MagicMock()
             resp.raise_for_status.side_effect = requests.HTTPError("401 Client Error")
-            with patch("app.modules.docs.services.collabora.requests.post", return_value=resp):
-                with pytest.raises(ConversionError, match="Collabora conversion failed"):
-                    _convert(io.BytesIO(b"%PDF-1.4 data"), "c.pdf", "odg")
+            with (
+                patch("app.modules.docs.services.collabora.requests.post", return_value=resp),
+                pytest.raises(ConversionError, match="Collabora conversion failed"),
+            ):
+                _convert(io.BytesIO(b"%PDF-1.4 data"), "c.pdf", "odg")
 
     def test_convert_raises_when_url_unconfigured(self, app):
         app.config["COLLABORA_INTERNAL_URL"] = None
@@ -92,10 +110,14 @@ class TestConvertErrors:
         # Collabora sometimes returns 200 with an error body (e.g. empty / HTML
         # error). Invalid magic must raise rather than silently storing junk.
         app.config["COLLABORA_INTERNAL_URL"] = "http://cool:9980"
-        with patch("app.modules.docs.services.collabora.requests.post",
-                   return_value=_mock_response(content=b"ERROR: save failed")):
-            with pytest.raises(ConversionError, match="invalid output"):
-                _convert(io.BytesIO(b"%PDF-1.4 data"), "c.pdf", "odg")
+        with (
+            patch(
+                "app.modules.docs.services.collabora.requests.post",
+                return_value=_mock_response(content=b"ERROR: save failed"),
+            ),
+            pytest.raises(ConversionError, match="invalid output"),
+        ):
+            _convert(io.BytesIO(b"%PDF-1.4 data"), "c.pdf", "odg")
 
 
 class TestIsValidOutput:
@@ -150,7 +172,7 @@ class TestGetEditUrl:
             '<wopi-discovery><net-zone name="external-http">'
             '<app name="drawing"><action ext="odg" name="edit" '
             'urlsrc="http://cool:9980/browser/d/cool.html?"/></app>'
-            '</net-zone></wopi-discovery>'
+            "</net-zone></wopi-discovery>"
         )
         resp = MagicMock(status_code=200, text=discovery)
         resp.raise_for_status = MagicMock()
@@ -162,8 +184,12 @@ class TestGetEditUrl:
         app.config["COLLABORA_INTERNAL_URL"] = "http://cool:9980"
         actions = "".join(
             f'<app name="{a}"><action ext="{e}" name="edit" urlsrc="http://cool:9980/u?{e}="/></app>'
-            for a, e in (("text", "odt"), ("spreadsheet", "ods"),
-                         ("presentation", "odp"), ("drawing", "odg"))
+            for a, e in (
+                ("text", "odt"),
+                ("spreadsheet", "ods"),
+                ("presentation", "odp"),
+                ("drawing", "odg"),
+            )
         )
         discovery = f'<wopi-discovery><net-zone name="x">{actions}</net-zone></wopi-discovery>'
         resp = MagicMock(status_code=200, text=discovery)

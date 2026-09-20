@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate
-from typing import Any, Callable
+from typing import Any
 
 _logger = logging.getLogger(__name__)
 
@@ -24,7 +25,9 @@ def send_message(
     get_cache_conn: Callable[[], Any] | None = None,
 ) -> dict[str, Any]:
     _build_and_send_smtp(account, domain, secret, to, cc, bcc, subject, body_plain, body_html)
-    sent_msg, sent_uid, msg_id = _append_to_sent(account, domain, secret, to, cc, bcc, subject, body_plain, body_html)
+    _sent_msg, sent_uid, msg_id = _append_to_sent(
+        account, domain, secret, to, cc, bcc, subject, body_plain, body_html
+    )
     if draft_id:
         _cleanup_draft(account, domain, secret, draft_id, get_cache_conn)
     return {
@@ -38,7 +41,9 @@ def send_message(
     }
 
 
-def _build_message(to, cc, bcc, subject, body_plain, body_html, from_addr, domain_name, for_sent=False):
+def _build_message(
+    to, cc, bcc, subject, body_plain, body_html, from_addr, domain_name, for_sent=False
+):
     msg = MIMEMultipart("mixed")
     msg["From"] = from_addr
     msg["To"] = ", ".join(to)
@@ -64,7 +69,9 @@ def _build_message(to, cc, bcc, subject, body_plain, body_html, from_addr, domai
 def _build_and_send_smtp(account, domain, secret, to, cc, bcc, subject, body_plain, body_html):
     from app.modules.mail.services.smtp_client import smtp_connect, smtp_login, smtp_send
 
-    msg = _build_message(to, cc, bcc, subject, body_plain, body_html, account.email_address, domain.name)
+    msg = _build_message(
+        to, cc, bcc, subject, body_plain, body_html, account.email_address, domain.name
+    )
     all_recipients = list(to) + (cc or []) + (bcc or [])
     msg_bytes = msg.as_bytes()
 
@@ -81,11 +88,22 @@ def _build_and_send_smtp(account, domain, secret, to, cc, bcc, subject, body_pla
 
 
 def _append_to_sent(account, domain, secret, to, cc, bcc, subject, body_plain, body_html):
-    from app.modules.mail.services.imap_client import ensure_folder_and_append, parse_append_uid, safe_logout
+    from app.modules.mail.services.imap_client import (
+        ensure_folder_and_append,
+        parse_append_uid,
+        safe_logout,
+    )
 
     sent_msg = _build_message(
-        to, cc, bcc, subject, body_plain, body_html,
-        account.email_address, domain.name, for_sent=True,
+        to,
+        cc,
+        bcc,
+        subject,
+        body_plain,
+        body_html,
+        account.email_address,
+        domain.name,
+        for_sent=True,
     )
     sent_msg["Date"] = formatdate(localtime=True)
 
@@ -93,7 +111,9 @@ def _append_to_sent(account, domain, secret, to, cc, bcc, subject, body_plain, b
     try:
         client = _imap_connect(account, domain, secret)
         try:
-            _, resp_data = ensure_folder_and_append(client, "Sent", sent_msg.as_bytes(), flags=["\\Seen"])
+            _, resp_data = ensure_folder_and_append(
+                client, "Sent", sent_msg.as_bytes(), flags=["\\Seen"]
+            )
             sent_uid = parse_append_uid(resp_data)
         finally:
             safe_logout(client)
@@ -104,7 +124,11 @@ def _append_to_sent(account, domain, secret, to, cc, bcc, subject, body_plain, b
 
 
 def _cleanup_draft(account, domain, secret, draft_id, get_cache_conn):
-    from app.modules.mail.services.imap_client import delete_message_by_uid, safe_logout, select_folder
+    from app.modules.mail.services.imap_client import (
+        delete_message_by_uid,
+        safe_logout,
+        select_folder,
+    )
 
     try:
         client = _imap_connect(account, domain, secret)

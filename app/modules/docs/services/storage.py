@@ -64,12 +64,14 @@ def _sidecar_path(user_id, account_id, doc_id):
 
 def write_sidecar(user_id, account_id, doc_id, metadata):
     import json
+
     path = _sidecar_path(user_id, account_id, doc_id)
     path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2))
 
 
 def read_sidecar(user_id, account_id, doc_id):
     import json
+
     path = _sidecar_path(user_id, account_id, doc_id)
     if not path.exists():
         return None

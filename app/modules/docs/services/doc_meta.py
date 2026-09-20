@@ -1,8 +1,8 @@
 import io
 import json
 import logging
-import zipfile
 import xml.etree.ElementTree as ET
+import zipfile
 
 logger = logging.getLogger(__name__)
 
@@ -14,13 +14,15 @@ META_KEY = "x-locoroo-meta"
 def inject_metadata(file_bytes, metadata):
     blob = json.dumps(metadata, ensure_ascii=False)
     buf = io.BytesIO()
-    with zipfile.ZipFile(io.BytesIO(file_bytes), "r") as zin:
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout:
-            for item in zin.infolist():
-                data = zin.read(item.filename)
-                if item.filename == "meta.xml":
-                    data = _patch_meta_xml(data, blob)
-                zout.writestr(item, data)
+    with (
+        zipfile.ZipFile(io.BytesIO(file_bytes), "r") as zin,
+        zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout,
+    ):
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename == "meta.xml":
+                data = _patch_meta_xml(data, blob)
+            zout.writestr(item, data)
     buf.seek(0)
     return buf.read()
 
@@ -80,7 +82,10 @@ def _parse_meta_xml(xml_bytes):
         return None
 
     for child in meta_elem:
-        if child.tag == f"{{{META_NS}}}user-defined" and child.get(f"{{{META_NS}}}name") == META_KEY:
+        if (
+            child.tag == f"{{{META_NS}}}user-defined"
+            and child.get(f"{{{META_NS}}}name") == META_KEY
+        ):
             try:
                 text = child.text
                 if not text:

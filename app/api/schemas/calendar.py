@@ -60,7 +60,9 @@ class EventPath(BaseModel):
 
 
 class ListEventsQuery(BaseModel):
-    account_id: int | None = Field(default=None, description="Mail account ID (defaults to primary account)")
+    account_id: int | None = Field(
+        default=None, description="Mail account ID (defaults to primary account)"
+    )
     max_results: int = Field(default=50, ge=1, le=200, description="Maximum results (1-200)")
     since: str | None = Field(default=None, description="Start of date range (ISO 8601)")
     until: str | None = Field(default=None, description="End of date range (ISO 8601)")
@@ -68,7 +70,9 @@ class ListEventsQuery(BaseModel):
 
 class SearchEventsQuery(BaseModel):
     q: str = Field(..., description="Search query")
-    account_id: int | None = Field(default=None, description="Mail account ID (defaults to primary account)")
+    account_id: int | None = Field(
+        default=None, description="Mail account ID (defaults to primary account)"
+    )
     max_results: int = Field(default=50, ge=1, le=200, description="Maximum results (1-200)")
 
 
@@ -81,8 +85,12 @@ class CreateEventBody(BaseModel):
     calendar_id: int = Field(..., description="Calendar to create event in")
     is_all_day: bool = Field(False, description="Whether this is an all-day event")
     timezone: str | None = Field(None, description="IANA timezone (e.g. America/New_York)")
-    attendees: list[dict] = Field(default_factory=list, description="Attendee list with email and optional name")
-    reminders: list[dict] = Field(default_factory=list, description="Reminders (type + trigger_minutes)")
+    attendees: list[dict] = Field(
+        default_factory=list, description="Attendee list with email and optional name"
+    )
+    reminders: list[dict] = Field(
+        default_factory=list, description="Reminders (type + trigger_minutes)"
+    )
     recurrence: str | None = Field(default=None, description="RRULE string")
 
 
@@ -95,7 +103,9 @@ class UpdateEventBody(BaseModel):
     calendar_id: int | None = Field(None, description="Calendar ID to move event to")
     is_all_day: bool | None = Field(None, description="Whether this is an all-day event")
     timezone: str | None = Field(None, description="IANA timezone (e.g. America/New_York)")
-    attendees: list[dict] | None = Field(None, description="Attendee list with email and optional name")
+    attendees: list[dict] | None = Field(
+        None, description="Attendee list with email and optional name"
+    )
     reminders: list[dict] | None = Field(None, description="Reminders (type + trigger_minutes)")
     recurrence: str | None = Field(None, description="RRULE string")
 
@@ -103,8 +113,12 @@ class UpdateEventBody(BaseModel):
 class FreeBusyBody(BaseModel):
     start: str = Field(..., description="Range start (ISO 8601)")
     end: str = Field(..., description="Range end (ISO 8601)")
-    calendar_ids: list[int] | None = Field(default=None, description="Specific calendar IDs to check (defaults to all)")
-    account_id: int | None = Field(default=None, description="Mail account ID (defaults to primary account)")
+    calendar_ids: list[int] | None = Field(
+        default=None, description="Specific calendar IDs to check (defaults to all)"
+    )
+    account_id: int | None = Field(
+        default=None, description="Mail account ID (defaults to primary account)"
+    )
 
 
 class BusyEntry(BaseModel):

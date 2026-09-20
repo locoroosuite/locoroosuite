@@ -1,4 +1,4 @@
-from app.modules.contacts.services.vcard import parse_vcard, generate_vcard, extract_uid
+from app.modules.contacts.services.vcard import extract_uid, generate_vcard, parse_vcard
 
 
 def test_parse_basic_vcard():

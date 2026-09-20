@@ -92,14 +92,30 @@ deploy:
 
 # npm-publish: Publishes the locoroosuite-mcp package to npm.
 #
-# Requires a granular access token (bypasses 2FA):
-#   1. Go to https://www.npmjs.com/settings/<username>/tokens
-#   2. Generate New Token → Granular Access Token
-#   3. Set permissions to Read and write for the locoroosuite-mcp package
-#   4. Add to ~/.npmrc:
-#      echo "//registry.npmjs.org/:_authToken=YOUR_TOKEN" >> ~/.npmrc
+# npm restricts tokens that bypass 2FA for direct publishing (login alone is
+# NOT enough — publish fails with 403). Two supported paths:
+#
+#   A) Granular access token (non-interactive, recommended):
+#      1. Enable 2FA on your npm account (required to create such tokens).
+#      2. Go to https://www.npmjs.com/settings/<username>/tokens
+#      3. Generate New Token → Granular Access Token
+#      4. Set permissions to Read and write for the locoroosuite-mcp package
+#      5. Add to ~/.npmrc:
+#         echo "//registry.npmjs.org/:_authToken=YOUR_TOKEN" >> ~/.npmrc
+#      Then plain `make npm-publish` works.
+#
+#   B) Interactive login + one-time password:
+#      1. npm login
+#      2. make npm-publish OTP=123456   (6-digit code from your authenticator)
 #
 npm-publish:
+	@echo "==> Checking npm login"
+	@cd packages/locoroosuite-mcp && npm whoami >/dev/null 2>&1 || { \
+		echo "ERROR: Not logged in to npm (publish would fail with a confusing 404)."; \
+		echo "Fix: npm login, or add a granular access token to ~/.npmrc (see notes above)."; \
+		exit 1; \
+	}
+	@echo "==> Logged in as $$(cd packages/locoroosuite-mcp && npm whoami)"
 	@echo "==> Cleaning previous build"
 	rm -rf packages/locoroosuite-mcp/dist
 	@echo "==> Building"
@@ -109,7 +125,13 @@ npm-publish:
 	@echo "==> Previewing tarball"
 	cd packages/locoroosuite-mcp && npm pack --dry-run
 	@echo "==> Publishing to npm"
-	cd packages/locoroosuite-mcp && npm publish
+	cd packages/locoroosuite-mcp && npm publish $(if $(OTP),--otp=$(OTP)) || { \
+		echo ""; \
+		echo "ERROR: Publish failed."; \
+		echo "If 403 'Two-factor authentication ... required': use 'make npm-publish OTP=<6-digit code>'"; \
+		echo "or set up a granular access token (see comments above the npm-publish target)."; \
+		exit 1; \
+	}
 	@echo "==> Done"
 
 # --- Push ---

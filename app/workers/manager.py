@@ -3,22 +3,29 @@ import logging
 import queue
 import threading
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import or_
 
-from app.shared.db import db
-from app.shared.models.core import CustomerAccount, CustomerSettings, Domain
-from app.shared.models.imports import ImportRequest
-from app.modules.mail.services.cache_db import list_recent_active_folders, open_cache
-from app.modules.mail.services.imap_client import connect_imap, login_imap, select_folder, idle_wait, safe_logout
-from app.modules.mail.services.imap_sync import sync_account
 from app.admin.services.import_runner import run_import
 from app.admin.services.import_security import is_request_expired
 from app.admin.services.takeout_uploads import cleanup_upload_path
+from app.modules.mail.services.cache_db import list_recent_active_folders, open_cache
+from app.modules.mail.services.imap_client import (
+    connect_imap,
+    idle_wait,
+    login_imap,
+    safe_logout,
+    select_folder,
+)
+from app.modules.mail.services.imap_sync import sync_account
 from app.modules.mail.services.secrets import decrypt_with_key
+from app.shared import push_keys
+from app.shared.db import db
 from app.shared.events import push_event
 from app.shared.keys import get_user_key
+from app.shared.models.core import CustomerAccount, CustomerSettings, Domain, PushSubscription
+from app.shared.models.imports import ImportRequest
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +62,11 @@ class _IdleWorker:
                     return
                 try:
                     client = connect_imap(domain.imap_host, domain.imap_port, domain.imap_tls)
-                    secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
+                    secret = (
+                        decrypt_with_key(account.encrypted_secret, key)
+                        if account.encrypted_secret
+                        else None
+                    )
                     login_imap(
                         client,
                         account.username,
@@ -130,10 +141,13 @@ class WorkerManager:
         self._import_retry_attempts = {}
         self._retry_schedule = (15, 30, 60, 120, 300)
         self._last_upload_cleanup = 0
+        self._push_armed_users = set()
+        self._push_armed_accounts = set()
 
     def start(self):
         if not self._thread.is_alive():
             logger.info("worker manager starting")
+            self._arm_push_users()
             self._thread.start()
 
     def stop(self):
@@ -158,9 +172,79 @@ class WorkerManager:
         with self._lock:
             previous = self._active_accounts.pop(customer_id, None)
             if previous:
-                self._stop_idle_for_account(previous)
+                # U24.30: push-armed accounts keep their headless watchers —
+                # logging out of a web session must not kill phone push.
+                if previous not in self._push_armed_accounts:
+                    self._stop_idle_for_account(previous)
                 self._active_folders.pop(previous, None)
                 self._clear_retry_for_account(previous)
+
+    # --- Push arming (U24.29/U24.30) ---
+
+    def is_push_armed(self, user_id):
+        with self._lock:
+            return user_id in self._push_armed_users
+
+    def arm_push_user(self, user_id):
+        """Arm headless mail watching for every active account of a user."""
+        try:
+            dek = push_keys.ensure_push_key(user_id)
+            if not dek:
+                logger.warning("push arm skipped, no usable key user_id=%s", user_id)
+                return False
+            accounts = CustomerAccount.query.filter_by(customer_id=user_id, is_active=True).all()
+            with self._lock:
+                self._push_armed_users.add(user_id)
+                self._push_armed_accounts.update(a.id for a in accounts)
+            for account in accounts:
+                self._ensure_idle(account.id, "INBOX")
+                self.enqueue_sync(account.id, folder="INBOX", reason="push_arm", priority=20)
+            logger.info("push armed user_id=%s accounts=%s", user_id, [a.id for a in accounts])
+            return True
+        except Exception:
+            logger.exception("push arm failed user_id=%s", user_id)
+            return False
+
+    def disarm_push_user(self, user_id):
+        """Stop headless watchers for a user (last subscription removed)."""
+        try:
+            accounts = CustomerAccount.query.filter_by(customer_id=user_id, is_active=True).all()
+            with self._lock:
+                self._push_armed_users.discard(user_id)
+                active_accounts = set(self._active_accounts.values())
+                for account in accounts:
+                    if account.id not in active_accounts:
+                        self._push_armed_accounts.discard(account.id)
+            for account in accounts:
+                with self._lock:
+                    is_active = account.id in active_accounts
+                if not is_active:
+                    self._stop_idle_for_account(account.id)
+            logger.info("push disarmed user_id=%s", user_id)
+        except Exception:
+            logger.exception("push disarm failed user_id=%s", user_id)
+
+    def _arm_push_users(self):
+        """Startup arming: load keys from the push key store for subscribed users."""
+        with self.app.app_context():
+            try:
+                user_ids = [
+                    row[0]
+                    for row in db.session.query(PushSubscription.user_id)
+                    .filter_by(disabled_at=None)
+                    .distinct()
+                    .all()
+                ]
+            except Exception:
+                logger.exception("push startup arming query failed")
+                return
+            armed = 0
+            for user_id in user_ids:
+                if self.arm_push_user(user_id):
+                    armed += 1
+            logger.info(
+                "push startup arming complete subscribed_users=%s armed=%s", len(user_ids), armed
+            )
 
     def enqueue_sync(self, account_id, folder=None, reason="manual", priority=10, delay=0):
         key = self._sync_key(account_id, folder)
@@ -311,7 +395,7 @@ class WorkerManager:
                         self._clear_retry(key)
                         continue
 
-                    def status_cb(payload):
+                    def status_cb(payload, reason=reason, account=account):
                         payload["reason"] = reason
                         self.emit_status(account, **payload)
 
@@ -322,7 +406,12 @@ class WorkerManager:
                         reason,
                         priority,
                     )
-                    include_recent_page = reason in ("folder_open", "login", "account_switch", "cache_reset")
+                    include_recent_page = reason in (
+                        "folder_open",
+                        "login",
+                        "account_switch",
+                        "cache_reset",
+                    )
                     sync_ok = sync_account(
                         account,
                         folders=folder,
@@ -410,10 +499,16 @@ class WorkerManager:
                     if not import_request.is_enabled or is_request_expired(import_request):
                         self._clear_import_retry(import_request_id)
                         continue
-                    if import_request.source_type == "google" and not import_request.encrypted_source_refresh_token:
+                    if (
+                        import_request.source_type == "google"
+                        and not import_request.encrypted_source_refresh_token
+                    ):
                         self._clear_import_retry(import_request_id)
                         continue
-                    if import_request.source_type == "google_takeout" and not import_request.staged_upload_path:
+                    if (
+                        import_request.source_type == "google_takeout"
+                        and not import_request.staged_upload_path
+                    ):
                         self._clear_import_retry(import_request_id)
                         continue
                     logger.info(
@@ -469,13 +564,29 @@ class WorkerManager:
     def _schedule_background_checks(self):
         with self.app.app_context():
             self._cleanup_expired_uploads()
-            active_accounts = list(self._active_accounts.values())
-            for account_id in active_accounts:
+            with self._lock:
+                watched_accounts = list(
+                    set(self._active_accounts.values()) | set(self._push_armed_accounts)
+                )
+            for account_id in watched_accounts:
                 account = db.session.get(CustomerAccount, account_id)
                 if not account or not account.is_active:
                     continue
                 if not get_user_key(account.customer_id):
-                    continue
+                    # Push-armed users can re-arm their key from the key store
+                    # (e.g. after this process lost it); active-session users
+                    # simply have no key until they log in again.
+                    if account_id in self._push_armed_accounts:
+                        try:
+                            if not push_keys.ensure_push_key(account.customer_id):
+                                continue
+                        except Exception:
+                            logger.exception(
+                                "push key re-arm failed user_id=%s", account.customer_id
+                            )
+                            continue
+                    else:
+                        continue
                 selected = self._active_folders.get(account_id, "INBOX")
                 self._ensure_idle(account_id, "INBOX")
                 if selected and selected != "INBOX":
@@ -488,7 +599,9 @@ class WorkerManager:
                     if now - last_poll >= interval:
                         self.enqueue_sync(account_id, folder="INBOX", reason="polling", priority=20)
                         if selected and selected != "INBOX":
-                            self.enqueue_sync(account_id, folder=selected, reason="polling", priority=20)
+                            self.enqueue_sync(
+                                account_id, folder=selected, reason="polling", priority=20
+                            )
                         self._last_active_poll[account_id] = now
 
                 last_bg = self._last_background_check.get(account_id, 0)
@@ -499,10 +612,12 @@ class WorkerManager:
                     if not key:
                         continue
                     conn = open_cache(account.cache_db_path, key)
-                    since_iso = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+                    since_iso = (datetime.now(UTC) - timedelta(days=30)).isoformat()
                     recent_folders = list_recent_active_folders(conn, since_iso)
                     for folder in recent_folders:
-                        self.enqueue_sync(account_id, folder=folder, reason="background", priority=50)
+                        self.enqueue_sync(
+                            account_id, folder=folder, reason="background", priority=50
+                        )
                     self._last_background_check[account_id] = now
 
     def _cleanup_expired_uploads(self):
@@ -510,19 +625,20 @@ class WorkerManager:
         if now - self._last_upload_cleanup < 3600:
             return
         self._last_upload_cleanup = now
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=int(self.app.config.get("IMPORT_UPLOAD_RETENTION_HOURS", 48)))
-        stale_rows = (
-            ImportRequest.query.filter(
-                ImportRequest.source_type == "google_takeout",
-                ImportRequest.staged_upload_path.isnot(None),
-                or_(
-                    ImportRequest.upload_completed_at < cutoff,
-                    ImportRequest.updated_at < cutoff,
-                ),
-                ImportRequest.status.in_(("failed", "disabled", "expired", "pending_upload", "uploading")),
-            )
-            .all()
+        cutoff = datetime.now(UTC) - timedelta(
+            hours=int(self.app.config.get("IMPORT_UPLOAD_RETENTION_HOURS", 48))
         )
+        stale_rows = ImportRequest.query.filter(
+            ImportRequest.source_type == "google_takeout",
+            ImportRequest.staged_upload_path.isnot(None),
+            or_(
+                ImportRequest.upload_completed_at < cutoff,
+                ImportRequest.updated_at < cutoff,
+            ),
+            ImportRequest.status.in_(
+                ("failed", "disabled", "expired", "pending_upload", "uploading")
+            ),
+        ).all()
         for row in stale_rows:
             cleanup_upload_path(row.staged_upload_path)
             row.staged_upload_path = None

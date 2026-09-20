@@ -434,73 +434,9 @@ def _sync_calendars_and_events(conn, account, config):
     if not password:
         return
 
-    s, remote_calendars = caldav.discover_calendars(
-        _caldav_base_url(config), account.username, password
-    )
+    from app.modules.calendar.services.sync import sync_calendars_and_events
 
-    if not remote_calendars:
-        cal_name = _derive_default_calendar_name(account.username)
-        try:
-            cal_url = caldav.create_calendar(
-                s, _caldav_base_url(config), account.username, name=cal_name, color="#4285f4"
-            )
-            remote_calendars = [
-                {"url": cal_url, "displayname": cal_name, "color": "#4285f4", "sync_token": None}
-            ]
-        except Exception:
-            logger.exception("failed to auto-create default calendar for %s", account.username)
-            return
-
-    import uuid as _uuid
-
-    from app.modules.calendar.services.icalendar import extract_uid
-
-    local_cal_uids = set()
-    for idx, rcal in enumerate(remote_calendars):
-        cal_uid = _uuid.uuid5(_uuid.NAMESPACE_URL, rcal["url"]).hex
-        local_cal_uids.add(cal_uid)
-        is_default = idx == 0 and cache_db.count_calendars(conn) == 0
-        cal_id = cache_db.upsert_calendar(
-            conn,
-            cal_uid,
-            rcal["url"],
-            displayname=rcal.get("displayname", "Calendar"),
-            color=rcal.get("color", "#4285f4"),
-            is_default=is_default,
-        )
-
-        try:
-            remote_events = caldav.list_events(s, rcal["url"])
-            remote_uids = set()
-            for href, etag, ical_text in remote_events:
-                uid = extract_uid(ical_text)
-                if uid:
-                    remote_uids.add(uid)
-                    cache_db.upsert_event(conn, uid, href, etag, cal_id, ical_text)
-
-            local_rows = conn.execute(
-                "SELECT uid FROM calendar_events WHERE calendar_id = ?", (cal_id,)
-            ).fetchall()
-            for (local_uid,) in local_rows:
-                if local_uid not in remote_uids:
-                    cache_db.delete_event_by_uid(conn, local_uid, cal_id)
-        except Exception:
-            logger.exception("failed to sync events for calendar %s", rcal["url"])
-
-        cache_db.set_sync_state(conn, rcal["url"], sync_token=rcal.get("sync_token"))
-
-    local_cals = cache_db.get_all_calendars(conn)
-    for lc in local_cals:
-        if lc["uid"] not in local_cal_uids:
-            cache_db.delete_calendar_by_id(conn, lc["id"])
-
-
-def _derive_default_calendar_name(username):
-    local_part = username.split("@")[0] if "@" in username else username
-    parts = local_part.replace(".", " ").replace("_", " ").replace("-", " ").split()
-    if parts:
-        return parts[0][0].upper() + parts[0][1:].lower() if len(parts[0]) > 1 else parts[0].upper()
-    return local_part.capitalize()
+    sync_calendars_and_events(conn, account, _caldav_base_url(config), password)
 
 
 def _resolve_event_tz_name(event) -> str:

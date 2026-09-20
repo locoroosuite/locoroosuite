@@ -1,13 +1,15 @@
-"""Web Push subscription management routes (U24.16, U24.22).
+"""Web Push subscription management routes (U24.16, U24.22, U24.27-U24.29).
 
 Session-authenticated JSON endpoints backing the Settings -> Notifications UI.
 """
 
 import logging
 
-from flask import jsonify, request, session
+from flask import current_app, jsonify, request, session
 
 from app.modules.mail.controllers.helpers import _get_or_create_settings, mail_bp
+from app.shared import push as push_service
+from app.shared import push_keys
 from app.shared.auth import require_customer
 from app.shared.db import db
 from app.shared.models.core import PushSubscription
@@ -21,6 +23,20 @@ MAX_KEY_LEN = 255
 
 def _error(message: str, status: int):
     return jsonify({"error": {"code": "PUSH_INVALID", "message": message}}), status
+
+
+def _has_active_subscription(user_id: int) -> bool:
+    return PushSubscription.query.filter_by(user_id=user_id, disabled_at=None).first() is not None
+
+
+def _maybe_clear_push_key_store(user_id: int) -> None:
+    """Drop the wrapped DEK when the last subscription is gone (U24.29)."""
+    if _has_active_subscription(user_id):
+        return
+    if push_keys.clear_push_dek(user_id):
+        sync_manager = getattr(current_app, "sync_manager", None)
+        if sync_manager is not None:
+            sync_manager.disarm_push_user(user_id)
 
 
 @mail_bp.route("/mail/push/key", methods=["GET"])
@@ -69,6 +85,20 @@ def push_subscribe():
         db.session.add(row)
     db.session.commit()
     _logger.info("push subscription saved user_id=%s endpoint=%s", user_id, endpoint[:80])
+    # U24.29/U24.30: arming — persist the wrapped DEK and start headless sync
+    # for every account of this user. Failures are logged, never fatal: the
+    # subscription itself is valid and in-app push still works.
+    if user_id is not None:
+        try:
+            push_keys.store_push_dek_if_subscribed(user_id)
+        except Exception:
+            _logger.exception("push key store save failed user_id=%s", user_id)
+    sync_manager = getattr(current_app, "sync_manager", None)
+    if sync_manager is not None and user_id is not None:
+        try:
+            sync_manager.arm_push_user(user_id)
+        except Exception:
+            _logger.exception("push arm failed user_id=%s", user_id)
     return jsonify({"status": "subscribed"})
 
 
@@ -86,6 +116,8 @@ def push_unsubscribe():
     db.session.delete(row)
     db.session.commit()
     _logger.info("push subscription removed user_id=%s endpoint=%s", user_id, endpoint[:80])
+    if user_id is not None:
+        _maybe_clear_push_key_store(user_id)
     return jsonify({"status": "unsubscribed"})
 
 
@@ -122,6 +154,8 @@ def push_device_remove(device_id: int):
     db.session.delete(row)
     db.session.commit()
     _logger.info("push device removed user_id=%s device_id=%s", user_id, device_id)
+    if user_id is not None:
+        _maybe_clear_push_key_store(user_id)
     return jsonify({"status": "removed"})
 
 
@@ -136,3 +170,64 @@ def push_detailed():
     settings.push_detailed = payload["enabled"]
     db.session.commit()
     return jsonify({"status": "saved", "push_detailed": settings.push_detailed})
+
+
+@mail_bp.route("/mail/push/category", methods=["POST"])
+@require_customer
+def push_category():
+    """Per-category notification toggle (U24.27)."""
+    user_id = session.get("user_id")
+    payload = request.get_json(silent=True) or {}
+    category = payload.get("category")
+    if category not in push_service.CATEGORY_SETTINGS:
+        return _error(
+            "'category' must be one of: " + ", ".join(sorted(push_service.CATEGORY_SETTINGS)) + ".",
+            400,
+        )
+    if not isinstance(payload.get("enabled"), bool):
+        return _error("'enabled' boolean is required.", 400)
+    settings = _get_or_create_settings(user_id)
+    setattr(settings, push_service.CATEGORY_SETTINGS[category], payload["enabled"])
+    db.session.commit()
+    _logger.info(
+        "push category toggled user_id=%s category=%s enabled=%s",
+        user_id,
+        category,
+        payload["enabled"],
+    )
+    return jsonify({"status": "saved", "category": category, "enabled": payload["enabled"]})
+
+
+@mail_bp.route("/mail/push/test", methods=["POST"])
+@require_customer
+def push_test():
+    """Send a benign test notification to every active device (U24.28)."""
+    user_id = session.get("user_id")
+    if user_id is None:
+        return _error("Unknown user.", 401)
+    if not _has_active_subscription(user_id):
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "PUSH_NO_SUBSCRIPTION",
+                        "message": "No registered device yet. Enable notifications on this device first, then retry.",
+                    }
+                }
+            ),
+            400,
+        )
+    sent = push_service.send_test_push(None, user_id)
+    if not sent:
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "PUSH_SEND_FAILED",
+                        "message": "The test notification could not be delivered. Check the server push configuration (PUSH_VAPID_* settings) and retry.",
+                    }
+                }
+            ),
+            503,
+        )
+    return jsonify({"status": "sent"})

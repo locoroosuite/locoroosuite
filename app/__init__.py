@@ -258,9 +258,14 @@ def create_app():
     from app.workers.manager import WorkerManager
 
     worker = WorkerManager(app)
+    from app.workers.calendar_reminders import CalendarReminderWorker
+
+    calendar_worker = CalendarReminderWorker(app)
     if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         worker.start()
+        calendar_worker.start()
     setattr(app, "sync_manager", worker)  # noqa: B010
+    setattr(app, "calendar_reminders", calendar_worker)  # noqa: B010
 
     from app.shared.cli import register_cli
 

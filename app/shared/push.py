@@ -1,7 +1,9 @@
-"""Web Push (VAPID) sender for new-mail notifications (U24.16 - U24.21).
+"""Web Push (VAPID) notification hub (U24.16 - U24.31).
 
-Fire-and-forget by design: sends run on a small executor and every failure is
-logged with identifiers; the sync/SSE path is never blocked or broken.
+Category-aware: before sending, the per-user toggle for the notification's
+category (``mail``, ``calendar``) is checked server-side (U24.27). Fire-and-
+forget by design: sends run on a small executor and every failure is logged
+with identifiers; the sync/SSE path is never blocked or broken.
 """
 
 import json
@@ -19,6 +21,13 @@ from app.shared.models.core import CustomerSettings, PushSubscription, PushVapid
 _logger = logging.getLogger(__name__)
 
 DEFAULT_VAPID_SUBJECT = "mailto:admin@localhost"
+
+# Category -> CustomerSettings column (U24.27). "test" bypasses gating.
+CATEGORY_SETTINGS = {
+    "mail": "notify_mail_enabled",
+    "calendar": "notify_calendar_enabled",
+}
+CATEGORY_DEFAULTS = {"mail": True, "calendar": False}
 
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="webpush")
 
@@ -137,9 +146,52 @@ def _build_payload(count: int, detailed: bool, newest: dict | None) -> dict:
     return {"title": title, "body": body, "tag": "lr-new-mail", "url": "/app/mail/"}
 
 
+def _category_enabled(user_id: int, category: str) -> bool:
+    """Per-user category toggle (U24.27); missing settings use model defaults."""
+    column = CATEGORY_SETTINGS.get(category)
+    if column is None:
+        return True
+    settings = db.session.get(CustomerSettings, user_id)
+    if settings is None:
+        return CATEGORY_DEFAULTS.get(category, False)
+    return bool(getattr(settings, column))
+
+
+def send_notification(app: Flask | None, user_id: int, category: str, payload: dict) -> bool:
+    """Send one notification to every active device, respecting category prefs.
+
+    Returns True when at least one active subscription exists (the sends
+    themselves are fire-and-forget with their own error handling). ``app`` may
+    be None when already inside an application/request context.
+    """
+    if app is not None:
+        with app.app_context():
+            return _send_notification(user_id, category, payload)
+    return _send_notification(user_id, category, payload)
+
+
+def _send_notification(user_id: int, category: str, payload: dict) -> bool:
+    if not _category_enabled(user_id, category):
+        _logger.debug("push skipped category=%s disabled user_id=%s", category, user_id)
+        return False
+    try:
+        vapid = load_vapid_config()
+    except Exception:
+        _logger.exception("push vapid config invalid; push not sent user_id=%s", user_id)
+        return False
+    subs = db.session.query(PushSubscription).filter_by(user_id=user_id, disabled_at=None).all()
+    if not subs:
+        return False
+    for sub in subs:
+        _send_to_subscription(sub, payload, vapid)
+    return True
+
+
 def send_new_mail_push(app: Flask, user_id: int, count: int, newest: dict | None) -> None:
     """Send a new-mail notification to every active device of the user."""
     with app.app_context():
+        if not _category_enabled(user_id, "mail"):
+            return
         try:
             vapid = load_vapid_config()
         except Exception:
@@ -153,6 +205,30 @@ def send_new_mail_push(app: Flask, user_id: int, count: int, newest: dict | None
         payload = _build_payload(count, detailed, newest)
         for sub in subs:
             _send_to_subscription(sub, payload, vapid)
+
+
+def send_calendar_push(
+    app: Flask | None, user_id: int, uid: str, summary: str, when_local: str
+) -> bool:
+    """Send a calendar reminder push (U24.31). Synchronous — returns delivery state."""
+    payload = {
+        "title": (summary or "").strip() or "Event reminder",
+        "body": when_local,
+        "tag": f"lr-cal-{uid}",
+        "url": "/app/calendar/",
+    }
+    return send_notification(app, user_id, "calendar", payload)
+
+
+def send_test_push(app: Flask | None, user_id: int) -> bool:
+    """Send a benign test notification (U24.28). Synchronous for immediate feedback."""
+    payload = {
+        "title": "Test notification",
+        "body": "Notifications are working on this device.",
+        "tag": "lr-test",
+        "url": "/app/mail/",
+    }
+    return send_notification(app, user_id, "test", payload)
 
 
 def _on_event(user_id: int, event_type: str, data) -> None:

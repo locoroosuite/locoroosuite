@@ -230,6 +230,43 @@ def _push_notifications(conn) -> None:
         )
 
 
+def _notification_prefs(conn) -> None:
+    if has_table(conn, "customer_settings"):
+        cols = table_columns(conn, "customer_settings")
+        if "notify_mail_enabled" not in cols:
+            conn.execute(
+                "ALTER TABLE customer_settings ADD COLUMN notify_mail_enabled BOOLEAN NOT NULL DEFAULT 1"
+            )
+        if "notify_calendar_enabled" not in cols:
+            conn.execute(
+                "ALTER TABLE customer_settings ADD COLUMN notify_calendar_enabled BOOLEAN NOT NULL DEFAULT 0"
+            )
+    if not has_table(conn, "push_key_store"):
+        conn.execute(
+            """
+            CREATE TABLE push_key_store (
+                customer_id INTEGER NOT NULL PRIMARY KEY REFERENCES users(id),
+                wrapped_dek BLOB NOT NULL,
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL
+            )
+            """
+        )
+    if not has_table(conn, "push_calendar_fired"):
+        conn.execute(
+            """
+            CREATE TABLE push_calendar_fired (
+                id INTEGER NOT NULL PRIMARY KEY,
+                account_id INTEGER NOT NULL,
+                event_uid VARCHAR(255) NOT NULL,
+                trigger_val VARCHAR(64) NOT NULL,
+                fired_at DATETIME NOT NULL,
+                CONSTRAINT uq_push_cal_fired UNIQUE (account_id, event_uid, trigger_val)
+            )
+            """
+        )
+
+
 APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_domain_status", _domain_status),
     Migration("0002_customer_settings_spam_action", _customer_settings_spam_action),
@@ -245,4 +282,5 @@ APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0012_user_totp", _user_totp),
     Migration("0013_push_notifications", _push_notifications),
     Migration("0014_domain_matrix", _domain_matrix),
+    Migration("0015_notification_prefs", _notification_prefs),
 )

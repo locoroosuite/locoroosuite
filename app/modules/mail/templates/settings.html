@@ -156,7 +156,7 @@
     <section id="notifications" class="bg-white/90 border border-slate-200/80 rounded-2xl shadow-sm">
       <div class="border-b border-slate-100 px-6 py-4">
         <h2 class="text-sm font-semibold text-slate-900">Notifications</h2>
-        <p class="mt-0.5 text-xs text-slate-500">Get a device notification when new mail arrives.</p>
+        <p class="mt-0.5 text-xs text-slate-500">Choose what reaches your devices — new email, calendar reminders — and manage registered devices.</p>
       </div>
       <div class="px-6 py-4">
         <div id="pwa-install-settings" class="hidden mb-4 rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3">
@@ -177,22 +177,47 @@
         <div class="mt-3 flex flex-wrap items-center gap-3">
           <button type="button" id="push-enable-btn" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60">Enable notifications</button>
           <button type="button" id="push-disable-btn" class="hidden rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60">Disable on this device</button>
+          <button type="button" id="push-test-btn" class="hidden rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60">Send test notification</button>
         </div>
         <div class="mt-4">
           <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Registered devices</div>
           <ul id="push-device-list" class="space-y-2 text-sm text-slate-700"></ul>
           <p id="push-no-devices" class="hidden text-xs text-slate-500">No devices registered yet.</p>
         </div>
-        <div class="mt-4 flex items-center justify-between gap-4 rounded-lg bg-slate-50/70 px-3 py-2.5">
-          <div>
-            <div class="text-sm text-slate-700">Show sender and subject</div>
-            <p class="mt-0.5 text-xs text-slate-500">Off by default: notifications only say “New email” so your mail stays private on the lock screen. Message bodies are never included.</p>
+        <div class="mt-4 space-y-1">
+          <div class="flex items-center justify-between gap-4 rounded-lg bg-slate-50/70 px-3 py-2.5">
+            <div>
+              <div class="text-sm text-slate-700">New email notifications</div>
+              <p class="mt-0.5 text-xs text-slate-500">Get a device notification when new mail arrives, even when the app is closed.</p>
+            </div>
+            <label class="relative inline-flex cursor-pointer items-center">
+              <input type="checkbox" data-pref="notify_mail_enabled" class="peer sr-only" {% if settings.notify_mail_enabled %}checked{% endif %} />
+              <span class="pref-status absolute -left-16 text-xs" aria-live="polite"></span>
+              <span class="h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
+            </label>
           </div>
-          <label class="relative inline-flex cursor-pointer items-center">
-            <input type="checkbox" data-pref="push_detailed" class="peer sr-only" {% if settings.push_detailed %}checked{% endif %} />
-            <span class="pref-status absolute -left-16 text-xs" aria-live="polite"></span>
-            <span class="h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
-          </label>
+          <div class="flex items-center justify-between gap-4 rounded-lg bg-slate-50/70 px-3 py-2.5">
+            <div>
+              <div class="text-sm text-slate-700">Calendar event reminders</div>
+              <p class="mt-0.5 text-xs text-slate-500">Get a device notification at each event’s reminder time (e.g. 15 minutes before). Requires at least one registered device.</p>
+            </div>
+            <label class="relative inline-flex cursor-pointer items-center">
+              <input type="checkbox" data-pref="notify_calendar_enabled" class="peer sr-only" {% if settings.notify_calendar_enabled %}checked{% endif %} />
+              <span class="pref-status absolute -left-16 text-xs" aria-live="polite"></span>
+              <span class="h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
+            </label>
+          </div>
+          <div class="flex items-center justify-between gap-4 rounded-lg bg-slate-50/70 px-3 py-2.5">
+            <div>
+              <div class="text-sm text-slate-700">Show sender and subject</div>
+              <p class="mt-0.5 text-xs text-slate-500">Off by default: notifications only say “New email” so your mail stays private on the lock screen. Message bodies are never included.</p>
+            </div>
+            <label class="relative inline-flex cursor-pointer items-center">
+              <input type="checkbox" data-pref="push_detailed" class="peer sr-only" {% if settings.push_detailed %}checked{% endif %} />
+              <span class="pref-status absolute -left-16 text-xs" aria-live="polite"></span>
+              <span class="h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
+            </label>
+          </div>
         </div>
       </div>
     </section>
@@ -365,6 +390,7 @@
   var statusEl = document.getElementById('push-status');
   var enableBtn = document.getElementById('push-enable-btn');
   var disableBtn = document.getElementById('push-disable-btn');
+  var testBtn = document.getElementById('push-test-btn');
   var deviceList = document.getElementById('push-device-list');
   var noDevices = document.getElementById('push-no-devices');
   if (!statusEl || !enableBtn) return;
@@ -445,10 +471,30 @@
       var active = !!sub;
       enableBtn.classList.toggle('hidden', active);
       disableBtn.classList.toggle('hidden', !active);
+      testBtn.classList.toggle('hidden', !active);
       setStatus(active ? 'ok' : 'info', active ? 'Notifications are enabled for this device.' : '');
       refreshDevices();
     });
   };
+
+  if (testBtn) {
+    testBtn.addEventListener('click', function() {
+      testBtn.disabled = true;
+      setStatus('info', 'Sending test notification…');
+      fetch('/app/mail/push/test', { method: 'POST', credentials: 'same-origin' })
+        .then(function(r) {
+          if (!r.ok) return r.json().then(function(err) { throw new Error((err && err.error && err.error.message) || 'Test failed'); });
+          return r.json();
+        })
+        .then(function() {
+          setStatus('ok', 'Test notification sent. Check your device — if it does not appear, make sure notifications are allowed for this app in the OS/browser settings.');
+        })
+        .catch(function(err) {
+          setStatus('error', (err && err.message) || 'Could not send the test notification. Please retry.');
+        })
+        .finally(function() { testBtn.disabled = false; });
+    });
+  }
 
   enableBtn.addEventListener('click', function() {
     enableBtn.disabled = true;

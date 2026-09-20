@@ -1,15 +1,21 @@
 import os
+import tempfile
 
 os.environ.setdefault("APP_DATABASE_URI", "sqlite://")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-tests")
+# Keep push-keywrap artifacts out of the repo's data/ dir during tests (U24.29).
+os.environ.setdefault(
+    "PUSH_KEYWRAP_KEY_PATH",
+    os.path.join(tempfile.mkdtemp(prefix="lr-push-test-"), "push_keywrap.key"),
+)
+
+from unittest.mock import MagicMock, patch
 
 import pytest
-from unittest.mock import patch, MagicMock
 
 from app.shared.db import db as _db
-from app.shared.models.core import User, Domain, CustomerAccount
-from app.shared.keys import set_user_key, clear_user_key
-
+from app.shared.keys import clear_user_key, set_user_key
+from app.shared.models.core import CustomerAccount, Domain, User
 
 _test_app = None
 
@@ -26,6 +32,7 @@ def app():
             MockWM.return_value = MagicMock()
 
             from app import create_app
+
             app = create_app()
             app.config["TESTING"] = True
             app.config["WTF_CSRF_ENABLED"] = False
@@ -61,34 +68,35 @@ def authed_client(app, client, _clean_db):
     user_id = None
     account_id = None
     with app.app_context():
-        user = User(email="test@example.com", role="customer", is_active=True)
+        user = User()
+        user.email = "test@example.com"
+        user.role = "customer"
+        user.is_active = True
         user.password_hash = "x"
         _db.session.add(user)
         _db.session.flush()
         user_id = user.id
 
-        domain = Domain(
-            name="example.com",
-            is_active=True,
-            status="active",
-            imap_host="imap.example.com",
-            imap_port=993,
-            imap_tls=True,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "example.com"
+        domain.is_active = True
+        domain.status = "active"
+        domain.imap_host = "imap.example.com"
+        domain.imap_port = 993
+        domain.imap_tls = True
+        domain.smtp_host = "smtp.example.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
         _db.session.add(domain)
         _db.session.flush()
 
-        account = CustomerAccount(
-            customer_id=user.id,
-            domain_id=domain.id,
-            email_address="test@example.com",
-            auth_type="password",
-            username="test@example.com",
-            cache_db_path="",
-        )
+        account = CustomerAccount()
+        account.customer_id = user.id
+        account.domain_id = domain.id
+        account.email_address = "test@example.com"
+        account.auth_type = "password"
+        account.username = "test@example.com"
+        account.cache_db_path = ""
         _db.session.add(account)
         _db.session.commit()
         account_id = account.id

@@ -94,6 +94,8 @@ class CustomerSettings(db.Model):
     protect_starred = db.Column(db.Boolean, default=True, nullable=False)
     locked_keyword_prefs = db.Column(db.Text, nullable=True)
     push_detailed = db.Column(db.Boolean, default=False, nullable=False)
+    notify_mail_enabled = db.Column(db.Boolean, default=True, nullable=False)
+    notify_calendar_enabled = db.Column(db.Boolean, default=False, nullable=False)
 
 
 class AuditLog(db.Model):
@@ -227,3 +229,33 @@ class PushVapidKey(db.Model):
     public_key = db.Column(db.String(255), nullable=False, unique=True)
     private_key = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=_utcnow, nullable=False)
+
+
+class PushKeyStore(db.Model):
+    """Server-held wrapped DEK enabling headless push workers (U24.29).
+
+    One row per push-armed customer. The DEK is wrapped with a server-held
+    secret (disk file / env) so notification workers can decrypt caches and
+    mail credentials without a login session. Deleted when the last push
+    subscription is removed.
+    """
+
+    __tablename__ = "push_key_store"
+    customer_id = db.Column(db.Integer, db.ForeignKey("users.id"), primary_key=True)
+    wrapped_dek = db.Column(db.LargeBinary, nullable=False)
+    created_at = db.Column(db.DateTime, default=_utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=_utcnow, onupdate=_utcnow, nullable=False)
+
+
+class PushCalendarFired(db.Model):
+    """Dedup marker for calendar reminder pushes already sent (U24.31)."""
+
+    __tablename__ = "push_calendar_fired"
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, nullable=False)
+    event_uid = db.Column(db.String(255), nullable=False)
+    trigger_val = db.Column(db.String(64), nullable=False)
+    fired_at = db.Column(db.DateTime, default=_utcnow, nullable=False)
+    __table_args__ = (
+        db.UniqueConstraint("account_id", "event_uid", "trigger_val", name="uq_push_cal_fired"),
+    )

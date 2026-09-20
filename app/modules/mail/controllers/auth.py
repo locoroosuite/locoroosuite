@@ -30,21 +30,23 @@ def _is_safe_redirect_url(url: str) -> bool:
         server_name = current_app.config.get("SERVER_NAME", "")
         if server_name:
             return parsed.netloc == server_name or parsed.netloc.endswith("." + server_name)
-        if current_app.config.get("APP_ENV") == "development":
-            if parsed.netloc.endswith(".ngrok-free.dev") or parsed.netloc == request.host:
-                return True
-        return False
+        return current_app.config.get("APP_ENV") == "development" and (
+            parsed.netloc.endswith(".ngrok-free.dev") or parsed.netloc == request.host
+        )
     return url.startswith("/") and not url.startswith("//")
 
 
 def _resolve_login_key(account, credential_key, secret):
     if account.api_enabled and account.dek_wrapped_cred:
         from app.api.token_service import unwrap_dek_from_credential
+
         try:
             dek_hex = unwrap_dek_from_credential(account.dek_wrapped_cred, credential_key)
             return dek_hex
         except Exception:
-            logger.warning("failed to unwrap DEK for account_id=%s, falling back to credential key", account.id)
+            logger.warning(
+                "failed to unwrap DEK for account_id=%s, falling back to credential key", account.id
+            )
     return credential_key
 
 
@@ -69,7 +71,9 @@ def login():
     email = request.form.get("email", "").strip().lower()
     password = request.form.get("password", "")
     next_url = request.form.get("next", "")
-    redacted_email = email.split("@")[0][:2] + "***@" + email.split("@")[-1] if "@" in email else "***"
+    redacted_email = (
+        email.split("@")[0][:2] + "***@" + email.split("@")[-1] if "@" in email else "***"
+    )
     logger.info("login start request_id=%s email=%s", request_id, redacted_email)
 
     domain_name = email.split("@")[-1]
@@ -112,14 +116,20 @@ def login():
         logger.info("login account deactivated request_id=%s user_id=%s", request_id, customer.id)
         return render_template("login.html", error="Account deactivated.", next=next_url)
     if not customer:
-        customer = User(role="customer", email=email)
+        customer = User()
+        customer.role = "customer"
+        customer.email = email
         db.session.add(customer)
         db.session.commit()
         logger.info("login customer created request_id=%s user_id=%s", request_id, customer.id)
 
     account = CustomerAccount.query.filter_by(customer_id=customer.id, email_address=email).first()
     if not account:
-        account = CustomerAccount(customer_id=customer.id, domain_id=domain.id, email_address=email, username=email)
+        account = CustomerAccount()
+        account.customer_id = customer.id
+        account.domain_id = domain.id
+        account.email_address = email
+        account.username = email
         db.session.add(account)
         db.session.commit()
         logger.info("login account created request_id=%s account_id=%s", request_id, account.id)
@@ -171,15 +181,48 @@ def login():
     return redirect(url_for("mail.folder_view", account_id=account.id, folder="INBOX"))
 
 
+def _sync_manager():
+    """The WorkerManager attached by the app factory (fail early if missing)."""
+    sync_manager = getattr(current_app, "sync_manager", None)
+    if sync_manager is None:
+        raise RuntimeError("sync manager not initialized on application")
+    return sync_manager
+
+
 def _complete_customer_session(customer, account, user_key, next_url, request_id):
     session["role"] = "customer"
     session["active_account_id"] = account.id
     session["user_key"] = user_key
-    logger.info("login session set request_id=%s user_id=%s account_id=%s", request_id, customer.id, account.id)
-    current_app.sync_manager.set_active_account(customer.id, account.id)
-    current_app.sync_manager.set_active_folder(account.id, "INBOX")
-    current_app.sync_manager.enqueue_sync(account.id, folder="INBOX", reason="login", priority=0)
-    current_app.sync_manager.enqueue_sync(account.id, folder="Sent", reason="login", priority=5)
+    logger.info(
+        "login session set request_id=%s user_id=%s account_id=%s",
+        request_id,
+        customer.id,
+        account.id,
+    )
+    sync_manager = _sync_manager()
+    sync_manager.set_active_account(customer.id, account.id)
+    sync_manager.set_active_folder(account.id, "INBOX")
+    sync_manager.enqueue_sync(account.id, folder="INBOX", reason="login", priority=0)
+    sync_manager.enqueue_sync(account.id, folder="Sent", reason="login", priority=5)
+    _rearm_push(customer.id)
+
+
+def _rearm_push(customer_id):
+    """Refresh the push key store and headless workers for push-armed users (U24.29/U24.30).
+
+    The DEK can rotate (password change), so every login re-wraps the stored
+    copy and re-arms IMAP watchers for all accounts. Failures are logged and
+    never block login.
+    """
+    from app.shared import push_keys
+
+    try:
+        if push_keys.store_push_dek_if_subscribed(customer_id):
+            sync_manager = getattr(current_app, "sync_manager", None)
+            if sync_manager is not None:
+                sync_manager.arm_push_user(customer_id)
+    except Exception:
+        logger.exception("push re-arm failed user_id=%s", customer_id)
 
 
 @mail_bp.route("/twofa", methods=["GET", "POST"])
@@ -201,7 +244,9 @@ def twofa_verify():
     lock_key = f"2fa:{pending_id}"
 
     if is_locked(lock_key, ip):
-        return render_template("twofa.html", error="Too many attempts. Please try again later.", backup_mode=False)
+        return render_template(
+            "twofa.html", error="Too many attempts. Please try again later.", backup_mode=False
+        )
 
     code = request.form.get("code", "").strip()
     backup_mode = request.form.get("backup_mode") == "1"
@@ -215,7 +260,9 @@ def twofa_verify():
 
     if not verified:
         record_failed_login(lock_key, ip)
-        return render_template("twofa.html", error="Invalid code. Please try again.", backup_mode=backup_mode)
+        return render_template(
+            "twofa.html", error="Invalid code. Please try again.", backup_mode=backup_mode
+        )
 
     clear_failed_login(lock_key, ip)
     account_id = session.pop("_pending_2fa_account_id", None)
@@ -233,13 +280,22 @@ def twofa_verify():
     _complete_customer_session(customer, account, user_key, next_url, request_id)
     logger.info("login 2fa complete request_id=%s user_id=%s", request_id, customer.id)
 
-    resp = make_response(redirect(next_url if (next_url and _is_safe_redirect_url(next_url)) else url_for("mail.folder_view", account_id=account.id, folder="INBOX")))
+    resp = make_response(
+        redirect(
+            next_url
+            if (next_url and _is_safe_redirect_url(next_url))
+            else url_for("mail.folder_view", account_id=account.id, folder="INBOX")
+        )
+    )
     if remember_device:
         token = totp_mod.issue_trusted_device(customer.id, request.headers.get("User-Agent"), ip)
         resp.set_cookie(
-            totp_mod.TRUSTED_DEVICE_COOKIE, token,
+            totp_mod.TRUSTED_DEVICE_COOKIE,
+            token,
             max_age=totp_mod.TRUSTED_DEVICE_DAYS * 86400,
-            httponly=True, samesite="Lax", secure=not current_app.config.get("TESTING", False),
+            httponly=True,
+            samesite="Lax",
+            secure=not current_app.config.get("TESTING", False),
         )
     return resp
 
@@ -256,8 +312,19 @@ def _abort_customer_2fa(user_id):
 @require_customer
 def logout():
     customer_id = session.get("user_id")
-    clear_user_key(customer_id)
-    current_app.sync_manager.clear_active_customer(customer_id)
+    # U24.30: logging out must not kill phone notifications — keep the key in
+    # memory when the push key store can re-arm headless workers. Users without
+    # push keep the old behaviour: logout drops the server-side key.
+    from app.shared import push_keys
+
+    try:
+        push_armed = customer_id is not None and push_keys.has_push_key_store(customer_id)
+    except Exception:
+        logger.exception("push key store check failed during logout user_id=%s", customer_id)
+        push_armed = False
+    if not push_armed:
+        clear_user_key(customer_id)
+    _sync_manager().clear_active_customer(customer_id)
     session.clear()
     return redirect(url_for("mail.login"))
 
@@ -270,8 +337,10 @@ def auth_check():
     share_cookie = request.cookies.get("share_access")
     if share_cookie:
         from app.shared.models.core import DocShare
+
         share = DocShare.query.filter_by(
-            share_token=share_cookie, revoked_at=None,
+            share_token=share_cookie,
+            revoked_at=None,
         ).first()
         if share:
             return "", 200

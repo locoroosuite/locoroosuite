@@ -28,7 +28,13 @@ POLL_INTERVAL_LABELS = {
 }
 SORT_ORDER_CHOICES = ("date_desc", "date_asc")
 THEME_CHOICES = ("light", "dark")
-_BOOL_FIELDS = ("preview_pane_default", "protect_starred", "push_detailed")
+_BOOL_FIELDS = (
+    "preview_pane_default",
+    "protect_starred",
+    "push_detailed",
+    "notify_mail_enabled",
+    "notify_calendar_enabled",
+)
 _ACCOUNT_PREFIXES = {
     "spam_action_": _set_spam_action_enabled,
     "locked_keyword_": set_locked_keyword_enabled,

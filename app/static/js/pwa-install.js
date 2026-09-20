@@ -1,5 +1,5 @@
 /*
- * PWA install promotion & post-install notifications onboarding (U24.23 - U24.26).
+ * PWA install promotion & post-install notifications onboarding (U24.23 - U24.26, U24.28).
  *
  * Included from layout.html for customer sessions only. The native
  * beforeinstallprompt event is captured as early as possible by a head shim
@@ -11,10 +11,12 @@
  *   - Settings install entry (#pwa-install-settings, U24.24): revealed on the
  *     settings page when the app is not installed yet, regardless of banner
  *     dismissal.
- *   - Notifications onboarding (#pwa-notif-prompt, U24.25): shown once per
- *     device when running installed (standalone) and notifications are not
- *     decided yet. Accepting requests permission and subscribes via the
- *     existing /app/mail/push/* endpoints (U24.16/U24.22).
+ *   - Notifications onboarding (#pwa-notif-prompt, U24.25/U24.28): shown in
+ *     standalone mode or on mobile browsers whenever notifications are
+ *     supported and not decided yet. Dismissal (✕) hides it for 7 days;
+ *     "Don't ask again" opts out permanently. Accepting requests permission
+ *     and subscribes via the existing /app/mail/push/* endpoints
+ *     (U24.16/U24.22).
  *
  * Exposes window.LR.pwa helpers so settings.html reuses the same subscribe
  * flow instead of duplicating it.
@@ -23,7 +25,9 @@
   'use strict';
 
   var LS_BANNER_DISMISSED = 'lr-install-banner-dismissed';
-  var LS_NOTIF_ONBOARDED = 'lr-notif-onboarded';
+  var LS_NOTIF_NEVER = 'lr-notif-never-ask';
+  var LS_NOTIF_DISMISSED_AT = 'lr-notif-dismissed-at';
+  var NOTIF_REASK_MS = 7 * 24 * 60 * 60 * 1000;
 
   var BANNER_INSTALL_TEXT = 'Add the app to your home screen for a faster, full-screen experience.';
   var BANNER_IOS_TEXT = "Install the app: tap the Share button, then choose 'Add to Home Screen'.";
@@ -43,6 +47,14 @@
       window.localStorage.setItem(key, value);
     } catch (_e) {
       // Private browsing: in-memory dismissal only (dataset flag on the banner).
+    }
+  }
+
+  function lsRemove(key) {
+    try {
+      window.localStorage.removeItem(key);
+    } catch (_e) {
+      // Private browsing: best effort.
     }
   }
 
@@ -234,19 +246,29 @@
     });
   }
 
-  // --- Notifications onboarding after install (U24.25) ---
+  // --- Notifications onboarding after install (U24.25, U24.28) ---
+
+  function notifDismissedRecently() {
+    var raw = lsGet(LS_NOTIF_DISMISSED_AT);
+    if (!raw) return false;
+    var at = parseInt(raw, 10);
+    if (!isFinite(at)) return false;
+    return Date.now() - at < NOTIF_REASK_MS;
+  }
 
   function runNotifOnboarding() {
     var prompt = document.getElementById('pwa-notif-prompt');
     if (!prompt) return;
-    if (!isStandalone()) return;
-    if (lsGet(LS_NOTIF_ONBOARDED) === '1') return;
+    // U24.28: prompt in standalone mode and in mobile browsers — anyone who
+    // installed the PWA (or is a phone user) gets a clear invitation.
+    if (!isStandalone() && !isMobileBrowser()) return;
+    if (lsGet(LS_NOTIF_NEVER) === '1') return;
     if (!('Notification' in window)) return;
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
     var finish = function (subscribed, err) {
-      lsSet(LS_NOTIF_ONBOARDED, '1');
       prompt.classList.add('hidden');
+      lsRemove(LS_NOTIF_DISMISSED_AT);
       if (subscribed && window.LR && window.LR.notifySuccess) {
         window.LR.notifySuccess('Notifications enabled for this device.');
       } else if (err && window.LR && window.LR.notifyError) {
@@ -255,24 +277,27 @@
     };
 
     if (Notification.permission === 'denied') {
-      lsSet(LS_NOTIF_ONBOARDED, '1');
+      // Hard-denied: never re-prompt. Settings keeps remediation guidance.
+      lsSet(LS_NOTIF_NEVER, '1');
       return;
     }
     if (Notification.permission === 'granted') {
       // Already permitted: silently ensure a subscription exists.
       subscribePush()
         .then(function () {
-          lsSet(LS_NOTIF_ONBOARDED, '1');
+          lsRemove(LS_NOTIF_DISMISSED_AT);
         })
         .catch(function (_err) {
           // Settings -> Notifications remains the manual path.
         });
       return;
     }
+    if (notifDismissedRecently()) return;
 
     prompt.classList.remove('hidden');
     var accept = document.getElementById('pwa-notif-accept');
     var dismiss = document.getElementById('pwa-notif-dismiss');
+    var never = document.getElementById('pwa-notif-never');
 
     if (accept) {
       accept.addEventListener('click', function () {
@@ -299,7 +324,15 @@
     }
     if (dismiss) {
       dismiss.addEventListener('click', function () {
-        finish(false, null);
+        // Soft dismissal: re-ask after 7 days (U24.28).
+        prompt.classList.add('hidden');
+        lsSet(LS_NOTIF_DISMISSED_AT, String(Date.now()));
+      });
+    }
+    if (never) {
+      never.addEventListener('click', function () {
+        prompt.classList.add('hidden');
+        lsSet(LS_NOTIF_NEVER, '1');
       });
     }
   }

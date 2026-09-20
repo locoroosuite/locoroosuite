@@ -220,6 +220,200 @@ class TestPushDetailed:
         assert resp.status_code == 400
 
 
+class TestPushCategory:
+    def test_toggle_calendar_on_and_off(self, authed_client):
+        client, _user_id, _ = authed_client
+        resp = client.post(
+            "/app/mail/push/category",
+            data=json.dumps({"category": "calendar", "enabled": True}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        body = resp.get_json()
+        assert body["category"] == "calendar"
+        assert body["enabled"] is True
+        resp = client.post(
+            "/app/mail/push/category",
+            data=json.dumps({"category": "calendar", "enabled": False}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        assert resp.get_json()["enabled"] is False
+
+    def test_toggle_mail(self, authed_client):
+        client, _user_id, _ = authed_client
+        resp = client.post(
+            "/app/mail/push/category",
+            data=json.dumps({"category": "mail", "enabled": False}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+
+    def test_invalid_category_rejected(self, authed_client):
+        client, _user_id, _ = authed_client
+        resp = client.post(
+            "/app/mail/push/category",
+            data=json.dumps({"category": "docs", "enabled": True}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+
+    def test_non_bool_rejected(self, authed_client):
+        client, _user_id, _ = authed_client
+        resp = client.post(
+            "/app/mail/push/category",
+            data=json.dumps({"category": "mail", "enabled": "on"}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+
+    def test_requires_customer(self, client):
+        resp = client.post(
+            "/app/mail/push/category",
+            data=json.dumps({"category": "mail", "enabled": True}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 302
+
+
+class TestPushTest:
+    def test_no_subscription_is_actionable_400(self, authed_client):
+        client, _user_id, _ = authed_client
+        resp = client.post("/app/mail/push/test")
+        assert resp.status_code == 400
+        assert resp.get_json()["error"]["code"] == "PUSH_NO_SUBSCRIPTION"
+        assert "Enable notifications" in resp.get_json()["error"]["message"]
+
+    def test_sends_to_active_subscriptions(self, app, authed_client):
+        client, user_id, _ = authed_client
+        with app.app_context():
+            _make_subscription(user_id)
+            with patch("pywebpush.webpush") as wp:
+                resp = client.post("/app/mail/push/test")
+            assert resp.status_code == 200
+            assert resp.get_json()["status"] == "sent"
+            payload = json.loads(wp.call_args.kwargs["data"])
+            assert payload["title"] == "Test notification"
+            assert payload["tag"] == "lr-test"
+
+    def test_invalid_vapid_is_503(self, app, authed_client, monkeypatch):
+        client, user_id, _ = authed_client
+        with app.app_context():
+            _make_subscription(user_id)
+            monkeypatch.setenv("PUSH_VAPID_PUBLIC_KEY", "only-public")
+            monkeypatch.delenv("PUSH_VAPID_PRIVATE_KEY", raising=False)
+            resp = client.post("/app/mail/push/test")
+            assert resp.status_code == 503
+            assert resp.get_json()["error"]["code"] == "PUSH_SEND_FAILED"
+
+    def test_requires_customer(self, client):
+        resp = client.post("/app/mail/push/test")
+        assert resp.status_code == 302
+
+
+class TestCategoryGating:
+    def test_mail_disabled_skips_send(self, app, authed_client):
+        _client, user_id, _ = authed_client
+        with app.app_context():
+            _make_subscription(user_id)
+            from app.modules.mail.controllers.helpers import _get_or_create_settings
+
+            settings = _get_or_create_settings(user_id)
+            settings.notify_mail_enabled = False
+            db.session.commit()
+            with patch.object(push_mod, "_send_to_subscription") as send:
+                push_mod.send_new_mail_push(app, user_id, 2, None)
+            send.assert_not_called()
+
+    def test_calendar_disabled_by_default(self, app, authed_client):
+        _client, user_id, _ = authed_client
+        with app.app_context():
+            _make_subscription(user_id)
+            with patch.object(push_mod, "_send_to_subscription") as send:
+                sent = push_mod.send_calendar_push(app, user_id, "uid-1", "Standup", "Mon 09:00")
+            assert sent is False
+            send.assert_not_called()
+
+    def test_calendar_enabled_sends(self, app, authed_client):
+        _client, user_id, _ = authed_client
+        with app.app_context():
+            _make_subscription(user_id)
+            from app.modules.mail.controllers.helpers import _get_or_create_settings
+
+            settings = _get_or_create_settings(user_id)
+            settings.notify_calendar_enabled = True
+            db.session.commit()
+            with patch("pywebpush.webpush") as wp:
+                sent = push_mod.send_calendar_push(app, user_id, "uid-1", "Standup", "Mon 09:00")
+            assert sent is True
+            payload = json.loads(wp.call_args.kwargs["data"])
+            assert payload["title"] == "Standup"
+            assert payload["url"] == "/app/calendar/"
+            assert payload["tag"] == "lr-cal-uid-1"
+
+
+class TestPushKeyStoreLifecycle:
+    def test_subscribe_stores_wrapped_dek(self, app, authed_client):
+        client, user_id, _ = authed_client
+        with app.app_context():
+            from app.shared.models.core import PushKeyStore
+
+            assert db.session.query(PushKeyStore).count() == 0
+        resp = client.post(
+            "/app/mail/push/subscribe",
+            data=json.dumps(
+                {
+                    "endpoint": "https://push.example.com/sub/k1",
+                    "keys": {"p256dh": "pub", "auth": "authval"},
+                }
+            ),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        with app.app_context():
+            from app.shared.models.core import PushKeyStore
+
+            row = db.session.get(PushKeyStore, user_id)
+            assert row is not None
+
+    def test_unsubscribe_last_device_clears_key_store(self, app, authed_client):
+        client, user_id, _ = authed_client
+        with app.app_context():
+            from app.shared.models.core import PushKeyStore
+
+            _make_subscription(user_id, endpoint="https://push.example.com/sub/k2")
+            from app.shared import push_keys
+
+            push_keys.store_push_dek_if_subscribed(user_id)
+            assert db.session.get(PushKeyStore, user_id) is not None
+        resp = client.post(
+            "/app/mail/push/unsubscribe",
+            data=json.dumps({"endpoint": "https://push.example.com/sub/k2"}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        with app.app_context():
+            from app.shared.models.core import PushKeyStore
+
+            assert db.session.get(PushKeyStore, user_id) is None
+
+    def test_removing_one_of_two_devices_keeps_key_store(self, app, authed_client):
+        client, user_id, _ = authed_client
+        with app.app_context():
+            row_a = _make_subscription(user_id, endpoint="https://push.example.com/a1")
+            device_id = row_a.id
+            _make_subscription(user_id, endpoint="https://push.example.com/b1")
+            from app.shared import push_keys
+
+            push_keys.store_push_dek_if_subscribed(user_id)
+        resp = client.post(f"/app/mail/push/devices/{device_id}/remove")
+        assert resp.status_code == 200
+        with app.app_context():
+            from app.shared.models.core import PushKeyStore
+
+            assert db.session.get(PushKeyStore, user_id) is not None
+
+
 class TestSendNewMailPush:
     def test_sends_only_to_active_subscriptions(self, app, authed_client):
         _client, user_id, _ = authed_client
@@ -282,6 +476,32 @@ class TestSendNewMailPush:
             assert row.disabled_at is not None
 
 
+class TestLogoutPreservesPushKey:
+    def test_logout_keeps_key_when_push_armed(self, app, authed_client):
+        client, user_id, _ = authed_client
+        with app.app_context():
+            from app.shared import push_keys
+
+            _make_subscription(user_id)
+            push_keys.store_push_dek_if_subscribed(user_id)
+        resp = client.get("/app/logout")
+        assert resp.status_code == 302
+        with app.app_context():
+            from app.shared.keys import get_user_key
+
+            # U24.30: key survives logout so phone push keeps working.
+            assert get_user_key(user_id) == "0" * 64
+
+    def test_logout_clears_key_when_not_armed(self, app, authed_client):
+        client, user_id, _ = authed_client
+        resp = client.get("/app/logout")
+        assert resp.status_code == 302
+        with app.app_context():
+            from app.shared.keys import get_user_key
+
+            assert get_user_key(user_id) is None
+
+
 class TestNewMailEventWiring:
     def test_new_mail_event_schedules_push(self, app, authed_client):
         _client, user_id, _ = authed_client
@@ -314,8 +534,35 @@ class TestPushMigration:
         assert second == 0
         conn.close()
 
+    def test_notification_prefs_migration(self, tmp_path):
+        path = str(tmp_path / "legacy2.db")
+        conn = sqlite3.connect(path)
+        conn.execute("CREATE TABLE users (id INTEGER PRIMARY KEY)")
+        conn.execute(
+            "CREATE TABLE customer_settings (customer_id INTEGER PRIMARY KEY, push_detailed BOOLEAN NOT NULL DEFAULT 0)"
+        )
+        conn.commit()
+        run_migrations(conn, APP_DB_MIGRATIONS)
+        cols = table_columns(conn, "customer_settings")
+        assert "notify_mail_enabled" in cols
+        assert "notify_calendar_enabled" in cols
+        # Existing users keep mail notifications on; calendar off.
+        conn.execute("INSERT INTO customer_settings (customer_id) VALUES (1)")
+        conn.commit()
+        row = conn.execute(
+            "SELECT notify_mail_enabled, notify_calendar_enabled FROM customer_settings WHERE customer_id = 1"
+        ).fetchone()
+        assert row[0] == 1
+        assert row[1] == 0
+        assert has_table(conn, "push_key_store")
+        assert has_table(conn, "push_calendar_fired")
+        second = run_migrations(conn, APP_DB_MIGRATIONS)
+        assert second == 0
+        conn.close()
+
     def test_registry_contains_push_migration(self):
         assert any(m.name == "0013_push_notifications" for m in APP_DB_MIGRATIONS)
+        assert any(m.name == "0015_notification_prefs" for m in APP_DB_MIGRATIONS)
 
 
 class TestVapidGeneration:

@@ -95,28 +95,32 @@
   .folder-drop.is-drag-active:not(.is-drag-over):not(.is-drag-invalid) {
     transition: background-color 0.15s;
   }
+
+  /* U24.1: extend the tap hit area beyond the visual size. The ::before
+   * overlay is transparent and inherits the element's own pointer handling.
+   * Layered (components) on purpose: position:relative must NOT beat a
+   * position utility (e.g. the absolutely-positioned mobile "..." row
+   * toggle, UX3b) — unlayered rules would override `absolute`. */
+  .lr-hit {
+    position: relative;
+  }
+  .lr-hit::before {
+    content: "";
+    position: absolute;
+    inset: -6px;
+  }
+  .lr-hit-lg::before {
+    inset: -10px;
+  }
 }
 
 /* UX3d: hover-revealed actions are always visible on devices without hover.
  * Unlayered so it beats the utilities layer; !important for the same reason
  * (opacity-0 / pointer-events-none utilities). */
+
 @media (hover: none) {
   .lr-touch-visible {
     opacity: 1 !important;
     pointer-events: auto !important;
   }
-}
-
-/* U24.1: extend the tap hit area beyond the visual size. The ::before overlay
- * is transparent and inherits the element's own pointer handling. */
-.lr-hit {
-  position: relative;
-}
-.lr-hit::before {
-  content: "";
-  position: absolute;
-  inset: -6px;
-}
-.lr-hit-lg::before {
-  inset: -10px;
 }

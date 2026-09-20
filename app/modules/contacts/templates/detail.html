@@ -9,14 +9,14 @@
   </div>
 
   <div class="rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
-    <div class="px-4 md:px-6 py-4 md:py-5 border-b border-slate-100 flex items-center justify-between">
-      <div>
-        <h1 class="text-xl font-semibold text-slate-900">{{ contact.fn or 'Unnamed Contact' }}</h1>
+    <div class="px-4 md:px-6 py-4 md:py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div class="min-w-0">
+        <h1 class="text-xl font-semibold text-slate-900 truncate">{{ contact.fn or 'Unnamed Contact' }}</h1>
         {% if contact.title or contact.org %}
-        <p class="text-sm text-slate-500 mt-0.5">{{ [contact.title, contact.org] | select | join(' at ') }}</p>
+        <p class="text-sm text-slate-500 mt-0.5 truncate">{{ [contact.title, contact.org] | select | join(' at ') }}</p>
         {% endif %}
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-shrink-0">
         <a href="{{ url_for('contacts.contact_edit', account_id=account.id, uid=contact.uid) }}" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50">Edit</a>
         <form method="post" action="{{ url_for('contacts.contact_delete', account_id=account.id, uid=contact.uid) }}" class="inline" onsubmit="return confirm('Delete this contact?');">
           <button type="submit" class="rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-rose-700 shadow-sm hover:bg-rose-50">Delete</button>

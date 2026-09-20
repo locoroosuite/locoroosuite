@@ -45,14 +45,25 @@ class TestTouchMailList:
         self, seeded_inbox_message, mobile_logged_in_page
     ):
         """The reported bug: tapping the right side of a row (where the
-        invisible Archive button sits) must open the message, not archive."""
+        invisible Archive button sits) must open the message, not archive.
+
+        UX3b: the '...' toggle now correctly sits at the right edge (its hit
+        area spans roughly the last 48px of the row), so the probe taps
+        inside the overlay's horizontal span but left of the toggle."""
         page = mobile_logged_in_page
         row = page.wait_for_selector(".message-row", timeout=15000)
         assert row is not None
         box = row.bounding_box()
         assert box is not None
-        # Tap inside the overlay's horizontal span (right edge of the row).
-        page.touchscreen.tap(box["x"] + box["width"] - 20, box["y"] + box["height"] / 2)
+        toggle = row.query_selector("[data-message-actions-toggle]")
+        assert toggle is not None
+        toggle_box = toggle.bounding_box()
+        assert toggle_box is not None
+        # Tap within the overlay span, just left of the toggle's hit area
+        # (lr-hit extends the visual box by 6-10px; -16 keeps a margin).
+        tap_x = toggle_box["x"] - 16
+        assert tap_x > box["x"], "tap probe fell outside the row"
+        page.touchscreen.tap(tap_x, box["y"] + box["height"] / 2)
         with contextlib.suppress(Exception):
             page.wait_for_url("**/mail/message/**", timeout=8000)
         assert "/mail/message/" in page.url, (

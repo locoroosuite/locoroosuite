@@ -49,6 +49,9 @@ def test_folder_view(authed_client, app):
     ):
         resp = client.get(f"/app/mail/folder/{account_id}/INBOX")
     assert resp.status_code == 200
+    html = resp.data.decode()
+    # U24.38: folder header meta truncates instead of wrapping vertically
+    assert 'id="thread-count" class="text-xs text-slate-500 truncate"' in html
 
 
 def test_folder_messages_json(authed_client):
@@ -336,6 +339,7 @@ def test_reset_cache_deletes_file_and_redirects(authed_client, app, tmp_path):
 
     with app.app_context():
         account = db.session.get(CustomerAccount, account_id)
+        assert account is not None
         account.cache_db_path = str(cache_file)
         db.session.commit()
 
@@ -347,21 +351,29 @@ def test_reset_cache_deletes_file_and_redirects(authed_client, app, tmp_path):
 
     with app.app_context():
         account = db.session.get(CustomerAccount, account_id)
+        assert account is not None
         assert account.cache_db_path is None
 
 
 def test_reset_cache_other_user_account_404(authed_client, app, tmp_path):
+    from typing import Any, cast
+
     from app.shared.db import db
     from app.shared.models.core import CustomerAccount, Domain, User
 
     client, _user_id, _account_id = authed_client
 
     with app.app_context():
-        other_user = User(email="other@example.com", role="customer", is_active=True)
+        # Legacy db.Column models expose no typed __init__ kwargs; cast to
+        # Any for construction only.
+        user_model = cast(Any, User)
+        account_model = cast(Any, CustomerAccount)
+        other_user = user_model(email="other@example.com", role="customer", is_active=True)
         db.session.add(other_user)
         db.session.flush()
         domain = db.session.get(Domain, 1)
-        other_account = CustomerAccount(
+        assert domain is not None
+        other_account = account_model(
             customer_id=other_user.id,
             domain_id=domain.id,
             email_address="other@example.com",
@@ -386,6 +398,7 @@ def test_reset_cache_no_file_still_redirects(authed_client, app):
 
     with app.app_context():
         account = db.session.get(CustomerAccount, account_id)
+        assert account is not None
         account.cache_db_path = None
         db.session.commit()
 

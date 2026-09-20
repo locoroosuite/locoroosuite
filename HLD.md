@@ -1814,6 +1814,10 @@ U24.35 - Compact card surfaces: non-list screens (message view, compose, contact
 
 U24.36 - Density rules do not shrink tap targets: rows, buttons, and controls keep tap targets >= 40px per U24.1; density is achieved by reducing decorative whitespace only (page gutters, card chrome, inter-section spacing), never by shrinking controls below their minimum hit area. The admin back office is desktop-first and is not redesigned, though it may inherit the shared container change harmlessly.
 
+U24.37 - Message detail header stacks on mobile: below `md`, the detail header is a two-row stack — the subject row (back arrow, star, lock, subject, meta line) spans the full card width, and the action buttons render in their own row below it, right-aligned and wrapping (`flex-col md:flex-row`). On mobile the visible primary actions are Reply, Forward, and the ⋯ overflow toggle; Reply All, Archive, and Delete move into the ⋯ overflow menu as mobile-only entries (`md:hidden` in the menu, `hidden md:inline-block` in the header row). The thread-count meta line ("N messages in this conversation") and the From/To meta line truncate with ellipsis. At `md:` and up the header is unchanged: single row, all actions inline to the right of the subject.
+
+U24.38 - Detail-header truncation rule (all modules): any title or meta line rendered next to a `flex-shrink-0` button group (message detail, event detail, contact detail, folder header, token rows) must carry `truncate` inside a `min-w-0` flex chain so a squeezed viewport ellipsizes the text instead of wrapping it one word per line. This applies to customer-facing modules and, where cheap, to admin pages (dashboard rows, domain review header/tab bar).
+
 ## Styling Infrastructure
 
 U24.9 - Tailwind CSS is precompiled at build time via the Tailwind CLI (`make css`); the compiled stylesheet is committed at `app/static/css/tailwind.css`. The runtime CDN script (`cdn.tailwindcss.com`) is removed from all templates. Rebuild is required when adding new utility classes (documented in the Makefile target).

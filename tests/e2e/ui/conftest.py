@@ -187,6 +187,41 @@ def seeded_inbox_message():
 
 
 @pytest.fixture(scope="function")
+def seeded_contact(app_url, user_session):
+    """Seed one contact via the app's own create endpoint and wait until the
+    list page renders it.
+
+    The contacts list only renders the search input and cards when at least
+    one contact exists; without seeding, list-dependent UI tests depend on
+    leftovers from other suites (flaky). The session fixture wipes all e2e
+    contacts at start/exit, so no per-test cleanup is needed.
+    """
+    import uuid
+
+    from tests.e2e.services import wait_for
+
+    tag = uuid.uuid4().hex[:8]
+    name = f"E2E UI Contact {tag}"
+    r = user_session.post(
+        f"{app_url}/app/contacts/new",
+        data={
+            "fn": name,
+            "email_work": f"e2e-ui-{tag}@test.localhost",
+            "org": "E2E UI",
+        },
+        allow_redirects=True,
+    )
+    assert r.status_code == 200, f"contact create failed: {r.status_code}"
+
+    def list_shows_contact() -> bool:
+        resp = user_session.get(f"{app_url}/app/contacts/")
+        return resp.status_code == 200 and name in resp.text
+
+    wait_for(list_shows_contact, timeout=30)
+    return name
+
+
+@pytest.fixture(scope="function")
 def admin_page(page):
     page.goto("http://localhost:8001/admin/login")
     page.wait_for_load_state("networkidle")

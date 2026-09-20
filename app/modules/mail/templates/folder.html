@@ -147,7 +147,7 @@
           </button>
           <div class="min-w-0">
             <div class="text-base font-semibold truncate">{{ folder }}</div>
-            <div id="thread-count" class="text-xs text-slate-500">{% if pagination %}{{ pagination.total_threads }} conversation{{ 's' if pagination.total_threads != 1 else '' }} ({{ pagination.total_messages }} email{{ 's' if pagination.total_messages != 1 else '' }}){% else %}{{ threads|length }} conversations{% endif %}</div>
+            <div id="thread-count" class="text-xs text-slate-500 truncate">{% if pagination %}{{ pagination.total_threads }} conversation{{ 's' if pagination.total_threads != 1 else '' }} ({{ pagination.total_messages }} email{{ 's' if pagination.total_messages != 1 else '' }}){% else %}{{ threads|length }} conversations{% endif %}</div>
           </div>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">

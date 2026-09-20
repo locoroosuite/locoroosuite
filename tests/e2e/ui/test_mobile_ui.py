@@ -53,6 +53,85 @@ class TestMobileMailUi:
         with contextlib.suppress(Exception):
             page.wait_for_url("**/mail/message/**", timeout=8000)
 
+    def test_row_actions_toggle_renders_on_right_side(
+        self, seeded_inbox_message, mobile_logged_in_page
+    ):
+        """UX3b regression guard: the '...' toggle must sit in the right half
+        of the row. It breaks when the toggle's `absolute` utility is
+        defeated (e.g. by an unlayered `position:relative` rule like the
+        old .lr-hit) — the button then falls back to its static position on
+        the left, under the star: the reported mobile bug."""
+        page = mobile_logged_in_page
+        row = page.wait_for_selector(".message-row", timeout=15000)
+        assert row is not None
+        toggle = row.query_selector("[data-message-actions-toggle]")
+        assert toggle is not None, "mobile '...' toggle missing"
+        assert toggle.is_visible()
+        row_box = row.bounding_box()
+        toggle_box = toggle.bounding_box()
+        assert row_box is not None and toggle_box is not None
+        toggle_center = toggle_box["x"] + toggle_box["width"] / 2
+        assert toggle_center > row_box["x"] + row_box["width"] / 2
+
+
+@skip_if_no_services
+class TestMobileDetailHeaderUi:
+    """U24.37: message detail header stacks below md — subject full width,
+    actions in their own row, secondary actions in the overflow menu."""
+
+    def _open_first_message(self, seeded_inbox_message, mobile_logged_in_page):
+        page = mobile_logged_in_page
+        row = page.wait_for_selector(".message-row", timeout=15000)
+        assert row is not None
+        row.click()
+        with contextlib.suppress(Exception):
+            page.wait_for_url("**/mail/message/**", timeout=8000)
+        assert "/mail/message/" in page.url
+        return page
+
+    def test_subject_keeps_width_and_page_has_no_overflow(
+        self, seeded_inbox_message, mobile_logged_in_page
+    ):
+        page = self._open_first_message(seeded_inbox_message, mobile_logged_in_page)
+        h1 = page.wait_for_selector("h1.truncate", timeout=10000)
+        assert h1 is not None
+        h1_box = h1.bounding_box()
+        assert h1_box is not None
+        viewport_width = page.evaluate("() => document.documentElement.clientWidth")
+        # U24.37: the subject text block keeps at least half the viewport.
+        block_width = h1.evaluate(
+            "el => el.parentElement.parentElement.getBoundingClientRect().width"
+        )
+        assert block_width > viewport_width * 0.5
+        # U24.37: primary actions render in their own row below the subject.
+        reply = page.query_selector('a:text-is("Reply")')
+        assert reply is not None
+        reply_box = reply.bounding_box()
+        assert reply_box is not None
+        assert reply_box["y"] >= h1_box["y"] + h1_box["height"] - 2
+        overflow = page.evaluate(
+            "() => document.documentElement.scrollWidth - document.documentElement.clientWidth"
+        )
+        assert overflow <= 1
+
+    def test_overflow_menu_carries_mobile_archive_delete(
+        self, seeded_inbox_message, mobile_logged_in_page
+    ):
+        """Reply All/Archive/Delete are header-only at md+, so on phones they
+        must be reachable from the '...' menu (U24.37)."""
+        page = self._open_first_message(seeded_inbox_message, mobile_logged_in_page)
+        toggle = page.wait_for_selector("[data-overflow-toggle]", timeout=10000)
+        assert toggle is not None
+        toggle.click()
+        archive_btns = page.query_selector_all(
+            '[data-overflow-menu] form[data-action="archive"] button'
+        )
+        delete_btns = page.query_selector_all(
+            '[data-overflow-menu] form[data-action="delete"] button'
+        )
+        assert any(b.is_visible() for b in archive_btns), "Archive missing from mobile menu"
+        assert any(b.is_visible() for b in delete_btns), "Delete missing from mobile menu"
+
     def test_search_icon_expands_mobile_search(self, mobile_logged_in_page):
         page = mobile_logged_in_page
         page.wait_for_selector("#mobile-search-toggle", timeout=10000)
@@ -107,27 +186,27 @@ class TestMobileCalendarUi:
 
 @skip_if_no_services
 class TestMobileContactsUi:
-    def test_no_horizontal_overflow_on_contacts(self, mobile_logged_in_page):
+    def test_no_horizontal_overflow_on_contacts(self, mobile_logged_in_page, seeded_contact):
         page = mobile_logged_in_page
         page.goto("http://localhost:8001/app/contacts/")
         page.wait_for_load_state("load")
-        page.wait_for_selector("#contacts-search-input", timeout=10000)
+        page.wait_for_selector("#contacts-search-input", timeout=15000)
         overflow = page.evaluate(
             "() => document.documentElement.scrollWidth - document.documentElement.clientWidth"
         )
         assert overflow <= 1
 
-    def test_card_list_renders_instead_of_table(self, mobile_logged_in_page):
+    def test_card_list_renders_instead_of_table(self, mobile_logged_in_page, seeded_contact):
+        """Below md the list renders one stacked card per contact and the
+        desktop table must not be visible (U24.7)."""
         page = mobile_logged_in_page
         page.goto("http://localhost:8001/app/contacts/")
         page.wait_for_load_state("load")
-        page.wait_for_selector("#contacts-search-input", timeout=10000)
-        cards = page.query_selector_all("[data-contact-card]")
+        page.wait_for_selector("#contacts-search-input", timeout=15000)
+        cards = page.wait_for_selector(f"[data-contact-name='{seeded_contact}']", timeout=10000)
+        assert cards is not None
         table = page.query_selector("table")
-        if cards:
-            assert table is None or not table.is_visible()
-        else:
-            assert table is None or not table.is_visible()
+        assert table is None or not table.is_visible()
 
 
 @skip_if_no_services
@@ -261,12 +340,17 @@ STANDALONE_STUB = """
 """
 
 # Headless Chromium denies notifications by default; the onboarding prompt
-# only shows for permission 'default', so fake a undecided Notification.
+# only shows for permission 'default', so fake an undecided Notification.
+# The first (unstubbed) fixture load also sees the hard-deny and permanently
+# writes lr-notif-never-ask=1 (U24.28: hard-deny never re-prompts), which
+# would keep the prompt hidden even after stubbing — so clear that flag on
+# every navigation. dismissed-at must NOT be cleared: tests set it on purpose.
 NOTIF_DEFAULT_STUB = """
 Object.defineProperty(window, 'Notification', {
   value: { permission: 'default', requestPermission: () => Promise.resolve('granted') },
   configurable: true
 });
+try { localStorage.removeItem('lr-notif-never-ask'); } catch (e) {}
 """
 
 
@@ -361,7 +445,21 @@ class TestPwaNotifOnboarding:
         page.wait_for_selector("#mailbox-grid", timeout=10000)
         assert page.locator("#pwa-notif-prompt").is_hidden()
 
-    def test_notif_prompt_not_shown_in_browser_mode(self, android_logged_in_page):
+    def test_notif_prompt_not_shown_on_desktop_browser(self, logged_in_page):
+        """U24.28: the prompt targets standalone/mobile users only. On a
+        desktop browser (not standalone, not a mobile UA) it stays hidden
+        regardless of permission state."""
+        page = logged_in_page
+        page.wait_for_selector("#mailbox-grid", timeout=10000)
+        assert page.locator("#pwa-notif-prompt").is_hidden()
+
+    def test_notif_prompt_not_shown_on_mobile_browser_when_permission_denied(
+        self, android_logged_in_page
+    ):
+        """U24.28 hard-deny rule: headless Chromium denies notifications, so
+        a mobile browser user with permission denied must never see the
+        prompt (and the opt-out is persisted)."""
         page = android_logged_in_page
         page.wait_for_selector("#mailbox-grid", timeout=10000)
         assert page.locator("#pwa-notif-prompt").is_hidden()
+        assert page.evaluate("() => localStorage.getItem('lr-notif-never-ask') === '1'")

@@ -494,6 +494,104 @@ class TestThreadConversationView:
         assert True
         assert "data-expand-icon" in html
 
+    def test_detail_header_responsive_layout(self, app, authed_client):
+        """U24.37/U24.38: header stacks below md; meta line truncates; Reply
+        All/Archive/Delete move into the overflow menu on mobile."""
+        client, _user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1"
+        mock_msg = {
+            "id": 1,
+            "uid": "100",
+            "folder": "INBOX",
+            "subject": "Test Subject",
+            "sender": "sender@test.com",
+            "recipients": "recip@test.com",
+            "date": "date",
+            "flags": '["\\\\Seen"]',
+            "snippet": "body text",
+            "body": "",
+            "body_html": None,
+            "has_attachments": 0,
+            "message_id": "<msg-id@test.com>",
+            "thread_id": "thread-123",
+            "cc": "",
+        }
+        thread_data = [
+            {
+                "id": 2,
+                "uid": "99",
+                "folder": "INBOX",
+                "subject": "Re: Test Subject",
+                "sender": "Alice <alice@test.com>",
+                "sender_display": "Alice",
+                "sender_tooltip": "Alice <alice@test.com>",
+                "recipients": "Bob <bob@test.com>",
+                "recipients_display": "Bob",
+                "date": "Mon, 1 Jan 2024 09:00:00 +0000",
+                "date_display": "09:00",
+                "date_ts": 1704096000,
+                "flags": ["\\Seen"],
+                "is_unread": False,
+                "is_flagged": False,
+                "is_sent": False,
+                "is_current": False,
+                "snippet": "Earlier message",
+                "body_html": "<html>body</html>",
+                "has_attachments": False,
+                "cc": "",
+            },
+            {
+                "id": 1,
+                "uid": "100",
+                "folder": "INBOX",
+                "subject": "Test Subject",
+                "sender": "sender@test.com",
+                "sender_display": "sender",
+                "sender_tooltip": "sender@test.com",
+                "recipients": "recip@test.com",
+                "recipients_display": "recip",
+                "date": "Mon, 1 Jan 2024 10:00:00 +0000",
+                "date_display": "10:00",
+                "date_ts": 1704099600,
+                "flags": ["\\Seen"],
+                "is_unread": False,
+                "is_flagged": False,
+                "is_sent": False,
+                "is_current": True,
+                "snippet": "body text",
+                "body_html": "<html>current body</html>",
+                "has_attachments": False,
+                "cc": "",
+            },
+        ]
+        with (
+            patch("app.modules.mail.controllers.message._load_message_detail") as mock_load,
+            patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings,
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders,
+            patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam,
+            patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread,
+        ):
+            mock_load.return_value = (mock_msg, "<p>body</p>", [], ["\\Seen"], ("", ""), [], "")
+            mock_settings.return_value = MagicMock()
+            mock_cache.return_value = MagicMock()
+            mock_folders.return_value = []
+            mock_spam.return_value = False
+            mock_thread.return_value = thread_data
+            resp = client.get(url)
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        # U24.37: header stacks below md, back to one row at md and up
+        assert "flex flex-col md:flex-row" in html
+        # U24.38: conversation meta line truncates instead of wrapping vertically
+        assert "text-xs text-slate-500 mt-0.5 truncate" in html
+        # U24.37: header buttons hidden below md (Reply All, Archive, Delete)
+        assert html.count("hidden md:inline-block") == 3
+        # U24.37: same actions duplicated as mobile-only overflow entries
+        assert html.count('data-action="archive"') == 2
+        assert html.count('data-action="delete"') == 2
+        assert "block md:hidden text-[11px]" in html
+
     def test_single_message_no_thread_label(self, app, authed_client):
         client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1"

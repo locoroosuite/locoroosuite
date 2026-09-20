@@ -8,9 +8,9 @@
   </form>
   <ul class="text-sm text-slate-700 space-y-2">
     {% for customer in customers %}
-    <li class="flex items-center justify-between">
-      <span>{{ customer.email }}</span>
-      <div class="flex gap-2">
+    <li class="flex items-center justify-between gap-3">
+      <span class="truncate min-w-0">{{ customer.email }}</span>
+      <div class="flex gap-2 flex-shrink-0">
         <form method="post" action="{{ url_for('manager.toggle_customer', customer_id=customer.id) }}">
           <button class="text-xs px-2 py-1 rounded {{ 'bg-green-100 text-green-700' if customer.is_active else 'bg-red-100 text-red-700' }}">
             {{ 'Active' if customer.is_active else 'Inactive' }}

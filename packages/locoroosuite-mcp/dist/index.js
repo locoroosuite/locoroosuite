@@ -46,7 +46,7 @@ async function main() {
     }
     const server = new McpServer({
         name: "locoroosuite",
-        version: "0.9.2",
+        version: "0.10.0",
     });
     server.tool("accounts_list", "List the customer's email accounts", {}, async () => {
         const data = await client.get("/api/v1/accounts");

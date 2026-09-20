@@ -120,6 +120,12 @@
           <span class="text-xs {{ 'text-emerald-600' if customer.is_active else 'text-red-500' }}">
             {{ 'Active' if customer.is_active else 'Inactive' }}
           </span>
+          {% if customer.totp_enabled %}
+          <span class="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-teal-50 text-teal-600 border border-teal-200" title="Two-factor authentication is enabled for this user">
+            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
+            2FA
+          </span>
+          {% endif %}
           {% for acc in accounts %}
           {% if acc.auth_type == 'external' %}
           <span class="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200">External</span>
@@ -206,6 +212,15 @@
           </div>
           {% endif %}
           <div class="border-t border-slate-100 my-1"></div>
+          {% if customer.totp_enabled %}
+          <form method="post" action="{{ url_for('admin.disable_customer_2fa', customer_id=customer.id) }}" onsubmit="return confirmDisable2fa(this, '{{ customer.email }}')">
+            <button type="submit" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 text-amber-600 disabled:opacity-50">
+              <svg class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              Disable 2FA
+              <span class="block text-slate-400 font-normal">Reset two-factor authentication for this user</span>
+            </button>
+          </form>
+          {% endif %}
           <form method="post" action="{{ url_for('admin.toggle_customer', customer_id=customer.id) }}">
             <button type="submit" class="w-full text-left px-3 py-2 text-xs hover:bg-slate-50">
               {{ 'Disable' if customer.is_active else 'Enable' }}
@@ -431,6 +446,17 @@
   window.submitSetPassword = function(form, customerId) {
     var pw = form.querySelector('input[name="password"]').value.trim();
     if (!pw) return false;
+    var btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.querySelector('svg').classList.remove('hidden');
+    return true;
+  };
+
+  window.confirmDisable2fa = function(form, email) {
+    var msg = 'Disable 2FA for ' + email + '?\n\n' +
+      'Their authenticator setup, backup codes, and trusted devices will be reset. ' +
+      'They can re-enable 2FA from their security settings.';
+    if (!window.confirm(msg)) return false;
     var btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;
     btn.querySelector('svg').classList.remove('hidden');

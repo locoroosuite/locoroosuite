@@ -134,7 +134,6 @@ def customers():
     customer_accounts = _customer_accounts_map([c.id for c in customers])
 
     admin_user = db.session.get(User, session.get("user_id"))
-    print("DEBUG_ADMIN:", session.get("user_id"), admin_user)
     admin_account = None
     if admin_user and admin_user.role == "admin":
         admin_account = CustomerAccount.query.filter_by(customer_id=admin_user.id).first()
@@ -605,7 +604,7 @@ def toggle_import_request(import_request_id):
 def assign_manager():
     manager_id = int(request.form.get("manager_id") or 0)
     domain_id = int(request.form.get("domain_id") or 0)
-    link = ManagerDomain(manager_id=manager_id, domain_id=domain_id)
+    link = ManagerDomain(manager_id=manager_id, domain_id=domain_id)  # type: ignore[call-arg]
     db.session.add(link)
     db.session.commit()
 

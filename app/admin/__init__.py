@@ -8,6 +8,9 @@ imports_bp = Blueprint("imports", __name__, template_folder="templates")
 def register(app):
     from .controllers import admin as admin_ctrl  # noqa: F401 (side-effect: registers routes)
     from .controllers import auth as auth_ctrl
+    from .controllers import (
+        customer_2fa as customer_2fa_ctrl,  # noqa: F401 (side-effect: registers routes)
+    )
     from .controllers import imports as imports_ctrl  # noqa: F401 (side-effect: registers routes)
     from .controllers import manager as manager_ctrl  # noqa: F401 (side-effect: registers routes)
     from .controllers import (

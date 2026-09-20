@@ -119,7 +119,7 @@ U1.3a - Domain creation supports DNS-based discovery (SRV/MX and common hostname
 U1.4 - The admins can assign managers to domains.
 U1.4a - Self-provisioned customers are automatically assigned to the domain's manager(s).
 U1.5 - Admin back office (minimal): list domains, managers, and customers; show basic counts per domain.
-U1.6 - Admin actions (standard): create/edit/disable domains; update domain IMAP/SMTP settings; assign/unassign managers; create/deactivate/reactivate customers (app-level only, IMAP untouched); delete customer local data (cache/tags) without touching IMAP.
+U1.6 - Admin actions (standard): create/edit/disable domains; update domain IMAP/SMTP settings; assign/unassign managers; create/deactivate/reactivate customers (app-level only, IMAP untouched); delete customer local data (cache/tags) without touching IMAP; disable (reset) customer 2FA per U22.31a.
 U1.7 - Admins can create mailbox import requests for customers. For MVP, the admin UI exposes source type selection for Google (Gmail / Google Workspace) and Google Takeout; destination is always IMAP and is configured by the admin on the import request.
 U1.7a - Each import request produces a unique signed link with expiry and an enable/disable flag. The link alone is sufficient for the end user to start the import flow; the user does not need an existing LocoRoomail session.
 U1.7b - Admin-visible import data is privacy-safe only: source type, destination mailbox identity, status, timestamps, folder/message counts, and sanitized errors. Admins must never see message subjects, bodies, attachments, OAuth tokens, or destination passwords.
@@ -1748,6 +1748,7 @@ U22.29 - Backup codes are displayed exactly once at enrollment (and once on rege
 U22.30 - Admin password resets remain CLI-only (per U1.1b). The CLI gains a command to disable 2FA for a specific user (e.g., `flask twofa-disable <email>`). This clears totp_secret, totp_enabled, and backup_codes for that user.
 
 U22.31 - Admins cannot see or manage 2FA for customers from the web UI (privacy per M4). Customer 2FA is entirely self-managed.
+U22.31a - Exception (admin disable/reset): admins may disable (reset) a customer's 2FA from the admin customers page. The action is available only when the customer has 2FA enabled; it clears totp_secret, totp_enabled, backup_codes, and revokes all trusted devices (same semantics as the CLI command in U22.30), and is recorded in the audit log. Admins never see TOTP secrets, backup codes, or trusted devices — only the enabled/disabled status. Enabling 2FA remains strictly self-service (QR enrollment cannot be performed by an admin). Managers do not get this action; the admin's own 2FA is managed via the self-service security page (U22.22).
 
 ## Security
 

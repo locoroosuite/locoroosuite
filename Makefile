@@ -92,21 +92,20 @@ deploy:
 
 # npm-publish: Publishes the locoroosuite-mcp package to npm.
 #
-# npm restricts tokens that bypass 2FA for direct publishing (login alone is
-# NOT enough — publish fails with 403). Two supported paths:
+# npm requires an interactive 2FA challenge for direct publishing with a
+# login token. Long-lived 2FA-bypass tokens still publish today but lose
+# direct publish ~Jan 2027, so interactive 2FA is the durable path.
 #
-#   A) Granular access token (non-interactive, recommended):
-#      1. Enable 2FA on your npm account (required to create such tokens).
-#      2. Go to https://www.npmjs.com/settings/<username>/tokens
-#      3. Generate New Token → Granular Access Token
-#      4. Set permissions to Read and write for the locoroosuite-mcp package
-#      5. Add to ~/.npmrc:
-#         echo "//registry.npmjs.org/:_authToken=YOUR_TOKEN" >> ~/.npmrc
-#      Then plain `make npm-publish` works.
+# One-time account setup (the actual root cause of 403s):
+#   1. https://www.npmjs.com/settings/<username>/tfa
+#   2. Enable 2FA with an authenticator app (TOTP, 6-digit codes).
+#   3. Save the recovery codes. Done.
 #
-#   B) Interactive login + one-time password:
-#      1. npm login
-#      2. make npm-publish OTP=123456   (6-digit code from your authenticator)
+# Publish — two ways:
+#   make npm-publish            -> interactive: prompts for a FRESH 6-digit code
+#                                  right before publish (codes rotate every
+#                                  30s, so prompting late avoids staleness)
+#   make npm-publish OTP=123456 -> non-interactive (CI-style)
 #
 npm-publish:
 	@echo "==> Checking npm login"
@@ -125,11 +124,22 @@ npm-publish:
 	@echo "==> Previewing tarball"
 	cd packages/locoroosuite-mcp && npm pack --dry-run
 	@echo "==> Publishing to npm"
-	cd packages/locoroosuite-mcp && npm publish $(if $(OTP),--otp=$(OTP)) || { \
+	@if [ -n "$(OTP)" ]; then \
+		cd packages/locoroosuite-mcp && npm publish --otp=$(OTP); \
+	else \
+		echo "npm requires 2FA to publish."; \
+		printf "Enter the 6-digit code from your authenticator app, or press ENTER for a browser/passkey challenge: "; \
+		read code; \
+		if [ -n "$$code" ]; then \
+			cd packages/locoroosuite-mcp && npm publish --otp="$$code"; \
+		else \
+			cd packages/locoroosuite-mcp && npm publish; \
+		fi; \
+	fi || { \
 		echo ""; \
 		echo "ERROR: Publish failed."; \
-		echo "If 403 'Two-factor authentication ... required': use 'make npm-publish OTP=<6-digit code>'"; \
-		echo "or set up a granular access token (see comments above the npm-publish target)."; \
+		echo "If 403 'Two-factor authentication ... required': 2FA is missing or the OTP was"; \
+		echo "wrong. Enable 2FA (authenticator app) at npmjs.com -> Settings -> 2FA, then retry."; \
 		exit 1; \
 	}
 	@echo "==> Done"

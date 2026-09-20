@@ -1,31 +1,34 @@
 import logging
 import threading
 
-from flask import session, request, render_template, current_app
-
-from app.shared.models.core import CustomerAccount
-from app.shared.keys import get_user_key
-from app.modules.mail.services.secrets import decrypt_with_key
-from app.modules.mail.services.imap_client import (
-    select_folder, list_folders, fetch_message, search_headers,
-    search_full_text, safe_logout,
-)
-from app.modules.mail.services.cache_db import open_cache, search_local
-from app.shared.events import push_event
-from app.shared.auth import require_customer
+from flask import current_app, render_template, request, session
 
 from app.modules.mail.controllers.helpers import (
-    mail_bp,
+    _format_short_date,
     _get_or_create_settings,
     _imap_for_account,
-    _format_short_date,
     _message_date_ts,
+    mail_bp,
 )
-
+from app.modules.mail.services.cache_db import open_cache, search_local
+from app.modules.mail.services.imap_client import (
+    fetch_message,
+    list_folders,
+    safe_logout,
+    search_full_text,
+    search_headers,
+    select_folder,
+)
+from app.modules.mail.services.secrets import decrypt_with_key
 from app.modules.mail.utils.sanitize import (
-    decode_address_header, normalize_header_text, normalize_preview_text,
+    decode_address_header,
+    normalize_header_text,
+    normalize_preview_text,
 )
-
+from app.shared.auth import require_customer
+from app.shared.events import push_event
+from app.shared.keys import get_user_key
+from app.shared.models.core import CustomerAccount
 
 logger = logging.getLogger(__name__)
 
@@ -35,36 +38,52 @@ logger = logging.getLogger(__name__)
 def search():
     query = request.form.get("q", "")
     folder_scope = request.form.get("folder")
-    account_id = int(request.form.get("account_id"))
-    account = CustomerAccount.query.filter_by(id=account_id, customer_id=session.get("user_id")).first_or_404()
+    account_id = int(request.form.get("account_id") or 0)
+    account = CustomerAccount.query.filter_by(
+        id=account_id, customer_id=session.get("user_id")
+    ).first_or_404()
     key = get_user_key(session.get("user_id"))
     conn = open_cache(account.cache_db_path, key)
     results = search_local(conn, query)
+    known_folders = [
+        row["folder"]
+        for row in conn.execute(
+            "SELECT DISTINCT folder FROM messages WHERE folder IS NOT NULL ORDER BY folder"
+        ).fetchall()
+    ]
     user_id = session.get("user_id")
     settings = _get_or_create_settings(user_id)
     timezone_name = settings.timezone
     readable_results = []
     for row in results:
         flags = row["flags"] or ""
-        readable_results.append({
-            "id": row["id"],
-            "subject": normalize_header_text(row["subject"]) or "(no subject)",
-            "sender": decode_address_header(row["sender"]),
-            "snippet": normalize_preview_text(row["snippet"], limit=500, fallback=row["body"]),
-            "date_display": _format_short_date(row["date"], timezone_name),
-            "folder": row["folder"],
-            "is_unread": "\\Seen" not in flags,
-            "is_flagged": "\\Flagged" in flags,
-        })
+        readable_results.append(
+            {
+                "id": row["id"],
+                "subject": normalize_header_text(row["subject"]) or "(no subject)",
+                "sender": decode_address_header(row["sender"]),
+                "snippet": normalize_preview_text(row["snippet"], limit=500, fallback=row["body"]),
+                "date_display": _format_short_date(row["date"], timezone_name),
+                "folder": row["folder"],
+                "is_unread": "\\Seen" not in flags,
+                "is_flagged": "\\Flagged" in flags,
+            }
+        )
 
     if not (query or "").strip():
-        return render_template("search.html", results=[], query=query, account_id=account_id)
+        return render_template(
+            "search.html", results=[], query=query, account_id=account_id, folders=known_folders
+        )
 
-    app = current_app._get_current_object()
+    app = current_app._get_current_object()  # pyright: ignore[reportAttributeAccessIssue]
 
     def _expand():
         with app.app_context():
-            secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
+            secret = (
+                decrypt_with_key(account.encrypted_secret, key)
+                if account.encrypted_secret
+                else None
+            )
             client, _domain = _imap_for_account(account, secret)
             results_remote = []
             folders = [folder_scope] if folder_scope else list_folders(client)
@@ -75,18 +94,27 @@ def search():
                     msg = fetch_message(client, uid)
                     if not msg:
                         continue
-                    results_remote.append({
-                        "folder": folder,
-                        "subject": normalize_header_text(msg.get("Subject", "")) or "(no subject)",
-                        "from": decode_address_header(msg.get("From", "")),
-                        "date": msg.get("Date", ""),
-                        "date_display": _format_short_date(msg.get("Date", ""), timezone_name),
-                    })
+                    results_remote.append(
+                        {
+                            "folder": folder,
+                            "subject": normalize_header_text(msg.get("Subject", ""))
+                            or "(no subject)",
+                            "from": decode_address_header(msg.get("From", "")),
+                            "date": msg.get("Date", ""),
+                            "date_display": _format_short_date(msg.get("Date", ""), timezone_name),
+                        }
+                    )
             safe_logout(client)
             push_event(user_id, "search_results", {"query": query, "results": results_remote})
 
     threading.Thread(target=_expand, daemon=True).start()
-    return render_template("search.html", results=readable_results, query=query, account_id=account_id)
+    return render_template(
+        "search.html",
+        results=readable_results,
+        query=query,
+        account_id=account_id,
+        folders=known_folders,
+    )
 
 
 @mail_bp.route("/mail/search/full", methods=["POST"])
@@ -94,18 +122,22 @@ def search():
 def full_search():
     query = request.form.get("q", "")
     user_id = session.get("user_id")
-    account_id = int(request.form.get("account_id"))
+    account_id = int(request.form.get("account_id") or 0)
     account = CustomerAccount.query.filter_by(id=account_id, customer_id=user_id).first_or_404()
     if not (query or "").strip():
-        return render_template("search_full.html", results=[], query=query, account_id=account_id)
+        return render_template(
+            "search_full.html", results=[], query=query, account_id=account_id, folders=[]
+        )
     settings = _get_or_create_settings(user_id)
     key = get_user_key(user_id)
     conn = open_cache(account.cache_db_path, key)
     uid_folder_pairs = {}
     results_remote = []
+    known_folders = []
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)
     for folder in list_folders(client):
+        known_folders.append(folder)
         select_folder(client, folder)
         uids = search_full_text(client, query)
         for uid in uids:
@@ -113,14 +145,16 @@ def full_search():
             if not msg:
                 continue
             uid_folder_pairs[len(results_remote)] = (str(uid), folder)
-            results_remote.append({
-                "folder": folder,
-                "subject": normalize_header_text(msg.get("Subject", "")) or "(no subject)",
-                "from": decode_address_header(msg.get("From", "")),
-                "date": msg.get("Date", ""),
-                "date_display": _format_short_date(msg.get("Date", ""), settings.timezone),
-                "date_ts": _message_date_ts(msg.get("Date", "")),
-            })
+            results_remote.append(
+                {
+                    "folder": folder,
+                    "subject": normalize_header_text(msg.get("Subject", "")) or "(no subject)",
+                    "from": decode_address_header(msg.get("From", "")),
+                    "date": msg.get("Date", ""),
+                    "date_display": _format_short_date(msg.get("Date", ""), settings.timezone),
+                    "date_ts": _message_date_ts(msg.get("Date", "")),
+                }
+            )
     safe_logout(client)
 
     cache_lookup = {}
@@ -143,5 +177,11 @@ def full_search():
             item["is_unread"] = False
             item["is_flagged"] = False
 
-    results_remote.sort(key=lambda row: (row.get("date_ts") or 0), reverse=True)
-    return render_template("search_full.html", results=results_remote, query=query, account_id=account_id)
+    results_remote.sort(key=lambda row: row.get("date_ts") or 0, reverse=True)
+    return render_template(
+        "search_full.html",
+        results=results_remote,
+        query=query,
+        account_id=account_id,
+        folders=known_folders,
+    )

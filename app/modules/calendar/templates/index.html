@@ -22,11 +22,11 @@
       {% for cal in calendars %}
       <div class="flex items-center gap-2 py-1.5 group">
         <form method="post" action="{{ url_for('calendar.toggle_calendar', calendar_id=cal.id) }}" class="inline flex-shrink-0">
-          <input type="checkbox" {{ 'checked' if cal.is_visible else '' }} onchange="this.form.submit()" class="h-3.5 w-3.5 rounded border-slate-300 cursor-pointer" style="accent-color: {{ cal.color }}" />
+          <input type="checkbox" {{ 'checked' if cal.is_visible else '' }} onchange="this.form.submit()" class="h-4 w-4 rounded border-slate-300 cursor-pointer" style="accent-color: {{ cal.color }}" aria-label="Show or hide calendar {{ cal.displayname }}" />
         </form>
         <span class="text-sm text-slate-700 truncate flex-1">{{ cal.displayname }}</span>
-        <div class="hidden group-hover:flex items-center gap-0.5">
-          <a href="{{ url_for('calendar.edit_calendar', calendar_id=cal.id) }}" class="p-0.5 text-slate-400 hover:text-slate-700">
+        <div class="flex items-center gap-0.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto lr-touch-visible transition-opacity">
+          <a href="{{ url_for('calendar.edit_calendar', calendar_id=cal.id) }}" class="flex h-8 w-8 items-center justify-center rounded text-slate-400 hover:text-slate-700 lr-hit" aria-label="Edit calendar {{ cal.displayname }}">
             <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"/></svg>
           </a>
         </div>
@@ -79,18 +79,18 @@
         <h1 id="cal-header-date" class="text-lg font-semibold text-slate-900 truncate"></h1>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        <button id="cal-today" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 shadow-sm hover:bg-slate-50">Today</button>
-        <button id="cal-prev" class="h-8 w-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:bg-slate-50 shadow-sm">
+        <button id="cal-today" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm hover:bg-slate-50">Today</button>
+        <button id="cal-prev" class="h-9 w-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:bg-slate-50 shadow-sm lr-hit" aria-label="Previous period">
           <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
         </button>
-        <button id="cal-next" class="h-8 w-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:bg-slate-50 shadow-sm">
+        <button id="cal-next" class="h-9 w-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:bg-slate-50 shadow-sm lr-hit" aria-label="Next period">
           <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
         </button>
         <div class="flex rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden ml-2">
-          <button class="view-btn px-3 py-1.5 text-xs {{ 'bg-slate-900 text-white' if view == 'month' else 'text-slate-600 hover:bg-slate-50' }}" data-view="month">Month</button>
-          <button class="view-btn px-3 py-1.5 text-xs {{ 'bg-slate-900 text-white' if view == 'week' else 'text-slate-600 hover:bg-slate-50' }}" data-view="week">Week</button>
-          <button class="view-btn px-3 py-1.5 text-xs {{ 'bg-slate-900 text-white' if view == 'day' else 'text-slate-600 hover:bg-slate-50' }}" data-view="day">Day</button>
-          <button class="view-btn px-3 py-1.5 text-xs {{ 'bg-slate-900 text-white' if view == 'agenda' else 'text-slate-600 hover:bg-slate-50' }}" data-view="agenda">Agenda</button>
+          <button class="view-btn px-3 py-2 text-xs {{ 'bg-slate-900 text-white' if view == 'month' else 'text-slate-600 hover:bg-slate-50' }}" data-view="month">Month</button>
+          <button class="view-btn px-3 py-2 text-xs {{ 'bg-slate-900 text-white' if view == 'week' else 'text-slate-600 hover:bg-slate-50' }}" data-view="week">Week</button>
+          <button class="view-btn px-3 py-2 text-xs {{ 'bg-slate-900 text-white' if view == 'day' else 'text-slate-600 hover:bg-slate-50' }}" data-view="day">Day</button>
+          <button class="view-btn px-3 py-2 text-xs {{ 'bg-slate-900 text-white' if view == 'agenda' else 'text-slate-600 hover:bg-slate-50' }}" data-view="agenda">Agenda</button>
         </div>
         {% if calendars|length > 0 %}
         <a href="{{ url_for('calendar.event_new') }}" class="ml-2 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-slate-800">

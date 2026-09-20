@@ -1333,12 +1333,15 @@ M13d - Dev-only snippet diagnostics may log privacy-safe metadata (content-type 
 UX1 - List density settings are out of scope for MVP; use the default list density.
 UX2 - Message list rows are fully clickable; subtle hover actions are available (archive/delete/mark read) without overwhelming the layout.
 UX3 - Message list visual hierarchy: subject is primary; sender and snippet are secondary; date/time is tertiary and right-aligned.
-UX3b - Message list row actions are hidden by default and appear on hover/focus. No reserved action column; actions overlay the right side of the row. On touch/mobile, show a “…” toggle on the right to reveal/hide actions.
+UX3b - Message list row actions are hidden by default and appear on hover/focus. No reserved action column; actions overlay the right side of the row. The hover/focus reveal applies only on hover-capable devices: all Tailwind `hover:`/`group-hover:` variants are emitted inside `@media (hover: hover) and (pointer: fine)` (`future.hoverOnlyWhenSupported`), and the hidden overlay carries `pointer-events-none` so it can never intercept taps on touch devices (browsers emulate `:hover` during a tap, which otherwise makes an invisible overlay briefly interactive). Keyboard `focus-within` reveal is unaffected. On touch/mobile, show a “…” toggle on the right to reveal/hide actions.
 UX3c - Message list row action hierarchy (Gmail-style):
   - Star toggle: always visible as a star icon in a narrow column to the left of the subject. Filled amber when starred, muted outline when not. Clicking toggles the IMAP flag.
   - Primary hover actions (desktop): Archive and Delete buttons appear on row hover/focus, overlaid on the right side of the row.
   - Secondary actions: a “⋯” button appears alongside the primary actions on hover; clicking it reveals a small dropdown with Mark as Read/Unread and Report Spam.
   - On touch/mobile, the “…” toggle reveals all actions in the overlay (primary and secondary via the dropdown).
+UX3d - Hover-revealed actions on every list (mail folder sidebar rows, docs document rows and folder tree, chat message actions, calendar sidebar rows) must be touch-safe and touch-reachable:
+  - Hidden elements must carry `pointer-events-none` until revealed, so an invisible overlay can never intercept taps on any device.
+  - On devices without hover (CSS `@media (hover: none)`), hover-hidden actions are always visible — never hidden behind a hover-only affordance. An explicit touch toggle (UX3b style) is the accepted alternative where visual density requires it.
 UX3a - Message list row layout:
   - Line 1: Subject on the left; Sender and Date on the right. Subject truncates with ellipsis; full subject is available via tooltip (hover/focus).
   - Sender block shows up to two words from the display name; if only an email address is available, use the local-part (before "@"). Sender truncates with ellipsis; full name + email available via tooltip (hover/focus).
@@ -1789,7 +1792,7 @@ The application is fully usable on mobile browsers and can be installed as a Pro
 
 ## Responsive Layout
 
-U24.1 - All customer-facing pages are usable at a 360px viewport width: no horizontal overflow, tap targets >= 40px in the dominant dimension (44px preferred), and hover-revealed actions always have a touch fallback.
+U24.1 - All customer-facing pages are usable at a 360px viewport width: no horizontal overflow, tap targets >= 40px in the dominant dimension (44px preferred; the hit area may exceed the visual size via padding/pseudo-element), and hover-revealed actions always have a touch fallback (always visible on touch per UX3d, or an explicit toggle per UX3b).
 U24.2 - Off-canvas drawer pattern: on viewports below the `lg` breakpoint (1024px), the mail folder sidebar, calendar sidebar, and docs sidebar render as an off-canvas drawer with a dimmed backdrop. The drawer opens via a hamburger button in the content header, and closes on backdrop tap, Escape, folder/section navigation, or window resize to desktop. On desktop (`lg:` and up) the sidebars remain inline and existing collapse behavior is unchanged.
 U24.3 - Preview pane (U4.10) is desktop-only: below `lg` the preview pane is disabled and message row taps open the full message page (U4.10a semantics). If the user enables preview while on a desktop and then resizes below `lg`, the pane is hidden until the viewport is desktop-sized again.
 U24.4 - Header global search (U7.2): on phones the search input collapses into an icon in the header; tapping it expands a full-width search row under the header.
@@ -1797,6 +1800,7 @@ U24.5 - Mail compose: a floating action button (FAB) is visible on mobile (`lg:h
 U24.6 - Calendar on phones (`< md`): the default view is Day view regardless of the persisted last view (U12.10 persistence is unchanged for desktop); Week and Month views remain selectable and scroll horizontally with a minimum width. Click-and-drag quick-create is desktop-only; on touch, tapping an empty time slot opens the create form with that time pre-filled.
 U24.7 - Contacts list: below `md` the table renders as a stacked card list (name, primary email, primary phone); alphabetical sorting and search are unchanged.
 U24.8 - Docs list follows U13.60m: sidebar collapsible (drawer) on mobile, always visible on desktop.
+U24.32 - Docs list mobile layout: below the `lg` breakpoint the document table renders as a stacked card list (type icon + name, folder/tag badges, last-updated time, always-visible actions) mirroring the contacts card pattern (U24.7). The desktop table with hover-revealed actions is unchanged at `lg:` and up. Row actions follow UX3d: hidden overlays are non-interactive, and actions are always visible on touch devices.
 
 ## Styling Infrastructure
 

@@ -33,7 +33,7 @@
         <div class="flex items-center justify-between text-[11px] uppercase tracking-wide text-slate-400 mb-2" data-collapsible="hide">
           <span>{{ section.title }}</span>
           {% if is_folders_section %}
-          <button type="button" id="create-folder-toggle" class="flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100/80 opacity-100 sm:opacity-0 sm:group-hover/folders:opacity-100 transition" aria-label="Create folder" aria-expanded="false">
+          <button type="button" id="create-folder-toggle" class="flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100/80 opacity-100 sm:opacity-0 sm:group-hover/folders:opacity-100 transition lr-hit" aria-label="Create folder" aria-expanded="false">
             <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
               <path d="M9 4a1 1 0 0 1 2 0v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H4a1 1 0 1 1 0-2h5V4z"></path>
             </svg>
@@ -69,35 +69,35 @@
                 <span class="sync-indicator flex h-4 w-4 items-center justify-center" data-folder="{{ f }}"></span>
               </a>
               <div class="relative" data-no-row-nav>
-                <button type="button" class="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100/80 opacity-0 group-hover/row:opacity-100 transition" data-folder-actions-toggle="{{ f }}" aria-haspopup="menu" aria-expanded="false">
+                <button type="button" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100/80 opacity-0 pointer-events-none group-hover/row:opacity-100 group-hover/row:pointer-events-auto lr-touch-visible transition lr-hit" data-folder-actions-toggle="{{ f }}" aria-haspopup="menu" aria-expanded="false">
                   <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <circle cx="4" cy="10" r="1.5"></circle>
                     <circle cx="10" cy="10" r="1.5"></circle>
                     <circle cx="16" cy="10" r="1.5"></circle>
                   </svg>
                 </button>
-                <div class="folder-actions-menu hidden absolute right-0 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 text-xs shadow-lg" data-folder-actions-menu="{{ f }}" role="menu">
+                <div class="folder-actions-menu hidden absolute right-0 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 text-xs shadow-lg z-30" data-folder-actions-menu="{{ f }}" role="menu">
                   <form method="post" action="{{ url_for('mail.toggle_pin_folder', account_id=account.id, folder=f) }}">
-                    <button class="w-full px-3 py-1.5 text-left text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                    <button class="w-full px-3 py-2.5 text-left text-slate-600 hover:text-slate-900 hover:bg-slate-50">
                       {{ 'Unpin' if pinned_keys.get(f|lower) else 'Pin' }}
                     </button>
                   </form>
                   {% set is_system_folder = f|lower in system_folder_keys %}
                   <form method="post" action="{{ url_for('mail.toggle_protect_folder', account_id=account.id, folder=f) }}">
-                    <button class="w-full px-3 py-1.5 text-left {{ 'text-slate-300' if is_system_folder else 'text-slate-600 hover:text-slate-900 hover:bg-slate-50' }}" {{ 'disabled' if is_system_folder else '' }}>
+                    <button class="w-full px-3 py-2.5 text-left {{ 'text-slate-300' if is_system_folder else 'text-slate-600 hover:text-slate-900 hover:bg-slate-50' }}" {{ 'disabled' if is_system_folder else '' }}>
                       {{ 'Protected' if is_system_folder else ('Unprotect' if protected_keys.get(f|lower) else 'Protect from delete') }}
                     </button>
                   </form>
                   {% if not is_system_folder %}
                   <form method="post" action="{{ url_for('mail.rename_folder_route', account_id=account.id, folder=f) }}" data-folder-rename-form="{{ f }}">
-                    <button type="button" class="w-full px-3 py-1.5 text-left text-slate-600 hover:text-slate-900 hover:bg-slate-50" data-folder-rename-trigger="{{ f }}">Rename</button>
+                    <button type="button" class="w-full px-3 py-2.5 text-left text-slate-600 hover:text-slate-900 hover:bg-slate-50" data-folder-rename-trigger="{{ f }}">Rename</button>
                   </form>
                   <form method="post" action="{{ url_for('mail.delete_folder_route', account_id=account.id, folder=f) }}" onsubmit="return confirm('Delete folder &quot;{{ f }}&quot; and all its messages?');" data-folder-delete-form="{{ f }}">
-                    <button type="submit" class="w-full px-3 py-1.5 text-left text-red-600 hover:text-red-700 hover:bg-red-50">Delete folder</button>
+                    <button type="submit" class="w-full px-3 py-2.5 text-left text-red-600 hover:text-red-700 hover:bg-red-50">Delete folder</button>
                   </form>
                   {% endif %}
                   <form method="post" action="{{ url_for('mail.mark_all_read', account_id=account.id, folder=f) }}" class="{{ '' if cached_folders.get(f) else 'hidden' }}" data-folder-mark-read="{{ f }}">
-                    <button class="w-full px-3 py-1.5 text-left text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                    <button class="w-full px-3 py-2.5 text-left text-slate-600 hover:text-slate-900 hover:bg-slate-50">
                       Mark all read
                     </button>
                   </form>
@@ -266,6 +266,7 @@
 </a>
 {% endif %}
 
+<script src="{{ url_for('static', filename='js/mail/message-list.js') }}?v={{ static_v('js/mail/message-list.js') }}"></script>
 <script>
   const UNREAD_EXCLUDED_FOLDERS = new Set({{ unread_excluded_folders | tojson }});
   const grid = document.getElementById('mailbox-grid');
@@ -444,30 +445,6 @@
   const undoTimerWrap = document.getElementById('undo-timer-wrap');
   const undoViewFolder = document.getElementById('undo-view-folder');
 
-  const closeMessageActions = (exceptRow = null) => {
-    if (!messageList) {
-      return;
-    }
-    if (!exceptRow || (openOverflowMenu && !exceptRow.contains(openOverflowMenu))) {
-      closeOverflowMenu();
-    }
-    messageList.querySelectorAll('.message-row.is-actions-open').forEach(row => {
-      if (exceptRow && row === exceptRow) {
-        return;
-      }
-      row.classList.remove('is-actions-open');
-      row.removeAttribute('data-overlay-locked');
-      const toggle = row.querySelector('[data-message-actions-toggle]');
-      if (toggle) {
-        toggle.setAttribute('aria-expanded', 'false');
-      }
-      const overflowMenu = row.querySelector('[data-overflow-menu]');
-      if (overflowMenu) {
-        overflowMenu.classList.add('hidden');
-      }
-    });
-  };
-
   const desktopMedia = window.matchMedia('(min-width: 1024px)');
 
   const setPreviewEnabled = (enabled, persist = true) => {
@@ -632,7 +609,7 @@
         }
         const row = messageList.querySelector(`.message-row[data-message-id="${messageId}"]`);
         if (row) {
-          removeRowWithAnimation(row);
+          listApi.removeRowWithAnimation(row);
         } else {
           window.location.reload();
         }
@@ -644,430 +621,7 @@
     });
   });
 
-  messageList.addEventListener('click', (e) => {
-    const toggle = e.target.closest('[data-message-actions-toggle]');
-    if (!toggle) {
-      return;
-    }
-    e.preventDefault();
-    e.stopPropagation();
-    const row = toggle.closest('.message-row');
-    if (!row) {
-      return;
-    }
-    const menu = row.querySelector('[data-message-actions]');
-    const isOpen = row.classList.contains('is-actions-open');
-    if (!isOpen) {
-      closeMessageActions(row);
-    }
-    row.classList.toggle('is-actions-open', !isOpen);
-    if (!isOpen) {
-      row.setAttribute('data-overlay-locked', '');
-    } else {
-      if (openOverflowMenu && row.contains(openOverflowMenu)) {
-        closeOverflowMenu();
-      }
-      row.removeAttribute('data-overlay-locked');
-    }
-    toggle.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
-  });
-
-  let openOverflowMenu = null;
-
-  const positionOverflowMenu = (menu, row) => {
-    menu.classList.remove('bottom-full', 'mb-1', 'top-full', 'mt-1');
-    const rowRect = row.getBoundingClientRect();
-    const spaceAbove = rowRect.top;
-    const spaceBelow = window.innerHeight - rowRect.bottom;
-    const menuHeight = menu.scrollHeight || 160;
-    if (spaceAbove < menuHeight && spaceBelow > spaceAbove) {
-      menu.classList.add('top-full', 'mt-1');
-    } else {
-      menu.classList.add('bottom-full', 'mb-1');
-    }
-  };
-
-  const closeOverflowMenu = () => {
-    if (!openOverflowMenu) return;
-    const menu = openOverflowMenu;
-    const row = menu.closest('.message-row');
-    renderOverflowMenu(menu);
-    menu.classList.add('hidden');
-    menu.classList.remove('bottom-full', 'mb-1', 'top-full', 'mt-1');
-    openOverflowMenu = null;
-    if (row && !row.classList.contains('is-actions-open')) {
-      row.removeAttribute('data-overlay-locked');
-    }
-    if (refreshPending) {
-      setTimeout(() => refreshMessages({ force: true }), 100);
-    }
-  };
-
-  messageList.addEventListener('click', (e) => {
-    const overflowToggle = e.target.closest('[data-overflow-toggle]');
-    if (!overflowToggle) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const row = overflowToggle.closest('.message-row');
-    if (!row) return;
-    const menu = row.querySelector('[data-overflow-menu]');
-    if (!menu) return;
-    const wasHidden = menu.classList.contains('hidden');
-    if (openOverflowMenu && openOverflowMenu !== menu) {
-      closeOverflowMenu();
-    }
-    if (wasHidden) {
-      menu.classList.remove('hidden');
-      positionOverflowMenu(menu, row);
-      openOverflowMenu = menu;
-      row.setAttribute('data-overlay-locked', '');
-    } else {
-      closeOverflowMenu();
-    }
-  });
-
-  const renderOverflowMenu = (menu) => {
-    if (!menu) return;
-    menu.innerHTML = menu.dataset.originalContent || '';
-  };
-
-  const renderFolderPicker = (menu, currentFolderPath) => {
-    if (!menu) return;
-    if (!menu.dataset.originalContent) {
-      menu.dataset.originalContent = menu.innerHTML;
-    }
-    const folders = allFolders.filter(f => f.toLowerCase() !== currentFolderPath.toLowerCase());
-    if (folders.length === 0) {
-      if (window.LR) window.LR.notifyError('No other folders available.');
-      renderOverflowMenu(menu);
-      return;
-    }
-    let html = '<button type="button" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-600 whitespace-nowrap" data-move-back>&larr; Back</button>';
-    html += '<div class="border-t border-slate-100"></div>';
-    html += '<div class="px-2 py-1"><input type="text" placeholder="Filter folders..." class="w-full text-[11px] px-2 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:border-slate-400" data-folder-filter /></div>';
-    html += '<div class="max-h-40 overflow-y-auto" data-folder-list>';
-    folders.forEach(f => {
-      html += `<button type="button" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-target="${CSS.escape(f)}">${f}</button>`;
-    });
-    html += '</div>';
-    menu.innerHTML = html;
-    const row = menu.closest('.message-row');
-    if (row) positionOverflowMenu(menu, row);
-  };
-
-  messageList.addEventListener('click', (e) => {
-    const moveBtn = e.target.closest('[data-move-to-folder]');
-    if (!moveBtn) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const row = moveBtn.closest('.message-row');
-    if (!row) return;
-    const menu = row.querySelector('[data-overflow-menu]');
-    renderFolderPicker(menu, currentFolder);
-  });
-
-  messageList.addEventListener('input', (e) => {
-    const filter = e.target.closest('[data-folder-filter]');
-    if (!filter) return;
-    e.stopPropagation();
-    const list = filter.closest('[data-overflow-menu]').querySelector('[data-folder-list]');
-    if (!list) return;
-    const query = filter.value.toLowerCase();
-    list.querySelectorAll('[data-move-target]').forEach(btn => {
-      const match = !query || btn.textContent.toLowerCase().includes(query);
-      btn.classList.toggle('hidden', !match);
-    });
-  });
-
-  messageList.addEventListener('click', (e) => {
-    const backBtn = e.target.closest('[data-move-back]');
-    if (!backBtn) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const menu = backBtn.closest('[data-overflow-menu]');
-    renderOverflowMenu(menu);
-    const row = menu ? menu.closest('.message-row') : null;
-    if (menu && row) positionOverflowMenu(menu, row);
-  });
-
-  messageList.addEventListener('click', (e) => {
-    const target = e.target.closest('[data-move-target]');
-    if (!target) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const row = target.closest('.message-row');
-    if (!row) return;
-    const menu = row.querySelector('[data-overflow-menu]');
-    const destination = target.dataset.moveTarget;
-    if (!destination) return;
-    const messageId = row.dataset.messageId;
-    const accountId = row.dataset.accountId;
-    if (!messageId || !accountId) return;
-    target.disabled = true;
-    const spinner = document.createElement('span');
-    spinner.className = 'inline-block w-3 h-3 border-2 border-slate-400 border-r-transparent rounded-full animate-spin ml-1';
-    target.appendChild(spinner);
-    fetch(`/app/mail/message/${accountId}/${messageId}/move`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
-      body: `destination=${encodeURIComponent(destination)}`
-    }).then(resp => {
-      if (!resp.ok) throw new Error('Move failed');
-      return resp.json();
-    }).then(() => {
-      openOverflowMenu = null;
-      removeRowWithAnimation(row);
-    }).catch(() => {
-      if (window.LR) window.LR.notifyError('Failed to move message. Please retry. If it keeps happening, check your connection or refresh.');
-      renderOverflowMenu(menu);
-    });
-  });
-
-  document.addEventListener('click', (e) => {
-    if (e.target.closest('[data-message-actions]') || e.target.closest('[data-message-actions-toggle]')) {
-      return;
-    }
-    closeOverflowMenu();
-    closeMessageActions();
-  });
-
-  messageList.addEventListener('mouseout', (e) => {
-    const row = e.target.closest('.message-row');
-    if (!row) return;
-    if (e.relatedTarget && row.contains(e.relatedTarget)) return;
-    if (openOverflowMenu && row.contains(openOverflowMenu)) return;
-    const overflowMenu = row.querySelector('[data-overflow-menu]');
-    if (overflowMenu && !overflowMenu.classList.contains('hidden')) return;
-  });
-
-  messageList.addEventListener('submit', (e) => {
-    const form = e.target.closest('form.message-action');
-    if (!form) {
-      return;
-    }
-    e.preventDefault();
-    e.stopPropagation();
-    const row = form.closest('.message-row');
-    const action = form.dataset.action || '';
-    const formData = new FormData(form);
-    const button = form.querySelector('button');
-    const isFlagAction = action === 'flag';
-    if (isFlagAction && button) {
-      const starIcon = button.querySelector('[data-star-icon]');
-      if (starIcon) starIcon.classList.add('hidden');
-      const spinner = document.createElement('span');
-      spinner.className = 'lr-spinner inline-block w-[18px] h-[18px] border-2 border-slate-400 border-r-transparent rounded-full animate-spin';
-      spinner.dataset.starSpinner = '1';
-      button.appendChild(spinner);
-      button.disabled = true;
-    } else if (button && window.LR) {
-      window.LR.setButtonLoading(button);
-    }
-    const actionUrl = form.getAttribute('action') || '';
-    fetch(actionUrl, {
-      method: 'POST',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' },
-      body: formData
-    }).then(resp => resp.json().catch(() => null))
-      .then(data => {
-        if (!data || !row) {
-          if (window.LR) {
-            window.LR.notifyError();
-          }
-          return;
-        }
-        if (data.error || data.status === 'error') {
-          if (window.LR) {
-            window.LR.notifyError(`Action failed: ${data.error || 'Unknown error'}`, { suffix: data.code !== 'PROTECTED' });
-          }
-          return;
-        }
-        if (action === 'mark') {
-          const wasUnread = row.dataset.isUnread === '1';
-          updateRowUnreadUI(row, data.is_unread);
-          const delta = (data.is_unread ? 1 : 0) - (wasUnread ? 1 : 0);
-          if (delta !== 0) {
-            applyUnreadDelta(delta);
-          }
-          const wasFlagged = row.dataset.isFlagged === '1';
-          if (wasFlagged) {
-            applyStarredDelta(delta);
-          }
-          const overflowMenu = row.querySelector('[data-overflow-menu]');
-          if (overflowMenu) overflowMenu.classList.add('hidden');
-          return;
-        }
-        if (action === 'flag') {
-          const wasFlagged = row.dataset.isFlagged === '1';
-          updateRowFlagUI(row, data.is_flagged);
-          const wasUnread = row.dataset.isUnread === '1';
-          if (wasUnread) {
-            const delta = (data.is_flagged ? 1 : 0) - (wasFlagged ? 1 : 0);
-            if (delta !== 0) {
-              applyStarredDelta(delta);
-            }
-          }
-          const starBtn = form.querySelector('[data-star-toggle]');
-          if (starBtn) starBtn.blur();
-          return;
-        }
-        if (action === 'lock') {
-          const overflowMenu = row.querySelector('[data-overflow-menu]');
-          if (overflowMenu) overflowMenu.classList.add('hidden');
-          if (window.LR) {
-            window.LR.notifySuccess(data.is_locked ? 'Message locked' : 'Message unlocked');
-          }
-          return;
-        }
-        if (action === 'archive' || action === 'delete' || action === 'junk') {
-          if (data.was_unread) {
-            applyUnreadDelta(-1);
-          }
-          const wasFlagged = row.dataset.isFlagged === '1';
-          if (wasFlagged && row.dataset.isUnread === '1') {
-            applyStarredDelta(-1);
-          }
-          removeRowWithAnimation(row);
-          if (data.undo_action) {
-            renderUndoBanner(data.undo_action);
-          }
-          return;
-        }
-      })
-      .catch(() => {
-        if (window.LR) {
-          window.LR.notifyError();
-        }
-      })
-      .finally(() => {
-        if (isFlagAction && button) {
-          const spinner = button.querySelector('[data-star-spinner]');
-          if (spinner) spinner.remove();
-          const starIcon = button.querySelector('[data-star-icon]');
-          if (starIcon) starIcon.classList.remove('hidden');
-          button.disabled = false;
-        } else if (button && window.LR) {
-          window.LR.clearButtonLoading(button);
-        }
-      });
-  });
-
-  const expandedThreads = new Set();
-
-  function saveExpandState() {
-    expandedThreads.clear();
-    messageList.querySelectorAll('[data-thread-collapse-toggle][aria-expanded="true"]').forEach(toggle => {
-      const card = toggle.closest('[data-thread-card]');
-      if (card && card.dataset.threadKey) {
-        expandedThreads.add(card.dataset.threadKey);
-      }
-    });
-  }
-
-  function restoreExpandState() {
-    if (expandedThreads.size === 0) return;
-    messageList.querySelectorAll('[data-thread-card]').forEach(card => {
-      if (!card.dataset.threadKey || !expandedThreads.has(card.dataset.threadKey)) return;
-      const toggle = card.querySelector('[data-thread-collapse-toggle]');
-      const content = card.querySelector('[data-thread-collapse-content]');
-      if (!toggle || !content) return;
-      toggle.setAttribute('aria-expanded', 'true');
-      content.style.maxHeight = 'none';
-      content.style.opacity = '1';
-      const chevron = toggle.querySelector('[data-collapse-chevron]');
-      if (chevron) chevron.style.transform = 'rotate(180deg)';
-      const label = toggle.querySelector('[data-collapse-label]');
-      if (label) label.textContent = 'Collapse older messages';
-    });
-  }
-
-  messageList.addEventListener('click', (e) => {
-    const toggleBar = e.target.closest('[data-thread-collapse-toggle]');
-    if (toggleBar) {
-      e.stopPropagation();
-      const wrapper = toggleBar.parentElement;
-      const content = wrapper.querySelector('[data-thread-collapse-content]');
-      if (!content) return;
-      const chevron = toggleBar.querySelector('[data-collapse-chevron]');
-      const label = toggleBar.querySelector('[data-collapse-label]');
-      const isExpanded = toggleBar.getAttribute('aria-expanded') === 'true';
-      if (isExpanded) {
-        content.style.maxHeight = content.scrollHeight + 'px';
-        requestAnimationFrame(() => {
-          content.style.maxHeight = '0';
-          content.style.opacity = '0';
-        });
-        toggleBar.setAttribute('aria-expanded', 'false');
-        if (chevron) chevron.style.transform = 'rotate(0deg)';
-        if (label) {
-          const count = parseInt(toggleBar.dataset.olderCount || content.querySelectorAll('.message-row').length, 10);
-          label.textContent = count + ' older message' + (count !== 1 ? 's' : '');
-        }
-        const card = toggleBar.closest('[data-thread-card]');
-        if (card && card.dataset.threadKey) {
-          expandedThreads.delete(card.dataset.threadKey);
-        }
-      } else {
-        toggleBar.setAttribute('aria-expanded', 'true');
-        content.style.maxHeight = content.scrollHeight + 'px';
-        content.style.opacity = '1';
-        if (chevron) chevron.style.transform = 'rotate(180deg)';
-        if (label) label.textContent = 'Collapse older messages';
-        const onEnd = () => {
-          content.style.maxHeight = 'none';
-          content.removeEventListener('transitionend', onEnd);
-        };
-        content.addEventListener('transitionend', onEnd);
-        const card = toggleBar.closest('[data-thread-card]');
-        if (card && card.dataset.threadKey) {
-          expandedThreads.add(card.dataset.threadKey);
-        }
-      }
-      return;
-    }
-    const row = e.target.closest('.message-row');
-    if (!row) {
-      return;
-    }
-    if (e.target.closest('[data-no-row-nav]')) {
-      return;
-    }
-    const messageUrl = row.dataset.messageUrl;
-    if (!messageUrl) {
-      return;
-    }
-    if (e.metaKey || e.ctrlKey) {
-      window.open(messageUrl, '_blank');
-      return;
-    }
-    if (previewPane.classList.contains('hidden')) {
-      window.location.href = messageUrl;
-      return;
-    }
-    document.querySelectorAll('.message-row').forEach(el => el.classList.remove('bg-slate-50'));
-    row.classList.add('bg-slate-50');
-    loadPreview(row);
-  });
-
-  messageList.addEventListener('auxclick', (e) => {
-    if (e.button !== 1) {
-      return;
-    }
-    const row = e.target.closest('.message-row');
-    if (!row) {
-      return;
-    }
-    if (e.target.closest('[data-no-row-nav]')) {
-      return;
-    }
-    const messageUrl = row.dataset.messageUrl;
-    if (!messageUrl) {
-      return;
-    }
-    e.preventDefault();
-    window.open(messageUrl, '_blank');
-  });
-
+  let refreshPending = false;
   previewPane.addEventListener('click', (e) => {
     const link = e.target.closest('a[data-preview-url]');
     if (!link) {
@@ -1129,11 +683,11 @@
   const FLIP_MAX_ROWS = 100;
 
   const applyFLIPUpdate = (container, newHtml) => {
-    saveExpandState();
+    listApi.saveExpandState();
     const existingRowCount = container.querySelectorAll('.message-row').length;
     if (prefersReducedMotion || existingRowCount > FLIP_MAX_ROWS) {
       container.innerHTML = newHtml;
-      restoreExpandState();
+      listApi.restoreExpandState();
       // The skeleton lives inside the container, so innerHTML may have
       // already destroyed it -- re-sync the flag from the DOM instead of
       // probing for the (now detached) element.
@@ -1159,7 +713,7 @@
     });
 
     container.innerHTML = newHtml;
-    restoreExpandState();
+    listApi.restoreExpandState();
 
     // Same flag re-sync as above: innerHTML already wiped the skeleton.
     skeletonVisible = !!document.getElementById('message-skeleton');
@@ -1222,11 +776,10 @@
     });
   };
 
-  let refreshPending = false;
   const refreshMessages = (opts = {}) => {
     const now = Date.now();
     const force = opts.force === true;
-    if (openOverflowMenu) {
+    if (listApi.isOverflowOpen()) {
       refreshPending = true;
       return;
     }
@@ -1566,108 +1119,6 @@
     }
   };
 
-  const updateRowUnreadUI = (row, isUnread) => {
-    row.dataset.isUnread = isUnread ? '1' : '0';
-    row.classList.toggle('bg-amber-100/70', isUnread);
-    row.classList.toggle('hover:bg-amber-100', isUnread);
-    row.classList.toggle('hover:bg-slate-50/80', !isUnread);
-    const subject = row.querySelector('[data-subject="true"]');
-    if (subject) {
-      subject.classList.toggle('font-bold', isUnread);
-      subject.classList.toggle('text-slate-950', isUnread);
-      subject.classList.toggle('text-slate-700', !isUnread);
-    }
-    const markForm = row.querySelector('form[data-action="mark"]');
-    if (markForm) {
-      const input = markForm.querySelector('input[name="action"]');
-      const button = markForm.querySelector('button');
-      if (input) {
-        input.value = isUnread ? 'read' : 'unread';
-      }
-      if (button) {
-        button.textContent = isUnread ? 'Mark as read' : 'Mark as unread';
-      }
-    }
-  };
-
-  const updateRowFlagUI = (row, isFlagged) => {
-    row.dataset.isFlagged = isFlagged ? '1' : '0';
-    const starIcon = row.querySelector('[data-star-icon]');
-    if (starIcon) {
-      starIcon.setAttribute('fill', isFlagged ? 'currentColor' : 'none');
-      starIcon.setAttribute('stroke-width', isFlagged ? '1' : '1.5');
-      starIcon.classList.toggle('text-amber-400', isFlagged);
-      starIcon.classList.toggle('text-slate-300', !isFlagged);
-      starIcon.classList.toggle('hover:text-amber-400', !isFlagged);
-    }
-    const starToggle = row.querySelector('[data-star-toggle]');
-    if (starToggle) {
-      starToggle.setAttribute('aria-label', isFlagged ? 'Unstar' : 'Star');
-    }
-    const form = row.querySelector('form[data-action="flag"]');
-    if (form) {
-      const input = form.querySelector('input[name="action"]');
-      if (input) {
-        input.value = isFlagged ? 'remove' : 'add';
-      }
-    }
-  };
-
-  const updateThreadCountsAfterRemoval = (threadCard) => {
-    if (!threadCard) return;
-    const rows = threadCard.querySelectorAll('.message-row');
-    const badge = threadCard.querySelector('.thread-count');
-    if (rows.length === 0) {
-      threadCard.remove();
-      if (threadCount) {
-        const matches = threadCount.textContent.match(/^\d+/);
-        if (matches) {
-          const current = Number(matches[0]) || 0;
-          const next = Math.max(0, current - 1);
-          threadCount.textContent = `${next} conversations`;
-        }
-      }
-      return;
-    }
-    if (badge) {
-      badge.textContent = rows.length;
-    }
-  };
-
-  const moveThreadCountBadge = (row) => {
-    const badge = row.querySelector('.thread-count');
-    if (!badge) return;
-    const threadCard = row.closest('[data-thread-card="true"]');
-    if (!threadCard) return;
-    const rows = Array.from(threadCard.querySelectorAll('.message-row')).filter((item) => item !== row);
-    const target = rows[0];
-    if (!target) return;
-    const subject = target.querySelector('[data-subject="true"]');
-    if (subject && subject.parentElement) {
-      subject.parentElement.appendChild(badge);
-    } else {
-      target.appendChild(badge);
-    }
-  };
-
-  const removeRowWithAnimation = (row) => {
-    const threadCard = row.closest('[data-thread-card="true"]');
-    row.classList.add('opacity-0', 'translate-x-2');
-    row.style.maxHeight = `${row.offsetHeight}px`;
-    row.style.overflow = 'hidden';
-    requestAnimationFrame(() => {
-      row.style.maxHeight = '0px';
-      row.style.paddingTop = '0px';
-      row.style.paddingBottom = '0px';
-    });
-    setTimeout(() => {
-      moveThreadCountBadge(row);
-      row.remove();
-      updateThreadCountsAfterRemoval(threadCard);
-      updateEmptyState();
-    }, 220);
-  };
-
   const renderUndoBanner = (undo) => {
     if (!undoBanner || !undoLabel || !undoToken || !undoTimer || !undoTimerWrap) return;
     if (!undo) {
@@ -1713,6 +1164,36 @@
       undoTimer.textContent = '';
     }
   };
+
+  // Shared message-list behavior (js/mail/message-list.js): row action
+  // overlay ("..." touch toggle), overflow menu, inline action submits,
+  // thread collapse, row navigation.
+  const listApi = window.LRMessageList.init({
+    container: messageList,
+    folders: allFolders,
+    currentFolder: currentFolder,
+    previewPane: previewPane,
+    onLoadPreview: loadPreview,
+    onUnreadDelta: applyUnreadDelta,
+    onStarredDelta: applyStarredDelta,
+    onRenderUndo: renderUndoBanner,
+    onMenuClosed: () => {
+      if (refreshPending) {
+        refreshPending = false;
+        setTimeout(() => refreshMessages({ force: true }), 100);
+      }
+    },
+    onListChanged: updateEmptyState,
+    onThreadCardRemoved: () => {
+      if (threadCount) {
+        const matches = threadCount.textContent.match(/^\d+/);
+        if (matches) {
+          const next = Math.max(0, (Number(matches[0]) || 0) - 1);
+          threadCount.textContent = `${next} conversations`;
+        }
+      }
+    }
+  });
 
   const source = new EventSource('/events/stream');
   source.addEventListener('sync_status', (evt) => {

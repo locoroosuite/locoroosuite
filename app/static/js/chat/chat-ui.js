@@ -210,11 +210,13 @@
     }
 
     const hover = document.createElement("div");
-    hover.className = "opacity-0 group-hover/msg:opacity-100 transition-opacity flex gap-1 items-center";
+    // UX3d: hidden + non-interactive until hover (hover-capable devices only);
+    // always visible on touch via .lr-touch-visible.
+    hover.className = "opacity-0 pointer-events-none group-hover/msg:opacity-100 group-hover/msg:pointer-events-auto lr-touch-visible transition-opacity flex gap-1 items-center";
     REACTIONS.slice(0, 3).forEach(function (key) {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "h-6 w-6 rounded hover:bg-slate-200 text-sm flex items-center justify-center";
+      btn.className = "h-8 w-8 rounded hover:bg-slate-200 text-sm flex items-center justify-center";
       btn.textContent = key;
       btn.title = "React " + key;
       btn.addEventListener("click", function () {
@@ -225,7 +227,7 @@
     if (m.sender === state.identity && !m.redacted) {
       const editBtn = document.createElement("button");
       editBtn.type = "button";
-      editBtn.className = "h-6 px-1.5 rounded hover:bg-slate-200 text-[11px] text-slate-500";
+      editBtn.className = "h-8 px-2 rounded hover:bg-slate-200 text-xs text-slate-500";
       editBtn.textContent = "Edit";
       editBtn.addEventListener("click", function () {
         startEdit(m);
@@ -233,7 +235,7 @@
       hover.appendChild(editBtn);
       const delBtn = document.createElement("button");
       delBtn.type = "button";
-      delBtn.className = "h-6 px-1.5 rounded hover:bg-slate-200 text-[11px] text-slate-500";
+      delBtn.className = "h-8 px-2 rounded hover:bg-slate-200 text-xs text-slate-500";
       delBtn.textContent = "Delete";
       delBtn.addEventListener("click", function () {
         if (window.confirm("Delete this message?")) {

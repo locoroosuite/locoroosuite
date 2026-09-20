@@ -127,7 +127,7 @@
   <div class="flex items-start gap-2">
     <form method="post" action="{{ url_for('mail.flag_message', account_id=account.id, message_id=msg.id) }}" class="message-action flex-shrink-0 pt-0.5" data-action="flag" data-no-row-nav>
       <input type="hidden" name="action" value="{{ 'remove' if msg.is_flagged else 'add' }}" />
-      <button type="submit" class="p-0.5 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400" data-star-toggle aria-label="{{ 'Unstar' if msg.is_flagged else 'Star' }}">
+      <button type="submit" class="p-1.5 -m-1 rounded lr-hit lr-hit-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400" data-star-toggle aria-label="{{ 'Unstar' if msg.is_flagged else 'Star' }}">
         <svg class="w-[18px] h-[18px] transition-colors {{ 'text-amber-400' if msg.is_flagged else 'text-slate-300 hover:text-amber-400' }}" data-star-icon viewBox="0 0 24 24" fill="{{ 'currentColor' if msg.is_flagged else 'none' }}" stroke="currentColor" stroke-width="{{ '1' if msg.is_flagged else '1.5' }}">
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
         </svg>
@@ -154,33 +154,33 @@
       <div class="mt-1 text-[12px] text-slate-600 line-clamp-1">{{ msg.snippet|striptags }}</div>
     </div>
   </div>
-  <button type="button" class="lg:hidden absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full border border-slate-200 bg-white/95 text-[12px] text-slate-600 shadow-sm z-30" data-message-actions-toggle="true" data-no-row-nav aria-expanded="false" aria-label="Show actions">...</button>
+  <button type="button" class="lg:hidden absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full border border-slate-200 bg-white/95 text-[12px] text-slate-600 shadow-sm z-30 lr-hit" data-message-actions-toggle="true" data-no-row-nav aria-expanded="false" aria-label="Show actions">...</button>
   <div class="absolute inset-y-0 right-0 flex items-center justify-end gap-1 pl-12 pr-3 bg-gradient-to-l from-white/90 via-white/70 to-transparent opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition z-20 message-actions-overlay" data-message-actions="true">
     <form method="post" action="{{ url_for('mail.archive_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="archive" data-no-row-nav>
-      <button class="text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300">Archive</button>
+      <button class="text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit">Archive</button>
     </form>
     <form method="post" action="{{ url_for('mail.delete_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="delete" data-no-row-nav>
-      <button class="text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300">Delete</button>
+      <button class="text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit">Delete</button>
     </form>
     <div class="relative">
-      <button type="button" class="text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300" data-overflow-toggle data-no-row-nav aria-label="More actions">&#8943;</button>
+      <button type="button" class="text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit" data-overflow-toggle data-no-row-nav aria-label="More actions">&#8943;</button>
       <div class="absolute right-0 py-1 min-w-[160px] rounded-lg border border-slate-200 bg-white shadow-lg hidden z-50" data-overflow-menu>
         <form method="post" action="{{ url_for('mail.mark_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="mark" data-no-row-nav>
           <input type="hidden" name="action" value="{{ 'read' if msg.is_unread else 'unread' }}" />
-          <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">{{ 'Mark as read' if msg.is_unread else 'Mark as unread' }}</button>
+          <button type="submit" class="w-full text-left text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">{{ 'Mark as read' if msg.is_unread else 'Mark as unread' }}</button>
         </form>
         {% if spam_action_enabled %}
         <form method="post" action="{{ url_for('mail.junk_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="junk" data-no-row-nav>
-          <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">Report spam</button>
+          <button type="submit" class="w-full text-left text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">Report spam</button>
         </form>
         {% endif %}
         {% if lock_action_enabled and not msg.is_draft %}
         <form method="post" action="{{ url_for('mail.lock_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="lock" data-no-row-nav>
           <input type="hidden" name="action" value="{{ 'remove' if '$Locked' in (msg.flags or []) else 'add' }}" />
-          <button type="submit" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">{{ 'Unlock' if '$Locked' in (msg.flags or []) else 'Lock' }}</button>
+          <button type="submit" class="w-full text-left text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">{{ 'Unlock' if '$Locked' in (msg.flags or []) else 'Lock' }}</button>
         </form>
         {% endif %}
-        <button type="button" class="w-full text-left text-[11px] px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-to-folder data-no-row-nav>Move to folder</button>
+        <button type="button" class="w-full text-left text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-to-folder data-no-row-nav>Move to folder</button>
       </div>
     </div>
   </div>

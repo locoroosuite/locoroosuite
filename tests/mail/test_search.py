@@ -1,24 +1,28 @@
-from unittest.mock import patch, MagicMock
-
+from unittest.mock import MagicMock, patch
 
 
 def test_search_empty_query(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     resp = client.post("/app/mail/search", data={"q": "", "account_id": str(account_id)})
     assert resp.status_code == 200
 
 
 def test_search_with_results(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     with (
         patch("app.modules.mail.controllers.search.open_cache", return_value=MagicMock()),
         patch("app.modules.mail.controllers.search.search_local", return_value=[]),
-        patch("app.modules.mail.controllers.search._get_or_create_settings", return_value=MagicMock()),
+        patch(
+            "app.modules.mail.controllers.search._get_or_create_settings", return_value=MagicMock()
+        ),
         patch("app.modules.mail.controllers.search._format_short_date", return_value=""),
         patch("app.modules.mail.controllers.search.normalize_header_text", return_value=""),
         patch("app.modules.mail.controllers.search.decode_address_header", return_value=""),
         patch("app.modules.mail.controllers.search.normalize_preview_text", return_value=""),
-        patch("app.modules.mail.controllers.search._imap_for_account", return_value=(MagicMock(), MagicMock())),
+        patch(
+            "app.modules.mail.controllers.search._imap_for_account",
+            return_value=(MagicMock(), MagicMock()),
+        ),
         patch("app.modules.mail.controllers.search.push_event"),
         patch("app.modules.mail.controllers.search.list_folders", return_value=[]),
         patch("app.modules.mail.controllers.search.safe_logout"),
@@ -28,17 +32,40 @@ def test_search_with_results(authed_client):
 
 
 def test_search_renders_clickable_rows(authed_client):
-    client, user_id, account_id = authed_client
-    fake_row = {"id": 42, "uid": 1001, "folder": "INBOX", "subject": "Hello", "sender": "alice@example.com", "recipients": "bob@example.com", "date": "2025-01-01", "flags": "\\Seen", "body": "<p>body</p>", "has_attachments": 0, "message_id": "<msg123@example.com>", "thread_id": "thread-1", "snippet": "body text"}
+    client, _user_id, account_id = authed_client
+    fake_row = {
+        "id": 42,
+        "uid": 1001,
+        "folder": "INBOX",
+        "subject": "Hello",
+        "sender": "alice@example.com",
+        "recipients": "bob@example.com",
+        "date": "2025-01-01",
+        "flags": "\\Seen",
+        "body": "<p>body</p>",
+        "has_attachments": 0,
+        "message_id": "<msg123@example.com>",
+        "thread_id": "thread-1",
+        "snippet": "body text",
+    }
     with (
         patch("app.modules.mail.controllers.search.open_cache", return_value=MagicMock()),
         patch("app.modules.mail.controllers.search.search_local", return_value=[fake_row]),
-        patch("app.modules.mail.controllers.search._get_or_create_settings", return_value=MagicMock(timezone="UTC")),
+        patch(
+            "app.modules.mail.controllers.search._get_or_create_settings",
+            return_value=MagicMock(timezone="UTC"),
+        ),
         patch("app.modules.mail.controllers.search._format_short_date", return_value="Jan 1"),
         patch("app.modules.mail.controllers.search.normalize_header_text", side_effect=lambda x: x),
         patch("app.modules.mail.controllers.search.decode_address_header", side_effect=lambda x: x),
-        patch("app.modules.mail.controllers.search.normalize_preview_text", side_effect=lambda x, **kw: x),
-        patch("app.modules.mail.controllers.search._imap_for_account", return_value=(MagicMock(), MagicMock())),
+        patch(
+            "app.modules.mail.controllers.search.normalize_preview_text",
+            side_effect=lambda x, **kw: x,
+        ),
+        patch(
+            "app.modules.mail.controllers.search._imap_for_account",
+            return_value=(MagicMock(), MagicMock()),
+        ),
         patch("app.modules.mail.controllers.search.push_event"),
         patch("app.modules.mail.controllers.search.list_folders", return_value=[]),
         patch("app.modules.mail.controllers.search.safe_logout"),
@@ -49,13 +76,113 @@ def test_search_renders_clickable_rows(authed_client):
     assert "message-row" in html
     assert "data-message-url" in html
     assert "data-star-toggle" in html
-    assert "data-action=\"flag\"" in html
-    assert "data-action=\"archive\"" in html
-    assert "data-action=\"delete\"" in html
+    assert 'data-action="flag"' in html
+    assert 'data-action="archive"' in html
+    assert 'data-action="delete"' in html
+
+
+def test_search_rows_have_touch_toggle_and_inert_overlay(authed_client):
+    """UX3b: search rows must have the mobile '...' toggle, and the action
+    overlay must be non-interactive while hidden (no accidental taps)."""
+    client, _user_id, account_id = authed_client
+    fake_row = {
+        "id": 42,
+        "uid": 1001,
+        "folder": "INBOX",
+        "subject": "Hello",
+        "sender": "alice@example.com",
+        "recipients": "bob@example.com",
+        "date": "2025-01-01",
+        "flags": "\\Seen",
+        "body": "<p>body</p>",
+        "has_attachments": 0,
+        "message_id": "<msg123@example.com>",
+        "thread_id": "thread-1",
+        "snippet": "body text",
+    }
+    with (
+        patch("app.modules.mail.controllers.search.open_cache", return_value=MagicMock()),
+        patch("app.modules.mail.controllers.search.search_local", return_value=[fake_row]),
+        patch(
+            "app.modules.mail.controllers.search._get_or_create_settings",
+            return_value=MagicMock(timezone="UTC"),
+        ),
+        patch("app.modules.mail.controllers.search._format_short_date", return_value="Jan 1"),
+        patch("app.modules.mail.controllers.search.normalize_header_text", side_effect=lambda x: x),
+        patch("app.modules.mail.controllers.search.decode_address_header", side_effect=lambda x: x),
+        patch(
+            "app.modules.mail.controllers.search.normalize_preview_text",
+            side_effect=lambda x, **kw: x,
+        ),
+        patch(
+            "app.modules.mail.controllers.search._imap_for_account",
+            return_value=(MagicMock(), MagicMock()),
+        ),
+        patch("app.modules.mail.controllers.search.push_event"),
+        patch("app.modules.mail.controllers.search.list_folders", return_value=[]),
+        patch("app.modules.mail.controllers.search.safe_logout"),
+    ):
+        resp = client.post("/app/mail/search", data={"q": "hello", "account_id": str(account_id)})
+    assert resp.status_code == 200
+    html = resp.data.decode()
+    assert "data-message-actions-toggle" in html, "mobile '...' toggle missing from search rows"
+    assert "message-list.js" in html, "shared message-list script not loaded"
+    # The hidden overlay must never intercept taps on any device (UX3d).
+    assert "opacity-0 pointer-events-none" in html
+
+
+def test_search_passes_folders_for_move_picker(authed_client):
+    """The view passes the account's known folders so the (previously dead)
+    'Move to folder' action works on search results."""
+    client, _user_id, account_id = authed_client
+    fake_row = {
+        "id": 42,
+        "uid": 1001,
+        "folder": "INBOX",
+        "subject": "Hello",
+        "sender": "alice@example.com",
+        "recipients": "bob@example.com",
+        "date": "2025-01-01",
+        "flags": "\\Seen",
+        "body": "<p>body</p>",
+        "has_attachments": 0,
+        "message_id": "<msg123@example.com>",
+        "thread_id": "thread-1",
+        "snippet": "body text",
+    }
+    cache_conn = MagicMock()
+    folder_row = {"folder": "INBOX"}
+    cache_conn.execute.return_value.fetchall.return_value = [folder_row]
+    with (
+        patch("app.modules.mail.controllers.search.open_cache", return_value=cache_conn),
+        patch("app.modules.mail.controllers.search.search_local", return_value=[fake_row]),
+        patch(
+            "app.modules.mail.controllers.search._get_or_create_settings",
+            return_value=MagicMock(timezone="UTC"),
+        ),
+        patch("app.modules.mail.controllers.search._format_short_date", return_value="Jan 1"),
+        patch("app.modules.mail.controllers.search.normalize_header_text", side_effect=lambda x: x),
+        patch("app.modules.mail.controllers.search.decode_address_header", side_effect=lambda x: x),
+        patch(
+            "app.modules.mail.controllers.search.normalize_preview_text",
+            side_effect=lambda x, **kw: x,
+        ),
+        patch(
+            "app.modules.mail.controllers.search._imap_for_account",
+            return_value=(MagicMock(), MagicMock()),
+        ),
+        patch("app.modules.mail.controllers.search.push_event"),
+        patch("app.modules.mail.controllers.search.list_folders", return_value=[]),
+        patch("app.modules.mail.controllers.search.safe_logout"),
+    ):
+        resp = client.post("/app/mail/search", data={"q": "hello", "account_id": str(account_id)})
+    assert resp.status_code == 200
+    html = resp.data.decode()
+    assert 'folders: ["INBOX"]' in html
 
 
 def test_search_empty_shows_no_results_message(authed_client):
-    client, user_id, account_id = authed_client
+    client, _user_id, account_id = authed_client
     resp = client.post("/app/mail/search", data={"q": "", "account_id": str(account_id)})
     html = resp.data.decode()
     assert "No messages found" in html

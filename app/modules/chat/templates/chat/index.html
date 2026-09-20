@@ -10,9 +10,9 @@
 </style>
 
 <div id="chat-root"
-     class="flex flex-col md:flex-row gap-4 h-[calc(100dvh-6rem)] min-h-[520px]"
+     class="flex flex-col md:flex-row gap-3 md:gap-4 h-[calc(100dvh-6rem)] min-h-[520px]"
      data-identity-error="{{ identity_error | tojson if identity_error else 'null' }}">
-  <aside class="w-full md:w-72 lg:w-80 shrink-0 rounded-2xl border border-slate-200 bg-white flex flex-col overflow-hidden shadow-sm">
+  <aside class="w-full md:w-72 lg:w-80 shrink-0 bg-white border-t border-b border-slate-200/80 md:rounded-2xl md:border md:border-slate-200 md:shadow-sm flex flex-col overflow-hidden">
     <div class="p-3 border-b border-slate-100">
       {% include "_account_switcher.html" %}
     </div>
@@ -48,8 +48,8 @@
     <div class="px-3 py-2 border-t border-slate-100 text-[11px] text-slate-400" id="chat-sync-status">Connecting…</div>
   </aside>
 
-  <main class="flex-1 min-w-0 flex flex-col rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm" id="chat-main">
-    <div id="chat-banner" class="hidden px-4 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800"></div>
+  <main class="flex-1 min-w-0 flex flex-col bg-white border-t border-b border-slate-200/80 md:rounded-2xl md:border md:border-slate-200 md:shadow-sm overflow-hidden" id="chat-main">
+    <div id="chat-banner" class="hidden px-3 md:px-4 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800"></div>
 
     <div id="chat-empty" class="flex-1 flex flex-col items-center justify-center text-slate-400 px-6 text-center">
       <svg class="h-12 w-12 mb-4 text-slate-300" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3.43 2.524A49.19 49.19 0 0110 2c1.657 0 3.28.088 4.86.262.897.1 1.69.757 1.69 1.654v6.168c0 .897-.793 1.554-1.69 1.654a38.53 38.53 0 01-2.34.196l-2.975 2.942a.75.75 0 01-1.28-.53v-2.39a42.36 42.36 0 01-2.835-.178c-.897-.1-1.69-.757-1.69-1.654V4.178c0-.897.793-1.554 1.69-1.654z" clip-rule="evenodd"/></svg>
@@ -70,7 +70,7 @@
     </div>
 
     <div id="chat-room" class="hidden flex-1 min-h-0 flex flex-col">
-      <header class="px-4 py-2.5 border-b border-slate-200 flex items-center gap-3">
+      <header class="px-3 md:px-4 py-2.5 border-b border-slate-200 flex items-center gap-3">
         <button type="button" id="chat-back" title="Back to conversations"
                 class="md:hidden h-9 w-9 -ml-1 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-500 lr-hit">
           <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.78 5.22a.75.75 0 01 0 1.06L9.06 10l3.72 3.72a.75.75 0 11-1.06 1.06l-4.25-4.25a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06 0z" clip-rule="evenodd"/></svg>
@@ -84,9 +84,9 @@
         <button type="button" id="chat-room-invite" class="px-2 py-1.5 text-xs text-slate-400 hover:text-slate-700 shrink-0 hidden">Invite</button>
         <button type="button" id="chat-room-leave" class="px-2 py-1.5 text-xs text-slate-400 hover:text-red-500 shrink-0">Leave</button>
       </header>
-      <div id="chat-messages" class="flex-1 overflow-y-auto px-4 py-3 space-y-1"></div>
-      <div id="chat-typing" class="px-4 pb-1 text-xs text-slate-400 h-5"></div>
-      <div class="px-4 py-3 border-t border-slate-200 bg-white">
+      <div id="chat-messages" class="flex-1 overflow-y-auto px-3 md:px-4 py-3 space-y-1"></div>
+      <div id="chat-typing" class="px-3 md:px-4 pb-1 text-xs text-slate-400 h-5"></div>
+      <div class="px-3 md:px-4 py-3 border-t border-slate-200 bg-white">
         <div id="chat-dropzone" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 flex items-end gap-2 focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-slate-200 transition-colors">
           <button type="button" id="chat-attach" title="Attach a file"
                   class="h-9 w-9 shrink-0 rounded-md hover:bg-slate-200 flex items-center justify-center text-slate-500">

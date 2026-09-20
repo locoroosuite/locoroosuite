@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="max-w-3xl mx-auto bg-white/90 border border-slate-200/80 rounded-2xl pt-6 px-6 pb-0 shadow-sm">
+<div class="max-w-3xl mx-3 md:mx-auto bg-white/90 border border-slate-200/80 rounded-2xl pt-4 md:pt-6 px-3 md:px-6 pb-0 shadow-sm">
   <h1 class="text-xl font-semibold mb-4 text-slate-900">Compose</h1>
   {% if error %}
   <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
@@ -83,7 +83,7 @@
       <input type="checkbox" name="read_receipt" class="h-4 w-4 rounded border-slate-300 text-slate-900" tabindex="7" {% if prefill and prefill.request_receipt %}checked{% endif %} />
       <label class="text-sm text-slate-600">Request read receipt</label>
     </div>
-    <div class="sticky bottom-0 z-10 py-4 border-t border-slate-100 bg-white flex gap-2">
+    <div class="sticky bottom-0 z-10 py-3 md:py-4 border-t border-slate-100 bg-white flex gap-2">
       <button type="submit" class="bg-slate-900 text-white rounded-lg px-4 py-2 text-sm inline-flex items-center gap-2" data-submit-button tabindex="8">
         <span data-submit-label>Send</span>
         <svg class="hidden h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" data-submit-spinner>

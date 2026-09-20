@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="grid grid-cols-1 gap-4 lg:grid-cols-12" id="mailbox-grid">
+<div class="grid grid-cols-1 gap-3 md:gap-4 lg:grid-cols-12" id="mailbox-grid">
   <aside id="sidebar" class="col-span-12 lg:col-span-3 fixed inset-y-0 left-0 z-50 w-80 max-w-[85vw] -translate-x-full transition-transform duration-200 overflow-y-auto bg-white border-r border-slate-200/80 p-4 shadow-xl lg:static lg:z-auto lg:w-auto lg:max-w-none lg:translate-x-0 lg:overflow-visible lg:rounded-2xl lg:border lg:border-slate-200/80 lg:bg-white/90 lg:shadow-sm">
     <div class="flex items-center justify-between mb-4">
       <div class="text-[11px] uppercase tracking-wide text-slate-500" data-collapsible="hide">Account</div>
@@ -138,8 +138,8 @@
   </aside>
   <div id="sidebar-backdrop" class="hidden lg:hidden fixed inset-0 z-40 bg-slate-900/40" aria-hidden="true"></div>
 
-  <section id="message-area" class="col-span-12 lg:col-span-9 bg-white/90 border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
-    <div class="border-b border-slate-200/80 px-5 py-4">
+  <section id="message-area" class="col-span-12 lg:col-span-9 bg-white border-t border-b border-slate-200/80 md:bg-white/90 md:border md:rounded-2xl md:shadow-sm overflow-hidden">
+    <div class="border-b border-slate-200/80 px-3 md:px-5 py-3 md:py-4">
       <div class="flex items-center justify-between gap-3">
         <div class="flex items-center gap-1.5 min-w-0">
           <button type="button" id="mobile-sidebar-toggle" class="lg:hidden -ml-1.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100" aria-label="Open folders" aria-controls="sidebar" aria-expanded="false">
@@ -161,7 +161,7 @@
       </div>
     </div>
 
-    <div id="undo-banner" class="px-4 py-2 bg-amber-50 border-b border-amber-200 flex items-center justify-between gap-3 {{ '' if undo_action else 'hidden' }}">
+    <div id="undo-banner" class="px-3 md:px-4 py-2 bg-amber-50 border-b border-amber-200 flex items-center justify-between gap-3 {{ '' if undo_action else 'hidden' }}">
       <div class="text-xs text-amber-800">
         <span id="undo-label">{{ undo_action.label if undo_action else '' }}</span>
         <span id="undo-timer-wrap" class="{{ '' if (undo_action and undo_action.expires_at) else 'hidden' }}">. Undo available for <span id="undo-timer">10</span>s.</span>
@@ -176,15 +176,15 @@
     </div>
 
     {% if undo_error %}
-    <div class="px-4 py-2 bg-rose-50 border-b border-rose-200 text-xs text-rose-700">{{ undo_error }}</div>
+    <div class="px-3 md:px-4 py-2 bg-rose-50 border-b border-rose-200 text-xs text-rose-700">{{ undo_error }}</div>
     {% endif %}
     {% if imap_sidebar_warning %}
-    <div class="px-4 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800">
+    <div class="px-3 md:px-4 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800">
       {{ imap_sidebar_warning }} Next step: keep using cached messages; background sync will retry with backoff automatically.
     </div>
     {% endif %}
     {% if send_failure %}
-    <div class="px-4 py-2 bg-rose-50 border-b border-rose-200 flex items-center justify-between gap-3">
+    <div class="px-3 md:px-4 py-2 bg-rose-50 border-b border-rose-200 flex items-center justify-between gap-3">
       <div class="text-xs text-rose-700">
         {{ send_failure.error }} Next step: retry send now, or open draft to edit and send again.
       </div>
@@ -199,12 +199,12 @@
     {% endif %}
 
     <div id="message-content" class="grid grid-cols-12">
-      <div id="message-list" class="col-span-12 px-3 py-2 space-y-4">
+      <div id="message-list" class="col-span-12 px-0 md:px-3 py-1 md:py-2 space-y-1.5 md:space-y-4">
         {% if threads|length == 0 and initial_syncing %}
         <div id="message-skeleton">
           {% for _ in range(5) %}
-          <div class="rounded-xl border border-slate-200/80 bg-white mb-4">
-            <div class="px-4 py-3 flex items-start gap-2">
+          <div class="border-l-2 border-slate-200 bg-white mb-1.5 md:mb-4 md:rounded-xl md:border md:border-slate-200/80 md:border-l-2">
+            <div class="px-3 md:px-4 py-2.5 md:py-3 flex items-start gap-2">
               <div class="skeleton-shimmer h-[18px] w-[18px] rounded-sm flex-shrink-0 mt-0.5"></div>
               <div class="flex-1 min-w-0 space-y-2.5">
                 <div class="flex items-center justify-between gap-3">
@@ -225,7 +225,7 @@
         {% endif %}
       </div>
       {% if pagination is defined and not is_smart_view and pagination.total_pages > 1 %}
-      <div id="pagination-controls" class="col-span-12 border-t border-slate-200/80 px-5 py-3 flex items-center justify-between">
+      <div id="pagination-controls" class="col-span-12 border-t border-slate-200/80 px-3 md:px-5 py-2.5 md:py-3 flex items-center justify-between">
         <div class="text-xs text-slate-500">
           Page {{ pagination.current_page }} of {{ pagination.total_pages }}
         </div>
@@ -249,7 +249,7 @@
         </div>
       </div>
       {% endif %}
-      <div id="message-list-status" class="hidden w-full px-4 pb-4 text-sm text-slate-500 whitespace-nowrap text-center"></div>
+      <div id="message-list-status" class="hidden w-full px-3 md:px-4 pb-3 md:pb-4 text-sm text-slate-500 whitespace-nowrap text-center"></div>
 
       <div id="preview-pane" class="hidden col-span-5 border-l border-slate-200/70 bg-slate-50/70 p-5 overflow-y-auto">
         <div class="text-sm text-slate-500">Select a message to preview.</div>

@@ -1,10 +1,10 @@
 {% extends "layout.html" %}
 {% block content %}
 <h1 class="text-lg font-semibold mb-3 text-slate-900">Full search results for "{{ query }}"</h1>
-<div id="search-results" class="bg-white/90 border border-slate-200/80 rounded-2xl divide-y divide-slate-200/70 shadow-sm">
+<div id="search-results" class="bg-white border-t border-b border-slate-200/80 md:bg-white/90 md:border md:rounded-2xl md:shadow-sm divide-y divide-slate-200/70">
   {% for row in results %}
   {% if row.message_id %}
-  <div class="message-row group relative px-4 py-2.5 text-sm cursor-pointer {{ 'bg-amber-100/70 hover:bg-amber-100' if row.is_unread else 'hover:bg-slate-50/80' }} transition-all duration-200" data-message-id="{{ row.message_id }}" data-account-id="{{ account_id }}" data-message-url="{{ url_for('mail.message_view', account_id=account_id, message_id=row.message_id) }}" data-is-unread="{{ '1' if row.is_unread else '0' }}" data-is-flagged="{{ '1' if row.is_flagged else '0' }}">
+  <div class="message-row group relative px-3 md:px-4 py-2.5 text-sm cursor-pointer {{ 'bg-amber-100/70 hover:bg-amber-100' if row.is_unread else 'hover:bg-slate-50/80' }} transition-all duration-200" data-message-id="{{ row.message_id }}" data-account-id="{{ account_id }}" data-message-url="{{ url_for('mail.message_view', account_id=account_id, message_id=row.message_id) }}" data-is-unread="{{ '1' if row.is_unread else '0' }}" data-is-flagged="{{ '1' if row.is_flagged else '0' }}">
     <div class="flex items-start gap-2">
       <form method="post" action="{{ url_for('mail.flag_message', account_id=account_id, message_id=row.message_id) }}" class="message-action flex-shrink-0 pt-0.5" data-action="flag" data-no-row-nav>
         <input type="hidden" name="action" value="{{ 'remove' if row.is_flagged else 'add' }}" />
@@ -49,7 +49,7 @@
     </div>
   </div>
   {% else %}
-  <div class="px-4 py-2.5 text-sm hover:bg-slate-50/80 transition-colors duration-200">
+  <div class="px-3 md:px-4 py-2.5 text-sm hover:bg-slate-50/80 transition-colors duration-200">
     <div class="flex items-center justify-between gap-3 text-[13px]">
       <span class="truncate text-slate-700" title="{{ row.subject }}">{{ row.subject }}</span>
       <div class="flex items-center gap-2 text-[11px] text-slate-500 min-w-0 max-w-[55%] justify-end">

@@ -131,6 +131,62 @@ class TestMobileContactsUi:
 
 
 @skip_if_no_services
+class TestMobileDensityUi:
+    """U24.33-U24.36: edge-to-edge lists and compact spacing below md (768px)."""
+
+    def test_main_has_no_horizontal_padding_on_mobile(self, mobile_logged_in_page):
+        page = mobile_logged_in_page
+        page.wait_for_selector("#mailbox-grid", timeout=10000)
+        padding = page.eval_on_selector(
+            "main",
+            "el => ({ pl: getComputedStyle(el).paddingLeft, pt: getComputedStyle(el).paddingTop })",
+        )
+        assert padding["pl"] == "0px"
+        # py-3 = 12px (was py-6 = 24px) per U24.33
+        assert padding["pt"] == "12px"
+
+    def test_message_list_is_full_bleed_on_mobile(self, mobile_logged_in_page):
+        page = mobile_logged_in_page
+        page.wait_for_selector("#message-area", timeout=10000)
+        box = page.eval_on_selector(
+            "#message-area",
+            "el => ({ left: Math.round(el.getBoundingClientRect().left),"
+            " width: Math.round(el.getBoundingClientRect().width),"
+            " radius: getComputedStyle(el).borderTopLeftRadius })",
+        )
+        viewport_width = page.evaluate("() => document.documentElement.clientWidth")
+        assert box["left"] == 0
+        assert box["width"] == viewport_width
+        assert box["radius"] == "0px"
+
+    def test_message_rows_keep_tap_target_with_compact_padding(
+        self, seeded_inbox_message, mobile_logged_in_page
+    ):
+        page = mobile_logged_in_page
+        row = page.wait_for_selector(".message-row", timeout=15000)
+        assert row is not None
+        metrics = page.eval_on_selector(
+            ".message-row",
+            "el => ({ pl: getComputedStyle(el).paddingLeft, h: Math.round(el.getBoundingClientRect().height) })",
+        )
+        # px-3 compact gutter (was px-4) per U24.34
+        assert metrics["pl"] == "12px"
+        # U24.36: density must not shrink tap targets below 40px
+        assert metrics["h"] >= 40
+
+    def test_desktop_spacing_unchanged(self, logged_in_page):
+        page = logged_in_page
+        page.wait_for_selector("#mailbox-grid", timeout=10000)
+        padding = page.eval_on_selector("main", "el => getComputedStyle(el).paddingLeft")
+        # Desktop keeps the px-6/lg:px-8 rhythm (24px or 32px), never 0
+        assert padding in ("24px", "32px")
+        radius = page.eval_on_selector(
+            "#message-area", "el => getComputedStyle(el).borderTopLeftRadius"
+        )
+        assert radius != "0px"
+
+
+@skip_if_no_services
 class TestPwaInstall:
     def test_manifest_linked_and_sw_registers(self, logged_in_page):
         page = logged_in_page

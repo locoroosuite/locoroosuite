@@ -1802,6 +1802,16 @@ U24.7 - Contacts list: below `md` the table renders as a stacked card list (name
 U24.8 - Docs list follows U13.60m: sidebar collapsible (drawer) on mobile, always visible on desktop.
 U24.32 - Docs list mobile layout: below the `lg` breakpoint the document table renders as a stacked card list (type icon + name, folder/tag badges, last-updated time, always-visible actions) mirroring the contacts card pattern (U24.7). The desktop table with hover-revealed actions is unchanged at `lg:` and up. Row actions follow UX3d: hidden overlays are non-interactive, and actions are always visible on touch devices.
 
+## Mobile Density (edge-to-edge)
+
+U24.33 - Compact mobile density: on viewports below the `md` breakpoint (768px), customer-facing screens use compact spacing to maximize content area; at `md:` and up all existing spacing, borders, and card design are unchanged. The shared page container (`<main>`) drops its horizontal padding and reduces vertical padding on mobile (`px-0 md:px-6 lg:px-8`, `py-3 md:py-6`); each screen then manages its own mobile gutters.
+
+U24.34 - Edge-to-edge list surfaces: primary list surfaces render full-bleed on mobile (`< md`) — the mail message list, contacts list, docs list, calendar agenda list, and chat room list. The outer card chrome (border, rounded corners, outer padding, page-level margin) is removed below `md`; rows span the full viewport width with compact row padding (`px-3`) and hairline dividers. Section headers/toolbars above these lists are also full-width with `px-3` on mobile.
+
+U24.35 - Compact card surfaces: non-list screens (message view, compose, contact/event detail and forms, settings, search results shell, docs share panels) keep the card design but with compact mobile padding (`p-3` to `px-3`, restored at `md:`) and their own mobile gutters (`mx-3 md:mx-0`), since the page container no longer provides one. Vertical rhythm is compressed on mobile: section gaps and stack spacing use compact values (`gap-3`, `space-y-3`) below `md`, restored at `md:` and up.
+
+U24.36 - Density rules do not shrink tap targets: rows, buttons, and controls keep tap targets >= 40px per U24.1; density is achieved by reducing decorative whitespace only (page gutters, card chrome, inter-section spacing), never by shrinking controls below their minimum hit area. The admin back office is desktop-first and is not redesigned, though it may inherit the shared container change harmlessly.
+
 ## Styling Infrastructure
 
 U24.9 - Tailwind CSS is precompiled at build time via the Tailwind CLI (`make css`); the compiled stylesheet is committed at `app/static/css/tailwind.css`. The runtime CDN script (`cdn.tailwindcss.com`) is removed from all templates. Rebuild is required when adding new utility classes (documented in the Makefile target).

@@ -48,7 +48,7 @@
 
   <div class="flex-1 min-w-0">
     {% if not caldav_configured %}
-    <div class="rounded-2xl border border-slate-200/80 bg-white p-12 text-center shadow-sm">
+    <div class="rounded-2xl border border-slate-200/80 bg-white p-6 md:p-12 mx-3 md:mx-0 text-center shadow-sm">
       <svg class="mx-auto h-12 w-12 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
       <p class="mt-4 text-sm text-slate-500">Calendar is not configured for this domain.</p>
       <p class="mt-1 text-xs text-slate-400">Ask your administrator to enable CalDAV in the domain settings.</p>
@@ -106,7 +106,7 @@
       </div>
     </div>
 
-    <div class="overflow-x-auto"><div id="calendar-grid" class="rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden min-h-[600px]"></div></div>
+    <div class="overflow-x-auto"><div id="calendar-grid" class="bg-white border-t border-b border-slate-200/80 md:rounded-2xl md:border md:shadow-sm overflow-hidden min-h-[600px]"></div></div>
     {% endif %}
   </div>
 </div>
@@ -528,7 +528,7 @@
       .then(r => r.json())
       .then(events => {
         if (!events.length) {
-          grid.innerHTML = '<div class="p-12 text-center text-sm text-slate-500">No upcoming events.</div>';
+          grid.innerHTML = '<div class="p-6 md:p-12 text-center text-sm text-slate-500">No upcoming events.</div>';
           return;
         }
         let html = '<div class="divide-y divide-slate-100">';
@@ -540,10 +540,10 @@
           if (iso !== lastDate) {
             lastDate = iso;
             const d = sp.start;
-            html += '<div class="px-5 py-3 bg-slate-50/80 text-xs font-semibold text-slate-600">' + DAYS_SHORT[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear() + '</div>';
+            html += '<div class="px-3 md:px-5 py-2.5 md:py-3 bg-slate-50/80 text-xs font-semibold text-slate-600">' + DAYS_SHORT[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear() + '</div>';
           }
           const timeStr = ev.all_day ? 'All day' : pad(sp.start.getHours()) + ':' + pad(sp.start.getMinutes()) + ' – ' + pad(sp.end.getHours()) + ':' + pad(sp.end.getMinutes());
-          html += '<a href="/app/calendar/events/' + ev.id + '" class="flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50/50 transition-colors">';
+          html += '<a href="/app/calendar/events/' + ev.id + '" class="flex items-center gap-4 px-3 md:px-5 py-3 md:py-3.5 hover:bg-slate-50/50 transition-colors">';
           html += '<span class="w-1 h-8 rounded-full flex-shrink-0" style="background-color:' + (ev.calendar_color||'#4285f4') + '"></span>';
           html += '<div class="flex-1 min-w-0"><div class="text-sm font-medium text-slate-900 truncate">' + (ev.summary||'(no title)') + '</div>';
           if (ev.location) html += '<div class="text-xs text-slate-500 truncate">' + ev.location + '</div>';
@@ -554,7 +554,7 @@
         html += '</div>';
         grid.innerHTML = html;
       })
-      .catch(() => { grid.innerHTML = '<div class="p-12 text-center text-sm text-slate-500">Failed to load events.</div>'; });
+      .catch(() => { grid.innerHTML = '<div class="p-6 md:p-12 text-center text-sm text-slate-500">Failed to load events.</div>'; });
   }
 
   function renderMiniCalendar() {

@@ -159,12 +159,15 @@
     if (!ios && !deferred) return;
     var textEl = document.getElementById('pwa-install-banner-text');
     var accept = document.getElementById('pwa-install-banner-accept');
+    var actions = document.getElementById('pwa-install-banner-actions');
     if (ios && !deferred) {
       textEl.textContent = BANNER_IOS_TEXT;
       accept.classList.add('hidden');
+      if (actions) actions.classList.add('hidden');
     } else {
       textEl.textContent = BANNER_INSTALL_TEXT;
       accept.classList.remove('hidden');
+      if (actions) actions.classList.remove('hidden');
     }
     banner.classList.remove('hidden');
   }
@@ -185,6 +188,8 @@
           } else if (outcome === 'unavailable') {
             textEl.textContent = BANNER_FALLBACK_TEXT;
             accept.classList.add('hidden');
+            var actions = document.getElementById('pwa-install-banner-actions');
+            if (actions) actions.classList.add('hidden');
           }
           // 'dismissed': keep the banner; the user may try again later.
         }).catch(function (_err) {

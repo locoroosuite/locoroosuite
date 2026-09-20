@@ -161,12 +161,12 @@
       </div>
     </div>
 
-    <div id="undo-banner" class="px-3 md:px-4 py-2 bg-amber-50 border-b border-amber-200 flex items-center justify-between gap-3 {{ '' if undo_action else 'hidden' }}">
-      <div class="text-xs text-amber-800">
+    <div id="undo-banner" class="px-3 md:px-4 py-2 bg-amber-50 border-b border-amber-200 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 {{ '' if undo_action else 'hidden' }}">
+      <div class="min-w-0 text-xs text-amber-800">
         <span id="undo-label">{{ undo_action.label if undo_action else '' }}</span>
         <span id="undo-timer-wrap" class="{{ '' if (undo_action and undo_action.expires_at) else 'hidden' }}">. Undo available for <span id="undo-timer">10</span>s.</span>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 ml-auto">
         <a id="undo-view-folder" class="{{ '' if (undo_action and undo_action.view_url) else 'hidden' }} text-[11px] px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-100 text-amber-900 hover:bg-amber-200" href="{{ undo_action.view_url if undo_action and undo_action.view_url else '#' }}">{{ undo_action.view_label if undo_action and undo_action.view_label else 'View folder' }}</a>
         <form method="post" action="{{ url_for('mail.undo_message_action') }}" id="undo-form">
           <input type="hidden" name="token" id="undo-token" value="{{ undo_action.token if undo_action else '' }}" />

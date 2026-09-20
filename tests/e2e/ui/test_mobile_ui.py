@@ -463,3 +463,66 @@ class TestPwaNotifOnboarding:
         page.wait_for_selector("#mailbox-grid", timeout=10000)
         assert page.locator("#pwa-notif-prompt").is_hidden()
         assert page.evaluate("() => localStorage.getItem('lr-notif-never-ask') === '1'")
+
+
+def _assert_no_horizontal_overflow(page):
+    overflow = page.evaluate(
+        "() => document.documentElement.scrollWidth - document.documentElement.clientWidth"
+    )
+    assert overflow <= 1
+
+
+@skip_if_no_services
+class TestMobileBannerLayout:
+    """Responsive layout guards for the PWA banners and the action toast.
+
+    Regression tests for the reported mobile bug: the banners used a
+    desktop-only single-row layout (icon + text + several buttons), which
+    squeezed the text into a ~95px column on phones. Now the actions must
+    stack below the text on mobile, and the failure toast must clear the
+    compose FAB (both are anchored bottom-right)."""
+
+    def test_install_banner_stacks_actions_below_text(self, android_logged_in_page):
+        page = android_logged_in_page
+        page.context.add_init_script(INSTALL_STUB)
+        page.reload()
+        page.wait_for_selector("#pwa-install-banner", state="visible", timeout=10000)
+        text_block = page.locator("#pwa-install-banner div.flex-1")
+        text_box = text_block.bounding_box()
+        accept_box = page.locator("#pwa-install-banner-accept").bounding_box()
+        assert text_box is not None and accept_box is not None
+        # Text keeps most of the row for itself...
+        viewport_width = page.evaluate("() => document.documentElement.clientWidth")
+        assert text_box["width"] > viewport_width * 0.5
+        # ...and the action button renders in its own row below the text.
+        assert accept_box["y"] >= text_box["y"] + text_box["height"] - 2
+        _assert_no_horizontal_overflow(page)
+
+    def test_notif_prompt_stacks_actions_below_text(self, android_logged_in_page):
+        page = android_logged_in_page
+        page.context.add_init_script(STANDALONE_STUB + NOTIF_DEFAULT_STUB)
+        page.reload()
+        page.wait_for_selector("#pwa-notif-prompt", state="visible", timeout=10000)
+        text_block = page.locator("#pwa-notif-prompt div.flex-1")
+        text_box = text_block.bounding_box()
+        accept_box = page.locator("#pwa-notif-accept").bounding_box()
+        assert text_box is not None and accept_box is not None
+        viewport_width = page.evaluate("() => document.documentElement.clientWidth")
+        assert text_box["width"] > viewport_width * 0.5
+        assert accept_box["y"] >= text_box["y"] + text_box["height"] - 2
+        _assert_no_horizontal_overflow(page)
+
+    def test_failure_toast_clears_compose_fab(self, mobile_logged_in_page):
+        """The toast and the mobile compose FAB share the bottom-right
+        corner; the toast must be lifted above the FAB instead of hiding
+        behind it (the FAB is z-30, the toast used to have no z-index)."""
+        page = mobile_logged_in_page
+        fab = page.wait_for_selector("a[aria-label='Compose']", timeout=10000)
+        assert fab is not None
+        page.evaluate("() => window.LR.notifyError('Layout overlap check')")
+        toast = page.wait_for_selector("#action-toast:not(.hidden)", timeout=5000)
+        assert toast is not None
+        fab_box = fab.bounding_box()
+        toast_box = toast.bounding_box()
+        assert fab_box is not None and toast_box is not None
+        assert toast_box["y"] + toast_box["height"] <= fab_box["y"] + 1

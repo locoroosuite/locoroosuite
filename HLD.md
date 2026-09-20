@@ -1820,6 +1820,16 @@ U24.20 - The service worker handles `push` (display notification; empty payload 
 U24.21 - In-app toast notifications remain out of scope (U4.6 unchanged); device-level push is additive and does not alter the SSE path.
 U24.22 - Settings gains a "Notifications" section: enable/disable push for the current browser (subscribe/unsubscribe), list of registered devices with remove buttons, and the detailed-content toggle. Push toggle requires notifications permission; if denied, the UI shows remediation guidance (browser settings).
 
+## PWA – Install Promotion & Post-Install Notifications
+
+U24.23 - Install banner (mobile): on customer-facing pages, when viewed in a mobile browser (Android/iOS), when the app is not already installed (not in `standalone` display mode / `navigator.standalone`), and when the banner has not been previously dismissed, a dismissible banner is shown at the top of the page. On browsers that fire `beforeinstallprompt` (e.g. Chrome on Android), the banner offers an "Install app" button that triggers the native install prompt. On iOS Safari (no programmatic install prompt), the banner shows "Share → Add to Home Screen" instructions instead. Dismissal is permanent per device/browser (localStorage flag). The banner never renders for admin/manager roles, on desktop, or when the app is already installed.
+
+U24.24 - Install in Settings: the Settings → Notifications section shows an install entry on mobile browsers only when the app is not already installed on the device (same standalone-mode detection as U24.23): the "Install app" button (using the captured `beforeinstallprompt` event) when available, or the iOS "Share → Add to Home Screen" instructions otherwise. This entry is independent of banner dismissal — a user who dismissed the banner still sees the offer in Settings until the app is actually installed.
+
+U24.25 - Notifications onboarding after install: when the app becomes installed (the `appinstalled` event in the browser, or the first launch in standalone mode), and push notifications are not yet enabled for the device, the app shows a one-tap "Turn on notifications" prompt. Accepting requests notification permission and subscribes via the existing U24.16 flow (VAPID key fetch, push subscribe, subscription registration). The prompt is asked at most once per device/browser (remembered in localStorage regardless of outcome); the user can always enable notifications later in Settings → Notifications. Notification content remains generic per U24.18 — the onboarding does not change `push_detailed`.
+
+U24.26 - iOS push constraints: Web Push on iOS requires iOS 16.4+ and the app installed to the Home Screen. In iOS Safari (not installed) or on older iOS versions, the notifications controls show an explanatory note pointing to the install entry (U24.24) instead of failing silently. On platforms where `Notification`, `serviceWorker`, or `PushManager` are unavailable, the same explanatory pattern applies (matching the existing U24.22 unsupported-browser message).
+
 # Use Case U25 – Chat (Matrix via Synapse)
 
 U25.1 - Chat module uses the Matrix client-server API (Synapse) as the upstream source of truth with a local SQLite cache (same pattern as IMAP mail, CardDAV contacts, and CalDAV calendar caches).

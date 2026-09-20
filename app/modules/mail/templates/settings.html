@@ -159,6 +159,20 @@
         <p class="mt-0.5 text-xs text-slate-500">Get a device notification when new mail arrives.</p>
       </div>
       <div class="px-6 py-4">
+        <div id="pwa-install-settings" class="hidden mb-4 rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="text-sm font-medium text-slate-800">Install the app</div>
+              <p id="pwa-install-settings-hint" class="mt-0.5 text-xs text-slate-500">Add LocoRooSuite to your home screen for a faster, full-screen experience.</p>
+            </div>
+            <button type="button" id="pwa-install-settings-btn" class="hidden shrink-0 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60">Install app</button>
+          </div>
+          <ol id="pwa-install-settings-ios" class="hidden mt-2 list-decimal list-inside space-y-0.5 text-xs text-slate-600">
+            <li>Tap the <strong>Share</strong> button in the browser toolbar.</li>
+            <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+            <li>Tap <strong>Add</strong> to install.</li>
+          </ol>
+        </div>
         <div id="push-status" class="text-xs"></div>
         <div class="mt-3 flex flex-wrap items-center gap-3">
           <button type="button" id="push-enable-btn" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60">Enable notifications</button>
@@ -370,6 +384,19 @@
     return ua.slice(0, 60);
   };
 
+  // U24.26: Web Push on iOS requires iOS 16.4+ and the app installed to the
+  // Home Screen. Detect that context inline (this script runs before
+  // pwa-install.js defines window.LR.pwa).
+  var isIOSDevice = function() {
+    var ua = navigator.userAgent || '';
+    if (/iphone|ipod|ipad/i.test(ua)) return true;
+    return /macintosh/i.test(ua) && navigator.maxTouchPoints > 1;
+  };
+  var isStandaloneMode = function() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      navigator.standalone === true;
+  };
+
   var refreshDevices = function() {
     fetch('/app/mail/push/devices', { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(function(r) { return r.json(); })
@@ -401,8 +428,14 @@
   };
 
   var refreshState = function() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      setStatus('error', 'This browser does not support push notifications.');
+    var pushSupported = ('serviceWorker' in navigator) && ('PushManager' in window);
+    var iosNotInstalled = isIOSDevice() && !isStandaloneMode();
+    if (!pushSupported || iosNotInstalled) {
+      if (iosNotInstalled) {
+        setStatus('info', "On this iPhone or iPad, notifications require the app to be installed to your Home Screen (iOS 16.4 or later). See 'Install the app' above.");
+      } else {
+        setStatus('error', 'This browser does not support push notifications.');
+      }
       enableBtn.classList.add('hidden');
       return;
     }
@@ -422,38 +455,15 @@
     setStatus('info', 'Requesting permission…');
     Notification.requestPermission().then(function(permission) {
       if (permission !== 'granted') {
-        enableBtn.disabled = false;
         setStatus('error', 'Notifications are blocked. Allow them in your browser settings (usually the lock icon in the address bar), then retry.');
         return;
       }
-      return fetch('/app/mail/push/key', { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
-        .then(function(r) { if (!r.ok) throw new Error('key fetch failed'); return r.json(); })
-        .then(function(data) {
-          var key = data.public_key;
-          var raw = atob(key.replace(/-/g, '+').replace(/_/g, '/'));
-          var bytes = new Uint8Array(raw.length);
-          for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-          return navigator.serviceWorker.ready.then(function(reg) {
-            return reg.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: bytes
-            });
-          });
-        })
-        .then(function(sub) {
-          return fetch('/app/mail/push/subscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'same-origin',
-            body: JSON.stringify(sub.toJSON())
-          });
-        })
-        .then(function() {
-          setStatus('ok', 'Notifications enabled for this device.');
-          refreshState();
-        });
-    }).catch(function() {
-      setStatus('error', 'Could not enable notifications. Please retry; if it keeps happening, check your connection or refresh.');
+      return window.LR.pwa.subscribePush().then(function() {
+        setStatus('ok', 'Notifications enabled for this device.');
+        refreshState();
+      });
+    }).catch(function(err) {
+      setStatus('error', (err && err.message) || 'Could not enable notifications. Please retry; if it keeps happening, check your connection or refresh.');
     }).finally(function() { enableBtn.disabled = false; });
   });
 

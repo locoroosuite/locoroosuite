@@ -4,8 +4,6 @@ U4.4: Dovecot's "* OK Still here" keepalive carries no mailbox change and must
 not be surfaced as a response (it would trigger a pointless no-op sync).
 """
 
-import socket
-
 from app.modules.mail.services.imap_client import idle_wait
 
 
@@ -44,7 +42,10 @@ class FakeIdleClient:
         try:
             item = next(self._lines)
         except StopIteration:
-            raise socket.timeout from None
+            # Real imaplib raises socket.timeout("timed out"); a bare
+            # socket.timeout() has an empty str() and must still be treated
+            # as a timeout by idle_wait (regression-covered below).
+            raise TimeoutError("timed out") from None
         if isinstance(item, Exception):
             raise item
         return item
@@ -61,14 +62,40 @@ class TestIdleWaitHandshake:
         assert response == b"TAG1 BAD Error in IDLE command"
 
     def test_plus_continuation_is_supported(self):
-        client = FakeIdleClient([b"+ idling", socket.timeout()])
+        client = FakeIdleClient([b"+ idling", TimeoutError()])
         supported, _response = idle_wait(client, timeout=1)
         assert supported is True
 
 
+class TestIdleWaitTimeoutDetection:
+    def test_bare_timeout_in_handshake_does_not_escape(self):
+        # A message-less socket.timeout has an empty str(); idle_wait must
+        # still treat it as a timeout instead of re-raising it.
+        def lines():
+            yield b"TAG1 BAD Error in IDLE command"
+            raise TimeoutError()
+
+        client = FakeIdleClient([])
+        client._lines = lines()
+        supported, response = idle_wait(client, timeout=1)
+        assert supported is False
+        assert response == b"TAG1 BAD Error in IDLE command"
+
+    def test_bare_timeout_after_plus_ends_wait_quietly(self):
+        def lines():
+            yield b"+ idling"
+            raise TimeoutError()
+
+        client = FakeIdleClient([])
+        client._lines = lines()
+        supported, response = idle_wait(client, timeout=1)
+        assert supported is True
+        assert response is None
+
+
 class TestIdleWaitKeepaliveFilter:
     def test_keepalive_only_yields_no_response(self):
-        client = FakeIdleClient([b"+ idling", b"* OK Still here", socket.timeout()])
+        client = FakeIdleClient([b"+ idling", b"* OK Still here", TimeoutError()])
         supported, response = idle_wait(client, timeout=1)
         assert supported is True
         assert response is None

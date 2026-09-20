@@ -10,7 +10,7 @@ from contextlib import ExitStack
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from app.workers.manager import _IdleWorker, WorkerManager
+from app.workers.manager import WorkerManager, _IdleWorker
 
 
 class _RecordingStop(threading.Event):
@@ -25,7 +25,9 @@ class _RecordingStop(threading.Event):
         return self.is_set()
 
 
-def _run_worker(app: Any, account_id: int, idle_side_effect: list[Any]) -> tuple[Any, Any, Any, Any]:
+def _run_worker(
+    app: Any, account_id: int, idle_side_effect: list[Any]
+) -> tuple[Any, Any, Any, Any]:
     wm = WorkerManager(app)
     worker = _IdleWorker(app, wm, account_id, "INBOX")
     stop = _RecordingStop()
@@ -35,27 +37,43 @@ def _run_worker(app: Any, account_id: int, idle_side_effect: list[Any]) -> tuple
         stop.set()
         return (True, None)
 
-    idle = MagicMock(
-        side_effect=[stop_and_idle if item == "STOP" else item for item in idle_side_effect]
-    )
+    # MagicMock(side_effect=[...]) returns function items as-is instead of
+    # calling them, and raises StopIteration once the list is exhausted (which
+    # _run's except-Exception would turn into an infinite reconnect loop).
+    # Dispatch through a function so both cases fail loudly instead.
+    state = {"n": 0}
+
+    def idle_dispatch(*_args: Any, **_kwargs: Any) -> Any:
+        state["n"] += 1
+        assert state["n"] <= len(idle_side_effect), (
+            f"idle_wait called {state['n']} times but only "
+            f"{len(idle_side_effect)} side-effect entries were provided"
+        )
+        item = idle_side_effect[state["n"] - 1]
+        if item == "STOP":
+            return stop_and_idle()
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    idle = MagicMock(side_effect=idle_dispatch)
     connect_mock = MagicMock()
     enqueue = MagicMock()
     set_supported = MagicMock()
-    with app.app_context():
-        with ExitStack() as stack:
-            for p in (
-                patch("app.workers.manager.connect_imap", connect_mock),
-                patch("app.workers.manager.login_imap", MagicMock()),
-                patch("app.workers.manager.select_folder", MagicMock()),
-                patch("app.workers.manager.safe_logout", MagicMock()),
-                patch("app.workers.manager.decrypt_with_key", MagicMock(return_value="pw")),
-                patch("app.workers.manager.idle_wait", idle),
-                patch.object(wm, "emit_status", MagicMock()),
-                patch.object(wm, "enqueue_sync", enqueue),
-                patch.object(wm, "set_idle_supported", set_supported),
-            ):
-                stack.enter_context(p)
-            worker._run()
+    with app.app_context(), ExitStack() as stack:
+        for p in (
+            patch("app.workers.manager.connect_imap", connect_mock),
+            patch("app.workers.manager.login_imap", MagicMock()),
+            patch("app.workers.manager.select_folder", MagicMock()),
+            patch("app.workers.manager.safe_logout", MagicMock()),
+            patch("app.workers.manager.decrypt_with_key", MagicMock(return_value="pw")),
+            patch("app.workers.manager.idle_wait", idle),
+            patch.object(wm, "emit_status", MagicMock()),
+            patch.object(wm, "enqueue_sync", enqueue),
+            patch.object(wm, "set_idle_supported", set_supported),
+        ):
+            stack.enter_context(p)
+        worker._run()
     return stop, connect_mock, enqueue, set_supported
 
 
@@ -68,7 +86,7 @@ class TestIdleWorkerRetryPolicy:
         # Reconnects after each failure: 3 connections total, still on IDLE.
         assert connect_mock.call_count == 3
         set_supported.assert_not_called()
-        assert stop.waits == [5]
+        assert stop.waits == [5, 5]
 
     def test_three_consecutive_failures_fall_back_to_polling(self, app, authed_client):
         _client, _user_id, account_id = authed_client

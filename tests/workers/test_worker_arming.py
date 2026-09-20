@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 from app.shared import push_keys
 from app.shared.db import db
-from app.shared.keys import clear_user_key, get_user_key
-from app.shared.models.core import CustomerAccount, PushSubscription
+from app.shared.keys import clear_user_key, get_user_key, set_user_key
+from app.shared.models.core import CustomerAccount, PushSubscription, User
 from app.workers.manager import WorkerManager
 
 
@@ -106,6 +106,54 @@ class TestStartupArming:
             with p1, p2:
                 wm._arm_push_users()
             assert not wm.is_push_armed(user_id)
+
+    def test_subscribed_user_without_key_store_row_is_skipped(self, app, authed_client, caplog):
+        """Prod scenario (U24.29 gap): a subscription that predates the push
+        key store has no wrapped DEK row. After a restart (in-memory keys are
+        gone) startup arming must skip that user with a warning — and must
+        still arm users that do have rows."""
+        _client, user_id, _ = authed_client
+        wm = _new_manager(app)
+        with app.app_context():
+            fixture_account = CustomerAccount.query.first()
+            assert fixture_account is not None
+            second_user = User()
+            second_user.email = "second@example.com"
+            second_user.role = "customer"
+            second_user.is_active = True
+            second_user.password_hash = "x"
+            db.session.add(second_user)
+            db.session.flush()
+            second_account = CustomerAccount()
+            second_account.customer_id = second_user.id
+            second_account.domain_id = fixture_account.domain_id
+            second_account.email_address = "second@example.com"
+            second_account.auth_type = "password"
+            second_account.username = "second@example.com"
+            second_account.cache_db_path = ""
+            db.session.add(second_account)
+            db.session.commit()
+
+            # User 1: subscribed, but no key-store row (pre-U24.29 subscription).
+            _make_subscription(user_id)
+            # User 2: subscribed, key-store row present.
+            _make_subscription(second_user.id, endpoint="https://push.example.com/sub/2")
+            set_user_key(second_user.id, "f" * 64)
+            assert push_keys.store_push_dek_if_subscribed(second_user.id) is True
+
+            # Simulate a restart: every in-memory DEK is gone.
+            clear_user_key(user_id)
+            clear_user_key(second_user.id)
+
+            p1, p2 = _patch_idle(wm)
+            with p1, p2, caplog.at_level("WARNING", logger="app.workers.manager"):
+                wm._arm_push_users()
+            assert not wm.is_push_armed(user_id)
+            assert wm.is_push_armed(second_user.id)
+            assert any(
+                "no usable key" in record.message and f"user_id={user_id}" in record.message
+                for record in caplog.records
+            )
 
 
 class TestClearActiveKeepsArmedIdle:

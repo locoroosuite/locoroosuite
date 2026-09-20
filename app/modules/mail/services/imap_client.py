@@ -4,6 +4,7 @@ import re
 import socket
 import ssl
 import time
+from contextlib import suppress
 from email.utils import parsedate_to_datetime
 
 
@@ -12,6 +13,7 @@ def connect_imap(host, port, use_tls=True, timeout=10, ssl_context=None):
         ctx = ssl_context
         if ctx is None:
             import os
+
             if os.environ.get("APP_ENV", "development") == "development":
                 ctx = ssl.create_default_context()
                 ctx.check_hostname = False
@@ -32,6 +34,15 @@ _INTERNALDATE_RE = re.compile(r'INTERNALDATE\s+"(?P<date>[^"]+)"')
 # U4.4: Dovecot's "* OK Still here" IDLE keepalive carries no mailbox change;
 # it must not trigger a sync.
 _IDLE_KEEPALIVE_RE = re.compile(rb"^\*\s+OK\b", re.IGNORECASE)
+
+
+def _is_socket_timeout(exc: BaseException) -> bool:
+    """True for timeout exceptions regardless of their message.
+
+    A bare ``TimeoutError()``/``socket.timeout()`` has an empty ``str()``, so
+    message-based checks alone would let it escape the handshake loop.
+    """
+    return isinstance(exc, (socket.timeout, TimeoutError))
 
 
 def _parse_list_entry(line):
@@ -120,10 +131,8 @@ def _parse_fetch_item(item):
         uid = uid_match.group("uid")
     idate_match = _INTERNALDATE_RE.search(meta_text)
     if idate_match:
-        try:
+        with suppress(TypeError, ValueError, IndexError):
             internal_date = parsedate_to_datetime(idate_match.group("date"))
-        except (TypeError, ValueError, IndexError):
-            pass
     return uid, flags, raw, internal_date
 
 
@@ -244,6 +253,7 @@ def encode_mailbox_name(name):
 
 def _modified_utf7_encode(text):
     import base64
+
     data = text.encode("utf-16-be")
     encoded = base64.b64encode(data).decode("ascii")
     return "&" + encoded.rstrip("=").replace("/", ",") + "-"
@@ -255,6 +265,7 @@ def ensure_folder_and_append(client, folder, raw_bytes, flags=None, date_time=No
     except imaplib.IMAP4.error:
         pass
     from app.modules.mail.services.folder_aliases import resolve_folder_name
+
     available = list_folders(client)
     resolved = resolve_folder_name(available, folder)
     try:
@@ -276,11 +287,11 @@ def set_flag(client, uid, flag, add=True):
 
 
 def search_headers(client, query):
-    return fetch_message_uids(client, f"OR SUBJECT \"{query}\" FROM \"{query}\"")
+    return fetch_message_uids(client, f'OR SUBJECT "{query}" FROM "{query}"')
 
 
 def search_full_text(client, query):
-    return fetch_message_uids(client, f"TEXT \"{query}\"")
+    return fetch_message_uids(client, f'TEXT "{query}"')
 
 
 def search_header(client, header, value):
@@ -343,7 +354,7 @@ def idle_wait(client, timeout=60):
                     client.sock.settimeout(2)
                 candidate = client._get_line()
             except OSError as exc:
-                if "timed out" in str(exc).lower():
+                if _is_socket_timeout(exc) or "timed out" in str(exc).lower():
                     if line:
                         # The server already answered with a non-continuation
                         # line (e.g. a tagged BAD): no point waiting for '+'.
@@ -357,7 +368,7 @@ def idle_wait(client, timeout=60):
             if not line:
                 line = candidate
     except OSError as exc:
-        if "timed out" in str(exc).lower():
+        if _is_socket_timeout(exc) or "timed out" in str(exc).lower():
             return False, None
         raise
     if not line.startswith(b"+"):
@@ -372,10 +383,10 @@ def idle_wait(client, timeout=60):
             client.sock.settimeout(remaining)
             try:
                 candidate = client._get_line()
-            except socket.timeout:
+            except TimeoutError:
                 break
             except OSError as exc:
-                if "timed out" in str(exc).lower():
+                if _is_socket_timeout(exc) or "timed out" in str(exc).lower():
                     break
                 raise
             if _IDLE_KEEPALIVE_RE.match(candidate):
@@ -383,18 +394,14 @@ def idle_wait(client, timeout=60):
             response = candidate
             break
     finally:
-        try:
+        with suppress(Exception):
             client.send(b"DONE\r\n")
             client.sock.settimeout(5)
             while tag not in client.tagged_commands:
                 client._get_response()
             del client.tagged_commands[tag]
-        except Exception:
-            pass
-        try:
+        with suppress(Exception):
             client.sock.settimeout(None)
-        except Exception:
-            pass
     return True, response
 
 
@@ -404,12 +411,8 @@ def safe_logout(client, timeout=3):
             client.sock.settimeout(timeout)
         client.logout()
         return True
-    except socket.timeout:
-        pass
     except Exception:
         pass
-    try:
+    with suppress(Exception):
         client.shutdown()
-    except Exception:
-        pass
     return False

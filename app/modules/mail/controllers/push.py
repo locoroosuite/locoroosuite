@@ -90,7 +90,16 @@ def push_subscribe():
     # subscription itself is valid and in-app push still works.
     if user_id is not None:
         try:
-            push_keys.store_push_dek_if_subscribed(user_id)
+            # U24.29: False means no in-memory DEK (e.g. session resumed
+            # without a login since the last restart). Headless push will not
+            # arm for this user until they log in once — surface it instead
+            # of silently leaving them push-less.
+            if not push_keys.store_push_dek_if_subscribed(user_id):
+                _logger.warning(
+                    "push key store not saved user_id=%s: no in-memory DEK; "
+                    "user must log in once to enable headless push",
+                    user_id,
+                )
         except Exception:
             _logger.exception("push key store save failed user_id=%s", user_id)
     sync_manager = getattr(current_app, "sync_manager", None)

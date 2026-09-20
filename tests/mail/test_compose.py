@@ -1701,3 +1701,115 @@ class TestUndoSendRestoresAttachments:
         finally:
             with _pending_sends_lock:
                 _pending_sends.pop(token, None)
+
+
+class TestNormalizeRecipientAddrs:
+    """U6.10: recipient addr-specs are lowercased, display names keep case."""
+
+    def test_lowercases_bare_address(self):
+        from app.modules.mail.controllers.compose import _normalize_recipient_addrs
+
+        assert (
+            _normalize_recipient_addrs("Rubenrubiorey81@Gmail.com") == "rubenrubiorey81@gmail.com"
+        )
+
+    def test_lowercases_address_keeps_display_name(self):
+        from app.modules.mail.controllers.compose import _normalize_recipient_addrs
+
+        result = _normalize_recipient_addrs('"Ruben Rubio" <RubenRubiorey81@Gmail.com>')
+        assert result == "Ruben Rubio <rubenrubiorey81@gmail.com>"
+
+    def test_multiple_recipients_normalized(self):
+        from app.modules.mail.controllers.compose import _normalize_recipient_addrs
+
+        result = _normalize_recipient_addrs("A@B.com, C <D@E.F>")
+        assert result == "a@b.com, C <d@e.f>"
+
+    def test_empty_and_whitespace_passthrough(self):
+        from app.modules.mail.controllers.compose import _normalize_recipient_addrs
+
+        assert _normalize_recipient_addrs("") == ""
+        assert _normalize_recipient_addrs("   ") == "   "
+
+
+class TestSendLowercasesRecipients:
+    def test_send_mail_lowercases_recipient_addresses(self, app, authed_client):
+        from email import message_from_bytes
+
+        client, user_id, account_id = authed_client
+        captured_msg = None
+        try:
+            with (
+                patch("app.modules.mail.controllers.compose.decrypt_with_key"),
+                patch("app.modules.mail.controllers.compose._start_send_worker"),
+                patch("app.modules.mail.controllers.compose._cleanup_pending_sends"),
+            ):
+                resp = client.post(
+                    "/app/mail/send",
+                    data={
+                        "account_id": account_id,
+                        "to": '"Ruben Rubio" <RubenRubiorey81@Gmail.com>',
+                        "cc": "Other@Example.COM",
+                        "subject": "Case",
+                        "body_html": "<p>hi</p>",
+                    },
+                )
+            assert resp.status_code == 302
+            with _pending_sends_lock:
+                tokens = [t for t in _pending_sends if _pending_sends[t].get("user_id") == user_id]
+                assert tokens
+                payload = _pending_sends[tokens[0]]
+                captured_msg = payload["msg"]
+                assert payload["to_addrs"] == "Ruben Rubio <rubenrubiorey81@gmail.com>"
+                assert payload["cc_addrs"] == "other@example.com"
+            parsed = message_from_bytes(captured_msg)
+            to_header = parsed.get("To") or ""
+            assert "rubenrubiorey81@gmail.com" in to_header
+            assert "RubenRubiorey81" not in to_header
+            assert "Ruben Rubio" in to_header
+            assert "other@example.com" in (parsed.get("Cc") or "")
+        finally:
+            with _pending_sends_lock:
+                for token in list(_pending_sends):
+                    if _pending_sends[token].get("user_id") == user_id:
+                        _pending_sends.pop(token, None)
+
+
+class TestAutoSaveDraftLowercasesRecipients:
+    def test_auto_save_lowercases_recipient_addresses(self, app, authed_client):
+        from email import message_from_bytes
+
+        client, _user_id, account_id = authed_client
+        mock_imap_client = MagicMock()
+        captured_bytes = None
+
+        def capture_append(_client, folder, raw_bytes, **kwargs):
+            nonlocal captured_bytes
+            captured_bytes = raw_bytes
+            return ("OK", [b"[APPENDUID 123 42] APPEND completed."])
+
+        with (
+            patch("app.modules.mail.controllers.compose.decrypt_with_key"),
+            patch("app.modules.mail.controllers.compose._imap_for_account") as mock_imap,
+            patch(
+                "app.modules.mail.controllers.compose.ensure_folder_and_append",
+                side_effect=capture_append,
+            ),
+            patch("app.modules.mail.controllers.compose.safe_logout"),
+        ):
+            mock_imap.return_value = (mock_imap_client, MagicMock())
+            resp = client.post(
+                "/app/mail/draft/auto-save",
+                data={
+                    "account_id": account_id,
+                    "to": "Rubenrubiorey81@Gmail.com",
+                    "subject": "Case",
+                    "body_html": "<p>hi</p>",
+                },
+            )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["ok"] is True
+        assert captured_bytes is not None
+        parsed = message_from_bytes(captured_bytes)
+        assert parsed.get("To") == "rubenrubiorey81@gmail.com"

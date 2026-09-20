@@ -158,3 +158,45 @@ class TestMailMessageList:
             "}",
             [acct, msg_id],
         )
+
+
+@skip_if_no_services
+class TestComposeRecipients:
+    def test_typed_recipient_commits_on_blur_and_send_works(self, logged_in_page):
+        """Regression: typing an address and clicking Send directly must
+        commit the chip (lowercased) instead of silently blocking the send
+        with a red field and no explanation (U6.10)."""
+        import uuid
+
+        page = logged_in_page
+        page.goto("http://localhost:8001/app/mail/compose")
+        page.wait_for_selector("[data-chip-input]")
+
+        # Type a mixed-case address but never press Enter/Tab/comma.
+        page.fill('[data-chips-container="to"] [data-chip-input]', "E2E-Test@test.localhost")
+        # Blur the To input (focus another field) — the chip must commit,
+        # with the address lowercased.
+        page.fill('input[name="subject"]', f"Compose UI {uuid.uuid4().hex[:8]}")
+        chip = page.wait_for_selector(
+            '[data-chips-container="to"] [data-email="e2e-test@test.localhost"]', timeout=5000
+        )
+        assert chip is not None
+        assert page.input_value('[data-chips-container="to"] [data-chip-input]') == ""
+
+        # Fill the body (contenteditable) and send directly.
+        page.fill("#compose-editor", "<p>typed recipient ui test</p>")
+        page.click('[data-submit-button]:has(span:text("Send"))')
+        # The send must proceed (no silent red block): we leave compose.
+        page.wait_for_url(lambda url: "/mail/compose" not in url, timeout=15000)
+
+    def test_empty_to_shows_inline_error_message(self, logged_in_page):
+        """An empty To field on send shows an explicit inline message, not a
+        silent color-only block (U6.10)."""
+        page = logged_in_page
+        page.goto("http://localhost:8001/app/mail/compose")
+        page.wait_for_selector("[data-chip-input]")
+        page.click('[data-submit-button]:has(span:text("Send"))')
+        error = page.wait_for_selector("[data-to-error]:not(.hidden)", timeout=5000)
+        assert error is not None
+        assert "recipient" in error.inner_text().lower()
+        assert "/mail/compose" in page.url

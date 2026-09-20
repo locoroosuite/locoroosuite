@@ -31,6 +31,7 @@
         </div>
         <div class="hidden absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-lg border border-slate-200 shadow-lg max-h-56 overflow-y-auto" data-dropdown="to"></div>
       </div>
+      <p class="hidden mt-1 text-xs text-rose-600" data-to-error>Add at least one valid recipient, for example name@example.com</p>
     </div>
     <div class="{{ '' if prefill and prefill.cc_addrs else 'hidden' }}" data-cc-row>
       <label class="block text-sm font-medium">Cc</label>
@@ -400,19 +401,32 @@
   form.addEventListener('submit', function (event) {
     event.preventDefault();
     syncEditor();
+    // Harvest any typed-but-uncommitted text into chips before validating
+    // (Gmail parity: typing an address and clicking Send must work).
+    toChips.commitInput();
+    ccChips.commitInput();
+    bccChips.commitInput();
+    var toError = document.querySelector('[data-to-error]');
     var toVal = document.getElementById('to-hidden').value.trim();
     if (!toVal) {
       var toLabel = document.querySelector('[data-chips-container="to"]').closest('div').querySelector('label');
       if (toLabel) toLabel.classList.add('text-rose-600');
       document.querySelector('[data-chips-container="to"]').classList.add('!border-rose-400');
+      if (toError) toError.classList.remove('hidden');
       toChips.focus();
       return;
     }
+    if (toError) toError.classList.add('hidden');
     var submitter = event.submitter;
     if (!submitter) return;
     var action = submitter.getAttribute('formaction') || form.getAttribute('action');
     var formData = new FormData(form);
     submitViaFetch(action, formData, submitter);
+  });
+
+  toChips.input.addEventListener('input', function () {
+    var toError = document.querySelector('[data-to-error]');
+    if (toError) toError.classList.add('hidden');
   });
 
   setInterval(function () {

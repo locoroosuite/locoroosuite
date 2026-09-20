@@ -90,6 +90,7 @@
     this.input.addEventListener('input', function () { self._onInput(); });
     this.input.addEventListener('keydown', function (e) { self._onKeydown(e); });
     this.input.addEventListener('paste', function (e) { self._onPaste(e); });
+    this.input.addEventListener('blur', function () { self.commitInput(); });
     this.container.addEventListener('click', function (e) {
       if (e.target === self.container) self.input.focus();
     });
@@ -276,15 +277,24 @@
 
   RecipientChips.prototype._addFromInput = function () {
     var text = this.input.value.trim().replace(/,$/, '');
-    if (!text) return;
+    if (!text) { this._hideDropdown(); return; }
     var list = parseRfc5322(text);
     if (list.length > 0) {
       for (var i = 0; i < list.length; i++) this.addChip(list[i].name, list[i].email, this.options.defaultExtra, true);
+      this.input.value = '';
     } else {
       this._showInvalidFlash();
     }
-    this.input.value = '';
     this._hideDropdown();
+  };
+
+  // Commit any raw typed text into chips (blur / submit harvest).
+  // Returns true when the input is empty afterwards (nothing pending or
+  // successfully committed), false when invalid text was kept for editing.
+  RecipientChips.prototype.commitInput = function () {
+    if (!this.input.value.trim()) return true;
+    this._addFromInput();
+    return this.input.value.trim() === '';
   };
 
   RecipientChips.prototype._showCopied = function (chip, email) {
@@ -302,11 +312,12 @@
 
   RecipientChips.prototype._showInvalidFlash = function () {
     var self = this;
+    var originalPlaceholder = this.input.placeholder;
     this.input.classList.add('!border-rose-400', '!ring-rose-200');
     this.input.placeholder = 'Invalid email address';
     setTimeout(function () {
       self.input.classList.remove('!border-rose-400', '!ring-rose-200');
-      self.input.placeholder = '';
+      self.input.placeholder = originalPlaceholder;
     }, 2000);
   };
 

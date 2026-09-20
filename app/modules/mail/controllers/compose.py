@@ -3,7 +3,7 @@ import re
 import time
 import uuid
 from email import message_from_bytes
-from email.utils import formatdate
+from email.utils import formataddr, formatdate, getaddresses
 
 from flask import current_app, jsonify, redirect, render_template, request, session, url_for
 
@@ -55,6 +55,25 @@ def _has_text_content(html):
         return False
     text = _ENTITY_RE.sub(" ", _TAG_RE.sub("", html))
     return len(text.strip()) > 0
+
+
+def _normalize_recipient_addrs(value):
+    """Lowercase the addr-spec of every recipient, preserving display names.
+
+    Email addresses are case-insensitive in practice; normalizing them keeps
+    outgoing headers, pending-send payloads, and drafts consistent regardless
+    of what casing the user typed.
+    """
+    if not value or not value.strip():
+        return value or ""
+    parts = []
+    for name, addr in getaddresses([value]):
+        addr = addr.strip().lower()
+        if addr:
+            parts.append(formataddr((name, addr)) if name else addr)
+        elif name:
+            parts.append(name)
+    return ", ".join(parts)
 
 
 _DEFAULT_MAX_TOTAL = 50 * 1024 * 1024
@@ -320,9 +339,9 @@ def send_mail():
             account_id=account_id,
             error="Domain is unavailable.",
             prefill={
-                "to_addrs": request.form.get("to", ""),
-                "cc_addrs": request.form.get("cc", ""),
-                "bcc_addrs": request.form.get("bcc", ""),
+                "to_addrs": _normalize_recipient_addrs(request.form.get("to", "")),
+                "cc_addrs": _normalize_recipient_addrs(request.form.get("cc", "")),
+                "bcc_addrs": _normalize_recipient_addrs(request.form.get("bcc", "")),
                 "subject": request.form.get("subject", ""),
                 "body_html": request.form.get("body_html", ""),
                 "request_receipt": request.form.get("read_receipt") == "on",
@@ -336,9 +355,9 @@ def send_mail():
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
 
     from_addr = account.email_address
-    to_addrs = request.form.get("to", "")
-    cc_addrs = request.form.get("cc", "")
-    bcc_addrs = request.form.get("bcc", "")
+    to_addrs = _normalize_recipient_addrs(request.form.get("to", ""))
+    cc_addrs = _normalize_recipient_addrs(request.form.get("cc", ""))
+    bcc_addrs = _normalize_recipient_addrs(request.form.get("bcc", ""))
     subject = request.form.get("subject", "")
     body_html_form = request.form.get("body_html", "")
     request_receipt = request.form.get("read_receipt") == "on"
@@ -527,9 +546,9 @@ def auto_save_draft():
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
 
     from_addr = account.email_address
-    to_addrs = request.form.get("to", "")
-    cc_addrs = request.form.get("cc", "")
-    bcc_addrs = request.form.get("bcc", "")
+    to_addrs = _normalize_recipient_addrs(request.form.get("to", ""))
+    cc_addrs = _normalize_recipient_addrs(request.form.get("cc", ""))
+    bcc_addrs = _normalize_recipient_addrs(request.form.get("bcc", ""))
     subject = request.form.get("subject", "")
     body_html = request.form.get("body_html", "")
     old_draft_uid = (request.form.get("draft_uid") or "").strip()
@@ -605,9 +624,9 @@ def save_draft():
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
 
     from_addr = account.email_address
-    to_addrs = request.form.get("to", "")
-    cc_addrs = request.form.get("cc", "")
-    bcc_addrs = request.form.get("bcc", "")
+    to_addrs = _normalize_recipient_addrs(request.form.get("to", ""))
+    cc_addrs = _normalize_recipient_addrs(request.form.get("cc", ""))
+    bcc_addrs = _normalize_recipient_addrs(request.form.get("bcc", ""))
     subject = request.form.get("subject", "")
     body_html = request.form.get("body_html", "")
     old_draft_uid = (request.form.get("draft_uid") or "").strip()

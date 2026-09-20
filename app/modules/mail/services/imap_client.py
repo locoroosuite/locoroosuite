@@ -29,6 +29,9 @@ _STATUS_RE = re.compile(r"\((?P<items>[^)]*)\)")
 _FLAGS_RE = re.compile(r"FLAGS \((?P<flags>[^)]*)\)")
 _UID_RE = re.compile(r"UID (?P<uid>\d+)")
 _INTERNALDATE_RE = re.compile(r'INTERNALDATE\s+"(?P<date>[^"]+)"')
+# U4.4: Dovecot's "* OK Still here" IDLE keepalive carries no mailbox change;
+# it must not trigger a sync.
+_IDLE_KEEPALIVE_RE = re.compile(rb"^\*\s+OK\b", re.IGNORECASE)
 
 
 def _parse_list_entry(line):
@@ -341,6 +344,11 @@ def idle_wait(client, timeout=60):
                 candidate = client._get_line()
             except OSError as exc:
                 if "timed out" in str(exc).lower():
+                    if line:
+                        # The server already answered with a non-continuation
+                        # line (e.g. a tagged BAD): no point waiting for '+'.
+                        break
+                    time.sleep(0.1)
                     continue
                 raise
             if candidate.startswith(b"+"):
@@ -354,17 +362,26 @@ def idle_wait(client, timeout=60):
         raise
     if not line.startswith(b"+"):
         return False, line
-    client.sock.settimeout(timeout)
     response = None
     try:
-        response = client._get_line()
-    except socket.timeout:
-        response = None
-    except OSError as exc:
-        if "timed out" in str(exc).lower():
-            response = None
-        else:
-            raise
+        deadline = time.monotonic() + timeout
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            client.sock.settimeout(remaining)
+            try:
+                candidate = client._get_line()
+            except socket.timeout:
+                break
+            except OSError as exc:
+                if "timed out" in str(exc).lower():
+                    break
+                raise
+            if _IDLE_KEEPALIVE_RE.match(candidate):
+                continue
+            response = candidate
+            break
     finally:
         try:
             client.send(b"DONE\r\n")

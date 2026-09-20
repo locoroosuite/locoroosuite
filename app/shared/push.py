@@ -9,6 +9,7 @@ with identifiers; the sync/SSE path is never blocked or broken.
 import json
 import logging
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 
@@ -21,6 +22,35 @@ from app.shared.models.core import CustomerSettings, PushSubscription, PushVapid
 _logger = logging.getLogger(__name__)
 
 DEFAULT_VAPID_SUBJECT = "mailto:admin@localhost"
+
+# py_vapid strict mode rejects subjects that are not mailto: links (U24.19).
+_BARE_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_SUBJECT_NORMALIZED_LOGGED = False
+
+
+def _normalize_vapid_subject(subject: str) -> str:
+    """Return a ``mailto:`` VAPID subject (U24.19 fail-early).
+
+    Bare email addresses are auto-normalized; anything else raises a clear
+    configuration error instead of failing per-send inside py_vapid.
+    """
+    global _SUBJECT_NORMALIZED_LOGGED
+    trimmed = (subject or "").strip()
+    if trimmed.lower().startswith("mailto:"):
+        return trimmed
+    if _BARE_EMAIL_RE.match(trimmed):
+        if not _SUBJECT_NORMALIZED_LOGGED:
+            _SUBJECT_NORMALIZED_LOGGED = True
+            _logger.info(
+                "push vapid subject normalized to mailto: form; "
+                "set PUSH_VAPID_SUBJECT=mailto:%s to silence this",
+                trimmed,
+            )
+        return f"mailto:{trimmed}"
+    raise RuntimeError(
+        "PUSH_VAPID_SUBJECT must be a 'mailto:' URL or a bare email address "
+        f"(got {subject!r}); e.g. 'mailto:admin@locoroo.net'."
+    )
 
 # Category -> CustomerSettings column (U24.27). "test" bypasses gating.
 CATEGORY_SETTINGS = {
@@ -64,7 +94,7 @@ def load_vapid_config() -> dict:
     used and auto-generated on first use. Misconfiguration raises a clear
     error instead of silently no-op'ing.
     """
-    subject = os.environ.get("PUSH_VAPID_SUBJECT", DEFAULT_VAPID_SUBJECT)
+    subject = _normalize_vapid_subject(os.environ.get("PUSH_VAPID_SUBJECT", DEFAULT_VAPID_SUBJECT))
     env_pub = os.environ.get("PUSH_VAPID_PUBLIC_KEY")
     env_priv = os.environ.get("PUSH_VAPID_PRIVATE_KEY")
     if env_pub and env_priv:

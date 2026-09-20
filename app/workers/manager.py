@@ -31,6 +31,14 @@ logger = logging.getLogger(__name__)
 
 
 class _IdleWorker:
+    # U4.4: a single transient handshake failure (e.g. a busy event loop at
+    # container start) must not permanently downgrade an account to polling.
+    IDLE_DISABLE_THRESHOLD = 3
+    HANDSHAKE_RETRY_DELAY = 5
+    # U4.4: connection errors (server restarts, drops) reconnect with backoff
+    # instead of killing the worker.
+    RECONNECT_RETRY_SCHEDULE = (5, 15, 30, 60, 120, 300)
+
     def __init__(self, app, manager, account_id, folder):
         self.app = app
         self.manager = manager
@@ -47,6 +55,8 @@ class _IdleWorker:
         self._stop.set()
 
     def _run(self):
+        handshake_failures = 0
+        reconnect_attempt = 0
         with self.app.app_context():
             while not self._stop.is_set():
                 account = db.session.get(CustomerAccount, self.account_id)
@@ -60,6 +70,7 @@ class _IdleWorker:
                 if not domain or not domain.is_active:
                     logger.info("idle worker stop missing domain account_id=%s", account.id)
                     return
+                client = None
                 try:
                     client = connect_imap(domain.imap_host, domain.imap_port, domain.imap_tls)
                     secret = (
@@ -73,11 +84,13 @@ class _IdleWorker:
                         password=secret,
                     )
                     select_folder(client, self.folder)
+                    reconnect_attempt = 0
                     logger.info(
                         "idle worker connected account_id=%s folder=%s",
                         account.id,
                         self.folder,
                     )
+                    handshake_ok = True
                     while not self._stop.is_set():
                         self.manager.emit_status(
                             account,
@@ -87,15 +100,19 @@ class _IdleWorker:
                         )
                         supported, response = idle_wait(client, timeout=60)
                         if not supported:
-                            logger.warning("idle not supported account_id=%s", account.id)
-                            self.manager.set_idle_supported(account.id, False)
-                            self.manager.emit_status(
-                                account,
-                                state="error",
-                                folder=self.folder,
-                                message="imap idle unsupported",
+                            handshake_failures += 1
+                            handshake_ok = False
+                            logger.warning(
+                                "idle handshake failed account_id=%s folder=%s "
+                                "failures=%s/%s response=%r",
+                                account.id,
+                                self.folder,
+                                handshake_failures,
+                                self.IDLE_DISABLE_THRESHOLD,
+                                response,
                             )
                             break
+                        handshake_failures = 0
                         if response:
                             self.manager.enqueue_sync(
                                 account.id,
@@ -103,8 +120,32 @@ class _IdleWorker:
                                 reason="idle",
                                 priority=5,
                             )
+                    if handshake_ok or self._stop.is_set():
+                        safe_logout(client)
+                        return
                     safe_logout(client)
-                    return
+                    if handshake_failures >= self.IDLE_DISABLE_THRESHOLD:
+                        logger.warning(
+                            "idle unsupported after %s consecutive handshake failures "
+                            "account_id=%s",
+                            self.IDLE_DISABLE_THRESHOLD,
+                            account.id,
+                        )
+                        self.manager.set_idle_supported(account.id, False)
+                        self.manager.emit_status(
+                            account,
+                            state="error",
+                            folder=self.folder,
+                            message="imap idle unsupported",
+                        )
+                        return
+                    self.manager.emit_status(
+                        account,
+                        state="error",
+                        folder=self.folder,
+                        message="imap idle handshake retry",
+                    )
+                    self._stop.wait(self.HANDSHAKE_RETRY_DELAY)
                 except Exception:
                     logger.exception("idle worker error account_id=%s", account.id)
                     self.manager.emit_status(
@@ -113,8 +154,13 @@ class _IdleWorker:
                         folder=self.folder,
                         message="imap idle error",
                     )
-                    self.manager.set_idle_supported(account.id, False)
-                    return
+                    if client is not None:
+                        safe_logout(client)
+                    delay = self.RECONNECT_RETRY_SCHEDULE[
+                        min(reconnect_attempt, len(self.RECONNECT_RETRY_SCHEDULE) - 1)
+                    ]
+                    reconnect_attempt += 1
+                    self._stop.wait(delay)
 
 
 class WorkerManager:

@@ -5,6 +5,8 @@ import sqlite3
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from app.shared import events
 from app.shared import push as push_mod
 from app.shared.app_migrations import APP_DB_MIGRATIONS
@@ -58,6 +60,32 @@ class TestPushKeyEndpoint:
         assert resp.get_json()["public_key"] == "env-pub"
         with client.application.app_context():
             assert db.session.query(PushVapidKey).count() == 0
+
+
+class TestVapidSubject:
+    """U24.19: subject must be a mailto: URL or a bare email (auto-normalized)."""
+
+    def test_mailto_subject_passthrough(self, app, monkeypatch):
+        monkeypatch.setenv("PUSH_VAPID_PUBLIC_KEY", "env-pub")
+        monkeypatch.setenv("PUSH_VAPID_PRIVATE_KEY", "env-priv")
+        monkeypatch.setenv("PUSH_VAPID_SUBJECT", "mailto:ruben@locoroo.net")
+        with app.app_context():
+            assert push_mod.load_vapid_config()["subject"] == "mailto:ruben@locoroo.net"
+
+    def test_bare_email_subject_is_normalized(self, app, monkeypatch):
+        monkeypatch.setenv("PUSH_VAPID_PUBLIC_KEY", "env-pub")
+        monkeypatch.setenv("PUSH_VAPID_PRIVATE_KEY", "env-priv")
+        monkeypatch.setenv("PUSH_VAPID_SUBJECT", "ruben@locoroo.net")
+        with app.app_context():
+            assert push_mod.load_vapid_config()["subject"] == "mailto:ruben@locoroo.net"
+
+    def test_invalid_subject_is_fail_early(self, app, monkeypatch):
+        monkeypatch.setenv("PUSH_VAPID_PUBLIC_KEY", "env-pub")
+        monkeypatch.setenv("PUSH_VAPID_PRIVATE_KEY", "env-priv")
+        monkeypatch.setenv("PUSH_VAPID_SUBJECT", "not an email")
+        with app.app_context():
+            with pytest.raises(RuntimeError, match="PUSH_VAPID_SUBJECT"):
+                push_mod.load_vapid_config()
 
 
 class TestPushSubscribe:
@@ -302,6 +330,25 @@ class TestPushTest:
             _make_subscription(user_id)
             monkeypatch.setenv("PUSH_VAPID_PUBLIC_KEY", "only-public")
             monkeypatch.delenv("PUSH_VAPID_PRIVATE_KEY", raising=False)
+            resp = client.post("/app/mail/push/test")
+            assert resp.status_code == 503
+            assert resp.get_json()["error"]["code"] == "PUSH_SEND_FAILED"
+
+    def test_bare_subject_normalized_in_send(self, app, authed_client, monkeypatch):
+        client, user_id, _ = authed_client
+        with app.app_context():
+            _make_subscription(user_id)
+            monkeypatch.setenv("PUSH_VAPID_SUBJECT", "ruben@locoroo.net")
+            with patch("pywebpush.webpush") as wp:
+                resp = client.post("/app/mail/push/test")
+            assert resp.status_code == 200
+            assert wp.call_args.kwargs["vapid_claims"]["sub"] == "mailto:ruben@locoroo.net"
+
+    def test_invalid_subject_is_503(self, app, authed_client, monkeypatch):
+        client, user_id, _ = authed_client
+        with app.app_context():
+            _make_subscription(user_id)
+            monkeypatch.setenv("PUSH_VAPID_SUBJECT", "not an email")
             resp = client.post("/app/mail/push/test")
             assert resp.status_code == 503
             assert resp.get_json()["error"]["code"] == "PUSH_SEND_FAILED"

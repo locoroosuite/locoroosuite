@@ -537,6 +537,7 @@
       });
     }
   </script>
+  <script src="{{ url_for('static', filename='js/password-toggle.js') }}?v={{ static_v('js/password-toggle.js') }}"></script>
   {% if session.get("role") == "customer" %}
   <script src="{{ url_for('static', filename='js/pwa-install.js') }}?v={{ static_v('js/pwa-install.js') }}"></script>
   {% endif %}

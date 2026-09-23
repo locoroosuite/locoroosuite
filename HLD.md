@@ -108,6 +108,7 @@ N4 - Header includes a top-right user area with: (1) a Gmail-style app launcher 
 N6 - Header logo ("LR" + "LocoRoomail") links to the role landing page: customer -> "/app/mail/", admin -> "/admin/", manager -> "/admin/manager/"; logged-out -> "/app/login".
 N5 - The same email address may be used for customer IMAP login even if it also has admin/manager credentials.
 N7 - Authenticated pages (customer/admin/manager) render a footer showing the application version, sourced from the root `package.json` (single source of truth for releases). The footer is not rendered on unauthenticated pages (login, signup, setup, 2FA) so build info is not exposed publicly.
+N8 - Every password input (login, signup, setup, password confirmation, admin password forms) is masked by default and offers a show/hide toggle (eye icon) so users can verify what they type. Verification-code fields (TOTP) and pre-filled secret fields (shared secrets, API keys) are excluded.
 
 # Use Case U1 – Administration (General)
 

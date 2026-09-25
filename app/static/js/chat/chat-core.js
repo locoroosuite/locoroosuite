@@ -102,7 +102,7 @@
         : "#" + label + (room.topic ? " — " + room.topic : "");
       const avatar = document.createElement("span");
       avatar.className =
-        "shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-semibold " +
+        "shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-[11px] md:text-[10px] font-semibold " +
         (room.is_direct
           ? active
             ? "bg-white text-slate-900"
@@ -119,7 +119,7 @@
       if (badge) {
         const dot = document.createElement("span");
         dot.className =
-          "shrink-0 rounded-full px-1 text-[10px] font-semibold h-5 min-w-[1.25rem] flex items-center justify-center " +
+          "shrink-0 rounded-full px-1 text-[11px] md:text-[10px] font-semibold h-5 min-w-[1.25rem] flex items-center justify-center " +
           (active ? "bg-white text-slate-900" : room.highlight_count > 0 ? "bg-red-500 text-white" : "bg-slate-200 text-slate-700");
         dot.textContent = room.notification_count > 99 ? "99+" : String(room.notification_count);
         item.appendChild(dot);
@@ -128,14 +128,14 @@
         const actions = document.createElement("span");
         actions.className = "shrink-0 flex items-center gap-1";
         const accept = document.createElement("button");
-        accept.className = "px-1.5 py-0.5 rounded text-[10px] bg-emerald-500 text-white";
+        accept.className = "px-1.5 py-0.5 rounded text-[11px] md:text-[10px] bg-emerald-500 text-white";
         accept.textContent = "Accept";
         accept.addEventListener("click", function (ev) {
           ev.stopPropagation();
           window.Chat.actions.joinRoom(room.room_id);
         });
         const decline = document.createElement("button");
-        decline.className = "px-1.5 py-0.5 rounded text-[10px] border border-slate-300 text-slate-500";
+        decline.className = "px-1.5 py-0.5 rounded text-[11px] md:text-[10px] border border-slate-300 text-slate-500";
         decline.textContent = "Decline";
         decline.addEventListener("click", function (ev) {
           ev.stopPropagation();
@@ -188,7 +188,7 @@
     const node = el("chat-sync-status");
     node.textContent = text;
     node.className =
-      "px-3 py-2 border-t border-slate-100 text-[11px] " + (isError ? "text-red-500" : "text-slate-400");
+      "px-3 py-2 border-t border-slate-100 text-[12px] md:text-[11px] " + (isError ? "text-red-500" : "text-slate-500");
   }
 
   function startStream() {

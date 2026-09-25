@@ -31,21 +31,21 @@
     </div>
     <nav class="flex-1 overflow-y-auto px-2 pb-3 space-y-4">
       <div>
-        <h3 class="px-2 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Rooms</h3>
+        <h3 class="px-2 py-1 text-[12px] md:text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Rooms</h3>
         <ul id="chat-rooms" class="space-y-0.5"></ul>
         <p id="chat-rooms-empty" class="hidden px-2 py-2 text-xs text-slate-400">No rooms yet. Create one with +.</p>
       </div>
       <div>
-        <h3 class="px-2 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Direct messages</h3>
+        <h3 class="px-2 py-1 text-[12px] md:text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Direct messages</h3>
         <ul id="chat-dms" class="space-y-0.5"></ul>
         <p id="chat-dms-empty" class="hidden px-2 py-2 text-xs text-slate-400">No direct messages yet. Start one with the pencil icon.</p>
       </div>
       <div id="chat-invites" class="hidden">
-        <h3 class="px-2 py-1 text-[11px] font-semibold text-amber-500 uppercase tracking-wide">Invitations</h3>
+        <h3 class="px-2 py-1 text-[12px] md:text-[11px] font-semibold text-amber-500 uppercase tracking-wide">Invitations</h3>
         <ul id="chat-invites-list" class="space-y-0.5"></ul>
       </div>
     </nav>
-    <div class="px-3 py-2 border-t border-slate-100 text-[11px] text-slate-400" id="chat-sync-status">Connecting…</div>
+    <div class="px-3 py-2 border-t border-slate-100 text-[12px] md:text-[11px] text-slate-500" id="chat-sync-status">Connecting…</div>
   </aside>
 
   <main class="flex-1 min-w-0 flex flex-col bg-white border-t border-b border-slate-200/80 md:rounded-2xl md:border md:border-slate-200 md:shadow-sm overflow-hidden" id="chat-main">
@@ -77,7 +77,7 @@
         </button>
         <div class="min-w-0">
           <div class="font-semibold text-slate-800 truncate" id="chat-room-name">Room</div>
-          <div class="text-[11px] text-slate-400 truncate" id="chat-room-subtitle"></div>
+          <div class="text-[12px] md:text-[11px] text-slate-500 truncate" id="chat-room-subtitle"></div>
         </div>
         <span class="flex-1"></span>
         <span class="text-xs text-slate-400 shrink-0" id="chat-room-members"></span>
@@ -138,7 +138,7 @@
       <input id="chat-dm-email" type="email" required maxlength="255" autocomplete="off" autofocus
              class="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:border-slate-400 focus:ring-2 focus:ring-slate-200 focus:outline-none" placeholder="name@yourdomain" />
     </label>
-    <p class="text-[11px] text-slate-400 leading-relaxed">
+    <p class="text-[12px] md:text-[11px] text-slate-500 leading-relaxed">
       Enter the exact email address of a user on this server. Their chat identity is
       created automatically if missing — for example
       <span class="font-mono">test4@test.localhost</span> maps to
@@ -162,7 +162,7 @@
       <input id="chat-invite-email" type="email" required maxlength="255" autocomplete="off" autofocus
              class="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:border-slate-400 focus:ring-2 focus:ring-slate-200 focus:outline-none" placeholder="name@yourdomain" />
     </label>
-    <p class="text-[11px] text-slate-400 leading-relaxed">
+    <p class="text-[12px] md:text-[11px] text-slate-500 leading-relaxed">
       Enter the exact email address of a user on this server. Their chat identity is
       created automatically if missing.
     </p>

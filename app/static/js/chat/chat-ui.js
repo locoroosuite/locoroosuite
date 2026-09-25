@@ -104,7 +104,7 @@
       const empty = document.createElement("div");
       empty.className = "h-full flex flex-col items-center justify-center text-slate-400 py-16 text-center";
       const identity = peer
-        ? '<div class="text-[11px] font-mono text-slate-300 mt-1">' + escapeHtml(peer.matrix_user_id) + "</div>"
+        ? '<div class="text-[12px] md:text-[11px] font-mono text-slate-300 mt-1">' + escapeHtml(peer.matrix_user_id) + "</div>"
         : "";
       empty.innerHTML =
         '<svg class="h-8 w-8 mb-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3.43 2.524A49.19 49.19 0 0110 2c1.657 0 3.28.088 4.86.262.897.1 1.69.757 1.69 1.654v6.168c0 .897-.793 1.554-1.69 1.654a38.53 38.53 0 01-2.34.196l-2.975 2.942a.75.75 0 01-1.28-.53v-2.39a42.36 42.36 0 01-2.835-.178c-.897-.1-1.69-.757-1.69-1.654V4.178c0-.897.793-1.554 1.69-1.654z" clip-rule="evenodd"/></svg>' +
@@ -122,7 +122,7 @@
         lastDay = day;
         lastSender = null;
         const divider = document.createElement("div");
-        divider.className = "flex items-center gap-3 py-2 text-[11px] text-slate-400";
+        divider.className = "flex items-center gap-3 py-2 text-[12px] md:text-[11px] text-slate-500";
         divider.innerHTML = "<span class='flex-1 h-px bg-slate-200'></span>" + escapeHtml(day) + "<span class='flex-1 h-px bg-slate-200'></span>";
         box.appendChild(divider);
       }
@@ -159,7 +159,7 @@
 
     const avatar = document.createElement("div");
     avatar.className =
-      "shrink-0 h-8 w-8 rounded-full text-[11px] font-semibold flex items-center justify-center " +
+      "shrink-0 h-8 w-8 rounded-full text-[12px] md:text-[11px] font-semibold flex items-center justify-center " +
       avatarColor(m.sender) +
       (grouped ? " invisible" : "");
     avatar.textContent = Chat.initialsFor(m.sender);
@@ -174,7 +174,7 @@
       who.className = "text-sm font-semibold text-slate-800";
       who.textContent = m.sender.replace(/^@/, "").split(":")[0];
       const when = document.createElement("span");
-      when.className = "text-[11px] text-slate-400";
+      when.className = "text-[12px] md:text-[11px] text-slate-500";
       when.textContent = Chat.timeLabel(m.origin_server_ts);
       header.appendChild(who);
       header.appendChild(when);
@@ -255,7 +255,7 @@
     const msgtype = c.msgtype || "m.text";
     if (m.edited) {
       const tag = document.createElement("span");
-      tag.className = "text-[10px] text-slate-400 align-super ml-1";
+      tag.className = "text-[11px] md:text-[10px] text-slate-500 align-super ml-1";
       tag.textContent = "(edited)";
       contentBox.appendChild(tag);
     }

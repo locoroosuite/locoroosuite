@@ -584,13 +584,14 @@ class TestThreadConversationView:
         # U24.37: header stacks below md, back to one row at md and up
         assert "flex flex-col md:flex-row" in html
         # U24.38: conversation meta line truncates instead of wrapping vertically
-        assert "text-xs text-slate-500 mt-0.5 truncate" in html
+        # UX8: meta line renders at 13px on mobile, text-xs at md and up
+        assert "text-[13px] md:text-xs text-slate-500 mt-0.5 truncate" in html
         # U24.37: header buttons hidden below md (Reply All, Archive, Delete)
         assert html.count("hidden md:inline-block") == 3
         # U24.37: same actions duplicated as mobile-only overflow entries
         assert html.count('data-action="archive"') == 2
         assert html.count('data-action="delete"') == 2
-        assert "block md:hidden text-[11px]" in html
+        assert "block md:hidden text-[12px]" in html
 
     def test_single_message_no_thread_label(self, app, authed_client):
         client, _user_id, account_id = authed_client

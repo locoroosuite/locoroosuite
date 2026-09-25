@@ -27,7 +27,7 @@
       <input type="hidden" name="to" id="to-hidden" value="{{ prefill.to_addrs if prefill else '' }}" />
       <div class="relative">
         <div class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm shadow-sm focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-slate-200 min-h-[38px] flex flex-wrap items-center gap-1.5 cursor-text" data-chips-container="to">
-          <input type="text" class="flex-1 min-w-[140px] border-0 bg-transparent p-0.5 text-sm outline-none focus:ring-0 placeholder:text-slate-400" placeholder="Type a name or email…" data-chip-input tabindex="1" autocomplete="off" />
+          <input type="text" class="flex-1 min-w-[140px] border-0 bg-transparent p-0.5 text-base md:text-sm outline-none focus:ring-0 placeholder:text-slate-400" placeholder="Type a name or email…" data-chip-input tabindex="1" autocomplete="off" />
         </div>
         <div class="hidden absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-lg border border-slate-200 shadow-lg max-h-56 overflow-y-auto" data-dropdown="to"></div>
       </div>
@@ -38,7 +38,7 @@
       <input type="hidden" name="cc" id="cc-hidden" value="{{ prefill.cc_addrs if prefill else '' }}" />
       <div class="relative">
         <div class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm shadow-sm focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-slate-200 min-h-[38px] flex flex-wrap items-center gap-1.5 cursor-text" data-chips-container="cc">
-          <input type="text" class="flex-1 min-w-[140px] border-0 bg-transparent p-0.5 text-sm outline-none focus:ring-0 placeholder:text-slate-400" placeholder="Type a name or email…" data-chip-input tabindex="{{ '2' if prefill and prefill.cc_addrs else '-1' }}" autocomplete="off" />
+          <input type="text" class="flex-1 min-w-[140px] border-0 bg-transparent p-0.5 text-base md:text-sm outline-none focus:ring-0 placeholder:text-slate-400" placeholder="Type a name or email…" data-chip-input tabindex="{{ '2' if prefill and prefill.cc_addrs else '-1' }}" autocomplete="off" />
         </div>
         <div class="hidden absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-lg border border-slate-200 shadow-lg max-h-56 overflow-y-auto" data-dropdown="cc"></div>
       </div>
@@ -48,14 +48,14 @@
       <input type="hidden" name="bcc" id="bcc-hidden" value="{{ prefill.bcc_addrs if prefill else '' }}" />
       <div class="relative">
         <div class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm shadow-sm focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-slate-200 min-h-[38px] flex flex-wrap items-center gap-1.5 cursor-text" data-chips-container="bcc">
-          <input type="text" class="flex-1 min-w-[140px] border-0 bg-transparent p-0.5 text-sm outline-none focus:ring-0 placeholder:text-slate-400" placeholder="Type a name or email…" data-chip-input tabindex="{{ '3' if prefill and prefill.bcc_addrs else '-1' }}" autocomplete="off" />
+          <input type="text" class="flex-1 min-w-[140px] border-0 bg-transparent p-0.5 text-base md:text-sm outline-none focus:ring-0 placeholder:text-slate-400" placeholder="Type a name or email…" data-chip-input tabindex="{{ '3' if prefill and prefill.bcc_addrs else '-1' }}" autocomplete="off" />
         </div>
         <div class="hidden absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-lg border border-slate-200 shadow-lg max-h-56 overflow-y-auto" data-dropdown="bcc"></div>
       </div>
     </div>
     <div>
       <label class="block text-sm font-medium">Subject</label>
-      <input name="subject" value="{{ prefill.subject if prefill else '' }}" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" tabindex="4" />
+      <input name="subject" value="{{ prefill.subject if prefill else '' }}" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-base md:text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" tabindex="4" />
     </div>
     <div>
       <label class="block text-sm font-medium">Body</label>
@@ -70,7 +70,7 @@
           <button type="button" class="rounded-md border border-slate-200 px-2 py-1 text-slate-600 hover:text-slate-900" data-command="createLink" tabindex="15">Link</button>
           <button type="button" class="rounded-md border border-slate-200 px-2 py-1 text-slate-600 hover:text-slate-900" data-command="removeFormat" tabindex="16">Clear</button>
         </div>
-        <div id="compose-editor" contenteditable="true" tabindex="5" class="min-h-[220px] px-3 py-3 text-sm outline-none" style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.6; color: #0f172a;"></div>
+        <div id="compose-editor" contenteditable="true" tabindex="5" class="min-h-[220px] px-3 py-3 text-[15px] md:text-[14px] outline-none" style="font-family: Arial, Helvetica, sans-serif; line-height: 1.6; color: #0f172a;"></div>
       </div>
     </div>
     <div>

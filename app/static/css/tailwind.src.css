@@ -124,3 +124,12 @@
     pointer-events: auto !important;
   }
 }
+
+/* UX8: lift all rem-based text (~6%) on phone viewports; desktop unchanged.
+ * Fixed-px arbitrary utilities are unaffected and bumped explicitly in
+ * templates with mobile-first responsive pairs. */
+@media (max-width: 767.98px) {
+  html {
+    font-size: 106.25%;
+  }
+}

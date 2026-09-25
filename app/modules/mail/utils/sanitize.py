@@ -1,9 +1,11 @@
 import html
+import inspect
 import json
 import os
 import re
 from email.header import decode_header, make_header
 from email.utils import getaddresses
+from typing import Any
 
 import bleach
 from bleach.css_sanitizer import CSSSanitizer
@@ -101,12 +103,10 @@ ALLOWED_CSS_PROPERTIES = [
     "width",
     "word-wrap",
 ]
-try:
-    CSS_SANITIZER = CSSSanitizer(
-        allowed_css_properties=ALLOWED_CSS_PROPERTIES, allowed_at_rules=["media"]
-    )
-except TypeError:
-    CSS_SANITIZER = CSSSanitizer(allowed_css_properties=ALLOWED_CSS_PROPERTIES)
+_css_sanitizer_kwargs: dict[str, Any] = {"allowed_css_properties": ALLOWED_CSS_PROPERTIES}
+if "allowed_at_rules" in inspect.signature(CSSSanitizer).parameters:
+    _css_sanitizer_kwargs["allowed_at_rules"] = ["media"]
+CSS_SANITIZER = CSSSanitizer(**_css_sanitizer_kwargs)
 URL_RE = re.compile(r"(https?://|www\.)\S+", re.IGNORECASE)
 GREETING_RE = re.compile(
     r"^(hi|hello|dear|hey|greetings)\b[\s,.:;-]*([A-Z][\w'\u2019.-]*\s*){0,3}[,!:;.-]*\s*",
@@ -426,17 +426,18 @@ def wrap_email_html(body_html):
         '<html><head><meta charset="utf-8" />'
         '<base target="_blank" />'
         "<style>"
+        "html{font-size:100%;}"
         "html,body{margin:0;padding:0;}"
         "body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;"
-        "font-size:14px;line-height:1.6;color:#0f172a;}"
+        "font-size:0.9375rem;line-height:1.6;color:#0f172a;}"
         "img{max-width:100%;height:auto;}"
         ".email-body{max-width:720px;margin:0 auto;padding:16px;}"
         ".lr-quoted{margin:8px 0;border-left:3px solid #e2e8f0;padding-left:0;}"
-        ".lr-quoted-toggle{cursor:pointer;font-size:12px;color:#94a3b8;"
+        ".lr-quoted-toggle{cursor:pointer;font-size:0.75rem;color:#94a3b8;"
         "padding:4px 8px;user-select:none;list-style:none;display:inline-block;}"
         ".lr-quoted-toggle:hover{color:#64748b;}"
         ".lr-quoted-toggle::-webkit-details-marker{display:none;}"
-        ".lr-quoted-content,.lr-quoted blockquote{color:#64748b;font-size:13px;line-height:1.5;}"
+        ".lr-quoted-content,.lr-quoted blockquote{color:#64748b;font-size:0.875rem;line-height:1.5;}"
         ".lr-quoted[open] .lr-quoted-toggle{color:#64748b;}"
         "</style></head><body>"
         '<div class="email-body">'
@@ -496,7 +497,9 @@ def _load_snippet_patterns():
     global _SNIPPET_PATTERNS
     if _SNIPPET_PATTERNS is not None:
         return _SNIPPET_PATTERNS
-    patterns = {key: list(values) for key, values in DEFAULT_SNIPPET_PATTERNS.items()}
+    patterns: dict[str, Any] = {
+        key: list(values) for key, values in DEFAULT_SNIPPET_PATTERNS.items()
+    }
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     path = os.path.join(base_dir, "data", "snippet_patterns.json")
     try:

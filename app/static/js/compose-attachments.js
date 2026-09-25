@@ -50,7 +50,7 @@
       "</svg>";
     return {
       svg: svg,
-      badge: '<span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide" style="color:' + color + ";background:" + color + '15">' + esc(label) + "</span>",
+      badge: '<span class="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] md:text-[10px] font-bold tracking-wide" style="color:' + color + ";background:" + color + '15">' + esc(label) + "</span>",
     };
   }
 
@@ -239,7 +239,7 @@
     var bar = el("div", "h-full w-0 rounded-full bg-blue-500 transition-[width] duration-150");
     barWrap.appendChild(bar);
 
-    var pct = el("div", "mt-0.5 hidden text-[11px] text-slate-400");
+    var pct = el("div", "mt-0.5 hidden text-[12px] md:text-[11px] text-slate-500");
 
     var status = el("div", "mt-0.5 hidden text-xs");
 

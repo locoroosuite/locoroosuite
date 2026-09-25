@@ -224,6 +224,14 @@ class TestWrapperNoForcedBorderCollapse:
         assert "margin:0;padding:0" in wrapped
         assert "max-width:720px" in wrapped
 
+    def test_wrapper_font_sizes_ux8(self):
+        # UX8: email body 15px (0.9375rem), quoted 14px (0.875rem), rem-based
+        # so the rendered iframe respects the user's browser font preference.
+        wrapped = wrap_email_html("<p>test</p>")
+        assert "font-size:0.9375rem" in wrapped
+        assert "font-size:0.875rem" in wrapped
+        assert "font-size:14px" not in wrapped
+
 
 class TestRegressionMartianLogicEmail:
     def test_full_email_buttons_and_footer_with_images_blocked(self):

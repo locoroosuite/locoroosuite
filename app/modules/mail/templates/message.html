@@ -12,9 +12,9 @@
     </span>
     <span class="text-xs text-amber-700">This message has not been sent yet.</span>
     <div class="flex items-center gap-1.5 ml-auto">
-      <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message["uid"]) }}" class="text-[11px] px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">Edit draft</a>
+      <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message["uid"]) }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">Edit draft</a>
       <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=message["uid"]) }}" class="message-action" data-action="discard-draft">
-        <button class="text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
+        <button class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
       </form>
     </div>
   </div>
@@ -49,58 +49,58 @@
             <h1 class="text-lg font-semibold text-slate-900 truncate min-w-0">{{ message["subject"] }}</h1>
           </div>
           {% if thread_count > 1 %}
-          <div class="text-xs text-slate-500 mt-0.5 truncate">{{ thread_count }} messages in this conversation</div>
+          <div class="text-[13px] md:text-xs text-slate-500 mt-0.5 truncate">{{ thread_count }} messages in this conversation</div>
           {% else %}
-          <div class="text-xs text-slate-500 mt-0.5 truncate">From {{ message["sender"] }} &middot; To {{ message["recipients"] }}{% if cc_display %} &middot; Cc {{ cc_display }}{% endif %}</div>
+          <div class="text-[13px] md:text-xs text-slate-500 mt-0.5 truncate">From {{ message["sender"] }} &middot; To {{ message["recipients"] }}{% if cc_display %} &middot; Cc {{ cc_display }}{% endif %}</div>
           {% endif %}
         </div>
       </div>
 
       <div class="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
         {% if is_draft %}
-        <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message["uid"]) }}" class="text-[11px] px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">Edit draft</a>
+        <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message["uid"]) }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">Edit draft</a>
         <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=message["uid"]) }}" class="message-action" data-action="discard-draft">
-          <button class="text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
+          <button class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
         </form>
         {% else %}
-        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"]) }}" class="text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Reply</a>
-        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], reply_all='1') }}" class="hidden md:inline-block text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Reply All</a>
-        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], forward='1') }}" class="text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Forward</a>
+        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"]) }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Reply</a>
+        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], reply_all='1') }}" class="hidden md:inline-block text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Reply All</a>
+        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], forward='1') }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Forward</a>
         <span class="hidden md:block h-4 w-px bg-slate-200 mx-0.5"></span>
-        <a id="create-event-btn" href="{{ url_for('calendar.event_new', subject=message["subject"], description=(message["snippet"] or '')[:2000], attendee=message["sender"]) }}" class="text-[11px] px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition hidden">Create event</a>
+        <a id="create-event-btn" href="{{ url_for('calendar.event_new', subject=message["subject"], description=(message["snippet"] or '')[:2000], attendee=message["sender"]) }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition hidden">Create event</a>
         {% endif %}
         <form method="post" action="{{ url_for('mail.archive_message', account_id=account.id, message_id=message["id"]) }}" class="message-action hidden md:inline-block" data-action="archive">
-          <button type="submit" class="text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Archive</button>
+          <button type="submit" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Archive</button>
         </form>
         <form method="post" action="{{ url_for('mail.delete_message', account_id=account.id, message_id=message["id"]) }}" class="message-action hidden md:inline-block" data-action="delete">
-          <button type="submit" class="text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Delete</button>
+          <button type="submit" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Delete</button>
         </form>
         <div class="relative">
-          <button type="button" class="text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition lr-hit" data-overflow-toggle aria-label="More actions" aria-haspopup="menu" aria-expanded="false">&#8943;</button>
+          <button type="button" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition lr-hit" data-overflow-toggle aria-label="More actions" aria-haspopup="menu" aria-expanded="false">&#8943;</button>
           <div class="absolute right-0 mt-1 py-1 min-w-[170px] rounded-lg border border-slate-200 bg-white shadow-lg hidden z-50" data-overflow-menu role="menu">
             {% if not is_draft %}
-            <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], reply_all='1') }}" class="block md:hidden text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">Reply all</a>
+            <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], reply_all='1') }}" class="block md:hidden text-[12px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">Reply all</a>
             {% endif %}
             <form method="post" action="{{ url_for('mail.archive_message', account_id=account.id, message_id=message["id"]) }}" class="message-action md:hidden" data-action="archive">
-              <button type="submit" class="w-full text-left text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">Archive</button>
+              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">Archive</button>
             </form>
             <form method="post" action="{{ url_for('mail.delete_message', account_id=account.id, message_id=message["id"]) }}" class="message-action md:hidden" data-action="delete">
-              <button type="submit" class="w-full text-left text-[11px] px-3 py-2.5 text-rose-600 hover:bg-rose-50 whitespace-nowrap" role="menuitem">Delete</button>
+              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-rose-600 hover:bg-rose-50 whitespace-nowrap" role="menuitem">Delete</button>
             </form>
             <div class="border-t border-slate-100 my-1 md:hidden"></div>
             <form method="post" action="{{ url_for('mail.mark_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="mark">
               <input type="hidden" name="action" value="{{ 'read' if is_unread else 'unread' }}" />
-              <button type="submit" class="w-full text-left text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ 'Mark as read' if is_unread else 'Mark as unread' }}</button>
+              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ 'Mark as read' if is_unread else 'Mark as unread' }}</button>
             </form>
-            <button type="button" class="w-full text-left text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-to-folder role="menuitem">Move to folder</button>
+            <button type="button" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-to-folder role="menuitem">Move to folder</button>
             {% if spam_action_enabled %}
             <form method="post" action="{{ url_for('mail.junk_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="junk">
-              <button type="submit" class="w-full text-left text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">Report spam</button>
+              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">Report spam</button>
             </form>
             {% endif %}
             <div class="border-t border-slate-100 my-1"></div>
-            <a class="block text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.download_message', account_id=account.id, message_id=message["id"]) }}" role="menuitem">Download .eml</a>
-            <a class="block text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.print_message', account_id=account.id, message_id=message["id"]) }}" target="_blank" role="menuitem">Print</a>
+            <a class="block text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.download_message', account_id=account.id, message_id=message["id"]) }}" role="menuitem">Download .eml</a>
+            <a class="block text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.print_message', account_id=account.id, message_id=message["id"]) }}" target="_blank" role="menuitem">Print</a>
           </div>
         </div>
       </div>
@@ -118,10 +118,10 @@
           <div class="min-w-0">
             <div class="flex items-center gap-2 text-sm flex-wrap">
               {% if tm.is_bounce %}
-              <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">Delivery failed</span>
+              <span class="inline-flex items-center gap-1 text-[11px] md:text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">Delivery failed</span>
               <span class="font-medium text-red-700 truncate" title="{{ tm.sender_tooltip }}">{{ tm.sender_display }}</span>
               {% elif tm.is_draft %}
-              <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Draft</span>
+              <span class="inline-flex items-center gap-1 text-[11px] md:text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Draft</span>
               <span class="font-medium text-amber-700">You</span>
               {% if tm.recipients_display %}
               <svg class="w-3 h-3 text-amber-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
@@ -130,7 +130,7 @@
               {% if tm.cc %}<span class="text-xs text-slate-400 hidden sm:inline"><span class="text-slate-300">&middot;</span> cc {{ tm.cc }}</span>{% endif %}
               {% elif tm.is_sent %}
               <span class="font-medium text-indigo-700 cursor-pointer hover:underline" data-copy-email="{{ account.email_address }}" title="Click to copy {{ account.email_address }}">You</span>
-              <span class="text-[11px] text-slate-400 truncate max-w-[180px]">&lt;{{ account.email_address }}&gt;</span>
+              <span class="text-[12px] md:text-[11px] text-slate-500 truncate max-w-[180px]">&lt;{{ account.email_address }}&gt;</span>
               {% if tm.recipients_display %}
               <svg class="w-3 h-3 text-indigo-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
               <span class="text-slate-500 truncate cursor-pointer hover:underline" {% if tm.recipients_email %}data-copy-email="{{ tm.recipients_email }}" title="Click to copy {{ tm.recipients_email }}"{% endif %}>{{ tm.recipients_display }}</span>
@@ -139,7 +139,7 @@
               {% else %}
               <span class="font-medium text-slate-900 truncate cursor-pointer hover:underline" data-copy-email="{% if tm.sender_email %}{{ tm.sender_email }}{% elif tm.sender_tooltip %}{{ tm.sender_tooltip }}{% else %}{{ tm.sender_display }}{% endif %}" title="{% if tm.sender_email %}Click to copy {{ tm.sender_email }}{% elif tm.sender_tooltip %}{{ tm.sender_tooltip }}{% else %}{{ tm.sender_display }}{% endif %}">{{ tm.sender_display }}</span>
               {% if tm.sender_email %}
-              <span class="text-[11px] text-slate-400 truncate max-w-[180px]">&lt;{{ tm.sender_email }}&gt;</span>
+              <span class="text-[12px] md:text-[11px] text-slate-500 truncate max-w-[180px]">&lt;{{ tm.sender_email }}&gt;</span>
               {% endif %}
               <span class="text-xs text-slate-400 hidden sm:inline">to {{ tm.recipients }}{% if tm.cc %} <span class="text-slate-300">&middot;</span> cc {{ tm.cc }}{% endif %}</span>
               {% endif %}
@@ -160,18 +160,18 @@
         {% if not tm.is_current %}
         <div class="flex items-center gap-1.5 flex-shrink-0">
           {% if tm.is_draft %}
-          <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=tm.uid) }}" class="text-[10px] px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition" data-no-row-nav>Edit</a>
+          <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=tm.uid) }}" class="text-[11px] md:text-[10px] px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition" data-no-row-nav>Edit</a>
           <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=tm.uid) }}" class="thread-draft-discard message-action" data-action="discard-draft" data-no-row-nav data-thread-draft>
-            <button class="text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
+            <button class="text-[11px] md:text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
           </form>
           {% endif %}
           <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 flex-shrink-0" data-expand-icon viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
         </div>
         {% elif tm.is_draft and not is_draft %}
         <div class="flex items-center gap-1.5 flex-shrink-0">
-          <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=tm.uid) }}" class="text-[10px] px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition">Edit</a>
+          <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=tm.uid) }}" class="text-[11px] md:text-[10px] px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition">Edit</a>
           <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=tm.uid) }}" class="thread-draft-discard message-action" data-action="discard-draft" data-thread-draft>
-            <button class="text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
+            <button class="text-[11px] md:text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
           </form>
         </div>
         {% endif %}
@@ -221,7 +221,7 @@
                   {% endif %}
                 </div>
                 <div class="mt-2 flex items-center gap-2" data-ics-actions>
-                  <select data-ics-calendar-select class="text-[11px] rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-600 shadow-sm">
+                  <select data-ics-calendar-select class="text-[12px] md:text-[11px] rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-600 shadow-sm">
                     <option value="">Loading calendars...</option>
                   </select>
                   <div data-ics-buttons data-method="{{ ics.parsed.get('method', '') | upper }}" data-status="{{ ics.parsed.get('status', 'CONFIRMED') | upper }}" class="flex items-center gap-1.5">
@@ -274,7 +274,7 @@
           {% endif %}
           {% if not tm.is_current %}
           <div class="mt-3 text-center">
-            <a class="text-[11px] text-slate-400 hover:text-slate-600 transition" href="{{ url_for('mail.message_view', account_id=account.id, message_id=tm.id) }}">View full message</a>
+            <a class="text-[12px] md:text-[11px] text-slate-500 hover:text-slate-600 transition" href="{{ url_for('mail.message_view', account_id=account.id, message_id=tm.id) }}">View full message</a>
           </div>
           {% endif %}
         </div>
@@ -604,7 +604,7 @@
               if (parsed.already_imported) {
                 buttonsEl.innerHTML =
                   '<span class="text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-2 py-0.5">Event cancelled</span>' +
-                  '<button type="button" data-ics-cancel class="text-[11px] px-3 py-2 rounded-lg border border-rose-200 bg-white text-rose-700 hover:bg-rose-50 transition">Remove from calendar</button>';
+                  '<button type="button" data-ics-cancel class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-rose-200 bg-white text-rose-700 hover:bg-rose-50 transition">Remove from calendar</button>';
                 var cancelBtn = buttonsEl.querySelector("[data-ics-cancel]");
                 if (cancelBtn) cancelBtn.addEventListener("click", function () {
                   window.LR.setButtonLoading(cancelBtn);
@@ -634,7 +634,7 @@
               } else {
                 buttonsEl.innerHTML =
                   '<span class="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">Already in calendar</span>' +
-                  '<a href="/app/calendar/events/' + parsed.existing_event_id + '" class="text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">View in calendar</a>';
+                  '<a href="/app/calendar/events/' + parsed.existing_event_id + '" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">View in calendar</a>';
               }
               select.style.display = "none";
               return;
@@ -650,9 +650,9 @@
 
             if (isInvitation) {
               buttonsEl.innerHTML =
-                '<button type="button" data-ics-action="ACCEPTED" class="text-[11px] px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">Accept</button>' +
-                '<button type="button" data-ics-action="TENTATIVE" class="text-[11px] px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">Tentative</button>' +
-                '<button type="button" data-ics-action="DECLINED" class="text-[11px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">Decline</button>';
+                '<button type="button" data-ics-action="ACCEPTED" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">Accept</button>' +
+                '<button type="button" data-ics-action="TENTATIVE" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">Tentative</button>' +
+                '<button type="button" data-ics-action="DECLINED" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">Decline</button>';
 
               buttonsEl.querySelectorAll("[data-ics-action]").forEach(function (btn) {
                 btn.addEventListener("click", function () {
@@ -679,7 +679,7 @@
               });
             } else {
               buttonsEl.innerHTML =
-                '<button type="button" data-ics-import class="text-[11px] px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition">Add to calendar</button>';
+                '<button type="button" data-ics-import class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition">Add to calendar</button>';
               var importBtn = buttonsEl.querySelector("[data-ics-import]");
               if (importBtn) importBtn.addEventListener("click", function () {
                 var calId = getSelectedCalendarId();
@@ -698,7 +698,7 @@
                   if (d.status === "ok") {
                     buttonsEl.innerHTML =
                       '<span class="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">Added to calendar</span>' +
-                      '<a href="' + (d.calendar_event_url || '/app/calendar/') + '" class="text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 transition">View in calendar</a>';
+                      '<a href="' + (d.calendar_event_url || '/app/calendar/') + '" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 transition">View in calendar</a>';
                     select.style.display = "none";
                   } else {
                     window.LR.notifyError(d.error || "Failed to import event.");
@@ -740,12 +740,12 @@
               var label = partstat === "ACCEPTED" ? "Accepted" : partstat === "TENTATIVE" ? "Tentative" : "Declined";
               var color = partstat === "ACCEPTED" ? "green" : partstat === "TENTATIVE" ? "amber" : "rose";
               var alternatives = [];
-              if (partstat !== "ACCEPTED") alternatives.push('<button type="button" data-ics-action="ACCEPTED" class="text-[11px] px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">Accept</button>');
-              if (partstat !== "TENTATIVE") alternatives.push('<button type="button" data-ics-action="TENTATIVE" class="text-[11px] px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">Tentative</button>');
-              if (partstat !== "DECLINED") alternatives.push('<button type="button" data-ics-action="DECLINED" class="text-[11px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">Decline</button>');
+              if (partstat !== "ACCEPTED") alternatives.push('<button type="button" data-ics-action="ACCEPTED" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">Accept</button>');
+              if (partstat !== "TENTATIVE") alternatives.push('<button type="button" data-ics-action="TENTATIVE" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">Tentative</button>');
+              if (partstat !== "DECLINED") alternatives.push('<button type="button" data-ics-action="DECLINED" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">Decline</button>');
               buttonsEl.innerHTML =
                 '<span class="text-xs font-medium text-' + color + '-700 bg-' + color + '-50 border border-' + color + '-200 rounded-full px-2 py-0.5">' + label + '</span>' +
-                '<a href="/app/calendar/events/' + (eventId || '') + '" class="text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 transition">View in calendar</a>' +
+                '<a href="/app/calendar/events/' + (eventId || '') + '" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 transition">View in calendar</a>' +
                 alternatives.join("");
               buttonsEl.querySelectorAll("[data-ics-action]").forEach(function (btn) {
                 btn.addEventListener("click", function () {

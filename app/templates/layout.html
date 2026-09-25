@@ -119,7 +119,7 @@
           {% if session.get("role") == "customer" %}
           <form method="post" action="{{ url_for('mail.search') }}" class="hidden sm:block">
             <input type="hidden" name="account_id" value="{{ session.get('active_account_id', 0) }}" />
-            <input name="q" type="search" placeholder="Search mail" class="w-full rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+            <input name="q" type="search" placeholder="Search mail" class="w-full rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-base md:text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
           </form>
           {% endif %}
         </div>
@@ -196,7 +196,7 @@
       <div id="mobile-search" class="sm:hidden hidden px-3 pb-3">
         <form method="post" action="{{ url_for('mail.search') }}">
           <input type="hidden" name="account_id" value="{{ session.get('active_account_id', 0) }}" />
-          <input name="q" type="search" placeholder="Search mail" aria-label="Search mail" class="w-full rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+          <input name="q" type="search" placeholder="Search mail" aria-label="Search mail" class="w-full rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-base md:text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
         </form>
       </div>
     </header>

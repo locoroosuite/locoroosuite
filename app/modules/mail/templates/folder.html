@@ -3,9 +3,9 @@
 <div class="grid grid-cols-1 gap-3 md:gap-4 lg:grid-cols-12" id="mailbox-grid">
   <aside id="sidebar" class="col-span-12 lg:col-span-3 fixed inset-y-0 left-0 z-50 w-80 max-w-[85vw] -translate-x-full transition-transform duration-200 overflow-y-auto bg-white border-r border-slate-200/80 p-4 shadow-xl lg:static lg:z-auto lg:w-auto lg:max-w-none lg:translate-x-0 lg:overflow-visible lg:rounded-2xl lg:border lg:border-slate-200/80 lg:bg-white/90 lg:shadow-sm">
     <div class="flex items-center justify-between mb-4">
-      <div class="text-[11px] uppercase tracking-wide text-slate-500" data-collapsible="hide">Account</div>
+      <div class="text-[12px] md:text-[11px] uppercase tracking-wide text-slate-500" data-collapsible="hide">Account</div>
       <div class="flex items-center gap-1">
-        <button type="button" id="sidebar-toggle" class="text-[11px] font-medium text-slate-500 hover:text-slate-900">Collapse</button>
+        <button type="button" id="sidebar-toggle" class="text-[12px] md:text-[11px] font-medium text-slate-500 hover:text-slate-900">Collapse</button>
         <button type="button" id="sidebar-close" class="lg:hidden flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Close menu">
           <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
         </button>
@@ -30,7 +30,7 @@
       {% for section in folder_sections %}
       {% set is_folders_section = section.title|lower == 'folders' %}
       <div class="{{ 'group/folders' if is_folders_section else '' }}">
-        <div class="flex items-center justify-between text-[11px] uppercase tracking-wide text-slate-400 mb-2" data-collapsible="hide">
+        <div class="flex items-center justify-between text-[12px] md:text-[11px] uppercase tracking-wide text-slate-500 mb-2" data-collapsible="hide">
           <span>{{ section.title }}</span>
           {% if is_folders_section %}
           <button type="button" id="create-folder-toggle" class="flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100/80 opacity-100 sm:opacity-0 sm:group-hover/folders:opacity-100 transition lr-hit" aria-label="Create folder" aria-expanded="false">
@@ -44,7 +44,7 @@
         <form id="create-folder-form" method="post" action="{{ url_for('mail.create_folder_route', account_id=account.id) }}" class="mb-3 hidden" data-collapsible="hide" data-create-folder-form>
           <div class="flex items-center gap-2">
             <input name="name" placeholder="New folder" class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
-            <button type="submit" class="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg bg-slate-900 text-white disabled:opacity-60" data-create-folder-submit>
+            <button type="submit" class="inline-flex items-center gap-1.5 text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg bg-slate-900 text-white disabled:opacity-60" data-create-folder-submit>
               <span data-create-folder-label>Add</span>
               <svg class="hidden h-3.5 w-3.5 animate-spin text-white" viewBox="0 0 24 24" data-create-folder-spinner>
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none"></circle>
@@ -52,7 +52,7 @@
               </svg>
             </button>
           </div>
-          <div class="mt-2 hidden text-[11px] text-rose-600" data-create-folder-error>
+          <div class="mt-2 hidden text-[12px] md:text-[11px] text-rose-600" data-create-folder-error>
             Unable to create folder. Retry or refresh.
           </div>
         </form>
@@ -64,7 +64,7 @@
               <a class="folder-drop flex-1 flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-slate-100/80 {% if f|upper == active_folder_key %}bg-slate-100{% endif %}" data-folder="{{ f }}" href="{{ url_for('mail.folder_view', account_id=account.id, folder=f) }}">
                 <span class="flex items-center gap-2 min-w-0">
                   <span class="truncate {{ 'font-semibold text-slate-900' if cached_folders.get(f) else '' }}" data-folder-label="{{ f }}">{{ f }}</span>
-                  <span class="text-[11px] text-slate-500 {{ '' if cached_folders.get(f) else 'hidden' }}" data-folder-count="{{ f }}">{% if cached_folders.get(f) %}{{ cached_folders.get(f) }}{% endif %}</span>
+                  <span class="text-[12px] md:text-[11px] text-slate-500 {{ '' if cached_folders.get(f) else 'hidden' }}" data-folder-count="{{ f }}">{% if cached_folders.get(f) %}{{ cached_folders.get(f) }}{% endif %}</span>
                 </span>
                 <span class="sync-indicator flex h-4 w-4 items-center justify-center" data-folder="{{ f }}"></span>
               </a>
@@ -117,7 +117,7 @@
             <a class="block px-2.5 py-1.5 rounded-lg text-xs text-slate-600 hover:bg-slate-100/80" href="{{ url_for('mail.smart_folder', account_id=account.id, view='unread') }}">
               <span class="flex items-center gap-2">
                 <span class="{{ 'font-semibold text-slate-900' if unread_total else '' }}" data-smart-unread-label="true">Unread</span>
-                <span class="text-[11px] text-slate-500 {{ '' if unread_total else 'hidden' }}" data-smart-unread-count="true">{% if unread_total %}{{ unread_total }}{% endif %}</span>
+                <span class="text-[12px] md:text-[11px] text-slate-500 {{ '' if unread_total else 'hidden' }}" data-smart-unread-count="true">{% if unread_total %}{{ unread_total }}{% endif %}</span>
               </span>
             </a>
           </li>
@@ -125,7 +125,7 @@
             <a class="block px-2.5 py-1.5 rounded-lg text-xs text-slate-600 hover:bg-slate-100/80" href="{{ url_for('mail.smart_folder', account_id=account.id, view='starred') }}">
               <span class="flex items-center gap-2">
                 <span class="{{ 'font-semibold text-slate-900' if starred_count else '' }}" data-smart-starred-label="true">Starred</span>
-                <span class="text-[11px] text-slate-500 {{ '' if starred_count else 'hidden' }}" data-smart-starred-count="true">{% if starred_count %}{{ starred_count }}{% endif %}</span>
+                <span class="text-[12px] md:text-[11px] text-slate-500 {{ '' if starred_count else 'hidden' }}" data-smart-starred-count="true">{% if starred_count %}{{ starred_count }}{% endif %}</span>
               </span>
             </a>
           </li>
@@ -153,10 +153,10 @@
         <div class="flex items-center gap-2 flex-shrink-0">
           {% if not is_smart_view %}
           <form method="post" action="{{ url_for('mail.mark_all_read', account_id=account.id, folder=folder) }}">
-            <button class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50">Mark all read</button>
+            <button class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50">Mark all read</button>
           </form>
           {% endif %}
-          <button type="button" id="preview-toggle" class="hidden lg:inline-block text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50">Preview</button>
+          <button type="button" id="preview-toggle" class="hidden lg:inline-block text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50">Preview</button>
         </div>
       </div>
     </div>
@@ -167,10 +167,10 @@
         <span id="undo-timer-wrap" class="{{ '' if (undo_action and undo_action.expires_at) else 'hidden' }}">. Undo available for <span id="undo-timer">10</span>s.</span>
       </div>
       <div class="flex items-center gap-2 ml-auto">
-        <a id="undo-view-folder" class="{{ '' if (undo_action and undo_action.view_url) else 'hidden' }} text-[11px] px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-100 text-amber-900 hover:bg-amber-200" href="{{ undo_action.view_url if undo_action and undo_action.view_url else '#' }}">{{ undo_action.view_label if undo_action and undo_action.view_label else 'View folder' }}</a>
+        <a id="undo-view-folder" class="{{ '' if (undo_action and undo_action.view_url) else 'hidden' }} text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-100 text-amber-900 hover:bg-amber-200" href="{{ undo_action.view_url if undo_action and undo_action.view_url else '#' }}">{{ undo_action.view_label if undo_action and undo_action.view_label else 'View folder' }}</a>
         <form method="post" action="{{ url_for('mail.undo_message_action') }}" id="undo-form">
           <input type="hidden" name="token" id="undo-token" value="{{ undo_action.token if undo_action else '' }}" />
-          <button class="text-[11px] px-2.5 py-1.5 rounded-lg bg-amber-200">Undo</button>
+          <button class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg bg-amber-200">Undo</button>
         </form>
       </div>
     </div>
@@ -191,9 +191,9 @@
       <div class="flex items-center gap-2">
         <form method="post" action="{{ url_for('mail.retry_send') }}">
           <input type="hidden" name="token" value="{{ send_failure.token }}" />
-          <button class="text-[11px] px-2.5 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700">Retry send</button>
+          <button class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700">Retry send</button>
         </form>
-        <a class="text-[11px] px-2.5 py-1.5 rounded-lg border border-rose-300 bg-white text-rose-700 hover:bg-rose-100" href="{{ url_for('mail.compose', account_id=send_failure.account_id, prefill_token=send_failure.token) }}">Open draft</a>
+        <a class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg border border-rose-300 bg-white text-rose-700 hover:bg-rose-100" href="{{ url_for('mail.compose', account_id=send_failure.account_id, prefill_token=send_failure.token) }}">Open draft</a>
       </div>
     </div>
     {% endif %}
@@ -232,19 +232,19 @@
         <div class="flex items-center gap-2">
           {% if pagination.current_page > 1 %}
           <a href="{{ url_for('mail.folder_view', account_id=account.id, folder=folder, page=pagination.current_page - 1) }}"
-             class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50">
+             class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50">
             Previous
           </a>
           {% else %}
-          <span class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed">Previous</span>
+          <span class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed">Previous</span>
           {% endif %}
           {% if pagination.current_page < pagination.total_pages %}
           <a href="{{ url_for('mail.folder_view', account_id=account.id, folder=folder, page=pagination.current_page + 1) }}"
-             class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50">
+             class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50">
             Next
           </a>
           {% else %}
-          <span class="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed">Next</span>
+          <span class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed">Next</span>
           {% endif %}
         </div>
       </div>

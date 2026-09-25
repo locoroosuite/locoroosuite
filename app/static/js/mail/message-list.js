@@ -488,7 +488,7 @@
             }
             return;
           }
-          if (action === 'archive' || action === 'delete' || action === 'junk') {
+          if (action === 'archive' || action === 'delete' || action === 'junk' || action === 'not-junk') {
             if (data.was_unread && typeof opts.onUnreadDelta === 'function') {
               opts.onUnreadDelta(-1);
             }

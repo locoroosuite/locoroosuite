@@ -6,11 +6,11 @@ from app.modules.mail.controllers.helpers import (
     _decorate_message_row,
     _folder_sidebar_context,
     _get_or_create_settings,
-    _spam_action_enabled,
     mail_bp,
     normalize_subject_for_threading,
 )
 from app.modules.mail.services.cache_db import open_cache
+from app.modules.mail.services.spam import spam_action_enabled as _spam_action_enabled
 from app.shared.auth import require_customer
 from app.shared.keys import get_user_key
 from app.shared.models.core import CustomerAccount
@@ -87,4 +87,5 @@ def tag_view(account_id, tag_id):
         imap_sidebar_warning=sidebar_warning,
         send_failure=send_failure,
         spam_action_enabled=_spam_action_enabled(settings, account.id),
+        in_junk_folder=False,
     )

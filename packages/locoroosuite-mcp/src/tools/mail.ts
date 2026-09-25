@@ -222,6 +222,38 @@ export function registerMailTools(server: McpServer, client: ApiClient) {
   );
 
   server.tool(
+    "mail_report_spam",
+    "Report a message as spam: sets the IMAP \\Junk flag and moves the message to the server's Junk/Spam folder (alias-aware, never auto-created). Returns SPAM_ACTION_DISABLED when the per-account Spam action is off; SPAM_FOLDER_MISSING / SPAM_FLAG_UNSUPPORTED (with the setting auto-disabled) when the server lacks a junk folder or rejects the \\Junk flag.",
+    {
+      account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
+      message_id: z.string().describe("Message ID to report as spam"),
+    },
+    async ({ account_id, message_id }) => {
+      const data = await client.post(
+        `/api/v1/mail/messages/${encodeURIComponent(message_id)}/spam`,
+        client.accountId(account_id),
+      );
+      return json(data);
+    },
+  );
+
+  server.tool(
+    "mail_not_spam",
+    "Mark a message as not spam: clears the IMAP \\Junk flag and moves the message to INBOX when it is currently in a Junk/Spam folder; otherwise clears the flag only. Recovery action — not gated by the Spam action setting.",
+    {
+      account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
+      message_id: z.string().describe("Message ID to mark as not spam"),
+    },
+    async ({ account_id, message_id }) => {
+      const data = await client.post(
+        `/api/v1/mail/messages/${encodeURIComponent(message_id)}/not-spam`,
+        client.accountId(account_id),
+      );
+      return json(data);
+    },
+  );
+
+  server.tool(
     "mail_get_attachment",
     "Download a message attachment (returns metadata with download URL)",
     {

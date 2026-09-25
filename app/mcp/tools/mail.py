@@ -433,6 +433,136 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         return ok({"id": message_id, "moved_to": folder_id})
 
     @mcp.tool(
+        name="mail_report_spam",
+        title="Report Spam",
+        description=(
+            "Report a message as spam: sets the IMAP \\Junk flag and moves the message to "
+            "the server's Junk/Spam folder (resolved via the folder alias map; never "
+            "auto-created). Honors the per-account Spam action setting — returns "
+            "SPAM_ACTION_DISABLED when off; auto-disables the setting and returns "
+            "SPAM_FOLDER_MISSING / SPAM_FLAG_UNSUPPORTED when the server has no junk "
+            "folder or rejects the \\Junk flag."
+        ),
+        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+    )
+    @resilient_tool
+    async def mail_report_spam(
+        message_id: Annotated[int, Field(description="ID of the message to report as spam")],
+        account_id: _AccId = None,
+    ) -> str:
+        ctx, aid, dek = resolve_write(flask_app, "mail", account_id)
+        with flask_app.app_context():
+            from app.modules.mail.services.spam import (
+                SpamFlagUnsupportedError,
+                SpamFolderMissingError,
+                ensure_settings,
+                report_spam,
+                set_spam_action_enabled,
+                spam_action_enabled,
+            )
+            from app.shared.db import db
+
+            settings = ensure_settings(ctx["customer_id"])
+            if not spam_action_enabled(settings, aid):
+                return err("SPAM_ACTION_DISABLED", "Spam action is disabled for this account.")
+            conn = _get_cache_conn(aid, dek, flask_app)
+            try:
+                from app.modules.mail.services.cache_db import get_message
+
+                row = get_message(conn, message_id)
+                if not row:
+                    return err("NOT_FOUND", "Message not found")
+                d = _row_to_dict(row)
+            finally:
+                conn.close()
+            account, domain, secret = _get_account_and_secret(aid, dek, flask_app)
+            from app.modules.mail.services.imap_client import safe_logout, select_folder
+
+            client = _imap_connect(account, domain, secret)
+            try:
+                select_folder(client, d.get("folder", "INBOX"))
+                try:
+                    destination = report_spam(client, d.get("uid"))
+                except SpamFolderMissingError:
+                    set_spam_action_enabled(settings, aid, False)
+                    db.session.commit()
+                    return err(
+                        "SPAM_FOLDER_MISSING",
+                        "No Spam/Junk folder available on this server; the Spam action "
+                        "has been disabled for this account.",
+                    )
+                except SpamFlagUnsupportedError:
+                    set_spam_action_enabled(settings, aid, False)
+                    db.session.commit()
+                    return err(
+                        "SPAM_FLAG_UNSUPPORTED",
+                        "Server doesn't support Spam flags; the option has been "
+                        "disabled for this account.",
+                    )
+            finally:
+                safe_logout(client)
+        from app.shared.ui_events import push_ui_event
+
+        push_ui_event(
+            ctx["customer_id"],
+            "mail",
+            "message_moved",
+            {"account_id": aid, "message_id": message_id, "folder_id": destination},
+        )
+        return ok({"id": message_id, "moved_to": destination, "junk": True})
+
+    @mcp.tool(
+        name="mail_not_spam",
+        title="Mark Not Spam",
+        description=(
+            "Mark a message as not spam: clears the IMAP \\Junk flag and moves the message "
+            "to INBOX when it is currently in a Junk/Spam folder; otherwise clears the "
+            "flag only. Not gated by the Spam action setting (recovery action)."
+        ),
+        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+    )
+    @resilient_tool
+    async def mail_not_spam(
+        message_id: Annotated[int, Field(description="ID of the message to mark as not spam")],
+        account_id: _AccId = None,
+    ) -> str:
+        ctx, aid, dek = resolve_write(flask_app, "mail", account_id)
+        with flask_app.app_context():
+            conn = _get_cache_conn(aid, dek, flask_app)
+            try:
+                from app.modules.mail.services.cache_db import get_message
+
+                row = get_message(conn, message_id)
+                if not row:
+                    return err("NOT_FOUND", "Message not found")
+                d = _row_to_dict(row)
+            finally:
+                conn.close()
+            account, domain, secret = _get_account_and_secret(aid, dek, flask_app)
+            from app.modules.mail.services.imap_client import safe_logout, select_folder
+            from app.modules.mail.services.spam import not_spam
+
+            client = _imap_connect(account, domain, secret)
+            try:
+                select_folder(client, d.get("folder", "INBOX"))
+                destination = not_spam(client, d.get("uid"), d.get("folder", "INBOX"))
+            finally:
+                safe_logout(client)
+        from app.shared.ui_events import push_ui_event
+
+        push_ui_event(
+            ctx["customer_id"],
+            "mail",
+            "message_moved",
+            {
+                "account_id": aid,
+                "message_id": message_id,
+                "folder_id": destination or d.get("folder"),
+            },
+        )
+        return ok({"id": message_id, "moved_to": destination, "junk": False})
+
+    @mcp.tool(
         name="mail_delete_message",
         title="Delete Message",
         description="Delete a message by moving it to the Trash folder. Refuses if the message is protected (locked or starred when protect-starred is on).",
@@ -974,12 +1104,29 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
                     flags = _parse_flags(d.get("flags"))
                     from app.modules.mail.services.protection import LOCKED_KEYWORD
 
+                    unsupported = None
                     for flag_name, add in v.flags.items():
-                        if flag_name.lower() == "locked":
+                        key = flag_name.lower()
+                        if key == "locked":
                             flags = _merge_flag(flags, LOCKED_KEYWORD, add)
+                        elif key == "read":
+                            flags = _merge_flag(flags, "\\Seen", add)
+                        elif key == "flagged":
+                            flags = _merge_flag(flags, "\\Flagged", add)
                         else:
-                            imap_flag = f"\\{flag_name.capitalize()}"
-                            flags = _merge_flag(flags, imap_flag, add)
+                            unsupported = flag_name
+                            break
+                    if unsupported is not None:
+                        failed.append(
+                            {
+                                "index": i,
+                                "error": {
+                                    "code": "VALIDATION_ERROR",
+                                    "message": f"Unsupported flag: {unsupported}",
+                                },
+                            }
+                        )
+                        continue
                     update_flags(conn, v.message_id, flags)
                     succeeded.append({"message_id": v.message_id})
             finally:

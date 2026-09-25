@@ -2,8 +2,6 @@ from flask import current_app, jsonify, render_template, request, session
 
 from app.modules.mail.controllers.helpers import (
     _get_or_create_settings,
-    _load_spam_action_prefs,
-    _set_spam_action_enabled,
     mail_bp,
 )
 from app.modules.mail.services.cache import build_cache_path, purge_cache
@@ -11,6 +9,8 @@ from app.modules.mail.services.protection import (
     load_locked_keyword_prefs,
     set_locked_keyword_enabled,
 )
+from app.modules.mail.services.spam import load_spam_action_prefs as _load_spam_action_prefs
+from app.modules.mail.services.spam import set_spam_action_enabled as _set_spam_action_enabled
 from app.shared.auth import require_customer
 from app.shared.db import db
 from app.shared.keys import get_user_key

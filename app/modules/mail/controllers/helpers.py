@@ -98,27 +98,6 @@ def _get_or_create_settings(user_id):
     return settings
 
 
-def _load_spam_action_prefs(settings):
-    if not settings or not settings.spam_action_prefs:
-        return {}
-    try:
-        prefs = json.loads(settings.spam_action_prefs)
-        return prefs if isinstance(prefs, dict) else {}
-    except (TypeError, ValueError):
-        return {}
-
-
-def _spam_action_enabled(settings, account_id):
-    prefs = _load_spam_action_prefs(settings)
-    return prefs.get(str(account_id), True)
-
-
-def _set_spam_action_enabled(settings, account_id, enabled):
-    prefs = _load_spam_action_prefs(settings)
-    prefs[str(account_id)] = bool(enabled)
-    settings.spam_action_prefs = json.dumps(prefs)
-
-
 def _fallback_sidebar_folders(conn, cached_folders):
     names = list((cached_folders or {}).keys())
     try:
@@ -1049,16 +1028,6 @@ def _format_timed_range(dtstart_str, dtend_str, event_tzid, user_tz, vtimezones=
 
 def _snippet_debug_enabled():
     return current_app.config.get("SNIPPET_DEBUG") and request.args.get("snippet_debug") == "1"
-
-
-def _spam_destination(client):
-    folders = list_folders(client)
-    actual_by_lower = {name.lower(): name for name in folders}
-    if "junk" in actual_by_lower:
-        return actual_by_lower["junk"]
-    if "spam" in actual_by_lower:
-        return actual_by_lower["spam"]
-    return None
 
 
 def _escape_html_text(value):

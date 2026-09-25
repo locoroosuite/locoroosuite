@@ -40,6 +40,7 @@ from app.api.schemas.mail import (
     RenameFolderBody,
     SearchQuery,
     SendMessageBody,
+    SpamActionResponse,
     ThreadPath,
     UpdateFlagsBody,
 )
@@ -68,6 +69,16 @@ from app.modules.mail.services.protection import (
     protection_reason,
 )
 from app.modules.mail.services.secrets import decrypt_with_key
+from app.modules.mail.services.spam import (
+    SpamFlagUnsupportedError,
+    SpamFolderMissingError,
+    ensure_settings,
+    not_spam,
+    report_spam,
+    set_spam_action_enabled,
+    spam_action_enabled,
+)
+from app.shared.db import db
 from app.shared.models.core import CustomerAccount, CustomerSettings, Domain
 from app.shared.ui_events import push_ui_event
 
@@ -907,6 +918,130 @@ def api_move_message(path: MessagePath, body: MoveMessageBody):
         {"account_id": account_id, "folder": dest_folder, "message_id": message_id},
     )
     return api_response({"id": message_id, "moved_to": dest_folder})
+
+
+def _spam_auto_disable(customer_id: int, account_id: int, code: str, message: str):
+    settings = ensure_settings(customer_id)
+    set_spam_action_enabled(settings, account_id, False)
+    db.session.commit()
+    return api_error(code, message, 409)
+
+
+@bp.post(
+    "/mail/messages/<int:message_id>/spam",
+    summary="Report message as spam",
+    description=(
+        "Sets the IMAP \\Junk flag and moves the message to the server's Junk/Spam "
+        "folder (resolved via the folder alias map; the folder is never auto-created). "
+        "Honors the per-account Spam action setting: if disabled, returns "
+        "SPAM_ACTION_DISABLED; if no junk-canonical folder exists, the setting is "
+        "auto-disabled and SPAM_FOLDER_MISSING is returned; if the server rejects "
+        "the \\Junk flag, the setting is auto-disabled and SPAM_FLAG_UNSUPPORTED is "
+        "returned. Requires `mail:write` scope."
+    ),
+    responses={
+        "200": SpamActionResponse,
+        "401": ErrorResponse,
+        "404": ErrorResponse,
+        "409": ErrorResponse,
+    },
+)
+@require_api_token(scopes=["mail:write"])
+@require_scope("mail", "write")
+def api_report_spam(path: MessagePath):
+    message_id = path.message_id
+    account_id = get_api_account_id()
+    dek = g.api_context["dek"]
+    customer_id = g.api_context["customer_id"]
+    settings = ensure_settings(customer_id)
+    if not spam_action_enabled(settings, account_id):
+        return api_error("SPAM_ACTION_DISABLED", "Spam action is disabled for this account.", 409)
+    conn = _get_cache_conn(account_id, dek)
+    try:
+        row = get_message(conn, message_id)
+        if not row:
+            return api_error("NOT_FOUND", "Message not found", 404)
+        d = _row_to_dict(row)
+        folder = d.get("folder", "INBOX")
+        uid = d.get("uid")
+    finally:
+        conn.close()
+    account, domain, secret = _get_account_and_secret(account_id, dek)
+    from app.modules.mail.services.imap_client import safe_logout, select_folder
+
+    client = _imap_connect(account, domain, secret)
+    try:
+        select_folder(client, folder)
+        try:
+            destination = report_spam(client, uid)
+        except SpamFolderMissingError:
+            return _spam_auto_disable(
+                customer_id,
+                account_id,
+                "SPAM_FOLDER_MISSING",
+                "No Spam/Junk folder available on this server; the Spam action has "
+                "been disabled for this account.",
+            )
+        except SpamFlagUnsupportedError:
+            return _spam_auto_disable(
+                customer_id,
+                account_id,
+                "SPAM_FLAG_UNSUPPORTED",
+                "Server doesn't support Spam flags; the option has been disabled for this account.",
+            )
+    finally:
+        safe_logout(client)
+    push_ui_event(
+        customer_id,
+        "mail",
+        "message_moved",
+        {"account_id": account_id, "folder": destination, "message_id": message_id},
+    )
+    return api_response({"id": message_id, "moved_to": destination, "junk": True})
+
+
+@bp.post(
+    "/mail/messages/<int:message_id>/not-spam",
+    summary="Mark message as not spam",
+    description=(
+        "Clears the IMAP \\Junk flag and moves the message to INBOX when it is "
+        "currently in a Junk/Spam folder; otherwise clears the flag only. Not gated "
+        "by the Spam action setting (recovery action). Requires `mail:write` scope."
+    ),
+    responses={"200": SpamActionResponse, "401": ErrorResponse, "404": ErrorResponse},
+)
+@require_api_token(scopes=["mail:write"])
+@require_scope("mail", "write")
+def api_not_spam(path: MessagePath):
+    message_id = path.message_id
+    account_id = get_api_account_id()
+    dek = g.api_context["dek"]
+    conn = _get_cache_conn(account_id, dek)
+    try:
+        row = get_message(conn, message_id)
+        if not row:
+            return api_error("NOT_FOUND", "Message not found", 404)
+        d = _row_to_dict(row)
+        folder = d.get("folder", "INBOX")
+        uid = d.get("uid")
+    finally:
+        conn.close()
+    account, domain, secret = _get_account_and_secret(account_id, dek)
+    from app.modules.mail.services.imap_client import safe_logout, select_folder
+
+    client = _imap_connect(account, domain, secret)
+    try:
+        select_folder(client, folder)
+        destination = not_spam(client, uid, folder)
+    finally:
+        safe_logout(client)
+    push_ui_event(
+        g.api_context["customer_id"],
+        "mail",
+        "message_moved",
+        {"account_id": account_id, "folder": destination or folder, "message_id": message_id},
+    )
+    return api_response({"id": message_id, "moved_to": destination, "junk": False})
 
 
 @bp.delete(

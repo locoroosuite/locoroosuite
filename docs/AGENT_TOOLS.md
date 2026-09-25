@@ -52,6 +52,8 @@ Full IMAP-based email. Send, read, search, move, delete, manage folders and draf
 | `mail_bulk_move` | write | Move up to 100 messages at once (skips protected on Trash moves) |
 | `mail_bulk_delete` | write | Delete up to 100 messages at once (skips protected) |
 | `mail_bulk_flag` | write | Update flags on up to 100 messages at once |
+| `mail_report_spam` | write | Report spam: set `\Junk` and move to the Junk/Spam folder (alias-aware). 409 `SPAM_ACTION_DISABLED` / `SPAM_FOLDER_MISSING` / `SPAM_FLAG_UNSUPPORTED`; the latter two auto-disable the per-account setting |
+| `mail_not_spam` | write | Mark not spam: clear `\Junk` and move to INBOX from Junk/Spam (recovery action, not gated by the Spam setting) |
 
 ### Protection
 

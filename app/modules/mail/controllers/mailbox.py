@@ -15,7 +15,6 @@ from app.modules.mail.controllers.helpers import (
     _get_or_create_settings,
     _imap_for_account,
     _snippet_debug_enabled,
-    _spam_action_enabled,
     mail_bp,
     normalize_subject_for_threading,
 )
@@ -31,6 +30,8 @@ from app.modules.mail.services.imap_client import (
 from app.modules.mail.services.imap_client import delete_folder as imap_delete_folder
 from app.modules.mail.services.imap_client import rename_folder as imap_rename_folder
 from app.modules.mail.services.secrets import decrypt_with_key
+from app.modules.mail.services.spam import is_junk_folder
+from app.modules.mail.services.spam import spam_action_enabled as _spam_action_enabled
 from app.shared.auth import require_customer
 from app.shared.db import db
 from app.shared.keys import get_user_key
@@ -129,6 +130,7 @@ def folder_view(account_id, folder):
         imap_sidebar_warning=sidebar_warning,
         send_failure=send_failure,
         spam_action_enabled=_spam_action_enabled(settings, account.id),
+        in_junk_folder=is_junk_folder(folder),
         snippet_debug=snippet_debug_enabled,
         pagination=pagination,
         thread_counts=pagination.get("thread_counts", {}),
@@ -186,6 +188,7 @@ def folder_messages(account_id, folder):
         account=account,
         threads=threads,
         spam_action_enabled=_spam_action_enabled(settings, account.id),
+        in_junk_folder=is_junk_folder(folder),
         lock_action_enabled=locked_keyword_enabled(settings, account.id),
         protect_starred=protect_starred_enabled(settings),
         snippet_debug=snippet_debug_enabled,
@@ -510,4 +513,5 @@ def smart_folder(account_id, view):
         imap_sidebar_warning=sidebar_warning,
         send_failure=send_failure,
         spam_action_enabled=_spam_action_enabled(settings, account.id),
+        in_junk_folder=False,
     )

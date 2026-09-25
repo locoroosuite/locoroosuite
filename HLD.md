@@ -181,7 +181,7 @@ U4.16 - Folder view is paginated at the conversation level: 50 conversations per
 U4.13 - Support folder favorites/pinning.
 U4.14 - Smart folders (local-only views): Unread and Starred only. Show these links under the INBOX section.
 U4.14a - Folder badges (including Smart folders) always represent unread message counts; Smart folder badges must never show total items, only unread totals.
-U4.15 - Folder list ordering: INBOX (case-insensitive) always first; then Favorites (pinned, in pin order); then System folders in fixed order (Sent, Drafts, Archive, Trash, Junk); then remaining folders sorted by most recent cached message Date header (descending); folders with no cached messages last. Sidebar groups are shown with visible section headers (INBOX, Favorites, System, Folders).
+U4.15 - Folder list ordering: INBOX (case-insensitive) always first; then Favorites (pinned, in pin order); then System folders in fixed order (Sent, Drafts, Trash, Junk, Archive); then remaining folders sorted by most recent cached message Date header (descending); folders with no cached messages last. Sidebar groups are shown with visible section headers (INBOX, Favorites, System, Folders).
 U4.15a - Folders section header: label “FOLDERS” (uppercase). A small “+” add-folder icon is pinned to the right edge of the header; it appears when hovering any row within the Folders section (but remains positioned at the header). On touch/mobile, the “+” is always visible. Clicking the “+” reveals the inline “New Folder” input + “Add” button directly below the FOLDERS header (not at the bottom of the section).
 
 # Use Case U4A – Email Update Rules (Business)
@@ -226,6 +226,7 @@ U5.11 - Delete/archive/report-spam actions are immediate with an undo option (no
 U5.12 - Spam/Junk: display the IMAP Junk/Spam folder if present and allow moving messages into it. Do not auto-create a Spam/Junk folder. If the server has no Junk/Spam folder, disable the Spam action and inform the user.
 U5.13 - "Report spam/phishing": move to Junk/Spam and set IMAP \\Junk flag only when supported and enabled in customer settings. If the server rejects the \\Junk flag, disable the Spam action in settings and show: "Server doesn’t support Spam flags, the option is disabled in your account”.
 U5.13a - Report spam banner behavior matches Archive/Delete: no countdown or auto-dismiss; banner stays visible until the user navigates away; Undo is available only while the banner is visible; Undo restores to the original folder; banner includes actions: Undo and "View Junk"/"View Spam" depending on which system folder exists (links to that folder).
+U5.13b - "Not spam": shown in place of "Report spam" when viewing a message located in the Junk/Spam folder (or any folder whose canonical key is `junk` per the folder alias map). It moves the message to INBOX and clears the IMAP \Junk flag. Banner behavior mirrors U5.13a: no countdown or auto-dismiss; Undo restores the message to the Junk/Spam folder it came from and re-sets the \Junk flag; the banner includes a "View Inbox" link. "Not spam" is not gated by the per-account Spam action toggle (U9.5) — it is a recovery action and remains available even when spam reporting is disabled. If clearing the \Junk flag fails server-side, the failure is logged and the move to INBOX still proceeds.
 U5.14 - No snooze functionality in MVP.
 U5.15 - Delete protection (lock). Customers can protect messages and folders from accidental deletion.
   - U5.15a - Per-message lock stored as the IMAP keyword `$Locked`, cached locally the same way `\Seen`/`\Flagged` are (it round-trips through IMAP FETCH/STORE and the cache `flags` JSON list). Toggling the lock uses the same flag-sync path as read/starred. Because the lock lives on the IMAP message, it survives cache resets and is consistent across devices.
@@ -832,6 +833,8 @@ U15.32 - `POST /api/v1/mail/bulk/move` — bulk move messages: `{ "items": [{ "m
 U15.33 - `POST /api/v1/mail/bulk/delete` — bulk delete messages (move to Trash): `{ "items": [{ "message_id": "..." }] }`.
 U15.34 - `GET /api/v1/mail/search` — search messages. Parameters: `q` (query string), `folder_id` (optional, restrict to folder), `unread` (optional), `flagged` (optional), `since` / `until` (optional date range). Returns same format as message list. Uses the same search backend as the web UI (local cache + IMAP expansion per U7.1).
 U15.35 - `GET /api/v1/mail/folders/{folder_id}/messages/{message_id}/raw` — download the raw RFC 822 message source (.eml format).
+U15.35a - `POST /api/v1/mail/messages/{message_id}/spam` — report spam; same semantics as the web UI (U5.13): resolves the Junk/Spam destination via the folder alias map (never auto-creates it), sets the IMAP \Junk flag, and moves the message there. Honors the per-account Spam action setting (U9.5): if disabled, returns `SPAM_ACTION_DISABLED` (409). If no junk-canonical folder exists, auto-disables the per-account setting and returns `SPAM_FOLDER_MISSING` (409). If the server rejects the \Junk flag, auto-disables the setting and returns `SPAM_FLAG_UNSUPPORTED` (409). Requires `mail:write` scope.
+U15.35b - `POST /api/v1/mail/messages/{message_id}/not-spam` — mark as not spam; clears the IMAP \Junk flag and moves the message to INBOX when it is currently in a junk-canonical folder, otherwise clears the flag only. Not gated by the Spam action setting (recovery action, mirrors U5.13b). Requires `mail:write` scope.
 
 ## Contacts API
 
@@ -953,6 +956,8 @@ U16.7 - Mail tools (require `mail:read` and/or `mail:write`):
   - `mail_bulk_move` — move multiple messages.
   - `mail_bulk_delete` — delete multiple messages.
   - `mail_bulk_flag` — update flags on multiple messages.
+  - `mail_report_spam` — report a message as spam (set \Junk, move to Junk/Spam; mirrors U15.35a).
+  - `mail_not_spam` — mark a message as not spam (clear \Junk, move to INBOX from Junk/Spam; mirrors U15.35b).
 
 U16.8 - Contacts tools (require `contacts:read` and/or `contacts:write`):
   - `contacts_list` — list contacts with optional search.

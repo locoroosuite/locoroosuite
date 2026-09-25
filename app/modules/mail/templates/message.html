@@ -93,7 +93,11 @@
               <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ 'Mark as read' if is_unread else 'Mark as unread' }}</button>
             </form>
             <button type="button" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-to-folder role="menuitem">Move to folder</button>
-            {% if spam_action_enabled %}
+            {% if in_junk_folder %}
+            <form method="post" action="{{ url_for('mail.not_junk_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="not-junk">
+              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">Not spam</button>
+            </form>
+            {% elif spam_action_enabled %}
             <form method="post" action="{{ url_for('mail.junk_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="junk">
               <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">Report spam</button>
             </form>
@@ -503,7 +507,7 @@
             }
             if (btn) window.LR.clearButtonLoading(btn);
             window.LR.notifySuccess("Draft discarded.");
-          } else if (action === "archive" || action === "delete" || action === "junk" || action === "discard-draft") {
+          } else if (action === "archive" || action === "delete" || action === "junk" || action === "not-junk" || action === "discard-draft") {
             var sep = folderUrl.indexOf("?") >= 0 ? "&" : "?";
             window.location.href = folderUrl + sep + "undo_token=" + (data.undo_token || "");
           } else {

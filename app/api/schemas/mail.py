@@ -97,6 +97,10 @@ class MoveMessageBody(BaseModel):
     destination: str | None = Field(default=None, description="Alias for folder_id")
 
 
+class SpamActionResponse(BaseModel):
+    data: dict = Field(..., description="Result of the spam action (id, moved_to, junk)")
+
+
 class SendMessageBody(BaseModel):
     to: _StringOrList = Field(default_factory=list, description="Recipient address(es)")
     cc: _StringOrList = Field(default_factory=list, description="CC address(es)")

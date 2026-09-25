@@ -422,6 +422,8 @@ You can ask your AI things like "do I have any unread emails from Sarah?", "repl
 | `mail_bulk_move` | Move multiple messages at once (skips protected on Trash moves) |
 | `mail_bulk_delete` | Delete multiple messages at once (skips protected) |
 | `mail_bulk_flag` | Update flags on multiple messages |
+| `mail_report_spam` | Report spam: set `\Junk` and move to the Junk/Spam folder (alias-aware) |
+| `mail_not_spam` | Mark not spam: clear `\Junk` and move to INBOX from Junk/Spam |
 
 > **Protection:** Messages and folders can be protected from accidental deletion. A message carrying the `$Locked` flag, or any starred message while "protect starred" is enabled, refuses delete and move-to-Trash with a `PROTECTED` error (HTTP 409). System folders (INBOX, Sent, Drafts, Trash, Junk) always refuse delete. Each message and folder response includes a read-only `protected` boolean so you can see this state before acting. Toggling protection is done in the web UI; the API/MCP only **enforce** it — they will not delete a protected item.
 

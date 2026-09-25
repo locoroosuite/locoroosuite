@@ -14,11 +14,8 @@ from app.modules.mail.controllers.helpers import (
     _load_message_detail,
     _load_thread_for_detail,
     _parse_flags,
-    _set_spam_action_enabled,
     _set_undo_action,
     _snippet_debug_enabled,
-    _spam_action_enabled,
-    _spam_destination,
     _uid_to_str,
     mail_bp,
 )
@@ -39,6 +36,15 @@ from app.modules.mail.services.imap_client import (
     set_flag,
 )
 from app.modules.mail.services.secrets import decrypt_with_key
+from app.modules.mail.services.spam import (
+    SpamFlagUnsupportedError,
+    SpamFolderMissingError,
+    is_junk_folder,
+    not_spam,
+    report_spam,
+)
+from app.modules.mail.services.spam import set_spam_action_enabled as _set_spam_action_enabled
+from app.modules.mail.services.spam import spam_action_enabled as _spam_action_enabled
 from app.modules.mail.utils.sanitize import normalize_header_text
 from app.shared.auth import require_customer
 from app.shared.db import db
@@ -105,6 +111,7 @@ def message_view(account_id, message_id):
         attachment_actions=attachment_actions,
         flags=flags,
         spam_action_enabled=_spam_action_enabled(settings, account.id),
+        in_junk_folder=is_junk_folder(message["folder"]),
         lock_action_enabled=locked_keyword_enabled(settings, account.id),
         protected_reason=protected_reason,
         current_folder=message["folder"],
@@ -461,8 +468,9 @@ def junk_message(account_id, message_id):
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)
     select_folder(client, folder)
-    destination = _spam_destination(client)
-    if not destination:
+    try:
+        destination = report_spam(client, uid)
+    except SpamFolderMissingError:
         safe_logout(client)
         _set_spam_action_enabled(settings, account.id, False)
         db.session.commit()
@@ -471,9 +479,7 @@ def junk_message(account_id, message_id):
             return jsonify({"status": "error", "error": error_message})
         session["undo_error"] = error_message
         return redirect(url_for("mail.folder_view", account_id=account.id, folder=folder))
-    try:
-        set_flag(client, uid, "\\Junk", add=True)
-    except imaplib.IMAP4.error:
+    except SpamFlagUnsupportedError:
         safe_logout(client)
         _set_spam_action_enabled(settings, account.id, False)
         db.session.commit()
@@ -482,9 +488,7 @@ def junk_message(account_id, message_id):
             return jsonify({"status": "error", "error": error_message})
         session["undo_error"] = error_message
         return redirect(url_for("mail.folder_view", account_id=account.id, folder=folder))
-    move_message(client, uid, destination)
-    client.expunge()
-    client.logout()
+    safe_logout(client)
     undo_action = None
     if message_id_header:
         is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
@@ -498,6 +502,53 @@ def junk_message(account_id, message_id):
             action_type="junk",
             view_url=url_for("mail.folder_view", account_id=account_id, folder=destination),
             view_label=view_label,
+            ephemeral=True,
+            shown_once=is_xhr,
+        )
+        undo_action = _current_undo_action(consume_ephemeral=False)
+    else:
+        session["undo_error"] = "Undo unavailable for this message."
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"status": "ok", "was_unread": was_unread, "undo_action": undo_action})
+    return redirect(url_for("mail.folder_view", account_id=account_id, folder=folder))
+
+
+@mail_bp.route("/mail/message/<int:account_id>/<int:message_id>/not-junk", methods=["POST"])
+@require_customer
+def not_junk_message(account_id, message_id):
+    account = CustomerAccount.query.filter_by(
+        id=account_id, customer_id=session.get("user_id")
+    ).first_or_404()
+    key = get_user_key(session.get("user_id"))
+    message = get_message(open_cache(account.cache_db_path, key), message_id)
+    if not message:
+        return redirect(url_for("mail.mailbox"))
+    uid = message["uid"]
+    folder = message["folder"]
+    flags = _parse_flags(message["flags"])
+    was_unread = "\\Seen" not in flags
+    message_id_header = message["message_id"]
+    secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
+    client, _domain = _imap_for_account(account, secret)
+    select_folder(client, folder)
+    destination = not_spam(client, uid, folder)
+    safe_logout(client)
+    undo_action = None
+    if message_id_header:
+        is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        _set_undo_action(
+            account_id,
+            folder,
+            destination or folder,
+            message_id_header,
+            "Marked as not spam",
+            action_type="not_spam",
+            view_url=(
+                url_for("mail.folder_view", account_id=account_id, folder=destination)
+                if destination
+                else None
+            ),
+            view_label="View Inbox" if destination else None,
             ephemeral=True,
             shown_once=is_xhr,
         )
@@ -688,6 +739,19 @@ def undo_message_action():
             url_for("mail.folder_view", account_id=account.id, folder=action.get("source_folder"))
         )
     uid = _uid_to_str(uids[-1])
+    action_type = action.get("action_type")
+    if action_type in ("junk", "not_spam"):
+        add_flag = action_type == "not_spam"
+        try:
+            set_flag(client, uid, "\\Junk", add=add_flag)
+        except imaplib.IMAP4.error:
+            logger.warning(
+                "undo %s: junk flag restore failed folder=%s uid=%s",
+                action_type,
+                action.get("destination_folder"),
+                uid,
+                exc_info=True,
+            )
     move_message(client, uid, action.get("source_folder"))
     client.expunge()
     client.logout()

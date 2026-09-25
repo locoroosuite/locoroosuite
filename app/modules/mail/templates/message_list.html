@@ -2,7 +2,7 @@
 <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" role="img" aria-label="Protected" title="Protected from deletion ({{ reason }}). Use the &#8943; menu to {{ 'unlock' if reason == 'locked' else ('unstar' if reason == 'starred' else 'unstar and unlock') }} it." data-protected-badge><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V8H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
 {% endmacro %}
 
-{% macro message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred=False, thread_total=0) %}
+{% macro message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred=False, thread_total=0, in_junk_folder=False) %}
 {% set total = thread_total or msgs|length %}
 {% set row_locked = '$Locked' in (msg.flags or []) %}
 {% set row_protected = row_locked or (protect_starred and msg.is_flagged) %}
@@ -169,7 +169,11 @@
           <input type="hidden" name="action" value="{{ 'read' if msg.is_unread else 'unread' }}" />
           <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">{{ 'Mark as read' if msg.is_unread else 'Mark as unread' }}</button>
         </form>
-        {% if spam_action_enabled %}
+        {% if in_junk_folder %}
+        <form method="post" action="{{ url_for('mail.not_junk_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="not-junk" data-no-row-nav>
+          <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">Not spam</button>
+        </form>
+        {% elif spam_action_enabled %}
         <form method="post" action="{{ url_for('mail.junk_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="junk" data-no-row-nav>
           <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">Report spam</button>
         </form>
@@ -205,7 +209,7 @@
       {% set older_count = full_count - visible_count %}
 
       {% for msg in msgs[:visible_count] %}
-        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred, thread_total=full_count) }}
+        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred, thread_total=full_count, in_junk_folder=in_junk_folder) }}
       {% endfor %}
 
       <div class="border-l-2 border-slate-200">
@@ -218,7 +222,7 @@
 
         <div class="thread-collapse-content bg-slate-50/40 overflow-hidden" data-thread-collapse-content style="max-height: 0; opacity: 0; transition: max-height 0.3s ease-out, opacity 0.2s ease-out;">
           {% for msg in older_msgs %}
-            {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred, thread_total=full_count) }}
+            {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred, thread_total=full_count, in_junk_folder=in_junk_folder) }}
           {% endfor %}
           {% if omitted > 0 %}
           <a href="{{ url_for('mail.message_view', account_id=account.id, message_id=msgs[0].id) }}" class="block px-3 md:px-4 py-2 text-[13px] md:text-[12px] text-indigo-600 hover:text-indigo-800 hover:bg-slate-100/70 cursor-pointer" data-no-row-nav>&hellip; {{ omitted }} more in thread &mdash; open all</a>
@@ -227,7 +231,7 @@
       </div>
     {% else %}
       {% for msg in msgs %}
-        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred, thread_total=full_count) }}
+        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred, thread_total=full_count, in_junk_folder=in_junk_folder) }}
       {% endfor %}
     {% endif %}
   </div>

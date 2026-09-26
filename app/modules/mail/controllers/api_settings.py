@@ -1,4 +1,5 @@
 from flask import flash, redirect, render_template, request, session, url_for
+from flask_babel import _
 
 from app.api.token_service import (
     create_api_token,
@@ -34,21 +35,21 @@ def api_settings_enable():
     user_id = session.get("user_id")
     account = CustomerAccount.query.filter_by(customer_id=user_id, is_active=True).first()
     if not account:
-        flash("No active account found.")
+        flash(_("No active account found."))
         return redirect(url_for("mail.api_settings"))
 
     credential_key = get_user_key(user_id)
     if not credential_key:
-        flash("Session key not found. Please log in again.")
+        flash(_("Session key not found. Please log in again."))
         return redirect(url_for("mail.api_settings"))
 
     try:
         decrypt_with_key(account.encrypted_secret, credential_key)
     except Exception:
-        flash("Incorrect password. Please try again.")
+        flash(_("Incorrect password. Please try again."))
         return redirect(url_for("mail.api_settings"))
 
-    ensure_api_enabled(user_id, credential_key)
+    ensure_api_enabled(user_id, credential_key)  # pyright: ignore[reportArgumentType]
 
     log_audit(
         user_id,
@@ -58,7 +59,7 @@ def api_settings_enable():
         request.remote_addr,
         request.headers.get("User-Agent", ""),
     )
-    flash("API access enabled. Create a token to get started.")
+    flash(_("API access enabled. Create a token to get started."))
     return redirect(url_for("mail.api_settings"))
 
 
@@ -69,7 +70,7 @@ def api_settings_disable():
 
     credential_key = get_user_key(user_id)
     if not credential_key:
-        flash("Session key not found. Please log in again.")
+        flash(_("Session key not found. Please log in again."))
         return redirect(url_for("mail.api_settings"))
 
     for token in ApiToken.query.filter_by(customer_id=user_id).all():
@@ -104,7 +105,7 @@ def api_settings_create_token():
     user_id = session.get("user_id")
     name = request.form.get("token_name", "").strip()
     if not name:
-        flash("Token name is required.")
+        flash(_("Token name is required."))
         return redirect(url_for("mail.api_settings"))
 
     scopes = []
@@ -118,19 +119,19 @@ def api_settings_create_token():
             scopes.append(f"{module}:read")
 
     if not scopes:
-        flash("At least one scope must be selected.")
+        flash(_("At least one scope must be selected."))
         return redirect(url_for("mail.api_settings"))
 
     credential_key = get_user_key(user_id)
     if not credential_key:
-        flash("Session key not found. Please log in again.")
+        flash(_("Session key not found. Please log in again."))
         return redirect(url_for("mail.api_settings"))
 
     account = CustomerAccount.query.filter_by(
         customer_id=user_id, api_enabled=True, is_active=True
     ).first()
     if not account:
-        flash("API access is not enabled.")
+        flash(_("API access is not enabled."))
         return redirect(url_for("mail.api_settings"))
 
     token_value, _token_obj = create_api_token(user_id, credential_key, name, scopes)

@@ -2,6 +2,7 @@ import logging
 from math import ceil
 
 from flask import redirect, render_template, request, session, url_for
+from flask_babel import _
 
 from app.modules.contacts.controllers.helpers import (
     _carddav_base_url,
@@ -147,7 +148,7 @@ def contact_new():
         return redirect(url_for("mail.login"))
 
     try:
-        s, abook_url, _ = carddav.discover_address_book(
+        s, abook_url, _unused = carddav.discover_address_book(
             _carddav_base_url(config), account.username, password
         )
         if not abook_url:
@@ -161,14 +162,17 @@ def contact_new():
         try:
             cache_db.upsert_contact(conn, uid, href, etag, vcard_text)
         finally:
-            conn.close()
+            if conn:
+                conn.close()
     except Exception:
         logger.exception("failed to create contact on CardDAV")
         return render_template(
             "form.html",
             contact=request.form.to_dict(),
             account=account,
-            errors={"_server": "Failed to save contact. Please check your connection and retry."},
+            errors={
+                "_server": _("Failed to save contact. Please check your connection and retry.")
+            },
         )
 
     return redirect(url_for("contacts.contact_list"))
@@ -215,7 +219,7 @@ def contact_edit(account_id, uid):
             return redirect(url_for("mail.login"))
 
         try:
-            s, abook_url, _ = carddav.discover_address_book(
+            s, abook_url, _unused = carddav.discover_address_book(
                 _carddav_base_url(config), account.username, password
             )
             stored_href = contact.get("href")
@@ -235,7 +239,7 @@ def contact_edit(account_id, uid):
                 contact=contact,
                 account=account,
                 errors={
-                    "_server": "Failed to save contact. Please check your connection and retry."
+                    "_server": _("Failed to save contact. Please check your connection and retry.")
                 },
             )
 
@@ -343,7 +347,7 @@ def _validate_contact_form(form):
     first_name = form.get("first_name", "").strip()
     last_name = form.get("last_name", "").strip()
     if not fn and not first_name and not last_name:
-        errors["fn"] = "Name is required."
+        errors["fn"] = _("Name is required.")
     return errors
 
 
@@ -370,7 +374,10 @@ def _check_email_duplicates(conn, email_work, email_home, exclude_uid=None):
             continue
         existing = cache_db.find_by_email(conn, email)
         if existing and existing["uid"] != exclude_uid:
-            errors[label] = (
-                f"Email {email} is already used by contact '{existing['fn'] or existing['first_name'] + ' ' + existing['last_name']}'."
+            existing_name = existing["fn"] or (existing["first_name"] + " " + existing["last_name"])
+            errors[label] = _(
+                "Email %(email)s is already used by contact '%(name)s'.",
+                email=email,
+                name=existing_name,
             )
     return errors

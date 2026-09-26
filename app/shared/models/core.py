@@ -86,6 +86,8 @@ class CustomerSettings(db.Model):
     preview_pane_default = db.Column(db.Boolean, default=False, nullable=False)
     sort_order = db.Column(db.String(32), default="date_desc", nullable=False)
     timezone = db.Column(db.String(64), default="browser", nullable=False)
+    language = db.Column(db.String(16), default="browser", nullable=False)
+    browser_locale = db.Column(db.String(8), nullable=True)
     date_format = db.Column(db.String(32), default="DD/MM/YYYY", nullable=False)
     theme = db.Column(db.String(16), default="light", nullable=False)
     pinned_folders = db.Column(db.Text, nullable=True)

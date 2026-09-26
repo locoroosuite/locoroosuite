@@ -50,11 +50,11 @@
     if (root) root.classList.add("room-open");
     el("chat-empty").classList.add("hidden");
     el("chat-room").classList.remove("hidden");
-    el("chat-room-name").textContent = (room.is_direct ? "" : "# ") + (room.display_name || room.name || "Room");
+    el("chat-room-name").textContent = (room.is_direct ? "" : "# ") + (room.display_name || room.name || window.LR.t("Room"));
     const peer = state.dmPeers[roomId];
     const subtitle = room.topic || (peer ? peer.email + "  ·  " + peer.matrix_user_id : "");
     el("chat-room-subtitle").textContent = subtitle;
-    el("chat-room-members").textContent = room.member_count ? room.member_count + " members" : "";
+    el("chat-room-members").textContent = room.member_count ? window.LR.t("{n} members", {n: room.member_count}) : "";
     el("chat-room-invite").classList.toggle("hidden", !!room.is_direct);
     el("chat-messages").textContent = "";
     state.messages[roomId] = [];
@@ -64,7 +64,7 @@
       renderTimeline(roomId);
       markRoomRead(roomId);
     } catch (err) {
-      Chat.banner("Could not load messages: " + err.message);
+      Chat.banner(window.LR.t("Could not load messages: {error}", {error: err.message}));
     }
   }
 
@@ -99,8 +99,8 @@
       const room = findRoom(roomId) || {};
       const peer = state.dmPeers[roomId];
       const who = room.is_direct
-        ? (peer ? peer.email : room.display_name || "this person")
-        : (room.display_name || "this room");
+        ? (peer ? peer.email : room.display_name || window.LR.t("this person"))
+        : (room.display_name || window.LR.t("this room"));
       const empty = document.createElement("div");
       empty.className = "h-full flex flex-col items-center justify-center text-slate-400 py-16 text-center";
       const identity = peer
@@ -108,8 +108,8 @@
         : "";
       empty.innerHTML =
         '<svg class="h-8 w-8 mb-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3.43 2.524A49.19 49.19 0 0110 2c1.657 0 3.28.088 4.86.262.897.1 1.69.757 1.69 1.654v6.168c0 .897-.793 1.554-1.69 1.654a38.53 38.53 0 01-2.34.196l-2.975 2.942a.75.75 0 01-1.28-.53v-2.39a42.36 42.36 0 01-2.835-.178c-.897-.1-1.69-.757-1.69-1.654V4.178c0-.897.793-1.554 1.69-1.654z" clip-rule="evenodd"/></svg>' +
-        '<p class="text-sm">This is the beginning of your conversation with ' + escapeHtml(who) + ".</p>" +
-        '<p class="text-xs mt-1">Say hello — messages appear instantly for everyone.</p>' +
+        '<p class="text-sm">' + window.LR.t("This is the beginning of your conversation with {who}.", {who: escapeHtml(who)}) + "</p>" +
+        '<p class="text-xs mt-1">' + window.LR.t("Say hello — messages appear instantly for everyone.") + "</p>" +
         identity;
       box.appendChild(empty);
       return;
@@ -185,7 +185,7 @@
     contentBox.className = "text-sm text-slate-700 break-words";
     if (m.redacted) {
       contentBox.className += " italic text-slate-400";
-      contentBox.textContent = "Message deleted";
+      contentBox.textContent = window.LR.t("Message deleted");
     } else {
       appendContent(contentBox, m);
     }
@@ -218,7 +218,7 @@
       btn.type = "button";
       btn.className = "h-8 w-8 rounded hover:bg-slate-200 text-sm flex items-center justify-center";
       btn.textContent = key;
-      btn.title = "React " + key;
+      btn.title = window.LR.t("React {key}", {key: key});
       btn.addEventListener("click", function () {
         Chat.actions.react(m.event_id, key);
       });
@@ -228,7 +228,7 @@
       const editBtn = document.createElement("button");
       editBtn.type = "button";
       editBtn.className = "h-8 px-2 rounded hover:bg-slate-200 text-xs text-slate-500";
-      editBtn.textContent = "Edit";
+      editBtn.textContent = window.LR.t("Edit");
       editBtn.addEventListener("click", function () {
         startEdit(m);
       });
@@ -236,9 +236,9 @@
       const delBtn = document.createElement("button");
       delBtn.type = "button";
       delBtn.className = "h-8 px-2 rounded hover:bg-slate-200 text-xs text-slate-500";
-      delBtn.textContent = "Delete";
+      delBtn.textContent = window.LR.t("Delete");
       delBtn.addEventListener("click", function () {
-        if (window.confirm("Delete this message?")) {
+        if (window.confirm(window.LR.t("Delete this message?"))) {
           Chat.actions.redact(m.event_id);
         }
       });
@@ -256,7 +256,7 @@
     if (m.edited) {
       const tag = document.createElement("span");
       tag.className = "text-[11px] md:text-[10px] text-slate-500 align-super ml-1";
-      tag.textContent = "(edited)";
+      tag.textContent = window.LR.t("(edited)");
       contentBox.appendChild(tag);
     }
     if (msgtype === "m.image" && c.url) {
@@ -264,7 +264,7 @@
       const full = mxcToUrl(c.url, "media");
       const img = document.createElement("img");
       img.src = url;
-      img.alt = m.body || "image";
+      img.alt = m.body || window.LR.t("image");
       img.loading = "lazy";
       img.className = "mt-1 max-w-sm max-h-72 rounded-lg border border-slate-200 cursor-zoom-in";
       img.addEventListener("click", function () {
@@ -294,7 +294,7 @@
       link.href = mxcToUrl(c.url, "media");
       link.className = "inline-flex items-center gap-1.5 mt-1 px-2 py-1 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50";
       link.setAttribute("download", m.body || "file");
-      link.textContent = "📎 " + (m.body || "Download file") + (c.info && c.info.size ? " (" + Math.round(c.info.size / 1024) + " KB)" : "");
+      link.textContent = "📎 " + (m.body || window.LR.t("Download file")) + (c.info && c.info.size ? " (" + Math.round(c.info.size / 1024) + " KB)" : "");
       contentBox.appendChild(link);
       return;
     }
@@ -308,11 +308,11 @@
   }
 
   function startEdit(m) {
-    const next = window.prompt("Edit message", (m.content || {}).body || m.body || "");
+    const next = window.prompt(window.LR.t("Edit message"), (m.content || {}).body || m.body || "");
     if (next === null) return;
     const trimmed = next.trim();
     if (!trimmed) {
-      Chat.banner("Message cannot be empty.");
+      Chat.banner(window.LR.t("Message cannot be empty."));
       return;
     }
     Chat.actions.edit(m.event_id, trimmed);
@@ -359,7 +359,7 @@
       input.style.height = "auto";
       await pollRoom(state.activeRoomId);
     } catch (err) {
-      Chat.banner("Could not send: " + err.message + " Check your connection and retry.");
+      Chat.banner(window.LR.t("Could not send: {error} Check your connection and retry.", {error: err.message}));
     } finally {
       state.sending = false;
       sendBtn.disabled = false;
@@ -419,7 +419,7 @@
     const names = users.map(function (u) {
       return u.replace(/^@/, "").split(":")[0];
     });
-    box.textContent = names.join(", ") + (names.length === 1 ? " is" : " are") + " typing…";
+    box.textContent = window.LR.t(names.length === 1 ? "{names} is typing…" : "{names} are typing…", {names: names.join(", ")});
   }
 
   /* ---------------- uploads ---------------- */
@@ -431,7 +431,7 @@
     progress.classList.remove("hidden");
     try {
       for (let i = 0; i < files.length; i++) {
-        label.textContent = "Uploading " + files[i].name + "…";
+        label.textContent = window.LR.t("Uploading {name}…", {name: files[i].name});
         const fd = new FormData();
         fd.append("file", files[i]);
         const resp = await fetch("/app/chat/api/rooms/" + encodeURIComponent(state.activeRoomId) + "/upload", {
@@ -439,7 +439,7 @@
           body: fd,
         });
         if (!resp.ok) {
-          let message = "Upload failed (" + resp.status + ")";
+          let message = window.LR.t("Upload failed ({status})", {status: resp.status});
           try {
             message = (await resp.json()).error.message;
           } catch (e) {
@@ -450,7 +450,7 @@
       }
       await pollRoom(state.activeRoomId);
     } catch (err) {
-      Chat.banner("Upload failed: " + err.message + " Retry or check the file size (50 MB max).");
+      Chat.banner(window.LR.t("Upload failed: {error} Retry or check the file size (50 MB max).", {error: err.message}));
     } finally {
       progress.classList.add("hidden");
     }
@@ -466,7 +466,7 @@
         Chat.applyRooms(data.rooms || []);
         openRoom(roomId);
       } catch (err) {
-        Chat.banner("Could not join: " + err.message);
+        Chat.banner(window.LR.t("Could not join: {error}", {error: err.message}));
       }
     },
     async leaveRoom(roomId) {
@@ -480,7 +480,7 @@
         }
         Chat.renderRoomList();
       } catch (err) {
-        Chat.banner("Could not leave: " + err.message);
+        Chat.banner(window.LR.t("Could not leave: {error}", {error: err.message}));
       }
     },
     async react(eventId, key) {
@@ -491,7 +491,7 @@
         });
         if (state.activeRoomId) pollRoom(state.activeRoomId);
       } catch (err) {
-        Chat.banner("Could not react: " + err.message);
+        Chat.banner(window.LR.t("Could not react: {error}", {error: err.message}));
       }
     },
     async edit(eventId, body) {
@@ -502,7 +502,7 @@
         });
         if (state.activeRoomId) pollRoom(state.activeRoomId);
       } catch (err) {
-        Chat.banner("Could not edit: " + err.message);
+        Chat.banner(window.LR.t("Could not edit: {error}", {error: err.message}));
       }
     },
     async redact(eventId) {
@@ -512,7 +512,7 @@
         });
         if (state.activeRoomId) pollRoom(state.activeRoomId);
       } catch (err) {
-        Chat.banner("Could not delete: " + err.message);
+        Chat.banner(window.LR.t("Could not delete: {error}", {error: err.message}));
       }
     },
     async createRoom(name, topic, isPublic) {
@@ -612,7 +612,7 @@
           roomDialog.close();
         })
         .catch(function (err) {
-          Chat.banner("Could not create room: " + err.message);
+            Chat.banner(window.LR.t("Could not create room: {error}", {error: err.message}));
         })
         .finally(function () {
           btn.disabled = false;
@@ -630,7 +630,7 @@
         Promise.resolve()
           .then(actionFn)
           .catch(function (err) {
-            Chat.banner("Could not proceed: " + err.message + " Check the address and retry.");
+            Chat.banner(window.LR.t("Could not proceed: {error} Check the address and retry.", {error: err.message}));
           })
           .finally(function () {
             if (button) button.disabled = false;
@@ -654,9 +654,10 @@
         dmDialog.close();
         const peer = data.peer || {};
         Chat.banner(
-          "Conversation started with " +
-            (peer.email || email) +
-            (peer.matrix_user_id ? " (" + peer.matrix_user_id + ")" : "")
+          window.LR.t("Conversation started with {peer}{matrixId}", {
+            peer: peer.email || email,
+            matrixId: peer.matrix_user_id ? " (" + peer.matrix_user_id + ")" : "",
+          })
         );
       });
     });
@@ -675,13 +676,13 @@
       const email = el("chat-invite-email").value.trim();
       return actions.inviteByEmail(state.activeRoomId, email).then(function (data) {
         el("chat-invite-email").value = "";
-        Chat.banner("Invited " + email + (data && data.user_id ? " (" + data.user_id + ")" : ""));
+        Chat.banner(window.LR.t("Invited {email}{userId}", {email: email, userId: data && data.user_id ? " (" + data.user_id + ")" : ""}));
         pollRoom(state.activeRoomId);
       });
     });
 
     el("chat-room-leave").addEventListener("click", function () {
-      if (state.activeRoomId && window.confirm("Leave this conversation?")) {
+      if (state.activeRoomId && window.confirm(window.LR.t("Leave this conversation?"))) {
         actions.leaveRoom(state.activeRoomId);
       }
     });

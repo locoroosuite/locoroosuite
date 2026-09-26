@@ -4,6 +4,7 @@ import logging
 from datetime import UTC, datetime
 
 from flask import redirect, render_template, request, session, url_for
+from flask_babel import _
 
 from app.modules.calendar.controllers.helpers import (
     _caldav_base_url,
@@ -95,7 +96,15 @@ def _format_event_time(dt_str, user_tz_name, event_tz=None, vtimezones=None):
     except Exception:
         target_tz = UTC
     local_dt = dt.astimezone(target_tz)
-    return local_dt.strftime("%a, %b %d, %Y at %I:%M %p")
+    from babel.dates import format_datetime
+
+    from app.shared.i18n import current_locale_name
+
+    locale = current_locale_name()
+    return (
+        f"{format_datetime(local_dt, 'EEE, MMM dd, y', locale=locale)}"
+        f" {_('at')} {format_datetime(local_dt, 'hh:mm a', locale=locale)}"
+    )
 
 
 def _event_vtimezones(event):
@@ -158,7 +167,7 @@ def event_new():
                 calendars=[],
                 account=account,
                 errors={
-                    "_server": "No calendars available. Please sync or create a calendar first."
+                    "_server": _("No calendars available. Please sync or create a calendar first.")
                 },
                 dtstart_date="",
                 dtstart_time="09:00",
@@ -248,7 +257,9 @@ def event_new():
             return redirect(url_for("calendar.index"))
 
         try:
-            s, _ = caldav.discover_calendars(_caldav_base_url(config), account.username, password)
+            s, _unused = caldav.discover_calendars(
+                _caldav_base_url(config), account.username, password
+            )
             href, etag = caldav.create_event(s, cal["href"], ical_text, uid=data.get("uid"))
             from app.modules.calendar.services.icalendar import extract_uid
 
@@ -262,7 +273,9 @@ def event_new():
                 event=form_dict,
                 calendars=calendars,
                 account=account,
-                errors={"_server": "Failed to save event. Please check your connection and retry."},
+                errors={
+                    "_server": _("Failed to save event. Please check your connection and retry.")
+                },
                 dtstart_date=form_dict.get("dtstart_date", ""),
                 dtstart_time=form_dict.get("dtstart_time", "09:00"),
                 dtend_date=form_dict.get("dtend_date", ""),
@@ -444,7 +457,9 @@ def event_edit(event_id):
 
         cal_id = int(request.form.get("calendar_id", event["calendar_id"]))
         try:
-            s, _ = caldav.discover_calendars(_caldav_base_url(config), account.username, password)
+            s, _unused = caldav.discover_calendars(
+                _caldav_base_url(config), account.username, password
+            )
             if event.get("href"):
                 etag = caldav.update_event(s, event["href"], ical_text, event.get("etag"))
             else:
@@ -465,7 +480,9 @@ def event_edit(event_id):
                 event=event,
                 calendars=calendars,
                 account=account,
-                errors={"_server": "Failed to save event. Please check your connection and retry."},
+                errors={
+                    "_server": _("Failed to save event. Please check your connection and retry.")
+                },
                 dtstart_date=form_dict.get("dtstart_date", ""),
                 dtstart_time=form_dict.get("dtstart_time", "09:00"),
                 dtend_date=form_dict.get("dtend_date", ""),
@@ -564,11 +581,11 @@ def _validate_event_form(form):
     dtstart_date = form.get("dtstart_date", "").strip()
     calendar_id = form.get("calendar_id", "").strip()
     if not summary:
-        errors["summary"] = "Event title is required."
+        errors["summary"] = _("Event title is required.")
     if not dtstart_date:
-        errors["dtstart"] = "Start date is required."
+        errors["dtstart"] = _("Start date is required.")
     if not calendar_id:
-        errors["calendar_id"] = "Calendar is required."
+        errors["calendar_id"] = _("Calendar is required.")
     return errors
 
 

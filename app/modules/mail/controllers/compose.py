@@ -6,6 +6,7 @@ from email import message_from_bytes
 from email.utils import formataddr, formatdate, getaddresses
 
 from flask import current_app, jsonify, redirect, render_template, request, session, url_for
+from flask_babel import _
 
 from app.modules.mail.controllers.helpers import (
     _UNDO_SECONDS,
@@ -234,7 +235,9 @@ def compose():
                             exc_info=True,
                         )
                 if int(payload.get("attachments_count") or 0) > 0 and not restored:
-                    compose_notice = "Attachments are not restored automatically. Re-attach files before sending."
+                    compose_notice = _(
+                        "Attachments are not restored automatically. Re-attach files before sending."
+                    )
     draft_uid_param = (request.args.get("draft_uid") or "").strip()
     if not prefill and draft_uid_param:
         account = CustomerAccount.query.filter_by(id=account_id, customer_id=user_id).first()
@@ -321,7 +324,7 @@ def send_status(send_token):
     with _pending_sends_lock:
         payload = _pending_sends.get(send_token)
         if not payload or payload.get("user_id") != user_id:
-            return jsonify({"status": "error", "error": "Send request not found."}), 404
+            return jsonify({"status": "error", "error": _("Send request not found.")}), 404
         snapshot = _send_status_snapshot(send_token, payload)
     return jsonify(snapshot)
 
@@ -337,7 +340,7 @@ def send_mail():
         return render_template(
             "compose.html",
             account_id=account_id,
-            error="Domain is unavailable.",
+            error=_("Domain is unavailable."),
             prefill={
                 "to_addrs": _normalize_recipient_addrs(request.form.get("to", "")),
                 "cc_addrs": _normalize_recipient_addrs(request.form.get("cc", "")),
@@ -351,7 +354,7 @@ def send_mail():
     if not key:
         logger.warning("send missing key user_id=%s account_id=%s", user_id, account_id)
         session.clear()
-        return render_template("login.html", error="Session expired. Please log in again.")
+        return render_template("login.html", error=_("Session expired. Please log in again."))
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
 
     from_addr = account.email_address
@@ -367,7 +370,7 @@ def send_mail():
         return render_template(
             "compose.html",
             account_id=account_id,
-            error="Total attachment size exceeds the limit. Remove some files and try again.",
+            error=_("Total attachment size exceeds the limit. Remove some files and try again."),
             prefill={
                 "to_addrs": to_addrs,
                 "cc_addrs": cc_addrs,
@@ -450,7 +453,7 @@ def send_now():
     with _pending_sends_lock:
         payload = _pending_sends.get(token)
         if not payload or payload.get("user_id") != user_id:
-            return jsonify({"status": "error", "error": "Send request not found."}), 404
+            return jsonify({"status": "error", "error": _("Send request not found.")}), 404
         if payload.get("status") not in ("countdown", "queued"):
             return jsonify(_send_status_snapshot(token, payload))
         payload["status"] = "queued"
@@ -471,7 +474,7 @@ def retry_send():
         payload = _pending_sends.get(token)
         if not payload or payload.get("user_id") != user_id:
             if wants_json:
-                return jsonify({"status": "error", "error": "Send request not found."}), 404
+                return jsonify({"status": "error", "error": _("Send request not found.")}), 404
             return redirect(url_for("mail.mailbox"))
         if payload.get("status") == "failed":
             payload["status"] = "queued"
@@ -534,7 +537,7 @@ def auto_save_draft():
     account_id = int(request.form.get("account_id") or 0)
     account = CustomerAccount.query.filter_by(id=account_id, customer_id=user_id).first()
     if not account:
-        return jsonify({"ok": False, "error": "Account not found."}), 404
+        return jsonify({"ok": False, "error": _("Account not found.")}), 404
 
     body_html = request.form.get("body_html", "")
     if not _has_text_content(body_html):
@@ -542,7 +545,7 @@ def auto_save_draft():
 
     key = get_user_key(user_id)
     if not key:
-        return jsonify({"ok": False, "error": "Session expired."}), 401
+        return jsonify({"ok": False, "error": _("Session expired.")}), 401
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
 
     from_addr = account.email_address
@@ -604,7 +607,7 @@ def auto_save_draft():
         return jsonify({"ok": True, "draft_uid": new_uid})
     except Exception:
         logger.exception("auto-save draft failed account_id=%s customer_id=%s", account.id, user_id)
-        return jsonify({"ok": False, "error": "Unable to save draft right now."}), 500
+        return jsonify({"ok": False, "error": _("Unable to save draft right now.")}), 500
     finally:
         if client:
             safe_logout(client)
@@ -620,7 +623,7 @@ def save_draft():
     if not key:
         logger.warning("save draft missing key user_id=%s account_id=%s", user_id, account_id)
         session.clear()
-        return render_template("login.html", error="Session expired. Please log in again.")
+        return render_template("login.html", error=_("Session expired. Please log in again."))
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
 
     from_addr = account.email_address
@@ -636,7 +639,7 @@ def save_draft():
         return render_template(
             "compose.html",
             account_id=account_id,
-            error="Total attachment size exceeds the limit. Remove some files and try again.",
+            error=_("Total attachment size exceeds the limit. Remove some files and try again."),
             prefill={
                 "to_addrs": to_addrs,
                 "cc_addrs": cc_addrs,
@@ -699,7 +702,7 @@ def save_draft():
                 "body_html": body_html,
                 "request_receipt": request.form.get("read_receipt") == "on",
             },
-            error="Unable to save draft right now. Retry, check connection, or refresh.",
+            error=_("Unable to save draft right now. Retry, check connection, or refresh."),
         )
     finally:
         if client:

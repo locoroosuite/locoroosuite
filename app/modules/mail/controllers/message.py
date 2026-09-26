@@ -3,6 +3,7 @@ import logging
 import time
 
 from flask import Response, jsonify, redirect, render_template, request, session, url_for
+from flask_babel import _
 
 from app.modules.mail.controllers.helpers import (
     _current_undo_action,
@@ -273,7 +274,7 @@ def lock_message(account_id, message_id):
 
             set_locked_keyword_enabled(settings, account.id, False)
             db.session.commit()
-            error_message = (
+            error_message = _(
                 "Server doesn't support message lock flags, the option is disabled in your account"
             )
             if request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -301,7 +302,7 @@ def move_message_route(account_id, message_id):
     destination = request.form.get("destination")
     if not destination:
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"error": "Destination folder is required."}), 400
+            return jsonify({"error": _("Destination folder is required.")}), 400
         return redirect(url_for("mail.mailbox"))
     account = CustomerAccount.query.filter_by(
         id=account_id, customer_id=session.get("user_id")
@@ -310,13 +311,13 @@ def move_message_route(account_id, message_id):
     message = get_message(open_cache(account.cache_db_path, key), message_id)
     if not message:
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"error": "Message not found."}), 404
+            return jsonify({"error": _("Message not found.")}), 404
         return redirect(url_for("mail.mailbox"))
     uid = message["uid"]
     folder = message["folder"]
     if folder.lower() == destination.lower():
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"error": "Message is already in that folder."}), 400
+            return jsonify({"error": _("Message is already in that folder.")}), 400
         return redirect(url_for("mail.folder_view", account_id=account_id, folder=destination))
     if destination.strip().lower() == "trash":
         from app.modules.mail.services.protection import protected_delete_message, protection_reason
@@ -381,16 +382,16 @@ def delete_message(account_id, message_id):
             folder,
             "Trash",
             message_id_header,
-            "Message deleted",
+            _("Message deleted"),
             action_type="delete",
             view_url=url_for("mail.folder_view", account_id=account_id, folder="Trash"),
-            view_label="View Trash",
+            view_label=_("View Trash"),
             ephemeral=True,
             shown_once=is_xhr,
         )
         undo_action = _current_undo_action(consume_ephemeral=False)
     else:
-        session["undo_error"] = "Undo unavailable for this message."
+        session["undo_error"] = _("Undo unavailable for this message.")
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify({"status": "ok", "was_unread": was_unread, "undo_action": undo_action})
     return redirect(url_for("mail.folder_view", account_id=account_id, folder=folder))
@@ -426,16 +427,16 @@ def archive_message(account_id, message_id):
             folder,
             "Archive",
             message_id_header,
-            "Message archived",
+            _("Message archived"),
             action_type="archive",
             view_url=url_for("mail.folder_view", account_id=account_id, folder="Archive"),
-            view_label="View Archived",
+            view_label=_("View Archived"),
             ephemeral=True,
             shown_once=is_xhr,
         )
         undo_action = _current_undo_action(consume_ephemeral=False)
     else:
-        session["undo_error"] = "Undo unavailable for this message."
+        session["undo_error"] = _("Undo unavailable for this message.")
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify({"status": "ok", "was_unread": was_unread, "undo_action": undo_action})
     return redirect(url_for("mail.folder_view", account_id=account_id, folder=folder))
@@ -453,7 +454,7 @@ def junk_message(account_id, message_id):
         return redirect(url_for("mail.mailbox"))
     settings = _get_or_create_settings(session.get("user_id"))
     if not _spam_action_enabled(settings, account.id):
-        error_message = "Spam action is disabled in your settings."
+        error_message = _("Spam action is disabled in your settings.")
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return jsonify({"status": "error", "error": error_message})
         session["undo_error"] = error_message
@@ -474,7 +475,9 @@ def junk_message(account_id, message_id):
         safe_logout(client)
         _set_spam_action_enabled(settings, account.id, False)
         db.session.commit()
-        error_message = "No Spam/Junk folder available on this server. The Spam action is disabled."
+        error_message = _(
+            "No Spam/Junk folder available on this server. The Spam action is disabled."
+        )
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return jsonify({"status": "error", "error": error_message})
         session["undo_error"] = error_message
@@ -483,7 +486,9 @@ def junk_message(account_id, message_id):
         safe_logout(client)
         _set_spam_action_enabled(settings, account.id, False)
         db.session.commit()
-        error_message = "Server doesn't support Spam flags, the option is disabled in your account"
+        error_message = _(
+            "Server doesn't support Spam flags, the option is disabled in your account"
+        )
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return jsonify({"status": "error", "error": error_message})
         session["undo_error"] = error_message
@@ -492,13 +497,13 @@ def junk_message(account_id, message_id):
     undo_action = None
     if message_id_header:
         is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
-        view_label = f"View {destination}"
+        view_label = _("View %(destination)s", destination=destination)
         _set_undo_action(
             account_id,
             folder,
             destination,
             message_id_header,
-            "Reported as spam",
+            _("Reported as spam"),
             action_type="junk",
             view_url=url_for("mail.folder_view", account_id=account_id, folder=destination),
             view_label=view_label,
@@ -507,7 +512,7 @@ def junk_message(account_id, message_id):
         )
         undo_action = _current_undo_action(consume_ephemeral=False)
     else:
-        session["undo_error"] = "Undo unavailable for this message."
+        session["undo_error"] = _("Undo unavailable for this message.")
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify({"status": "ok", "was_unread": was_unread, "undo_action": undo_action})
     return redirect(url_for("mail.folder_view", account_id=account_id, folder=folder))
@@ -541,20 +546,20 @@ def not_junk_message(account_id, message_id):
             folder,
             destination or folder,
             message_id_header,
-            "Marked as not spam",
+            _("Marked as not spam"),
             action_type="not_spam",
             view_url=(
                 url_for("mail.folder_view", account_id=account_id, folder=destination)
                 if destination
                 else None
             ),
-            view_label="View Inbox" if destination else None,
+            view_label=_("View Inbox") if destination else None,
             ephemeral=True,
             shown_once=is_xhr,
         )
         undo_action = _current_undo_action(consume_ephemeral=False)
     else:
-        session["undo_error"] = "Undo unavailable for this message."
+        session["undo_error"] = _("Undo unavailable for this message.")
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify({"status": "ok", "was_unread": was_unread, "undo_action": undo_action})
     return redirect(url_for("mail.folder_view", account_id=account_id, folder=folder))
@@ -701,7 +706,7 @@ def undo_message_action():
     expires_at = action.get("expires_at")
     if expires_at and expires_at < time.time():
         session.pop("undo_action", None)
-        session["undo_error"] = "Undo period expired."
+        session["undo_error"] = _("Undo period expired.")
         return redirect(
             url_for(
                 "mail.folder_view",
@@ -712,7 +717,7 @@ def undo_message_action():
     message_id_header = action.get("message_id")
     if not message_id_header:
         session.pop("undo_action", None)
-        session["undo_error"] = "Undo unavailable for this message."
+        session["undo_error"] = _("Undo unavailable for this message.")
         return redirect(
             url_for(
                 "mail.folder_view",
@@ -734,7 +739,7 @@ def undo_message_action():
     if not uids:
         client.logout()
         session.pop("undo_action", None)
-        session["undo_error"] = "Undo failed; message not found."
+        session["undo_error"] = _("Undo failed; message not found.")
         return redirect(
             url_for("mail.folder_view", account_id=account.id, folder=action.get("source_folder"))
         )

@@ -2,6 +2,7 @@ import logging
 import threading
 
 from flask import current_app, render_template, request, session
+from flask_babel import _
 
 from app.modules.mail.controllers.helpers import (
     _format_short_date,
@@ -60,7 +61,7 @@ def search():
         readable_results.append(
             {
                 "id": row["id"],
-                "subject": normalize_header_text(row["subject"]) or "(no subject)",
+                "subject": normalize_header_text(row["subject"]) or _("(no subject)"),
                 "sender": decode_address_header(row["sender"]),
                 "snippet": normalize_preview_text(row["snippet"], limit=500, fallback=row["body"]),
                 "date_display": _format_short_date(row["date"], timezone_name),
@@ -98,7 +99,7 @@ def search():
                         {
                             "folder": folder,
                             "subject": normalize_header_text(msg.get("Subject", ""))
-                            or "(no subject)",
+                            or _("(no subject)"),
                             "from": decode_address_header(msg.get("From", "")),
                             "date": msg.get("Date", ""),
                             "date_display": _format_short_date(msg.get("Date", ""), timezone_name),
@@ -148,7 +149,7 @@ def full_search():
             results_remote.append(
                 {
                     "folder": folder,
-                    "subject": normalize_header_text(msg.get("Subject", "")) or "(no subject)",
+                    "subject": normalize_header_text(msg.get("Subject", "")) or _("(no subject)"),
                     "from": decode_address_header(msg.get("From", "")),
                     "date": msg.get("Date", ""),
                     "date_display": _format_short_date(msg.get("Date", ""), settings.timezone),

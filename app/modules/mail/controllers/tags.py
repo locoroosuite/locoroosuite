@@ -1,4 +1,5 @@
 from flask import redirect, render_template, request, session, url_for
+from flask_babel import _
 
 from app.modules.mail.controllers.helpers import (
     _consume_send_failure_notice,
@@ -20,7 +21,7 @@ from app.shared.models.core import CustomerAccount
 @require_customer
 def create_tag():
     name = request.form.get("name", "").strip()
-    account_id = int(request.form.get("account_id"))
+    account_id = int(request.form.get("account_id"))  # pyright: ignore[reportArgumentType]
     account = CustomerAccount.query.filter_by(
         id=account_id, customer_id=session.get("user_id")
     ).first_or_404()
@@ -35,7 +36,7 @@ def create_tag():
 @mail_bp.route("/mail/message/<int:account_id>/<int:message_id>/tag", methods=["POST"])
 @require_customer
 def tag_message_route(account_id, message_id):
-    tag_id = int(request.form.get("tag_id"))
+    tag_id = int(request.form.get("tag_id"))  # pyright: ignore[reportArgumentType]
     account = CustomerAccount.query.filter_by(
         id=account_id, customer_id=session.get("user_id")
     ).first_or_404()
@@ -73,7 +74,7 @@ def tag_view(account_id, tag_id):
         "folder.html",
         account=account,
         accounts=accounts,
-        folder=f"Tag {tag_id}",
+        folder=_("Tag %(tag_id)d", tag_id=tag_id),
         active_folder_key=f"TAG {tag_id}".upper(),
         folder_sections=folder_sections,
         threads=threads,

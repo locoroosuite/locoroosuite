@@ -13,6 +13,7 @@ from flask import (
     session,
     url_for,
 )
+from flask_babel import _
 
 from app.modules.docs.controllers.helpers import _get_account, _open_cache_for_account, docs_bp
 from app.modules.docs.services import cache_db, collabora, doc_meta, sharing, storage, wopi_token
@@ -175,13 +176,13 @@ def api_list():
     user_id = session.get("user_id")
     account_id = _resolve_account_id()
     if not account_id:
-        return jsonify({"error": {"code": "no_account", "message": "No account selected."}}), 400
+        return jsonify({"error": {"code": "no_account", "message": _("No account selected.")}}), 400
 
     account = _get_account(account_id, user_id)
     conn = _open_cache_for_account(account)
     if not conn:
         return jsonify(
-            {"error": {"code": "no_cache", "message": "Unable to open document store."}}
+            {"error": {"code": "no_cache", "message": _("Unable to open document store.")}}
         ), 503
 
     try:
@@ -233,7 +234,7 @@ def create():
             folder = ""
 
     doc_id = uuid.uuid4().hex
-    name = TYPE_NAMES.get(doc_type, "Untitled Document")
+    name = TYPE_NAMES.get(doc_type, _("Untitled Document"))
 
     template_fn = {"odt": empty_odt, "ods": empty_ods, "odp": empty_odp}.get(doc_type, empty_odt)
     template_buf = template_fn()
@@ -327,7 +328,7 @@ def rename(doc_id):
 
     name = request.form.get("name", "").strip()
     if not name or len(name) > 255 or "/" in name or "\\" in name or "\x00" in name:
-        return jsonify({"error": "Invalid name"}), 400
+        return jsonify({"error": _("Invalid name")}), 400
 
     try:
         doc = cache_db.get_document(conn, doc_id)
@@ -461,26 +462,26 @@ def upload():
     account_id = session.get("active_account_id")
     if not account_id:
         if ajax:
-            return jsonify({"error": "No active account"}), 400
+            return jsonify({"error": _("No active account")}), 400
         return redirect(url_for("docs.index"))
 
     account = _get_account(account_id, user_id)
 
     if "file" not in request.files:
         if ajax:
-            return jsonify({"error": "No file provided"}), 400
+            return jsonify({"error": _("No file provided")}), 400
         return redirect(url_for("docs.index"))
 
     f = request.files["file"]
     if not f.filename:
         if ajax:
-            return jsonify({"error": "No filename provided"}), 400
+            return jsonify({"error": _("No filename provided")}), 400
         return redirect(url_for("docs.index"))
 
     ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
     if ext not in ALL_UPLOAD_EXTENSIONS:
         if ajax:
-            return jsonify({"error": f"Unsupported file type .{ext}"}), 400
+            return jsonify({"error": _("Unsupported file type .%(ext)s", ext=ext)}), 400
         return redirect(url_for("docs.index"))
 
     f.seek(0, 2)
@@ -488,7 +489,7 @@ def upload():
     f.seek(0)
     if file_size > MAX_UPLOAD_BYTES:
         if ajax:
-            return jsonify({"error": "File exceeds 50 MB limit"}), 400
+            return jsonify({"error": _("File exceeds 50 MB limit")}), 400
         return redirect(url_for("docs.index"))
 
     doc_id = uuid.uuid4().hex
@@ -508,7 +509,7 @@ def upload():
     conn = _open_cache_for_account(account)
     if not conn:
         if ajax:
-            return jsonify({"error": "Could not open document store"}), 500
+            return jsonify({"error": _("Could not open document store")}), 500
         return redirect(url_for("mail.login"))
 
     try:
@@ -574,7 +575,10 @@ def upload():
         if ajax:
             return jsonify(
                 {
-                    "error": f"Could not convert {f.filename}. Please try uploading an .odt file or try again later."
+                    "error": _(
+                        "Could not convert %(filename)s. Please try uploading an .odt file or try again later.",
+                        filename=f.filename,
+                    )
                 }
             ), 500
         return redirect(url_for("docs.index"))
@@ -632,7 +636,7 @@ def convert(doc_id):
 
         original_format = doc.get("original_format")
         if not original_format:
-            return jsonify({"error": "document is already editable"}), 400
+            return jsonify({"error": _("document is already editable")}), 400
 
         raw_data = storage.read_file(user_id, account_id, doc_id)
         if raw_data is None:
@@ -647,7 +651,9 @@ def convert(doc_id):
             pandoc_reader = PANDOC_EXTENSIONS.get(original_format, {}).get("pandoc_reader", "plain")
             converted = pandoc_convert(raw_data, pandoc_reader, target_type)
             if not converted:
-                return jsonify({"error": f"Could not convert .{original_format} file"}), 500
+                return jsonify(
+                    {"error": _("Could not convert .%(ext)s file", ext=original_format)}
+                ), 500
             file_data = converted
         else:
             converted = collabora.convert_upload(
@@ -671,10 +677,10 @@ def convert(doc_id):
         )
     except collabora.ConversionError as exc:
         logger.error("Conversion failed for doc_id=%s: %s", doc_id, exc)
-        return jsonify({"error": f"Conversion failed: {exc}"}), 500
+        return jsonify({"error": _("Conversion failed: %(error)s", error=str(exc))}), 500
     except Exception:
         logger.exception("Unexpected error converting doc_id=%s", doc_id)
-        return jsonify({"error": "Unexpected error during conversion"}), 500
+        return jsonify({"error": _("Unexpected error during conversion")}), 500
     finally:
         conn.close()
 
@@ -722,7 +728,7 @@ def _form_or_json(*keys):
 
 def _folder_action_required(account_id):
     if not account_id:
-        return jsonify({"error": {"code": "NO_ACCOUNT", "message": "No account selected."}}), 400
+        return jsonify({"error": {"code": "NO_ACCOUNT", "message": _("No account selected.")}}), 400
     return None
 
 
@@ -739,7 +745,7 @@ def list_folders():
     conn = _open_cache_for_account(account)
     if not conn:
         return jsonify(
-            {"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}
+            {"error": {"code": "NO_CACHE", "message": _("Unable to open document store.")}}
         ), 503
     try:
         tree = folders_svc.list_tree(conn, account_id)
@@ -769,7 +775,7 @@ def create_folder():
     conn = _open_cache_for_account(account)
     if not conn:
         return jsonify(
-            {"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}
+            {"error": {"code": "NO_CACHE", "message": _("Unable to open document store.")}}
         ), 503
     try:
         folders_svc.ensure_folder_path(conn, account_id, path)
@@ -798,7 +804,9 @@ def rename_folder():
     path = (data.get("path") or "").strip().strip("/")
     new_name = (data.get("name") or "").strip()
     if not path:
-        return jsonify({"error": {"code": "VALIDATION_ERROR", "message": "path is required"}}), 400
+        return jsonify(
+            {"error": {"code": "VALIDATION_ERROR", "message": _("path is required")}}
+        ), 400
     try:
         new_name = folders_svc.validate_folder_name(new_name)
     except folders_svc.FolderError as exc:
@@ -809,7 +817,7 @@ def rename_folder():
     conn = _open_cache_for_account(account)
     if not conn:
         return jsonify(
-            {"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}
+            {"error": {"code": "NO_CACHE", "message": _("Unable to open document store.")}}
         ), 503
     try:
         cache_db.rename_folder_subtree(conn, account_id, path, new_path)
@@ -834,13 +842,15 @@ def delete_folder():
     data = _form_or_json("path")
     path = (data.get("path") or "").strip().strip("/")
     if not path:
-        return jsonify({"error": {"code": "VALIDATION_ERROR", "message": "path is required"}}), 400
+        return jsonify(
+            {"error": {"code": "VALIDATION_ERROR", "message": _("path is required")}}
+        ), 400
 
     account = _get_account(account_id, user_id)
     conn = _open_cache_for_account(account)
     if not conn:
         return jsonify(
-            {"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}
+            {"error": {"code": "NO_CACHE", "message": _("Unable to open document store.")}}
         ), 503
     parent = folders_svc.parent_path(path)
     try:
@@ -882,13 +892,13 @@ def undo_delete_folder():
         return err
     undo = session.pop("docs_folder_undo", None)
     if not undo:
-        return jsonify({"error": {"code": "NO_UNDO", "message": "Nothing to undo."}}), 400
+        return jsonify({"error": {"code": "NO_UNDO", "message": _("Nothing to undo.")}}), 400
 
     account = _get_account(account_id, user_id)
     conn = _open_cache_for_account(account)
     if not conn:
         return jsonify(
-            {"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}
+            {"error": {"code": "NO_CACHE", "message": _("Unable to open document store.")}}
         ), 503
     try:
         # Restore folder rows.
@@ -932,12 +942,14 @@ def move_document(doc_id):
     conn = _open_cache_for_account(account)
     if not conn:
         return jsonify(
-            {"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}
+            {"error": {"code": "NO_CACHE", "message": _("Unable to open document store.")}}
         ), 503
     try:
         doc = cache_db.get_document(conn, doc_id)
         if not doc or doc.get("deleted_at"):
-            return jsonify({"error": {"code": "NOT_FOUND", "message": "Document not found"}}), 404
+            return jsonify(
+                {"error": {"code": "NOT_FOUND", "message": _("Document not found")}}
+            ), 404
         if target:
             folders_svc.ensure_folder_path(conn, account_id, target)
         cache_db.set_document_folder(conn, doc_id, target)
@@ -961,12 +973,14 @@ def get_tags(doc_id):
     conn = _open_cache_for_account(account)
     if not conn:
         return jsonify(
-            {"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}
+            {"error": {"code": "NO_CACHE", "message": _("Unable to open document store.")}}
         ), 503
     try:
         doc = cache_db.get_document(conn, doc_id)
         if not doc:
-            return jsonify({"error": {"code": "NOT_FOUND", "message": "Document not found"}}), 404
+            return jsonify(
+                {"error": {"code": "NOT_FOUND", "message": _("Document not found")}}
+            ), 404
         tags = cache_db.get_document_tags(conn, doc_id)
     finally:
         conn.close()
@@ -1009,12 +1023,14 @@ def update_tags(doc_id):
     conn = _open_cache_for_account(account)
     if not conn:
         return jsonify(
-            {"error": {"code": "NO_CACHE", "message": "Unable to open document store."}}
+            {"error": {"code": "NO_CACHE", "message": _("Unable to open document store.")}}
         ), 503
     try:
         doc = cache_db.get_document(conn, doc_id)
         if not doc or doc.get("deleted_at"):
-            return jsonify({"error": {"code": "NOT_FOUND", "message": "Document not found"}}), 404
+            return jsonify(
+                {"error": {"code": "NOT_FOUND", "message": _("Document not found")}}
+            ), 404
         if data.get("set") is not None:
             cache_db.set_document_tags(conn, doc_id, add_tags)
         else:

@@ -30,6 +30,10 @@ def create_app():
 
     db.init_app(app)
 
+    from app.shared.i18n import register_i18n
+
+    register_i18n(app)
+
     @app.template_global("static_v")
     def _static_version(filename: str) -> str:
         """Cache-busting version for static assets (mtime-based).
@@ -204,11 +208,15 @@ def create_app():
                 )
         return response
 
+    from flask_babel import _
+
     @app.errorhandler(404)
     def _handle_404(exc):
         if request.accept_mimetypes.accept_html:
             return render_template(
-                "error.html", title="Not Found", message="The page you requested does not exist."
+                "error.html",
+                title=_("Not Found"),
+                message=_("The page you requested does not exist."),
             ), 404
         return {
             "error": {"code": "NOT_FOUND", "message": "The requested resource does not exist."}
@@ -218,7 +226,9 @@ def create_app():
     def _handle_405(exc):
         if request.accept_mimetypes.accept_html:
             return render_template(
-                "error.html", title="Method Not Allowed", message="This action is not supported."
+                "error.html",
+                title=_("Method Not Allowed"),
+                message=_("This action is not supported."),
             ), 405
         return {
             "error": {
@@ -236,10 +246,12 @@ def create_app():
         if request.accept_mimetypes.accept_html:
             return render_template(
                 "error.html",
-                title="Cache key mismatch",
-                message="Your local mail cache was encrypted with a different key. "
-                "This can happen if your password was changed or your API access was reconfigured. "
-                "Please reset your cache to continue — your mail will be re-synced from the server.",
+                title=_("Cache key mismatch"),
+                message=_(
+                    "Your local mail cache was encrypted with a different key. "
+                    "This can happen if your password was changed or your API access was reconfigured. "
+                    "Please reset your cache to continue — your mail will be re-synced from the server."
+                ),
                 show_cache_reset=True,
                 account_id=account_id,
             ), 500
@@ -260,8 +272,8 @@ def create_app():
         if request.accept_mimetypes.accept_html:
             return render_template(
                 "error.html",
-                title="Something went wrong",
-                message="An unexpected error occurred. Please try again or refresh the page.",
+                title=_("Something went wrong"),
+                message=_("An unexpected error occurred. Please try again or refresh the page."),
                 show_cache_reset="active_account_id" in session,
                 account_id=session.get("active_account_id"),
             ), 500

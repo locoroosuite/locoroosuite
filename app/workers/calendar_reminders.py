@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 
 from app.shared import push, push_keys
 from app.shared.db import db
+from app.shared.i18n import forced_user_locale
 from app.shared.models.core import (
     CustomerAccount,
     CustomerSettings,
@@ -108,13 +109,17 @@ def _event_start_utc(event: dict, user_tz_name: str) -> datetime | None:
 
 
 def _format_when_local(start_utc: datetime, user_tz_name: str, all_day: bool) -> str:
+    """Format the reminder time. Must run inside ``forced_user_locale`` so the
+    month/day names (and the "at" separator) follow the user's locale."""
+    from flask_babel import _, format_datetime
+
     try:
         local = start_utc.astimezone(ZoneInfo(user_tz_name))
     except Exception:
         local = start_utc.astimezone(UTC)
     if all_day:
-        return local.strftime("%a, %b %d, %Y")
-    return local.strftime("%a, %b %d, %Y at %H:%M")
+        return format_datetime(local, "EEE, MMM dd, y")
+    return f"{format_datetime(local, 'EEE, MMM dd, y')} {_('at')} {format_datetime(local, 'HH:mm')}"
 
 
 def _due_reminders(conn) -> list[dict]:
@@ -298,7 +303,8 @@ class CalendarReminderWorker:
             )
             if exists:
                 continue
-            when_local = _format_when_local(start_utc, user_tz_name, reminder["all_day"])
+            with forced_user_locale(user_id):
+                when_local = _format_when_local(start_utc, user_tz_name, reminder["all_day"])
             sent = push.send_calendar_push(
                 self.app,
                 user_id,

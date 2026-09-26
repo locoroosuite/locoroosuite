@@ -11,6 +11,7 @@ from flask import (
     session,
     url_for,
 )
+from flask_babel import _
 
 from app.modules.docs.controllers.helpers import docs_bp
 from app.modules.docs.services import collabora, sharing, wopi_token
@@ -88,11 +89,11 @@ def add_shares(doc_id):
     send_invite = data.get("send_invite", True)
 
     if permission not in ("view", "write"):
-        return jsonify({"error": "Invalid permission"}), 400
+        return jsonify({"error": _("Invalid permission")}), 400
 
     emails = [e.strip() for e in emails_str.split(",") if e.strip()]
     if not emails:
-        return jsonify({"error": "No email addresses provided"}), 400
+        return jsonify({"error": _("No email addresses provided")}), 400
 
     created = sharing.create_shares_batch(
         doc_id=doc_id,
@@ -139,7 +140,7 @@ def public_share_view(share_token):
     share = sharing.get_share_by_token(share_token)
     if not share:
         return render_template(
-            "docs_share_error.html", message="This link has been revoked or does not exist."
+            "docs_share_error.html", message=_("This link has been revoked or does not exist.")
         ), 404
 
     sharing.record_share_access(share)

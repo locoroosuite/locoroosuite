@@ -29,10 +29,10 @@
   var LS_NOTIF_DISMISSED_AT = 'lr-notif-dismissed-at';
   var NOTIF_REASK_MS = 7 * 24 * 60 * 60 * 1000;
 
-  var BANNER_INSTALL_TEXT = 'Add the app to your home screen for a faster, full-screen experience.';
-  var BANNER_IOS_TEXT = "Install the app: tap the Share button, then choose 'Add to Home Screen'.";
-  var BANNER_FALLBACK_TEXT = "You can install it from your browser's menu (\u22EE \u2192 Install app).";
-  var SETTINGS_IOS_HINT = 'Add it via Share \u2192 Add to Home Screen to use the app full screen and get notifications.';
+  var BANNER_INSTALL_TEXT = window.LR.t('Add the app to your home screen for a faster, full-screen experience.');
+  var BANNER_IOS_TEXT = window.LR.t("Install the app: tap the Share button, then choose 'Add to Home Screen'.");
+  var BANNER_FALLBACK_TEXT = window.LR.t("You can install it from your browser's menu (\u22EE \u2192 Install app).");
+  var SETTINGS_IOS_HINT = window.LR.t('Add it via Share \u2192 Add to Home Screen to use the app full screen and get notifications.');
 
   function lsGet(key) {
     try {
@@ -111,18 +111,18 @@
 
   function subscribePush() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      return Promise.reject(new Error('This browser does not support push notifications.'));
+      return Promise.reject(new Error(window.LR.t('This browser does not support push notifications.')));
     }
     return fetch('/app/mail/push/key', { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(function (r) {
         if (!r.ok) {
-          throw new Error('Push notifications are not configured on the server. Please contact your administrator.');
+          throw new Error(window.LR.t('Push notifications are not configured on the server. Please contact your administrator.'));
         }
         return r.json();
       })
       .then(function (data) {
         if (!data || !data.public_key) {
-          throw new Error('Push notifications are not configured on the server.');
+          throw new Error(window.LR.t('Push notifications are not configured on the server.'));
         }
         return navigator.serviceWorker.ready.then(function (reg) {
           return reg.pushManager.subscribe({
@@ -138,7 +138,7 @@
           credentials: 'same-origin',
           body: JSON.stringify(sub.toJSON())
         }).then(function (r) {
-          if (!r.ok) throw new Error('Could not save the subscription. Please retry.');
+          if (!r.ok) throw new Error(window.LR.t('Could not save the subscription. Please retry.'));
         });
       });
   }
@@ -275,7 +275,7 @@
       prompt.classList.add('hidden');
       lsRemove(LS_NOTIF_DISMISSED_AT);
       if (subscribed && window.LR && window.LR.notifySuccess) {
-        window.LR.notifySuccess('Notifications enabled for this device.');
+        window.LR.notifySuccess(window.LR.t('Notifications enabled for this device.'));
       } else if (err && window.LR && window.LR.notifyError) {
         window.LR.notifyError(err);
       }
@@ -318,12 +318,12 @@
                 finish(true, null);
               },
               function (err) {
-                finish(false, (err && err.message) || 'Could not turn on notifications.');
+                finish(false, (err && err.message) || window.LR.t('Could not turn on notifications.'));
               }
             );
           })
           .catch(function () {
-            finish(false, 'Could not turn on notifications.');
+            finish(false, window.LR.t('Could not turn on notifications.'));
           });
       });
     }

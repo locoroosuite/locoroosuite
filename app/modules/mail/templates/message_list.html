@@ -1,5 +1,5 @@
 {% macro _protected_pill(reason) %}
-<svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" role="img" aria-label="Protected" title="Protected from deletion ({{ reason }}). Use the &#8943; menu to {{ 'unlock' if reason == 'locked' else ('unstar' if reason == 'starred' else 'unstar and unlock') }} it." data-protected-badge><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V8H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
+<svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" role="img" aria-label="{{ _('Protected') }}" title="{{ _('Protected from deletion ({reason}). Use the ⋯ menu to {action} it.').format(reason=_(reason), action=_('unlock') if reason == 'locked' else (_('unstar') if reason == 'starred' else _('unstar and unlock'))) }}" data-protected-badge><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V8H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
 {% endmacro %}
 
 {% macro message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred=False, thread_total=0, in_junk_folder=False) %}
@@ -23,7 +23,7 @@
     <div class="flex-1 min-w-0">
       <div class="flex items-center justify-between gap-3 text-[15px] md:text-[13px]">
         <div class="flex items-center gap-2 min-w-0">
-          <span class="inline-flex items-center gap-1 text-[11px] md:text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">Delivery failed</span>
+          <span class="inline-flex items-center gap-1 text-[11px] md:text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">{{ _('Delivery failed') }}</span>
           <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
           {% if row_protected %}{{ _protected_pill(row_protected_reason) }}{% endif %}
           {% if loop.first and total > 1 %}
@@ -58,7 +58,7 @@
     <div class="flex-1 min-w-0">
       <div class="flex items-center justify-between gap-3 text-[15px] md:text-[13px]">
         <div class="flex items-center gap-2 min-w-0">
-          <span class="inline-flex items-center gap-1 text-[11px] md:text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Draft</span>
+          <span class="inline-flex items-center gap-1 text-[11px] md:text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">{{ _('Draft') }}</span>
           <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
           {% if row_protected %}{{ _protected_pill(row_protected_reason) }}{% endif %}
           {% if loop.first and total > 1 %}
@@ -71,7 +71,7 @@
         <div class="flex items-center gap-2 text-[12px] md:text-[11px] text-slate-500 min-w-0 max-w-[55%] justify-end">
           {% if msg.recipients_display %}
           <span class="inline-flex items-center gap-1 text-amber-600 font-medium">
-            <span>To</span>
+            <span>{{ _('To') }}</span>
             <svg class="w-3 h-3 text-amber-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
             <span class="truncate font-normal text-slate-500" title="{{ msg.recipients_display }}">{{ msg.recipients_display }}</span>
           </span>
@@ -108,7 +108,7 @@
         </div>
         <div class="flex items-center gap-2 text-[12px] md:text-[11px] text-slate-500 min-w-0 max-w-[55%] justify-end">
           <span class="inline-flex items-center gap-1 text-indigo-600 font-medium">
-            <span>You</span>
+            <span>{{ _('You') }}</span>
             {% if msg.recipients_display %}
             <svg class="w-3 h-3 text-indigo-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
             <span class="truncate font-normal text-slate-500" title="{{ msg.recipients_display }}">{{ msg.recipients_display }}</span>
@@ -127,7 +127,7 @@
   <div class="flex items-start gap-2">
     <form method="post" action="{{ url_for('mail.flag_message', account_id=account.id, message_id=msg.id) }}" class="message-action flex-shrink-0 pt-0.5" data-action="flag" data-no-row-nav>
       <input type="hidden" name="action" value="{{ 'remove' if msg.is_flagged else 'add' }}" />
-      <button type="submit" class="p-1.5 -m-1 rounded lr-hit lr-hit-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400" data-star-toggle aria-label="{{ 'Unstar' if msg.is_flagged else 'Star' }}">
+      <button type="submit" class="p-1.5 -m-1 rounded lr-hit lr-hit-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400" data-star-toggle aria-label="{{ _('Unstar') if msg.is_flagged else _('Star') }}">
         <svg class="w-[18px] h-[18px] transition-colors {{ 'text-amber-400' if msg.is_flagged else 'text-slate-300 hover:text-amber-400' }}" data-star-icon viewBox="0 0 24 24" fill="{{ 'currentColor' if msg.is_flagged else 'none' }}" stroke="currentColor" stroke-width="{{ '1' if msg.is_flagged else '1.5' }}">
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
         </svg>
@@ -154,37 +154,37 @@
       <div class="mt-1 text-[13px] md:text-[12px] text-slate-600 line-clamp-1">{{ msg.snippet|striptags }}</div>
     </div>
   </div>
-  <button type="button" class="lg:hidden absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full border border-slate-200 bg-white/95 text-[13px] lg:text-[12px] text-slate-600 shadow-sm z-30 lr-hit" data-message-actions-toggle="true" data-no-row-nav aria-expanded="false" aria-label="Show actions">...</button>
+  <button type="button" class="lg:hidden absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full border border-slate-200 bg-white/95 text-[13px] lg:text-[12px] text-slate-600 shadow-sm z-30 lr-hit" data-message-actions-toggle="true" data-no-row-nav aria-expanded="false" aria-label="{{ _('Show actions') }}">...</button>
   <div class="absolute inset-y-0 right-0 flex items-center justify-end gap-1 pl-12 pr-3 bg-gradient-to-l from-white/90 via-white/70 to-transparent opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition z-20 message-actions-overlay" data-message-actions="true">
     <form method="post" action="{{ url_for('mail.archive_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="archive" data-no-row-nav>
-      <button class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit">Archive</button>
+      <button class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit">{{ _('Archive') }}</button>
     </form>
     <form method="post" action="{{ url_for('mail.delete_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="delete" data-no-row-nav>
-      <button class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit">Delete</button>
+      <button class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit">{{ _('Delete') }}</button>
     </form>
     <div class="relative">
-      <button type="button" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit" data-overflow-toggle data-no-row-nav aria-label="More actions">&#8943;</button>
+      <button type="button" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit" data-overflow-toggle data-no-row-nav aria-label="{{ _('More actions') }}">&#8943;</button>
       <div class="absolute right-0 py-1 min-w-[160px] rounded-lg border border-slate-200 bg-white shadow-lg hidden z-50" data-overflow-menu>
         <form method="post" action="{{ url_for('mail.mark_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="mark" data-no-row-nav>
           <input type="hidden" name="action" value="{{ 'read' if msg.is_unread else 'unread' }}" />
-          <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">{{ 'Mark as read' if msg.is_unread else 'Mark as unread' }}</button>
+          <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">{{ _('Mark as read') if msg.is_unread else _('Mark as unread') }}</button>
         </form>
         {% if in_junk_folder %}
         <form method="post" action="{{ url_for('mail.not_junk_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="not-junk" data-no-row-nav>
-          <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">Not spam</button>
+          <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">{{ _('Not spam') }}</button>
         </form>
         {% elif spam_action_enabled %}
         <form method="post" action="{{ url_for('mail.junk_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="junk" data-no-row-nav>
-          <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">Report spam</button>
+          <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">{{ _('Report spam') }}</button>
         </form>
         {% endif %}
         {% if lock_action_enabled and not msg.is_draft %}
         <form method="post" action="{{ url_for('mail.lock_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="lock" data-no-row-nav>
           <input type="hidden" name="action" value="{{ 'remove' if '$Locked' in (msg.flags or []) else 'add' }}" />
-          <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">{{ 'Unlock' if '$Locked' in (msg.flags or []) else 'Lock' }}</button>
+          <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">{{ _('Unlock') if '$Locked' in (msg.flags or []) else _('Lock') }}</button>
         </form>
         {% endif %}
-        <button type="button" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-to-folder data-no-row-nav>Move to folder</button>
+        <button type="button" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-to-folder data-no-row-nav>{{ _('Move to folder') }}</button>
       </div>
     </div>
   </div>
@@ -216,7 +216,7 @@
         <div class="thread-collapse-bar relative px-3 md:px-4 py-2 text-[13px] md:text-[12px] text-slate-500 cursor-pointer select-none bg-slate-50/60 hover:bg-slate-100/70 transition-colors duration-150" data-thread-collapse-toggle aria-expanded="false" data-older-count="{{ older_count }}" data-no-row-nav>
           <div class="flex items-center justify-center gap-1.5">
             <svg class="w-3 h-3 text-slate-400 transition-transform duration-200" data-collapse-chevron viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
-            <span data-collapse-label>{{ older_count }} older message{{ 's' if older_count != 1 else '' }}</span>
+            <span data-collapse-label>{{ _('{n} older message').format(n=older_count) if older_count == 1 else _('{n} older messages').format(n=older_count) }}</span>
           </div>
         </div>
 
@@ -225,7 +225,7 @@
             {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred, thread_total=full_count, in_junk_folder=in_junk_folder) }}
           {% endfor %}
           {% if omitted > 0 %}
-          <a href="{{ url_for('mail.message_view', account_id=account.id, message_id=msgs[0].id) }}" class="block px-3 md:px-4 py-2 text-[13px] md:text-[12px] text-indigo-600 hover:text-indigo-800 hover:bg-slate-100/70 cursor-pointer" data-no-row-nav>&hellip; {{ omitted }} more in thread &mdash; open all</a>
+          <a href="{{ url_for('mail.message_view', account_id=account.id, message_id=msgs[0].id) }}" class="block px-3 md:px-4 py-2 text-[13px] md:text-[12px] text-indigo-600 hover:text-indigo-800 hover:bg-slate-100/70 cursor-pointer" data-no-row-nav>&hellip; {{ _('{n} more in thread').format(n=omitted) }} &mdash; {{ _('open all') }}</a>
           {% endif %}
         </div>
       </div>

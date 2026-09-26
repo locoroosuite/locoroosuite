@@ -1,34 +1,34 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="mx-auto max-w-3xl px-3 md:px-0">
-  <h1 class="mb-4 text-xl font-semibold text-slate-900">Settings</h1>
+  <h1 class="mb-4 text-xl font-semibold text-slate-900">{{ _('Settings') }}</h1>
 
-  <nav class="mb-4 md:mb-6 flex flex-wrap gap-2" aria-label="Settings sections">
-    <a href="#general" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">General</a>
-    <a href="#mail" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">Mail</a>
-    <a href="#protection" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">Protection</a>
-    <a href="#notifications" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">Notifications</a>
-    <a href="#security" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">Security &amp; API</a>
-    <a href="#danger" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50">Danger zone</a>
+  <nav class="mb-4 md:mb-6 flex flex-wrap gap-2" aria-label="{{ _('Settings sections') }}">
+    <a href="#general" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">{{ _('General') }}</a>
+    <a href="#mail" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">{{ _('Mail') }}</a>
+    <a href="#protection" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">{{ _('Protection') }}</a>
+    <a href="#notifications" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">{{ _('Notifications') }}</a>
+    <a href="#security" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">{{ _('Security') }} &amp; {{ _('API') }}</a>
+    <a href="#danger" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50">{{ _('Danger zone') }}</a>
   </nav>
 
   <div class="space-y-3 md:space-y-6">
 
     <section id="general" class="bg-white/90 border border-slate-200/80 rounded-2xl shadow-sm">
       <div class="border-b border-slate-100 px-3 md:px-6 py-3 md:py-4">
-        <h2 class="text-sm font-semibold text-slate-900">General</h2>
-        <p class="mt-0.5 text-xs text-slate-500">How the app looks and what timezone it uses.</p>
+        <h2 class="text-sm font-semibold text-slate-900">{{ _('General') }}</h2>
+        <p class="mt-0.5 text-xs text-slate-500">{{ _('How the app looks and what timezone it uses.') }}</p>
       </div>
       <div class="divide-y divide-slate-100 px-3 md:px-6">
         <div class="flex flex-col items-start gap-2 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div>
-            <div class="text-sm font-medium text-slate-800">Timezone</div>
-            <p class="mt-0.5 text-xs text-slate-500">Dates and times are shown in this timezone.</p>
+            <div class="text-sm font-medium text-slate-800">{{ _('Timezone') }}</div>
+            <p class="mt-0.5 text-xs text-slate-500">{{ _('Dates and times are shown in this timezone.') }}</p>
           </div>
           <div class="flex w-full flex-col-reverse items-start gap-1 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
             <span class="pref-status text-xs" aria-live="polite"></span>
             <select data-pref="timezone" id="tz-select" class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200 sm:w-56">
-              <option value="browser" {{ 'selected' if settings.timezone == 'browser' or not settings.timezone }}>Browser (detected)</option>
+              <option value="browser" {{ 'selected' if settings.timezone == 'browser' or not settings.timezone }}>{{ _('Browser (detected)') }}</option>
               {% for tz in timezone_options %}
               <option value="{{ tz }}" {{ 'selected' if settings.timezone == tz }}>{{ tz }}</option>
               {% endfor %}
@@ -37,14 +37,28 @@
         </div>
         <div class="flex flex-col items-start gap-2 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div>
-            <div class="text-sm font-medium text-slate-800">Theme</div>
-            <p class="mt-0.5 text-xs text-slate-500">Colour scheme of the interface.</p>
+            <div class="text-sm font-medium text-slate-800">{{ _("Language") }}</div>
+            <p class="mt-0.5 text-xs text-slate-500">{{ _("Interface language. Auto follows your browser.") }}</p>
+          </div>
+          <div class="flex w-full flex-col-reverse items-start gap-1 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
+            <span class="pref-status text-xs" aria-live="polite"></span>
+            <select data-pref="language" class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200 sm:w-56">
+              {% for choice in language_choices %}
+              <option value="{{ choice }}" {{ 'selected' if settings.language == choice or (choice == 'browser' and not settings.language) }}>{{ language_labels[choice] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="flex flex-col items-start gap-2 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <div>
+            <div class="text-sm font-medium text-slate-800">{{ _("Theme") }}</div>
+            <p class="mt-0.5 text-xs text-slate-500">{{ _('Colour scheme of the interface.') }}</p>
           </div>
           <div class="flex w-full flex-col-reverse items-start gap-1 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
             <span class="pref-status text-xs" aria-live="polite"></span>
             <select data-pref="theme" class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200 sm:w-56">
-              <option value="light" {% if settings.theme == "light" %}selected{% endif %}>Light</option>
-              <option value="dark" {% if settings.theme == "dark" %}selected{% endif %}>Dark</option>
+              <option value="light" {% if settings.theme == "light" %}selected{% endif %}>{{ _('Light') }}</option>
+              <option value="dark" {% if settings.theme == "dark" %}selected{% endif %}>{{ _('Dark') }}</option>
             </select>
           </div>
         </div>
@@ -53,27 +67,27 @@
 
     <section id="mail" class="bg-white/90 border border-slate-200/80 rounded-2xl shadow-sm">
       <div class="border-b border-slate-100 px-3 md:px-6 py-3 md:py-4">
-        <h2 class="text-sm font-semibold text-slate-900">Mail</h2>
-        <p class="mt-0.5 text-xs text-slate-500">How your mailbox behaves.</p>
+        <h2 class="text-sm font-semibold text-slate-900">{{ _('Mail') }}</h2>
+        <p class="mt-0.5 text-xs text-slate-500">{{ _('How your mailbox behaves.') }}</p>
       </div>
       <div class="divide-y divide-slate-100 px-3 md:px-6">
         <div class="flex flex-col items-start gap-2 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div>
-            <div class="text-sm font-medium text-slate-800">Sort order</div>
-            <p class="mt-0.5 text-xs text-slate-500">Default ordering of the message list.</p>
+            <div class="text-sm font-medium text-slate-800">{{ _('Sort order') }}</div>
+            <p class="mt-0.5 text-xs text-slate-500">{{ _('Default ordering of the message list.') }}</p>
           </div>
           <div class="flex w-full flex-col-reverse items-start gap-1 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
             <span class="pref-status text-xs" aria-live="polite"></span>
             <select data-pref="sort_order" class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200 sm:w-56">
-              <option value="date_desc" {% if settings.sort_order == "date_desc" %}selected{% endif %}>Newest first</option>
-              <option value="date_asc" {% if settings.sort_order == "date_asc" %}selected{% endif %}>Oldest first</option>
+              <option value="date_desc" {% if settings.sort_order == "date_desc" %}selected{% endif %}>{{ _('Newest first') }}</option>
+              <option value="date_asc" {% if settings.sort_order == "date_asc" %}selected{% endif %}>{{ _('Oldest first') }}</option>
             </select>
           </div>
         </div>
         <div class="flex flex-col items-start gap-2 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div>
-            <div class="text-sm font-medium text-slate-800">Preview pane</div>
-            <p class="mt-0.5 text-xs text-slate-500">Open the reading pane next to the message list by default.</p>
+            <div class="text-sm font-medium text-slate-800">{{ _('Preview pane') }}</div>
+            <p class="mt-0.5 text-xs text-slate-500">{{ _('Open the reading pane next to the message list by default.') }}</p>
           </div>
           <label class="inline-flex cursor-pointer items-center gap-2">
             <input type="checkbox" data-pref="preview_pane_default" class="peer sr-only" {% if settings.preview_pane_default %}checked{% endif %} />
@@ -83,8 +97,8 @@
         </div>
         <div class="flex flex-col items-start gap-2 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div>
-            <div class="text-sm font-medium text-slate-800">Sync frequency</div>
-            <p class="mt-0.5 text-xs text-slate-500">How often to check for new mail when the app is open.</p>
+            <div class="text-sm font-medium text-slate-800">{{ _('Sync frequency') }}</div>
+            <p class="mt-0.5 text-xs text-slate-500">{{ _('How often to check for new mail when the app is open.') }}</p>
           </div>
           <div class="flex w-full flex-col-reverse items-start gap-1 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
             <span class="pref-status text-xs" aria-live="polite"></span>
@@ -100,14 +114,14 @@
 
     <section id="protection" class="bg-white/90 border border-slate-200/80 rounded-2xl shadow-sm">
       <div class="border-b border-slate-100 px-3 md:px-6 py-3 md:py-4">
-        <h2 class="text-sm font-semibold text-slate-900">Protection</h2>
-        <p class="mt-0.5 text-xs text-slate-500">Guard rails that stop mail from being deleted by accident — or by an AI agent.</p>
+        <h2 class="text-sm font-semibold text-slate-900">{{ _('Protection') }}</h2>
+        <p class="mt-0.5 text-xs text-slate-500">{{ _('Guard rails that stop mail from being deleted by accident — or by an AI agent.') }}</p>
       </div>
       <div class="divide-y divide-slate-100 px-3 md:px-6">
         <div class="flex flex-col items-start gap-2 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div>
-            <div class="text-sm font-medium text-slate-800">Protect starred emails</div>
-            <p class="mt-0.5 text-xs text-slate-500">Starred emails refuse delete or move-to-Trash until they are un-starred.</p>
+            <div class="text-sm font-medium text-slate-800">{{ _('Protect starred emails') }}</div>
+            <p class="mt-0.5 text-xs text-slate-500">{{ _('Starred emails refuse delete or move-to-Trash until they are un-starred.') }}</p>
           </div>
           <label class="inline-flex cursor-pointer items-center gap-2">
             <input type="checkbox" data-pref="protect_starred" class="peer sr-only" {% if settings.protect_starred %}checked{% endif %} />
@@ -124,8 +138,8 @@
           <div class="mt-2 space-y-1">
             <div class="flex flex-col items-start gap-2 rounded-lg bg-slate-50/70 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <div>
-                <div class="text-sm text-slate-700">Spam reporting</div>
-                <p class="mt-0.5 text-xs text-slate-500">Show the “report spam” action for this account.</p>
+                <div class="text-sm text-slate-700">{{ _('Spam reporting') }}</div>
+                <p class="mt-0.5 text-xs text-slate-500">{{ _('Show the “report spam” action for this account.') }}</p>
               </div>
               <label class="inline-flex cursor-pointer items-center gap-2">
                 <input type="checkbox" data-pref="spam_action_{{ account.id }}" class="peer sr-only" {% if spam_enabled %}checked{% endif %} />
@@ -135,8 +149,8 @@
             </div>
             <div class="flex flex-col items-start gap-2 rounded-lg bg-slate-50/70 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <div>
-                <div class="text-sm text-slate-700">Message lock</div>
-                <p class="mt-0.5 text-xs text-slate-500">Allow locking individual messages so they refuse delete.</p>
+                <div class="text-sm text-slate-700">{{ _('Message lock') }}</div>
+                <p class="mt-0.5 text-xs text-slate-500">{{ _('Allow locking individual messages so they refuse delete.') }}</p>
               </div>
               <label class="inline-flex cursor-pointer items-center gap-2">
                 <input type="checkbox" data-pref="locked_keyword_{{ account.id }}" class="peer sr-only" {% if lock_enabled %}checked{% endif %} />
@@ -148,47 +162,47 @@
         </div>
         {% endfor %}
         {% else %}
-        <div class="py-4 text-xs text-slate-500">No active accounts yet.</div>
+        <div class="py-4 text-xs text-slate-500">{{ _('No active accounts yet.') }}</div>
         {% endif %}
       </div>
     </section>
 
     <section id="notifications" class="bg-white/90 border border-slate-200/80 rounded-2xl shadow-sm">
       <div class="border-b border-slate-100 px-3 md:px-6 py-3 md:py-4">
-        <h2 class="text-sm font-semibold text-slate-900">Notifications</h2>
-        <p class="mt-0.5 text-xs text-slate-500">Choose what reaches your devices — new email, calendar reminders — and manage registered devices.</p>
+        <h2 class="text-sm font-semibold text-slate-900">{{ _('Notifications') }}</h2>
+        <p class="mt-0.5 text-xs text-slate-500">{{ _('Choose what reaches your devices — new email, calendar reminders — and manage registered devices.') }}</p>
       </div>
       <div class="px-3 md:px-6 py-3 md:py-4">
         <div id="pwa-install-settings" class="hidden mb-4 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-3">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="min-w-0">
-              <div class="text-sm font-medium text-slate-800">Install the app</div>
-              <p id="pwa-install-settings-hint" class="mt-0.5 text-xs text-slate-500">Add LocoRooSuite to your home screen for a faster, full-screen experience.</p>
+              <div class="text-sm font-medium text-slate-800">{{ _('Install the app') }}</div>
+              <p id="pwa-install-settings-hint" class="mt-0.5 text-xs text-slate-500">{{ _('Add LocoRooSuite to your home screen for a faster, full-screen experience.') }}</p>
             </div>
-            <button type="button" id="pwa-install-settings-btn" class="hidden shrink-0 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60">Install app</button>
+            <button type="button" id="pwa-install-settings-btn" class="hidden shrink-0 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60">{{ _('Install app') }}</button>
           </div>
           <ol id="pwa-install-settings-ios" class="hidden mt-2 list-decimal list-inside space-y-0.5 text-xs text-slate-600">
-            <li>Tap the <strong>Share</strong> button in the browser toolbar.</li>
-            <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
-            <li>Tap <strong>Add</strong> to install.</li>
+            <li>{{ _('Tap the') }} <strong>{{ _('Share') }}</strong> {{ _('button in the browser toolbar.') }}</li>
+            <li>{{ _('Scroll down and tap') }} <strong>{{ _('Add to Home Screen') }}</strong>.</li>
+            <li>{{ _('Tap') }} <strong>{{ _('Add') }}</strong> {{ _('to install.') }}</li>
           </ol>
         </div>
         <div id="push-status" class="text-xs"></div>
         <div class="mt-3 flex flex-wrap items-center gap-3">
-          <button type="button" id="push-enable-btn" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60">Enable notifications</button>
-          <button type="button" id="push-disable-btn" class="hidden rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60">Disable on this device</button>
-          <button type="button" id="push-test-btn" class="hidden rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60">Send test notification</button>
+          <button type="button" id="push-enable-btn" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60">{{ _('Enable notifications') }}</button>
+          <button type="button" id="push-disable-btn" class="hidden rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60">{{ _('Disable on this device') }}</button>
+          <button type="button" id="push-test-btn" class="hidden rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60">{{ _('Send test notification') }}</button>
         </div>
         <div class="mt-4">
-          <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Registered devices</div>
+          <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{{ _('Registered devices') }}</div>
           <ul id="push-device-list" class="space-y-2 text-sm text-slate-700"></ul>
-          <p id="push-no-devices" class="hidden text-xs text-slate-500">No devices registered yet.</p>
+          <p id="push-no-devices" class="hidden text-xs text-slate-500">{{ _('No devices registered yet.') }}</p>
         </div>
         <div class="mt-4 space-y-1">
           <div class="flex flex-col items-start gap-2 rounded-lg bg-slate-50/70 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div>
-              <div class="text-sm text-slate-700">New email notifications</div>
-              <p class="mt-0.5 text-xs text-slate-500">Get a device notification when new mail arrives, even when the app is closed.</p>
+              <div class="text-sm text-slate-700">{{ _('New email notifications') }}</div>
+              <p class="mt-0.5 text-xs text-slate-500">{{ _('Get a device notification when new mail arrives, even when the app is closed.') }}</p>
             </div>
             <label class="inline-flex cursor-pointer items-center gap-2">
               <input type="checkbox" data-pref="notify_mail_enabled" class="peer sr-only" {% if settings.notify_mail_enabled %}checked{% endif %} />
@@ -198,8 +212,8 @@
           </div>
           <div class="flex flex-col items-start gap-2 rounded-lg bg-slate-50/70 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div>
-              <div class="text-sm text-slate-700">Calendar event reminders</div>
-              <p class="mt-0.5 text-xs text-slate-500">Get a device notification at each event’s reminder time (e.g. 15 minutes before). Requires at least one registered device.</p>
+              <div class="text-sm text-slate-700">{{ _('Calendar event reminders') }}</div>
+              <p class="mt-0.5 text-xs text-slate-500">{{ _('Get a device notification at each event’s reminder time (e.g. 15 minutes before). Requires at least one registered device.') }}</p>
             </div>
             <label class="inline-flex cursor-pointer items-center gap-2">
               <input type="checkbox" data-pref="notify_calendar_enabled" class="peer sr-only" {% if settings.notify_calendar_enabled %}checked{% endif %} />
@@ -209,8 +223,8 @@
           </div>
           <div class="flex flex-col items-start gap-2 rounded-lg bg-slate-50/70 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div>
-              <div class="text-sm text-slate-700">Show sender and subject</div>
-              <p class="mt-0.5 text-xs text-slate-500">Off by default: notifications only say “New email” so your mail stays private on the lock screen. Message bodies are never included.</p>
+              <div class="text-sm text-slate-700">{{ _('Show sender and subject') }}</div>
+              <p class="mt-0.5 text-xs text-slate-500">{{ _('Off by default: notifications only say “New email” so your mail stays private on the lock screen. Message bodies are never included.') }}</p>
             </div>
             <label class="inline-flex cursor-pointer items-center gap-2">
               <input type="checkbox" data-pref="push_detailed" class="peer sr-only" {% if settings.push_detailed %}checked{% endif %} />
@@ -224,20 +238,20 @@
 
     <section id="security" class="bg-white/90 border border-slate-200/80 rounded-2xl shadow-sm">
       <div class="border-b border-slate-100 px-3 md:px-6 py-3 md:py-4">
-        <h2 class="text-sm font-semibold text-slate-900">Security &amp; API</h2>
+        <h2 class="text-sm font-semibold text-slate-900">{{ _('Security') }} &amp; {{ _('API') }}</h2>
       </div>
       <div class="divide-y divide-slate-100">
         <a href="{{ url_for('mail.twofa_settings') }}" class="flex flex-col items-start gap-2 px-3 md:px-6 py-4 hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div>
-            <div class="text-sm font-medium text-slate-800">Two-factor authentication</div>
-            <p class="mt-0.5 text-xs text-slate-500">Enable 2FA and manage trusted devices.</p>
+            <div class="text-sm font-medium text-slate-800">{{ _('Two-factor authentication') }}</div>
+            <p class="mt-0.5 text-xs text-slate-500">{{ _('Enable 2FA and manage trusted devices.') }}</p>
           </div>
           <span class="self-end text-slate-400 sm:self-center">&rarr;</span>
         </a>
         <a href="{{ url_for('mail.api_settings') }}" class="flex flex-col items-start gap-2 px-3 md:px-6 py-4 hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div>
-            <div class="text-sm font-medium text-slate-800">API access</div>
-            <p class="mt-0.5 text-xs text-slate-500">Manage API tokens for AI agents and external tools.</p>
+            <div class="text-sm font-medium text-slate-800">{{ _('API access') }}</div>
+            <p class="mt-0.5 text-xs text-slate-500">{{ _('Manage API tokens for AI agents and external tools.') }}</p>
           </div>
           <span class="self-end text-slate-400 sm:self-center">&rarr;</span>
         </a>
@@ -246,21 +260,21 @@
 
     <section id="danger" class="border border-rose-200/80 bg-rose-50/40 rounded-2xl shadow-sm">
       <div class="border-b border-rose-100 px-3 md:px-6 py-3 md:py-4">
-        <h2 class="text-sm font-semibold text-rose-900">Danger zone</h2>
+        <h2 class="text-sm font-semibold text-rose-900">{{ _('Danger zone') }}</h2>
       </div>
       <div class="px-3 md:px-6 py-3 md:py-4">
         <div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div>
-            <div class="text-sm font-medium text-slate-800">Reset mail cache</div>
-            <p class="mt-0.5 text-xs text-slate-500">Clears the locally cached mail for your active account and re-syncs from the server. Nothing is deleted from your mailbox.</p>
+            <div class="text-sm font-medium text-slate-800">{{ _('Reset mail cache') }}</div>
+            <p class="mt-0.5 text-xs text-slate-500">{{ _('Clears the locally cached mail for your active account and re-syncs from the server. Nothing is deleted from your mailbox.') }}</p>
           </div>
-          <button type="button" id="reset-cache-btn" class="w-full shrink-0 rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-60 sm:w-auto">Reset cache</button>
+          <button type="button" id="reset-cache-btn" class="w-full shrink-0 rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-60 sm:w-auto">{{ _('Reset cache') }}</button>
         </div>
         <div id="reset-cache-confirm" class="hidden mt-3 rounded-lg border border-rose-200 bg-white px-3 py-3">
-          <p class="text-sm text-slate-700">Clear the cached mail and re-sync from the server?</p>
+          <p class="text-sm text-slate-700">{{ _('Clear the cached mail and re-sync from the server?') }}</p>
           <div class="mt-3 flex items-center gap-3">
-            <button type="button" id="reset-cache-confirm-btn" class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-60">Yes, reset cache</button>
-            <button type="button" id="reset-cache-cancel-btn" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Cancel</button>
+            <button type="button" id="reset-cache-confirm-btn" class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-60">{{ _('Yes, reset cache') }}</button>
+            <button type="button" id="reset-cache-cancel-btn" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">{{ _('Cancel') }}</button>
           </div>
         </div>
         <div id="reset-cache-status" class="mt-3 hidden rounded-lg border px-3 py-2 text-sm" aria-live="polite"></div>
@@ -276,7 +290,7 @@
     var select = document.getElementById('tz-select');
     if (select && select.value === 'browser') {
       var opt = select.querySelector('option[value="browser"]');
-      if (opt) opt.textContent = 'Browser (detected: ' + (tz || 'unknown') + ')';
+      if (opt) opt.textContent = window.LR.t('Browser (detected: {tz})', { tz: tz || window.LR.t('unknown') });
     }
   } catch(e) {}
 })();
@@ -309,21 +323,21 @@
     var key = control.getAttribute('data-pref');
     var value = control.type === 'checkbox' ? control.checked : control.value;
     control.disabled = true;
-    setStatus(control, 'busy', 'Saving…');
+    setStatus(control, 'busy', window.LR.t('Saving…'));
     fetch('/app/mail/settings/pref', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
       body: JSON.stringify({ key: key, value: value })
     }).then(function(r) {
-      if (!r.ok) return r.json().then(function(err) { throw new Error((err && err.error && err.error.message) || 'Save failed'); });
+      if (!r.ok) return r.json().then(function(err) { throw new Error((err && err.error && err.error.message) || window.LR.t('Save failed')); });
       return r.json();
     }).then(function() {
       control.dataset.savedValue = value;
-      setStatus(control, 'ok', 'Saved');
+      setStatus(control, 'ok', window.LR.t('Saved'));
     }).catch(function(err) {
       revert(control);
-      setStatus(control, 'error', err.message || 'Could not save. Please retry.');
+      setStatus(control, 'error', err.message || window.LR.t('Could not save. Please retry.'));
     }).finally(function() {
       control.disabled = false;
     });
@@ -359,25 +373,25 @@
     });
     confirmBtn.addEventListener('click', function() {
       confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Resetting…';
+      confirmBtn.textContent = window.LR.t('Resetting…');
       fetch('/app/mail/settings/reset-cache', { method: 'POST', credentials: 'same-origin' })
         .then(function(r) {
-          if (!r.ok) return r.json().then(function(err) { throw new Error((err && err.error && err.error.message) || 'Reset failed'); });
+          if (!r.ok) return r.json().then(function(err) { throw new Error((err && err.error && err.error.message) || window.LR.t('Reset failed')); });
           return r.json();
         })
         .then(function(data) {
           confirmBox.classList.add('hidden');
           resetBtn.disabled = false;
-          showResetStatus('ok', 'Cache cleared for ' + (data.account || 'your account') + '. Fresh sync will start when you open a folder.');
+          showResetStatus('ok', window.LR.t('Cache cleared for {account}. Fresh sync will start when you open a folder.', { account: data.account || window.LR.t('your account') }));
           statusBox.classList.remove('hidden');
         })
         .catch(function(err) {
-          showResetStatus('error', err.message || 'Could not reset the cache. Please retry, or refresh the page.');
+          showResetStatus('error', err.message || window.LR.t('Could not reset the cache. Please retry, or refresh the page.'));
           statusBox.classList.remove('hidden');
         })
         .finally(function() {
           confirmBtn.disabled = false;
-          confirmBtn.textContent = 'Yes, reset cache';
+          confirmBtn.textContent = window.LR.t('Yes, reset cache');
         });
     });
   }
@@ -399,12 +413,12 @@
   };
 
   var describeAgent = function(ua) {
-    if (!ua) return 'Unknown device';
-    if (/iphone|ipad|ipod/i.test(ua)) return 'iOS device';
-    if (/android/i.test(ua)) return 'Android device';
-    if (/macintosh/i.test(ua)) return 'Mac';
-    if (/windows/i.test(ua)) return 'Windows PC';
-    if (/linux/i.test(ua)) return 'Linux desktop';
+    if (!ua) return window.LR.t('Unknown device');
+    if (/iphone|ipad|ipod/i.test(ua)) return window.LR.t('iOS device');
+    if (/android/i.test(ua)) return window.LR.t('Android device');
+    if (/macintosh/i.test(ua)) return window.LR.t('Mac');
+    if (/windows/i.test(ua)) return window.LR.t('Windows PC');
+    if (/linux/i.test(ua)) return window.LR.t('Linux desktop');
     return ua.slice(0, 60);
   };
 
@@ -437,18 +451,18 @@
           var btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'text-xs font-medium text-slate-400 hover:text-rose-600';
-          btn.textContent = 'Remove';
+          btn.textContent = window.LR.t('Remove');
           btn.addEventListener('click', function() {
             btn.disabled = true;
             fetch('/app/mail/push/devices/' + d.id + '/remove', { method: 'POST', credentials: 'same-origin' })
               .then(function() { refreshDevices(); })
-              .catch(function() { btn.disabled = false; setStatus('error', 'Could not remove the device. Please retry.'); });
+              .catch(function() { btn.disabled = false; setStatus('error', window.LR.t('Could not remove the device. Please retry.')); });
           });
           li.appendChild(btn);
           deviceList.appendChild(li);
         });
       })
-      .catch(function() { setStatus('error', 'Could not load registered devices.'); });
+      .catch(function() { setStatus('error', window.LR.t('Could not load registered devices.')); });
   };
 
   var refreshState = function() {
@@ -456,9 +470,9 @@
     var iosNotInstalled = isIOSDevice() && !isStandaloneMode();
     if (!pushSupported || iosNotInstalled) {
       if (iosNotInstalled) {
-        setStatus('info', "On this iPhone or iPad, notifications require the app to be installed to your Home Screen (iOS 16.4 or later). See 'Install the app' above.");
+        setStatus('info', window.LR.t("On this iPhone or iPad, notifications require the app to be installed to your Home Screen (iOS 16.4 or later). See 'Install the app' above."));
       } else {
-        setStatus('error', 'This browser does not support push notifications.');
+        setStatus('error', window.LR.t('This browser does not support push notifications.'));
       }
       enableBtn.classList.add('hidden');
       return;
@@ -470,7 +484,7 @@
       enableBtn.classList.toggle('hidden', active);
       disableBtn.classList.toggle('hidden', !active);
       testBtn.classList.toggle('hidden', !active);
-      setStatus(active ? 'ok' : 'info', active ? 'Notifications are enabled for this device.' : '');
+      setStatus(active ? 'ok' : 'info', active ? window.LR.t('Notifications are enabled for this device.') : '');
       refreshDevices();
     });
   };
@@ -478,17 +492,17 @@
   if (testBtn) {
     testBtn.addEventListener('click', function() {
       testBtn.disabled = true;
-      setStatus('info', 'Sending test notification…');
+      setStatus('info', window.LR.t('Sending test notification…'));
       fetch('/app/mail/push/test', { method: 'POST', credentials: 'same-origin' })
         .then(function(r) {
-          if (!r.ok) return r.json().then(function(err) { throw new Error((err && err.error && err.error.message) || 'Test failed'); });
+          if (!r.ok) return r.json().then(function(err) { throw new Error((err && err.error && err.error.message) || window.LR.t('Test failed')); });
           return r.json();
         })
         .then(function() {
-          setStatus('ok', 'Test notification sent. Check your device — if it does not appear, make sure notifications are allowed for this app in the OS/browser settings.');
+          setStatus('ok', window.LR.t('Test notification sent. Check your device — if it does not appear, make sure notifications are allowed for this app in the OS/browser settings.'));
         })
         .catch(function(err) {
-          setStatus('error', (err && err.message) || 'Could not send the test notification. Please retry.');
+          setStatus('error', (err && err.message) || window.LR.t('Could not send the test notification. Please retry.'));
         })
         .finally(function() { testBtn.disabled = false; });
     });
@@ -496,18 +510,18 @@
 
   enableBtn.addEventListener('click', function() {
     enableBtn.disabled = true;
-    setStatus('info', 'Requesting permission…');
+    setStatus('info', window.LR.t('Requesting permission…'));
     Notification.requestPermission().then(function(permission) {
       if (permission !== 'granted') {
-        setStatus('error', 'Notifications are blocked. Allow them in your browser settings (usually the lock icon in the address bar), then retry.');
+        setStatus('error', window.LR.t('Notifications are blocked. Allow them in your browser settings (usually the lock icon in the address bar), then retry.'));
         return;
       }
       return window.LR.pwa.subscribePush().then(function() {
-        setStatus('ok', 'Notifications enabled for this device.');
+        setStatus('ok', window.LR.t('Notifications enabled for this device.'));
         refreshState();
       });
     }).catch(function(err) {
-      setStatus('error', (err && err.message) || 'Could not enable notifications. Please retry; if it keeps happening, check your connection or refresh.');
+      setStatus('error', (err && err.message) || window.LR.t('Could not enable notifications. Please retry; if it keeps happening, check your connection or refresh.'));
     }).finally(function() { enableBtn.disabled = false; });
   });
 
@@ -529,7 +543,7 @@
     }).then(function() {
       refreshState();
     }).catch(function() {
-      setStatus('error', 'Could not disable notifications. Please retry.');
+      setStatus('error', window.LR.t('Could not disable notifications. Please retry.'));
     }).finally(function() { disableBtn.disabled = false; });
   });
 

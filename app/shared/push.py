@@ -14,9 +14,11 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 
 from flask import Flask
+from flask_babel import _
 
 from app.shared import events
 from app.shared.db import db
+from app.shared.i18n import forced_user_locale
 from app.shared.models.core import CustomerSettings, PushSubscription, PushVapidKey
 
 _logger = logging.getLogger(__name__)
@@ -163,16 +165,17 @@ def _send_to_subscription(sub: PushSubscription, payload: dict, vapid: dict) -> 
 
 def _build_payload(count: int, detailed: bool, newest: dict | None) -> dict:
     if detailed and newest:
-        subject = (newest.get("subject") or "").strip() or "(no subject)"
-        sender = (newest.get("sender") or "").strip() or "New email"
-        title = sender
-        body = subject if count == 1 else f"{subject} (+{count - 1} more)"
-    else:
-        title = "New email"
+        subject = (newest.get("subject") or "").strip() or _("(no subject)")
+        title = (newest.get("sender") or "").strip() or _("You have new mail")
         body = (
-            "You have a new message in your inbox"
+            subject if count == 1 else _("%(subject)s (+%(n)d more)", subject=subject, n=count - 1)
+        )
+    else:
+        title = _("You have new mail")
+        body = (
+            _("You have a new message in your inbox")
             if count == 1
-            else f"{count} new messages in your inbox"
+            else _("%(count)d new messages in your inbox", count=count)
         )
     return {"title": title, "body": body, "tag": "lr-new-mail", "url": "/app/mail/"}
 
@@ -233,7 +236,8 @@ def send_new_mail_push(app: Flask, user_id: int, count: int, newest: dict | None
             return
         settings = db.session.get(CustomerSettings, user_id)
         detailed = bool(settings and settings.push_detailed)
-        payload = _build_payload(count, detailed, newest)
+        with forced_user_locale(user_id):
+            payload = _build_payload(count, detailed, newest)
         for sub in subs:
             _send_to_subscription(sub, payload, vapid)
 
@@ -242,20 +246,40 @@ def send_calendar_push(
     app: Flask | None, user_id: int, uid: str, summary: str, when_local: str
 ) -> bool:
     """Send a calendar reminder push (U24.31). Synchronous — returns delivery state."""
-    payload = {
-        "title": (summary or "").strip() or "Event reminder",
-        "body": when_local,
-        "tag": f"lr-cal-{uid}",
-        "url": "/app/calendar/",
-    }
+    from flask import has_app_context
+
+    def _build_payload() -> dict:
+        # when_local is pre-formatted by the caller under the same forced
+        # locale when possible; only the fallback title is translated here.
+        with forced_user_locale(user_id):
+            title = (summary or "").strip() or _("Event reminder")
+        return {
+            "title": title,
+            "body": when_local,
+            "tag": f"lr-cal-{uid}",
+            "url": "/app/calendar/",
+        }
+
+    if has_app_context():
+        payload = _build_payload()
+    elif app is not None:
+        with app.app_context():
+            payload = _build_payload()
+    else:  # no context at all — English fallback, still delivers
+        payload = {
+            "title": (summary or "").strip() or "Event reminder",
+            "body": when_local,
+            "tag": f"lr-cal-{uid}",
+            "url": "/app/calendar/",
+        }
     return send_notification(app, user_id, "calendar", payload)
 
 
 def send_test_push(app: Flask | None, user_id: int) -> bool:
     """Send a benign test notification (U24.28). Synchronous for immediate feedback."""
     payload = {
-        "title": "Test notification",
-        "body": "Notifications are working on this device.",
+        "title": _("Test notification"),
+        "body": _("Notifications are working on this device."),
         "tag": "lr-test",
         "url": "/app/mail/",
     }

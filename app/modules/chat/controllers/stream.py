@@ -27,6 +27,10 @@ def stream():
     # before the generator starts, so no stream_with_context is needed.
     account, user_id, conn, client, creds = chat_context()
     own_id = creds.get("matrix_user_id") or ""
+    # Translated here (request context): the generator below runs without one.
+    from flask_babel import _
+
+    sync_failed_msg = _("Chat sync failed; retrying.")
 
     def event_stream():
         logger.info("chat sse stream opened user_id=%s account_id=%s", user_id, account.id)
@@ -77,9 +81,7 @@ def stream():
                     )
                     yield (
                         "event: chat_error\ndata: "
-                        + json.dumps(
-                            {"code": "SYNC_FAILED", "message": "Chat sync failed; retrying."}
-                        )
+                        + json.dumps({"code": "SYNC_FAILED", "message": sync_failed_msg})
                         + "\n\n"
                     )
                     if consecutive_errors >= _MAX_CONSECUTIVE_ERRORS:

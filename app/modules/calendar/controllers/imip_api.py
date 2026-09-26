@@ -2,6 +2,7 @@ import json
 import logging
 
 from flask import jsonify, request, session
+from flask_babel import _
 
 from app.modules.calendar.controllers.helpers import (
     _get_account,
@@ -24,28 +25,28 @@ def send_invite():
     method = (data.get("method") or "REQUEST").upper()
 
     if not event_id:
-        return jsonify({"error": "Event ID is required."}), 400
+        return jsonify({"error": _("Event ID is required.")}), 400
     if method not in ("REQUEST", "CANCEL"):
-        return jsonify({"error": "Invalid method."}), 400
+        return jsonify({"error": _("Invalid method.")}), 400
 
     user_id = session.get("user_id")
     account_id = session.get("active_account_id")
     if not account_id:
-        return jsonify({"error": "No active account."}), 400
+        return jsonify({"error": _("No active account.")}), 400
 
     account = _get_account(account_id, user_id)
     domain = db.session.get(Domain, account.domain_id)
     if not domain or not domain.is_active:
-        return jsonify({"error": "Domain unavailable."}), 400
+        return jsonify({"error": _("Domain unavailable.")}), 400
 
     conn = _open_cache_for_account(account)
     if not conn:
-        return jsonify({"error": "Cache unavailable."}), 400
+        return jsonify({"error": _("Cache unavailable.")}), 400
 
     try:
         event = cache_db.get_event(conn, event_id)
         if not event:
-            return jsonify({"error": "Event not found."}), 404
+            return jsonify({"error": _("Event not found.")}), 404
 
         attendees = []
         raw_attendees = event.get("attendees")
@@ -58,7 +59,7 @@ def send_invite():
             attendees = raw_attendees
 
         if not attendees:
-            return jsonify({"status": "ok", "message": "No attendees to notify."})
+            return jsonify({"status": "ok", "message": _("No attendees to notify.")})
 
         event_data = {
             "summary": event.get("summary", ""),
@@ -82,6 +83,6 @@ def send_invite():
         return jsonify({"status": "ok"})
     except Exception:
         logger.exception("send-invite failed event_id=%s", event_id)
-        return jsonify({"error": "Failed to send invitation."}), 500
+        return jsonify({"error": _("Failed to send invitation.")}), 500
     finally:
         conn.close()

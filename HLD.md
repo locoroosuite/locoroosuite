@@ -293,7 +293,7 @@ U8.8 - Attachments support three actions: Download (all formats), View (pandoc-c
 U9.1 - Customer settings page with standard settings; include polling interval, default state for the preview pane, a global default sort order (date descending), and per-user timezone setting (default from browser). Message list and search date/time rendering must use the user's configured timezone (see UX3a).
 U9.1a - Date-desc sorting must be based on a normalized message timestamp (not raw Date header text) so newest messages are reliably shown first.
 U9.4 - Customer settings include a "Reset Cache" action that clears the local cache for the currently active customer account only (IMAP untouched). Next access re-syncs.
-U9.2 - Language: English only for MVP.
+U9.2 - Language: selectable in customer settings ("Auto (browser)" default, plus Spanish and English); see Use Case U26 for the full i18n design.
 U9.3 - Theme: light/dark toggle.
 U9.5 - Customer settings include a per-account toggle for the Spam action (enable/disable). Default is enabled; if the server rejects the \\Junk flag, auto-disable and inform the user per U5.13.
 U9.6 - Customer settings include an "API Access" section (see U14) where the customer can enable/disable API access and manage API tokens. This section requires password confirmation for all state-changing actions.
@@ -1898,3 +1898,20 @@ U25.53 - Threads (Slack-style reply threads) — phase 2.
 U25.54 - Spaces/communities, custom emojis, bots/integrations, bridges to other chat networks.
 U25.55 - Headless background sync (unread updates while no browser tab is open) — phase 2 worker.
 U25.56 - Media upload via REST API/MCP (UI-only in MVP; media download is exposed).
+
+# Use Case U26 – Internationalization (i18n)
+
+U26.1 - Mechanism: Flask-Babel + gettext. English is the source language (msgids in code are English). Catalogs live under `translations/<locale>/LC_MESSAGES/messages.po` (compiled to `.mo`); the maintenance workflow is: `pybabel extract -F babel.cfg -k _ -o app/translations/messages.pot .` then `./venv/bin/python scripts/i18n_extract_js.py` (appends JS-side `window.LR.t(...)` keys, which pybabel cannot see, to the pot), then `pybabel update`/`init` + `pybabel compile -d app/translations`. A missing catalog entry falls back to the English msgid — never a blank string or a raw key.
+U26.2 - Supported locales (initial): `en` and `es_ES`. Spanish variant rule: any Spanish Accept-Language tag (`es`, `es-AR`, `es-MX`, …) resolves to the single `es_ES` catalog until a specific variant catalog is created. All non-Spanish languages resolve to English.
+U26.3 - Language resolution order (first match wins):
+  1. Authenticated user's `CustomerSettings.language` when set to an explicit locale (not "browser").
+  2. `browser_lang` cookie (set by JS on customer pages; mirrors the existing `browser_tz` pattern) — keeps anonymous pages (login, signup, error, offline) consistent across requests.
+  3. `Accept-Language` header negotiation via Babel with the U26.2 variant rule.
+  4. English default.
+  Worker contexts (push notifications, background sends, calendar reminders) cannot read the cookie or headers: they resolve the explicit setting first and, when set to auto, the last browser locale cached in `CustomerSettings.browser_locale` (persisted on customer requests when it changes; migration 0017). Translation there goes through `forced_user_locale()` / `translate_for_user()` (`app/shared/i18n.py`); msgids selected at runtime are marked with the `N_()` extraction no-op so they stay in the catalog.
+U26.4 - Language setting: new nullable `language` column on `customer_settings` (default "browser"; requires an app DB migration). Exposed as a Language dropdown in the Settings → General section next to timezone: Auto (browser) / English / Español. Saves via the standard per-control auto-save endpoint (U9.8) with the same validation and structured errors.
+U26.5 - Translation scope: customer area only — mail, contacts, calendar, docs, chat modules plus shared templates (layout, account switcher, auth/login/signup, error, offline). The admin/manager area (`/admin/*`) remains English-only.
+U26.6 - String coverage: (a) Jinja templates via a `_()` translation filter; (b) server-side flash/validation/error messages surfaced in the customer web UI; (c) JS user-facing strings (toasts, inline errors, dynamic labels) translated via a locale catalog served to the browser (JSON endpoint consumed by a small `t()` JS helper with English fallback). The served-catalog route must use the standard `static_v` cache-busting/versioning rules.
+U26.7 - Date/time localization: user-facing dates/times (message lists, detail views, event times) are formatted via Babel `format_datetime` using the resolved locale and the user's configured timezone. Server-side timestamps (`created_at`, `updated_at`) remain UTC and are not localized.
+U26.8 - REST API (`/api/v1/*`) and MCP responses remain English-only: they are machine-facing and their error codes are stable identifiers. Only the web UI layer translates.
+U26.9 - Adding a language requires only: a new `translations/<locale>/LC_MESSAGES/messages.po` catalog plus registration in the supported-locales config — no code changes elsewhere.

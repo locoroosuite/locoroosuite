@@ -1,0 +1,3932 @@
+# Translations template for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-09-26 13:38+0930\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: app/__init__.py:218
+msgid "Not Found"
+msgstr ""
+
+#: app/__init__.py:219
+msgid "The page you requested does not exist."
+msgstr ""
+
+#: app/__init__.py:230
+msgid "Method Not Allowed"
+msgstr ""
+
+#: app/__init__.py:231
+msgid "This action is not supported."
+msgstr ""
+
+#: app/__init__.py:249
+msgid "Cache key mismatch"
+msgstr ""
+
+#: app/__init__.py:251
+msgid ""
+"Your local mail cache was encrypted with a different key. This can happen"
+" if your password was changed or your API access was reconfigured. Please"
+" reset your cache to continue — your mail will be re-synced from the "
+"server."
+msgstr ""
+
+#: app/__init__.py:275
+msgid "Something went wrong"
+msgstr ""
+
+#: app/__init__.py:276
+msgid "An unexpected error occurred. Please try again or refresh the page."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:53
+msgid "No .ics content provided."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:57
+msgid "Could not parse .ics content."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:163
+msgid "No invitation data found. Try reloading the email and importing again."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:168
+#: app/modules/calendar/controllers/api.py:298
+msgid "No calendar selected. Please select a calendar and try again."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:173
+#: app/modules/calendar/controllers/api.py:306
+#: app/modules/calendar/controllers/api.py:482
+#: app/modules/calendar/controllers/api.py:667
+msgid "No active email account. Please refresh the page and try again."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:183
+#: app/modules/calendar/controllers/api.py:316
+#: app/modules/calendar/controllers/api.py:492
+msgid ""
+"Calendar is not configured for your account. Please contact your "
+"administrator."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:194
+#: app/modules/calendar/controllers/api.py:327
+#: app/modules/calendar/controllers/api.py:503
+#: app/modules/calendar/controllers/api.py:677
+msgid "Calendar data could not be loaded. Please refresh the page and try again."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:202
+#: app/modules/calendar/controllers/api.py:335
+#: app/modules/calendar/controllers/api.py:521
+#: app/modules/calendar/controllers/views.py:398
+msgid "Calendar not found."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:213
+#: app/modules/calendar/controllers/api.py:363
+#: app/modules/calendar/controllers/api.py:551
+msgid ""
+"Could not access your calendar credentials. Please refresh the page and "
+"try again."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:236
+#: app/modules/calendar/controllers/api.py:383
+msgid ""
+"Could not save the event to your calendar. Please check your calendar "
+"connection and try again, or contact your administrator."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:263
+msgid ""
+"An unexpected error occurred while importing the event. Please refresh "
+"the page and try again."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:293
+msgid "No invitation data found. Try reloading the email and responding again."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:302
+#: app/modules/calendar/controllers/api.py:478
+msgid "Invalid response status. Please try again."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:340
+msgid "No UID in .ics."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:451
+msgid ""
+"An unexpected error occurred while responding to the invitation. Please "
+"refresh the page and try again."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:474
+msgid "No event specified. Please refresh the page and try again."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:511
+#: app/modules/calendar/controllers/imip_api.py:49
+msgid "Event not found."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:516
+msgid "Could not load event data. Please try again."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:526
+msgid "No UID in event data."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:568
+msgid ""
+"Could not update the event. Please check your calendar connection and try"
+" again."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:640
+#: app/modules/calendar/controllers/api.py:707
+msgid "An unexpected error occurred. Please refresh the page and try again."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:654
+msgid "No invitation data found. Try reloading the email."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:660
+msgid "Could not identify the event. Please try again."
+msgstr ""
+
+#: app/modules/calendar/controllers/api.py:686
+msgid "Event not in calendar."
+msgstr ""
+
+#: app/modules/calendar/controllers/events.py:106
+#: app/modules/mail/controllers/helpers.py:1174
+#: app/workers/calendar_reminders.py:122
+msgid "at"
+msgstr ""
+
+#: app/modules/calendar/controllers/events.py:170
+msgid "No calendars available. Please sync or create a calendar first."
+msgstr ""
+
+#: app/modules/calendar/controllers/events.py:277
+#: app/modules/calendar/controllers/events.py:484
+msgid "Failed to save event. Please check your connection and retry."
+msgstr ""
+
+#: app/modules/calendar/controllers/events.py:584
+msgid "Event title is required."
+msgstr ""
+
+#: app/modules/calendar/controllers/events.py:586
+msgid "Start date is required."
+msgstr ""
+
+#: app/modules/calendar/controllers/events.py:588
+#: app/modules/calendar/controllers/views.py:384
+msgid "Calendar is required."
+msgstr ""
+
+#: app/modules/calendar/controllers/imip_api.py:28
+msgid "Event ID is required."
+msgstr ""
+
+#: app/modules/calendar/controllers/imip_api.py:30
+msgid "Invalid method."
+msgstr ""
+
+#: app/modules/calendar/controllers/imip_api.py:35
+#: app/modules/calendar/controllers/views.py:371
+#: app/modules/mail/controllers/settings.py:165
+msgid "No active account."
+msgstr ""
+
+#: app/modules/calendar/controllers/imip_api.py:40
+msgid "Domain unavailable."
+msgstr ""
+
+#: app/modules/calendar/controllers/imip_api.py:44
+#: app/modules/calendar/controllers/views.py:393
+msgid "Cache unavailable."
+msgstr ""
+
+#: app/modules/calendar/controllers/imip_api.py:62
+msgid "No attendees to notify."
+msgstr ""
+
+#: app/modules/calendar/controllers/imip_api.py:86
+msgid "Failed to send invitation."
+msgstr ""
+
+#: app/modules/calendar/controllers/views.py:214
+#: app/modules/calendar/controllers/views.py:279
+msgid "Calendar name is required."
+msgstr ""
+
+#: app/modules/calendar/controllers/views.py:247
+msgid "Failed to create calendar. Please check your connection and retry."
+msgstr ""
+
+#: app/modules/calendar/controllers/views.py:374
+#: app/modules/calendar/templates/event_detail.html:16
+#: app/modules/mail/templates/message.html:212
+msgid "(no title)"
+msgstr ""
+
+#: app/modules/calendar/controllers/views.py:382
+msgid "Start time is required."
+msgstr ""
+
+#: app/modules/calendar/controllers/views.py:389
+msgid "CalDAV not configured."
+msgstr ""
+
+#: app/modules/calendar/controllers/views.py:419
+msgid "Credentials unavailable."
+msgstr ""
+
+#: app/modules/calendar/controllers/views.py:428
+msgid "Failed to create event."
+msgstr ""
+
+#: app/modules/calendar/templates/calendar_form.html:7
+#: app/modules/calendar/templates/event_detail.html:7
+#: app/modules/calendar/templates/event_form.html:7
+msgid "Back to calendar"
+msgstr ""
+
+#: app/modules/calendar/templates/calendar_form.html:13
+msgid "Edit Calendar"
+msgstr ""
+
+#: app/modules/calendar/templates/calendar_form.html:13
+msgid "New Calendar"
+msgstr ""
+
+#: app/modules/calendar/templates/calendar_form.html:24
+#: app/modules/chat/templates/chat/index.html:115
+#: app/modules/contacts/templates/list.html:74
+#: app/modules/docs/templates/docs_list.html:135
+#: app/modules/docs/templates/docs_list.html:350
+msgid "Name"
+msgstr ""
+
+#: app/modules/calendar/templates/calendar_form.html:30
+msgid "Color"
+msgstr ""
+
+#: app/modules/calendar/templates/calendar_form.html:33
+msgid "Pick a color for this calendar"
+msgstr ""
+
+#: app/modules/calendar/templates/calendar_form.html:38
+#: app/modules/calendar/templates/event_form.html:150
+#: app/modules/contacts/templates/form.html:91
+msgid "Save Changes"
+msgstr ""
+
+#: app/modules/calendar/templates/calendar_form.html:38
+msgid "Create Calendar"
+msgstr ""
+
+#: app/modules/calendar/templates/calendar_form.html:39
+#: app/modules/calendar/templates/event_form.html:152
+#: app/modules/calendar/templates/event_form.html:154
+#: app/modules/chat/templates/chat/index.html:127
+#: app/modules/chat/templates/chat/index.html:147
+#: app/modules/contacts/templates/form.html:92
+#: app/modules/docs/templates/docs_editor.html:131
+#: app/modules/mail/templates/settings.html:277
+#: app/modules/mail/templates/twofa_confirm.html:31
+msgid "Cancel"
+msgstr ""
+
+#: app/modules/calendar/templates/calendar_form.html:46
+#: app/modules/mail/templates/settings.html:12
+#: app/modules/mail/templates/settings.html:263
+msgid "Danger zone"
+msgstr ""
+
+#: app/modules/calendar/templates/calendar_form.html:47
+msgid "Deleting a calendar removes all its events. This action cannot be undone."
+msgstr ""
+
+#: app/modules/calendar/templates/calendar_form.html:48
+msgid "Delete this calendar and all its events?"
+msgstr ""
+
+#: app/modules/calendar/templates/calendar_form.html:49
+msgid "Delete calendar"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:21
+#: app/modules/calendar/templates/event_detail.html:32
+#: app/modules/calendar/templates/event_detail.html:35
+#: app/modules/calendar/templates/event_detail.html:41
+#: app/modules/calendar/templates/event_detail.html:44
+#: app/modules/calendar/templates/event_detail.html:109
+#: app/modules/calendar/templates/event_form.html:135
+msgid "Tentative"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:23
+#: app/modules/calendar/templates/event_form.html:136
+msgid "Cancelled"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:31
+#: app/modules/calendar/templates/event_detail.html:105
+msgid "Accepted"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:33
+#: app/modules/calendar/templates/event_detail.html:37
+#: app/modules/calendar/templates/event_detail.html:45
+msgid "Decline"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:36
+#: app/modules/calendar/templates/event_detail.html:40
+#: app/modules/calendar/templates/event_detail.html:43
+msgid "Accept"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:39
+#: app/modules/calendar/templates/event_detail.html:107
+msgid "Declined"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:49
+#: app/modules/contacts/templates/detail.html:20
+#: app/modules/contacts/templates/list.html:60
+#: app/modules/contacts/templates/list.html:92
+#: app/modules/mail/templates/message.html:167
+#: app/modules/mail/templates/message.html:176
+msgid "Edit"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:51
+#: app/modules/calendar/templates/event_detail.html:54
+#: app/modules/contacts/templates/detail.html:22
+#: app/modules/contacts/templates/list.html:62
+#: app/modules/contacts/templates/list.html:94
+#: app/modules/docs/templates/docs_editor.html:114
+#: app/modules/docs/templates/docs_editor.html:116
+#: app/modules/mail/templates/message.html:76
+#: app/modules/mail/templates/message.html:88
+#: app/modules/mail/templates/message_list.html:163
+#: app/modules/mail/templates/search.html:36
+#: app/modules/mail/templates/search_full.html:38
+msgid "Delete"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:62
+msgid "When"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:66
+msgid "all day"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:84
+#: app/modules/calendar/templates/event_form.html:83
+msgid "Location"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:91
+msgid "Organizer"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:98
+#: app/modules/calendar/templates/event_form.html:93
+msgid "Attendees"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:111
+msgid "Pending"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:122
+#: app/modules/calendar/templates/event_form.html:88
+msgid "Description"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:129
+msgid "Reminders"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:142
+msgid "Categories"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:149
+msgid "URL"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:156
+msgid "Source"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:159
+msgid "View original email"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:173
+msgid "Send updates to guests?"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:174
+msgid "Do you want to send a calendar update to the event guests?"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:177
+msgid "Don't send"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:180
+#: app/modules/chat/templates/chat/index.html:97
+#: app/modules/mail/templates/compose.html:89
+msgid "Send"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:193
+msgid "Delete event?"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:194
+msgid "This event has guests. Do you want to notify them about the cancellation?"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:197
+msgid "Delete without notifying"
+msgstr ""
+
+#: app/modules/calendar/templates/event_detail.html:200
+msgid "Delete & notify guests"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:13
+msgid "Edit Event"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:13
+msgid "New Event"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:24
+#: app/modules/contacts/templates/detail.html:79
+msgid "Title"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:30
+#: app/templates/layout.html:170
+msgid "Calendar"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:42
+msgid "All day"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:48
+msgid "Start"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:60
+msgid "End"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:73
+#: app/modules/calendar/templates/event_form.html:80
+#: app/modules/mail/templates/settings.html:25
+msgid "Timezone"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:97
+#: app/modules/mail/templates/compose.html:30
+#: app/modules/mail/templates/compose.html:41
+#: app/modules/mail/templates/compose.html:51
+msgid "Type a name or email…"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:105
+msgid "Repeat (RRULE)"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:107
+msgid "Does not repeat"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:108
+msgid "Daily"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:109
+msgid "Weekly"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:110
+msgid "Biweekly"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:111
+msgid "Monthly"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:112
+msgid "Yearly"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:117
+msgid "Reminder"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:119
+msgid "No reminder"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:120
+msgid "At time of event"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:121
+msgid "5 minutes before"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:122
+msgid "15 minutes before"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:123
+msgid "30 minutes before"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:124
+msgid "1 hour before"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:125
+msgid "2 hours before"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:126
+msgid "1 day before"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:132
+msgid "Status"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:134
+msgid "Confirmed"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:140
+msgid "Visibility"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:142
+msgid "Public"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:143
+msgid "Private"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:144
+msgid "Confidential"
+msgstr ""
+
+#: app/modules/calendar/templates/event_form.html:150
+msgid "Create Event"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:7
+#: app/modules/calendar/templates/index.html:16
+msgid "Calendars"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:8
+#: app/modules/docs/templates/docs_list.html:43
+#: app/modules/mail/templates/folder.html:9
+msgid "Close menu"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:25
+#, python-brace-format
+msgid "Show or hide calendar {name}"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:29
+#, python-brace-format
+msgid "Edit calendar {name}"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:41
+#: app/modules/contacts/templates/list.html:14
+#: app/modules/docs/templates/docs_list.html:210
+msgid "Sync"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:53
+msgid "Calendar is not configured for this domain."
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:54
+msgid "Ask your administrator to enable CalDAV in the domain settings."
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:62
+msgid "Unable to connect to the calendar server"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:63
+msgid ""
+"Your calendar data may be outdated. New events and changes won't sync "
+"until the connection is restored."
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:66
+msgid "Retry"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:76
+msgid "Open calendars"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:82
+msgid "Today"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:83
+msgid "Previous period"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:86
+msgid "Next period"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:90
+msgid "Month"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:91
+msgid "Week"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:92
+msgid "Day"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:93
+msgid "Agenda"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:98
+msgid "New event"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:103
+msgid "Sync calendars"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:121
+msgid "Add title"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:126
+msgid "More options"
+msgstr ""
+
+#: app/modules/calendar/templates/index.html:131
+#: app/modules/docs/templates/docs_editor.html:132
+msgid "Save"
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:70
+#, python-format
+msgid ""
+"There is no account with the email address %(email)s. Check the address "
+"or create the account first."
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:81
+#, python-format
+msgid ""
+"Chat is not configured for the domain of %(email)s. An administrator must"
+" enable chat for that domain first."
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:94
+#, python-format
+msgid ""
+"%(email)s belongs to a domain on a different chat server. Conversations "
+"across chat servers are not supported yet."
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:113
+msgid "Enter the exact email address of the person"
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:123
+#: app/modules/chat/controllers/api.py:236
+msgid "Chat server returned no room id"
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:188
+#: app/modules/chat/controllers/api.py:328
+#: app/modules/chat/controllers/api.py:366
+#: app/modules/chat/controllers/api.py:415
+msgid "Room not found"
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:219
+msgid "A direct message needs at least one invitee"
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:221
+msgid "Room name is required"
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:299
+msgid "email (or user_id) is required"
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:323
+msgid "Message body is required"
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:356
+msgid "file is required"
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:359
+msgid "Uploaded file is empty"
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:361
+msgid "File exceeds the 50 MB limit"
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:371
+msgid "Chat server returned no content URI"
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:428
+msgid "event_id is required"
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:467
+msgid "Nothing to update"
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:489
+msgid "key (emoji) is required"
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:495
+#: app/modules/chat/controllers/api.py:542
+#: app/modules/chat/controllers/api.py:563
+msgid "Message not found"
+msgstr ""
+
+#: app/modules/chat/controllers/api.py:544
+msgid "Only your own messages can be edited"
+msgstr ""
+
+#: app/modules/chat/controllers/helpers.py:56
+#: app/modules/chat/controllers/helpers.py:59
+msgid "No active account for this session"
+msgstr ""
+
+#: app/modules/chat/controllers/helpers.py:62
+msgid "Account domain not found"
+msgstr ""
+
+#: app/modules/chat/controllers/stream.py:33
+msgid "Chat sync failed; retrying."
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:20 app/templates/layout.html:176
+msgid "Chat"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:22
+#: app/modules/chat/templates/chat/index.html:67
+#: app/modules/chat/templates/chat/index.html:113
+msgid "Create a room"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:26
+#: app/modules/chat/templates/chat/index.html:135
+msgid "New direct message"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:34
+msgid "Rooms"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:36
+msgid "No rooms yet. Create one with +."
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:39
+msgid "Direct messages"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:41
+msgid "No direct messages yet. Start one with the pencil icon."
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:44
+msgid "Invitations"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:48
+msgid "Connecting…"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:56
+msgid "Welcome to chat"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:57
+msgid "Pick a conversation on the left, or start a new one."
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:62
+msgid "New conversation"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:74
+msgid "Back to conversations"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:79
+msgid "Room"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:84
+#: app/modules/chat/templates/chat/index.html:171
+msgid "Invite"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:85
+msgid "Leave"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:91
+msgid "Attach a file"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:95
+msgid "Message… (Enter to send, Shift+Enter for a new line)"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:104
+msgid "Uploading…"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:116
+msgid "e.g. Team updates"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:119
+msgid "Topic (optional)"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:120
+msgid "What is this room about?"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:124
+msgid "Public (anyone on this server can join)"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:128
+msgid "Create room"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:137
+#: app/modules/chat/templates/chat/index.html:160
+msgid "Email address"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:142
+msgid ""
+"Enter the exact email address of a user on this server. Their chat "
+"identity is created automatically if missing — for example"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:143
+msgid "maps to"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:150
+msgid "Start conversation"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:158
+msgid "Invite to room"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:165
+msgid ""
+"Enter the exact email address of a user on this server. Their chat "
+"identity is created automatically if missing."
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:168
+#: app/modules/mail/templates/message.html:298
+msgid "Close"
+msgstr ""
+
+#: app/modules/contacts/controllers/contacts.py:174
+#: app/modules/contacts/controllers/contacts.py:242
+msgid "Failed to save contact. Please check your connection and retry."
+msgstr ""
+
+#: app/modules/contacts/controllers/contacts.py:350
+msgid "Name is required."
+msgstr ""
+
+#: app/modules/contacts/controllers/contacts.py:379
+#, python-format
+msgid "Email %(email)s is already used by contact '%(name)s'."
+msgstr ""
+
+#: app/modules/contacts/templates/detail.html:7
+#: app/modules/contacts/templates/form.html:7
+msgid "Back to contacts"
+msgstr ""
+
+#: app/modules/contacts/templates/detail.html:14
+msgid "Unnamed Contact"
+msgstr ""
+
+#: app/modules/contacts/templates/detail.html:16
+msgid " at "
+msgstr ""
+
+#: app/modules/contacts/templates/detail.html:21
+msgid "Delete this contact?"
+msgstr ""
+
+#: app/modules/contacts/templates/detail.html:30
+msgid "Full Name"
+msgstr ""
+
+#: app/modules/contacts/templates/detail.html:37
+#: app/modules/contacts/templates/form.html:44
+msgid "Email (Work)"
+msgstr ""
+
+#: app/modules/contacts/templates/detail.html:44
+#: app/modules/contacts/templates/form.html:51
+msgid "Email (Home)"
+msgstr ""
+
+#: app/modules/contacts/templates/detail.html:51
+#: app/modules/contacts/templates/form.html:61
+msgid "Phone (Work)"
+msgstr ""
+
+#: app/modules/contacts/templates/detail.html:58
+#: app/modules/contacts/templates/form.html:65
+msgid "Phone (Home)"
+msgstr ""
+
+#: app/modules/contacts/templates/detail.html:65
+#: app/modules/contacts/templates/form.html:69
+msgid "Phone (Cell)"
+msgstr ""
+
+#: app/modules/contacts/templates/detail.html:72
+#: app/modules/contacts/templates/form.html:76
+#: app/modules/contacts/templates/list.html:77
+msgid "Organization"
+msgstr ""
+
+#: app/modules/contacts/templates/detail.html:86
+#: app/modules/contacts/templates/form.html:86
+msgid "Note"
+msgstr ""
+
+#: app/modules/contacts/templates/form.html:13
+msgid "Edit Contact"
+msgstr ""
+
+#: app/modules/contacts/templates/form.html:13
+#: app/modules/contacts/templates/list.html:19
+msgid "New Contact"
+msgstr ""
+
+#: app/modules/contacts/templates/form.html:25
+msgid "First Name"
+msgstr ""
+
+#: app/modules/contacts/templates/form.html:29
+msgid "Last Name"
+msgstr ""
+
+#: app/modules/contacts/templates/form.html:35
+msgid "Display Name"
+msgstr ""
+
+#: app/modules/contacts/templates/form.html:80
+msgid "Job Title"
+msgstr ""
+
+#: app/modules/contacts/templates/form.html:91
+msgid "Create Contact"
+msgstr ""
+
+#: app/modules/contacts/templates/list.html:6 app/templates/layout.html:164
+msgid "Contacts"
+msgstr ""
+
+#: app/modules/contacts/templates/list.html:28
+msgid "Contacts are not configured for this domain."
+msgstr ""
+
+#: app/modules/contacts/templates/list.html:29
+msgid "Ask your administrator to enable CardDAV in the domain settings."
+msgstr ""
+
+#: app/modules/contacts/templates/list.html:34
+msgid "No contacts yet."
+msgstr ""
+
+#: app/modules/contacts/templates/list.html:35
+msgid "Create your first contact"
+msgstr ""
+
+#: app/modules/contacts/templates/list.html:41
+msgid "Search contacts by name, email, or phone"
+msgstr ""
+
+#: app/modules/contacts/templates/list.html:42
+msgid "Search"
+msgstr ""
+
+#: app/modules/contacts/templates/list.html:75
+#: app/modules/mail/templates/login.html:13
+msgid "Email"
+msgstr ""
+
+#: app/modules/contacts/templates/list.html:76
+msgid "Phone"
+msgstr ""
+
+#: app/modules/contacts/templates/list.html:78
+msgid "Actions"
+msgstr ""
+
+#: app/modules/contacts/templates/list.html:106
+#, python-brace-format
+msgid "{count} contact"
+msgstr ""
+
+#: app/modules/contacts/templates/list.html:106
+#, python-brace-format
+msgid "{count} contacts"
+msgstr ""
+
+#: app/modules/contacts/templates/list.html:109
+#: app/modules/mail/templates/folder.html:236
+#: app/modules/mail/templates/folder.html:239
+msgid "Previous"
+msgstr ""
+
+#: app/modules/contacts/templates/list.html:111
+#, python-brace-format
+msgid "Page {page} of {total_pages}"
+msgstr ""
+
+#: app/modules/contacts/templates/list.html:113
+#: app/modules/mail/templates/folder.html:244
+#: app/modules/mail/templates/folder.html:247
+msgid "Next"
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:179
+#: app/modules/docs/controllers/docs.py:731
+msgid "No account selected."
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:185
+#: app/modules/docs/controllers/docs.py:748
+#: app/modules/docs/controllers/docs.py:778
+#: app/modules/docs/controllers/docs.py:820
+#: app/modules/docs/controllers/docs.py:853
+#: app/modules/docs/controllers/docs.py:901
+#: app/modules/docs/controllers/docs.py:945
+#: app/modules/docs/controllers/docs.py:976
+#: app/modules/docs/controllers/docs.py:1026
+msgid "Unable to open document store."
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:237
+msgid "Untitled Document"
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:331
+msgid "Invalid name"
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:465
+msgid "No active account"
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:472
+msgid "No file provided"
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:478
+msgid "No filename provided"
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:484
+#, python-format
+msgid "Unsupported file type .%(ext)s"
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:492
+msgid "File exceeds 50 MB limit"
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:512
+msgid "Could not open document store"
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:579
+#, python-format
+msgid ""
+"Could not convert %(filename)s. Please try uploading an .odt file or try "
+"again later."
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:639
+msgid "document is already editable"
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:655
+#, python-format
+msgid "Could not convert .%(ext)s file"
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:680
+#, python-format
+msgid "Conversion failed: %(error)s"
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:683
+msgid "Unexpected error during conversion"
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:808
+#: app/modules/docs/controllers/docs.py:846
+msgid "path is required"
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:895
+msgid "Nothing to undo."
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:951
+#: app/modules/docs/controllers/docs.py:982
+#: app/modules/docs/controllers/docs.py:1032
+#: app/modules/docs/templates/docs_share_error.html:6
+msgid "Document not found"
+msgstr ""
+
+#: app/modules/docs/controllers/sharing.py:92
+msgid "Invalid permission"
+msgstr ""
+
+#: app/modules/docs/controllers/sharing.py:96
+msgid "No email addresses provided"
+msgstr ""
+
+#: app/modules/docs/controllers/sharing.py:143
+msgid "This link has been revoked or does not exist."
+msgstr ""
+
+#: app/modules/docs/controllers/wopi.py:129
+#: app/modules/docs/templates/docs_list.html:154
+#: app/modules/docs/templates/docs_list.html:241
+#: app/modules/docs/templates/docs_list.html:581
+#: app/modules/docs/templates/docs_share_view.html:6
+#: app/modules/docs/templates/docs_share_view.html:58
+msgid "Document"
+msgstr ""
+
+#: app/modules/docs/controllers/wopi.py:133
+msgid "Guest"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:81
+msgid "Close and return to documents"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:87
+msgid "Read only"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:93
+#: app/modules/docs/templates/docs_list.html:24
+#: app/modules/mail/templates/folder.html:93
+msgid "Rename"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:100
+#: app/modules/docs/templates/docs_editor.html:102
+#: app/modules/docs/templates/docs_list.html:322
+#: app/modules/docs/templates/docs_list.html:425
+msgid "Convert to editable document"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:105
+#: app/modules/docs/templates/docs_editor.html:107
+#: app/modules/docs/templates/docs_editor.html:157
+#: app/modules/docs/templates/docs_list.html:327
+#: app/modules/docs/templates/docs_list.html:430
+#: app/modules/docs/templates/docs_list.html:552
+#: app/modules/mail/templates/settings.html:185
+msgid "Share"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:110
+#: app/modules/docs/templates/docs_editor.html:112
+#: app/modules/docs/templates/docs_list.html:334
+#: app/modules/docs/templates/docs_list.html:437
+#: app/modules/mail/templates/attachment_view.html:34
+#: app/modules/mail/templates/attachment_view.html:36
+#: app/modules/mail/templates/message.html:256
+#: app/modules/mail/templates/message_preview.html:42
+msgid "Download"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:127
+msgid "Rename document"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:142
+#, python-brace-format
+msgid "Share: {name}"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:149
+#: app/modules/docs/templates/docs_list.html:543
+msgid "Enter email addresses (comma-separated)"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:154
+#: app/modules/docs/templates/docs_list.html:164
+#: app/modules/docs/templates/docs_list.html:548
+#: app/modules/docs/templates/docs_share_view.html:69
+msgid "Can view"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:155
+#: app/modules/docs/templates/docs_list.html:164
+#: app/modules/docs/templates/docs_list.html:549
+#: app/modules/docs/templates/docs_share_view.html:66
+msgid "Can edit"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:163
+#: app/modules/docs/templates/docs_list.html:559
+msgid "People with access"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:169
+#: app/modules/docs/templates/docs_list.html:565
+msgid "No shares yet."
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:11
+msgid "Expand"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:27
+#: app/modules/mail/templates/folder.html:96
+msgid "Delete folder"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:42
+#: app/modules/docs/templates/docs_list.html:50
+msgid "Documents"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:54
+#: app/modules/docs/templates/docs_list.html:203
+msgid "My Documents"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:61
+#: app/modules/docs/templates/docs_list.html:121
+msgid "Shared with me"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:71
+#: app/modules/mail/templates/mailbox.html:26
+msgid "Folders"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:72
+#: app/modules/mail/templates/folder.html:46
+msgid "New folder"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:78
+msgid "Folder name"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:81
+#: app/modules/docs/templates/docs_list.html:585
+#: app/modules/mail/templates/folder.html:48
+#: app/modules/mail/templates/settings.html:187
+msgid "Add"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:89
+msgid "No folders yet."
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:94
+#: app/modules/docs/templates/docs_list.html:575
+msgid "Tags"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:106
+msgid "No tags yet."
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:118
+#: app/modules/docs/templates/docs_list.html:199
+msgid "Open menu"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:128
+msgid "No documents have been shared with you yet."
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:136
+msgid "Shared by"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:137
+msgid "Permission"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:138
+#: app/modules/docs/templates/docs_list.html:351
+msgid "Last updated"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:184
+msgid "Home"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:192
+msgid "Clear tag filter"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:203
+msgid "Folder"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:217
+msgid "Upload"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:231
+msgid "New"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:251
+msgid "Spreadsheet"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:261
+msgid "Presentation"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:272
+#: app/modules/mail/templates/folder.html:173 app/templates/layout.html:307
+msgid "Undo"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:279
+msgid "No documents yet."
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:280
+msgid "Create a new document or upload an existing file."
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:324
+#: app/modules/docs/templates/docs_list.html:427
+msgid "Convert"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:331
+#: app/modules/docs/templates/docs_list.html:434
+msgid "Add tag"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:338
+#: app/modules/docs/templates/docs_list.html:441
+msgid "Move to trash"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:352
+msgid "Size"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:406
+msgid "Filter by tag"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:458
+#, python-brace-format
+msgid "Trash ({count})"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:473
+#: app/modules/docs/templates/docs_list.html:474
+#: app/modules/docs/templates/docs_list.html:502
+msgid "Restore"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:478
+#: app/modules/docs/templates/docs_list.html:479
+#: app/modules/docs/templates/docs_list.html:507
+msgid "Delete permanently"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:520
+msgid "Empty trash"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:536
+msgid "Share document"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:583
+msgid "Add a tag and press Enter"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:589
+msgid "Suggested"
+msgstr ""
+
+#: app/modules/docs/templates/docs_share_error.html:24
+msgid "Link unavailable"
+msgstr ""
+
+#: app/modules/docs/templates/docs_share_error.html:25
+msgid "This shared link has been revoked or does not exist."
+msgstr ""
+
+#: app/modules/docs/templates/docs_share_view.html:6
+msgid "Shared with you"
+msgstr ""
+
+#: app/modules/docs/templates/docs_share_view.html:62
+#, python-brace-format
+msgid "Shared by {email}"
+msgstr ""
+
+#: app/modules/mail/controllers/api_settings.py:38
+msgid "No active account found."
+msgstr ""
+
+#: app/modules/mail/controllers/api_settings.py:43
+#: app/modules/mail/controllers/api_settings.py:73
+#: app/modules/mail/controllers/api_settings.py:127
+msgid "Session key not found. Please log in again."
+msgstr ""
+
+#: app/modules/mail/controllers/api_settings.py:49
+msgid "Incorrect password. Please try again."
+msgstr ""
+
+#: app/modules/mail/controllers/api_settings.py:62
+msgid "API access enabled. Create a token to get started."
+msgstr ""
+
+#: app/modules/mail/controllers/api_settings.py:108
+msgid "Token name is required."
+msgstr ""
+
+#: app/modules/mail/controllers/api_settings.py:122
+msgid "At least one scope must be selected."
+msgstr ""
+
+#: app/modules/mail/controllers/api_settings.py:134
+msgid "API access is not enabled."
+msgstr ""
+
+#: app/modules/mail/controllers/attachments.py:90
+#: app/modules/mail/controllers/attachments.py:175
+#: app/modules/mail/controllers/attachments.py:192
+#: app/modules/mail/controllers/compose.py:548
+msgid "Session expired."
+msgstr ""
+
+#: app/modules/mail/controllers/attachments.py:98
+#: app/modules/mail/controllers/attachments.py:200
+msgid "Invalid or missing compose session."
+msgstr ""
+
+#: app/modules/mail/controllers/attachments.py:105
+msgid "No file was provided."
+msgstr ""
+
+#: app/modules/mail/controllers/attachments.py:112
+msgid "The selected file is empty."
+msgstr ""
+
+#: app/modules/mail/controllers/attachments.py:119
+msgid "This file exceeds the per-file size limit."
+msgstr ""
+
+#: app/modules/mail/controllers/attachments.py:133
+msgid "Adding this file exceeds the total attachment size limit."
+msgstr ""
+
+#: app/modules/mail/controllers/attachments.py:151
+msgid "Unable to store the file. Please retry."
+msgstr ""
+
+#: app/modules/mail/controllers/attachments.py:180
+msgid "Invalid attachment or session."
+msgstr ""
+
+#: app/modules/mail/controllers/auth.py:84
+msgid "Domain not enabled."
+msgstr ""
+
+#: app/modules/mail/controllers/auth.py:113
+msgid "IMAP authentication failed."
+msgstr ""
+
+#: app/modules/mail/controllers/auth.py:118
+msgid "Account deactivated."
+msgstr ""
+
+#: app/modules/mail/controllers/auth.py:249
+msgid "Too many attempts. Please try again later."
+msgstr ""
+
+#: app/modules/mail/controllers/auth.py:265
+#: app/modules/mail/controllers/twofa_settings.py:79
+#: app/modules/mail/controllers/twofa_settings.py:116
+#: app/modules/mail/controllers/twofa_settings.py:137
+msgid "Invalid code. Please try again."
+msgstr ""
+
+#: app/modules/mail/controllers/compose.py:239
+msgid ""
+"Attachments are not restored automatically. Re-attach files before "
+"sending."
+msgstr ""
+
+#: app/modules/mail/controllers/compose.py:327
+#: app/modules/mail/controllers/compose.py:456
+#: app/modules/mail/controllers/compose.py:477
+msgid "Send request not found."
+msgstr ""
+
+#: app/modules/mail/controllers/compose.py:343
+msgid "Domain is unavailable."
+msgstr ""
+
+#: app/modules/mail/controllers/compose.py:357
+#: app/modules/mail/controllers/compose.py:626
+#: app/modules/mail/controllers/mailbox.py:75
+msgid "Session expired. Please log in again."
+msgstr ""
+
+#: app/modules/mail/controllers/compose.py:373
+#: app/modules/mail/controllers/compose.py:642
+msgid "Total attachment size exceeds the limit. Remove some files and try again."
+msgstr ""
+
+#: app/modules/mail/controllers/compose.py:540
+msgid "Account not found."
+msgstr ""
+
+#: app/modules/mail/controllers/compose.py:610
+msgid "Unable to save draft right now."
+msgstr ""
+
+#: app/modules/mail/controllers/compose.py:705
+msgid "Unable to save draft right now. Retry, check connection, or refresh."
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:160
+#: app/modules/mail/controllers/helpers.py:170
+msgid ""
+"IMAP is temporarily unavailable. Showing cached data while retrying in "
+"the background."
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:306
+#: app/modules/mail/controllers/helpers.py:886
+#: app/modules/mail/controllers/helpers.py:1357
+#: app/modules/mail/controllers/search.py:64
+#: app/modules/mail/controllers/search.py:102
+#: app/modules/mail/controllers/search.py:152 app/shared/push.py:168
+msgid "(no subject)"
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:645
+msgid ""
+"IMAP rejected this request while finalizing send. Retry or check account "
+"settings."
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:649
+msgid "Mail server authentication failed. Retry or verify account credentials."
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:651
+msgid "Connection timed out while sending. Retry, check connection, or refresh."
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:653
+msgid "Mail server is temporarily unreachable. Retry in a moment."
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:655
+msgid "Daily sending limit reached. Contact support to increase your quota."
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:657
+msgid ""
+"Unable to send this message right now. Retry, check connection, or "
+"refresh."
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:699
+msgid "Message failed to send."
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:780
+msgid "Message sent, but saving to Sent failed."
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:1096
+msgid "From:"
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:1098
+msgid "Date:"
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:1100
+msgid "To:"
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:1102
+msgid "Cc:"
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:1106
+#, python-format
+msgid "On %(date)s, %(sender)s wrote:"
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:1108
+#, python-format
+msgid "%(sender)s wrote:"
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:1110
+msgid "Quoted text"
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:1132
+#: app/modules/mail/templates/message.html:54
+#: app/modules/mail/templates/print.html:9
+msgid "From"
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:1133
+msgid "Date"
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:1134
+#: app/modules/mail/templates/compose.html:57
+msgid "Subject"
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:1135
+#: app/modules/mail/templates/compose.html:21
+#: app/modules/mail/templates/message.html:54
+#: app/modules/mail/templates/message_list.html:74
+#: app/modules/mail/templates/print.html:9
+msgid "To"
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:1136
+#: app/modules/mail/templates/compose.html:37
+#: app/modules/mail/templates/message.html:54
+#: app/modules/mail/templates/print.html:9
+msgid "Cc"
+msgstr ""
+
+#: app/modules/mail/controllers/helpers.py:1151
+#: app/modules/mail/controllers/helpers.py:1154
+msgid "Forwarded message"
+msgstr ""
+
+#: app/modules/mail/controllers/mailbox.py:244
+msgid "Folder name is required."
+msgstr ""
+
+#: app/modules/mail/controllers/mailbox.py:268
+#: app/modules/mail/controllers/mailbox.py:272
+msgid "Folder could not be created. Retry or check your connection."
+msgstr ""
+
+#: app/modules/mail/controllers/mailbox.py:321
+msgid "System folders are always protected and cannot be changed."
+msgstr ""
+
+#: app/modules/mail/controllers/mailbox.py:345
+msgid "System folders cannot be renamed."
+msgstr ""
+
+#: app/modules/mail/controllers/mailbox.py:362
+msgid "Folder could not be renamed. Retry or check your connection."
+msgstr ""
+
+#: app/modules/mail/controllers/mailbox.py:386
+msgid "This folder is protected and cannot be deleted."
+msgstr ""
+
+#: app/modules/mail/controllers/mailbox.py:406
+msgid "Folder could not be deleted. Retry or check your connection."
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:278
+msgid ""
+"Server doesn't support message lock flags, the option is disabled in your"
+" account"
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:305
+msgid "Destination folder is required."
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:314
+msgid "Message not found."
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:320
+msgid "Message is already in that folder."
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:385
+msgid "Message deleted"
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:388
+msgid "View Trash"
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:394
+#: app/modules/mail/controllers/message.py:439
+#: app/modules/mail/controllers/message.py:515
+#: app/modules/mail/controllers/message.py:562
+#: app/modules/mail/controllers/message.py:720
+msgid "Undo unavailable for this message."
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:430
+msgid "Message archived"
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:433
+msgid "View Archived"
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:457
+msgid "Spam action is disabled in your settings."
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:479
+msgid "No Spam/Junk folder available on this server. The Spam action is disabled."
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:490
+msgid "Server doesn't support Spam flags, the option is disabled in your account"
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:500
+#, python-format
+msgid "View %(destination)s"
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:506
+msgid "Reported as spam"
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:549
+msgid "Marked as not spam"
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:556
+msgid "View Inbox"
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:709
+msgid "Undo period expired."
+msgstr ""
+
+#: app/modules/mail/controllers/message.py:742
+msgid "Undo failed; message not found."
+msgstr ""
+
+#: app/modules/mail/controllers/push.py:52
+msgid ""
+"Push notifications are misconfigured on the server. Contact your "
+"administrator (PUSH_VAPID_* settings)."
+msgstr ""
+
+#: app/modules/mail/controllers/push.py:70
+msgid "endpoint, keys.p256dh and keys.auth are required."
+msgstr ""
+
+#: app/modules/mail/controllers/push.py:72
+msgid "Subscription fields exceed the maximum allowed length."
+msgstr ""
+
+#: app/modules/mail/controllers/push.py:124
+msgid "endpoint is required."
+msgstr ""
+
+#: app/modules/mail/controllers/push.py:127
+msgid "Unknown subscription for this user."
+msgstr ""
+
+#: app/modules/mail/controllers/push.py:165
+msgid "Unknown device for this user."
+msgstr ""
+
+#: app/modules/mail/controllers/push.py:180
+#: app/modules/mail/controllers/push.py:203
+msgid "'enabled' boolean is required."
+msgstr ""
+
+#: app/modules/mail/controllers/push.py:197
+#, python-format
+msgid "'category' must be one of: %(categories)s."
+msgstr ""
+
+#: app/modules/mail/controllers/push.py:222
+msgid "Unknown user."
+msgstr ""
+
+#: app/modules/mail/controllers/push.py:230
+msgid ""
+"No registered device yet. Enable notifications on this device first, then"
+" retry."
+msgstr ""
+
+#: app/modules/mail/controllers/push.py:245
+msgid ""
+"The test notification could not be delivered. Check the server push "
+"configuration (PUSH_VAPID_* settings) and retry."
+msgstr ""
+
+#: app/modules/mail/controllers/settings.py:30
+msgid "Every 30 seconds"
+msgstr ""
+
+#: app/modules/mail/controllers/settings.py:31
+msgid "Every minute"
+msgstr ""
+
+#: app/modules/mail/controllers/settings.py:32
+msgid "Every 2 minutes"
+msgstr ""
+
+#: app/modules/mail/controllers/settings.py:33
+msgid "Every 5 minutes"
+msgstr ""
+
+#: app/modules/mail/controllers/settings.py:34
+msgid "Every 10 minutes"
+msgstr ""
+
+#: app/modules/mail/controllers/settings.py:35
+msgid "Every 30 minutes"
+msgstr ""
+
+#: app/modules/mail/controllers/settings.py:98
+msgid "A setting key is required."
+msgstr ""
+
+#: app/modules/mail/controllers/settings.py:105
+#: app/modules/mail/controllers/settings.py:111
+#: app/modules/mail/controllers/settings.py:115
+msgid "Sync frequency must be one of the preset values."
+msgstr ""
+
+#: app/modules/mail/controllers/settings.py:121
+msgid "Sort order must be newest-first or oldest-first."
+msgstr ""
+
+#: app/modules/mail/controllers/settings.py:127
+msgid "Unknown timezone."
+msgstr ""
+
+#: app/modules/mail/controllers/settings.py:132
+msgid "Language must be auto, English, or Spanish."
+msgstr ""
+
+#: app/modules/mail/controllers/settings.py:136
+msgid "Theme must be light or dark."
+msgstr ""
+
+#: app/modules/mail/controllers/settings.py:143
+msgid "No such active account."
+msgstr ""
+
+#: app/modules/mail/controllers/settings.py:147
+msgid "Unknown setting."
+msgstr ""
+
+#: app/modules/mail/controllers/settings.py:179
+msgid ""
+"Cache cleared, but background sync is unavailable. Re-open a folder to "
+"re-sync."
+msgstr ""
+
+#: app/modules/mail/controllers/tags.py:77
+#, python-format
+msgid "Tag %(tag_id)d"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:5
+msgid "API Access"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:6
+#: app/modules/mail/templates/twofa_settings.html:96
+msgid "Back to Settings"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:11
+msgid "Privacy notice:"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:11
+msgid ""
+"Enabling API access means a persistent decryption key will be stored on "
+"the server. This allows API tokens to work without your password, but "
+"reduces the zero-knowledge property. Your cache will be cleared and re-"
+"synced."
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:15
+msgid "Confirm your password to enable API access"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:16
+msgid "Enter your IMAP password"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:18
+msgid "Enable API Access"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:24
+msgid "Token created:"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:26
+msgid "Copy this token now. You will not be able to see it again."
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:30
+#: app/modules/mail/templates/api_settings.html:52
+msgid "Create Token"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:33
+msgid "Token name"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:34
+msgid "e.g. Claude Desktop, Automation"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:37
+msgid "Scopes"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:43
+msgid "Read"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:46
+msgid "Write"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:55
+msgid "Active Tokens"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:63
+msgid "Scopes:"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:64
+msgid "Created:"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:64
+msgid "N/A"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:65
+msgid "Last used:"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:69
+#: app/modules/mail/templates/twofa_settings.html:61
+msgid "Revoke"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:75
+msgid "No tokens yet."
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:79
+#: app/modules/mail/templates/api_settings.html:82
+msgid "Disable API Access"
+msgstr ""
+
+#: app/modules/mail/templates/api_settings.html:80
+msgid ""
+"This will revoke all tokens and delete all cached data. You will need to "
+"log in again."
+msgstr ""
+
+#: app/modules/mail/templates/attachment_view.html:6
+msgid "Attachment View"
+msgstr ""
+
+#: app/modules/mail/templates/attachment_view.html:38
+#: app/modules/mail/templates/attachment_view.html:42
+#: app/modules/mail/templates/message.html:260
+#: app/modules/mail/templates/message_preview.html:46
+msgid "Open in Docs"
+msgstr ""
+
+#: app/modules/mail/templates/compose.html:4
+#: app/modules/mail/templates/folder.html:23
+#: app/modules/mail/templates/folder.html:264
+#: app/modules/mail/templates/mailbox.html:15
+#: app/modules/mail/templates/mailbox.html:39
+msgid "Compose"
+msgstr ""
+
+#: app/modules/mail/templates/compose.html:23
+msgid "Add Cc"
+msgstr ""
+
+#: app/modules/mail/templates/compose.html:24
+msgid "Add Bcc"
+msgstr ""
+
+#: app/modules/mail/templates/compose.html:34
+msgid "Add at least one valid recipient, for example name@example.com"
+msgstr ""
+
+#: app/modules/mail/templates/compose.html:47
+msgid "Bcc"
+msgstr ""
+
+#: app/modules/mail/templates/compose.html:61
+msgid "Body"
+msgstr ""
+
+#: app/modules/mail/templates/compose.html:68
+#: app/modules/mail/templates/compose.html:69
+msgid "List"
+msgstr ""
+
+#: app/modules/mail/templates/compose.html:70
+msgid "Link"
+msgstr ""
+
+#: app/modules/mail/templates/compose.html:71
+msgid "Clear"
+msgstr ""
+
+#: app/modules/mail/templates/compose.html:78
+#: app/modules/mail/templates/mailbox.html:23
+#: app/modules/mail/templates/message.html:243
+#: app/modules/mail/templates/message.html:271
+#: app/modules/mail/templates/message_preview.html:29
+msgid "Attachments"
+msgstr ""
+
+#: app/modules/mail/templates/compose.html:85
+msgid "Request read receipt"
+msgstr ""
+
+#: app/modules/mail/templates/compose.html:96
+msgid "Save Draft"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:6
+#: app/modules/mail/templates/mailbox.html:6
+msgid "Account"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:8
+msgid "Collapse"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:36
+msgid "Create folder"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:56
+msgid "Unable to create folder. Retry or refresh."
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:82
+msgid "Unpin"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:82
+msgid "Pin"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:88
+#: app/modules/mail/templates/message_list.html:2
+msgid "Protected"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:88
+msgid "Unprotect"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:88
+msgid "Protect from delete"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:95
+#, python-brace-format
+msgid "Delete folder \"{folder}\" and all its messages?"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:101
+#: app/modules/mail/templates/folder.html:156
+msgid "Mark all read"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:119
+#: app/modules/mail/templates/mailbox.html:21
+msgid "Unread"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:127
+#: app/modules/mail/templates/mailbox.html:22
+msgid "Starred"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:145
+msgid "Open folders"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:150
+#, python-brace-format
+msgid "{count} conversation ({total} email)"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:150
+#, python-brace-format
+msgid "{count} conversation ({total} emails)"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:150
+#, python-brace-format
+msgid "{count} conversations ({total} email)"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:150
+#, python-brace-format
+msgid "{count} conversations ({total} emails)"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:150
+msgid "conversations"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:159
+msgid "Preview"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:167
+msgid "Undo available for"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:170
+msgid "View folder"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:183
+msgid ""
+"Next step: keep using cached messages; background sync will retry with "
+"backoff automatically."
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:189
+msgid "Next step: retry send now, or open draft to edit and send again."
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:194
+msgid "Retry send"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:196
+msgid "Open draft"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:230
+#, python-brace-format
+msgid "Page {current} of {total}"
+msgstr ""
+
+#: app/modules/mail/templates/folder.html:255
+msgid "Select a message to preview."
+msgstr ""
+
+#: app/modules/mail/templates/login.html:4
+msgid "Customer Login"
+msgstr ""
+
+#: app/modules/mail/templates/login.html:17
+msgid "Password"
+msgstr ""
+
+#: app/modules/mail/templates/login.html:20
+msgid "Login"
+msgstr ""
+
+#: app/modules/mail/templates/mailbox.html:18
+msgid "Smart"
+msgstr ""
+
+#: app/modules/mail/templates/mailbox.html:28
+msgid "Inbox"
+msgstr ""
+
+#: app/modules/mail/templates/mailbox.html:29
+msgid "Sent"
+msgstr ""
+
+#: app/modules/mail/templates/mailbox.html:30
+msgid "Drafts"
+msgstr ""
+
+#: app/modules/mail/templates/mailbox.html:31
+msgid "Trash"
+msgstr ""
+
+#: app/modules/mail/templates/mailbox.html:32
+msgid "Spam"
+msgstr ""
+
+#: app/modules/mail/templates/mailbox.html:33
+#: app/modules/mail/templates/message.html:73
+#: app/modules/mail/templates/message.html:85
+#: app/modules/mail/templates/message_list.html:160
+#: app/modules/mail/templates/search.html:33
+#: app/modules/mail/templates/search_full.html:35
+msgid "Archive"
+msgstr ""
+
+#: app/modules/mail/templates/mailbox.html:38
+msgid "Messages"
+msgstr ""
+
+#: app/modules/mail/templates/mailbox.html:42
+msgid "Welcome to LocoRooSuite"
+msgstr ""
+
+#: app/modules/mail/templates/mailbox.html:44
+msgid "No accounts configured yet."
+msgstr ""
+
+#: app/modules/mail/templates/mailbox.html:46
+msgid "Redirecting to Inbox…"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:11
+#: app/modules/mail/templates/message.html:128
+#: app/modules/mail/templates/message_list.html:61
+msgid "Draft"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:13
+msgid "This message has not been sent yet."
+msgstr ""
+
+#: app/modules/mail/templates/message.html:15
+#: app/modules/mail/templates/message.html:61
+msgid "Edit draft"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:17
+#: app/modules/mail/templates/message.html:63
+#: app/modules/mail/templates/message.html:169
+#: app/modules/mail/templates/message.html:178
+msgid "Discard"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:25
+msgid "Back to"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:31
+#: app/modules/mail/templates/message_list.html:130
+#: app/modules/mail/templates/search.html:10
+#: app/modules/mail/templates/search_full.html:11
+msgid "Unstar"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:31
+#: app/modules/mail/templates/message_list.html:130
+#: app/modules/mail/templates/search.html:10
+#: app/modules/mail/templates/search_full.html:11
+msgid "Star"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:40
+#: app/modules/mail/templates/message_list.html:184
+msgid "Unlock"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:40
+msgid "Lock (protect from delete)"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:52
+#, python-brace-format
+msgid "{n} messages in this conversation"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:66
+msgid "Reply"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:67
+msgid "Reply All"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:68
+msgid "Forward"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:70
+msgid "Create event"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:79
+#: app/modules/mail/templates/message_list.html:166
+#: app/modules/mail/templates/search.html:39
+#: app/modules/mail/templates/search_full.html:41
+msgid "More actions"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:82
+msgid "Reply all"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:93
+#: app/modules/mail/templates/message_list.html:170
+#: app/modules/mail/templates/search.html:43
+#: app/modules/mail/templates/search_full.html:45
+msgid "Mark as read"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:93
+#: app/modules/mail/templates/message_list.html:170
+#: app/modules/mail/templates/search.html:43
+#: app/modules/mail/templates/search_full.html:45
+msgid "Mark as unread"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:95
+#: app/modules/mail/templates/message.html:297
+#: app/modules/mail/templates/message_list.html:187
+#: app/modules/mail/templates/search.html:45
+msgid "Move to folder"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:98
+#: app/modules/mail/templates/message_list.html:174
+msgid "Not spam"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:102
+#: app/modules/mail/templates/message_list.html:178
+msgid "Report spam"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:106
+msgid "Download .eml"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:107
+#: app/modules/mail/templates/print.html:5
+msgid "Print"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:120
+#: app/modules/mail/templates/message.html:129
+#: app/modules/mail/templates/message.html:136
+#: app/modules/mail/templates/message_list.html:111
+msgid "You"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:125
+#: app/modules/mail/templates/message.html:193
+#: app/modules/mail/templates/message_list.html:26
+msgid "Delivery failed"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:132
+#: app/modules/mail/templates/message.html:136
+#: app/modules/mail/templates/message.html:140
+#: app/modules/mail/templates/message.html:144
+msgid "Click to copy"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:134
+#: app/modules/mail/templates/message.html:142
+#: app/modules/mail/templates/message.html:148
+msgid "cc"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:148
+msgid "to"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:201
+#: app/modules/mail/templates/message_preview.html:4
+msgid "External images blocked."
+msgstr ""
+
+#: app/modules/mail/templates/message.html:201
+#: app/modules/mail/templates/message_preview.html:9
+msgid "Show external images"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:221
+msgid "Organizer:"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:224
+#, python-brace-format
+msgid "{n} attendee(s):"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:229
+msgid "Loading calendars..."
+msgstr ""
+
+#: app/modules/mail/templates/message.html:232
+msgid "Loading..."
+msgstr ""
+
+#: app/modules/mail/templates/message.html:252
+#: app/modules/mail/templates/message_preview.html:38
+msgid "View"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:281
+msgid "View full message"
+msgstr ""
+
+#: app/modules/mail/templates/message.html:300
+msgid "Filter folders..."
+msgstr ""
+
+#: app/modules/mail/templates/message.html:307
+msgid "No other folders available"
+msgstr ""
+
+#: app/modules/mail/templates/message_list.html:2
+#, python-brace-format
+msgid "Protected from deletion ({reason}). Use the ⋯ menu to {action} it."
+msgstr ""
+
+#: app/modules/mail/templates/message_list.html:2
+msgid "unlock"
+msgstr ""
+
+#: app/modules/mail/templates/message_list.html:2
+msgid "unstar"
+msgstr ""
+
+#: app/modules/mail/templates/message_list.html:2
+msgid "unstar and unlock"
+msgstr ""
+
+#: app/modules/mail/templates/message_list.html:157
+#: app/modules/mail/templates/search.html:30
+#: app/modules/mail/templates/search_full.html:32
+msgid "Show actions"
+msgstr ""
+
+#: app/modules/mail/templates/message_list.html:184
+msgid "Lock"
+msgstr ""
+
+#: app/modules/mail/templates/message_list.html:219
+#, python-brace-format
+msgid "{n} older message"
+msgstr ""
+
+#: app/modules/mail/templates/message_list.html:219
+#, python-brace-format
+msgid "{n} older messages"
+msgstr ""
+
+#: app/modules/mail/templates/message_list.html:228
+#, python-brace-format
+msgid "{n} more in thread"
+msgstr ""
+
+#: app/modules/mail/templates/message_list.html:228
+msgid "open all"
+msgstr ""
+
+#: app/modules/mail/templates/message_preview.html:14
+msgid "Snippet debug (dev)"
+msgstr ""
+
+#: app/modules/mail/templates/message_preview.html:15
+msgid "Selected snippet:"
+msgstr ""
+
+#: app/modules/mail/templates/search.html:3
+#, python-brace-format
+msgid "Search results for \"{query}\""
+msgstr ""
+
+#: app/modules/mail/templates/search.html:52
+#: app/modules/mail/templates/search_full.html:67
+msgid "No messages found"
+msgstr ""
+
+#: app/modules/mail/templates/search.html:53
+#: app/modules/mail/templates/search_full.html:68
+msgid "Try different keywords or check your spelling."
+msgstr ""
+
+#: app/modules/mail/templates/search_full.html:3
+#, python-brace-format
+msgid "Full search results for \"{query}\""
+msgstr ""
+
+#: app/modules/mail/templates/sent.html:5
+msgid "Redirecting to inbox…"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:4 app/templates/layout.html:200
+msgid "Settings"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:6
+msgid "Settings sections"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:7
+#: app/modules/mail/templates/settings.html:19
+msgid "General"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:8
+#: app/modules/mail/templates/settings.html:70 app/templates/layout.html:158
+msgid "Mail"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:9
+#: app/modules/mail/templates/settings.html:117
+msgid "Protection"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:10
+#: app/modules/mail/templates/settings.html:172
+msgid "Notifications"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:11
+#: app/modules/mail/templates/settings.html:241
+#: app/modules/mail/templates/twofa_settings.html:4
+msgid "Security"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:11
+#: app/modules/mail/templates/settings.html:241
+msgid "API"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:20
+msgid "How the app looks and what timezone it uses."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:26
+msgid "Dates and times are shown in this timezone."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:31
+msgid "Browser (detected)"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:40
+msgid "Language"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:41
+msgid "Interface language. Auto follows your browser."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:54
+msgid "Theme"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:55
+msgid "Colour scheme of the interface."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:60
+msgid "Light"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:61
+msgid "Dark"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:71
+msgid "How your mailbox behaves."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:76
+msgid "Sort order"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:77
+msgid "Default ordering of the message list."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:82
+msgid "Newest first"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:83
+msgid "Oldest first"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:89
+msgid "Preview pane"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:90
+msgid "Open the reading pane next to the message list by default."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:100
+msgid "Sync frequency"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:101
+msgid "How often to check for new mail when the app is open."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:118
+msgid ""
+"Guard rails that stop mail from being deleted by accident — or by an AI "
+"agent."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:123
+msgid "Protect starred emails"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:124
+msgid "Starred emails refuse delete or move-to-Trash until they are un-starred."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:141
+msgid "Spam reporting"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:142
+msgid "Show the “report spam” action for this account."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:152
+msgid "Message lock"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:153
+msgid "Allow locking individual messages so they refuse delete."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:165
+msgid "No active accounts yet."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:173
+msgid ""
+"Choose what reaches your devices — new email, calendar reminders — and "
+"manage registered devices."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:179
+msgid "Install the app"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:180
+msgid "Add LocoRooSuite to your home screen for a faster, full-screen experience."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:182 app/templates/layout.html:221
+msgid "Install app"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:185
+msgid "Tap the"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:185
+msgid "button in the browser toolbar."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:186
+msgid "Scroll down and tap"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:186
+msgid "Add to Home Screen"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:187
+msgid "Tap"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:187
+msgid "to install."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:192
+msgid "Enable notifications"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:193
+msgid "Disable on this device"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:194
+msgid "Send test notification"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:197
+msgid "Registered devices"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:199
+msgid "No devices registered yet."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:204
+msgid "New email notifications"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:205
+msgid ""
+"Get a device notification when new mail arrives, even when the app is "
+"closed."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:215
+msgid "Calendar event reminders"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:216
+msgid ""
+"Get a device notification at each event’s reminder time (e.g. 15 minutes "
+"before). Requires at least one registered device."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:226
+msgid "Show sender and subject"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:227
+msgid ""
+"Off by default: notifications only say “New email” so your mail stays "
+"private on the lock screen. Message bodies are never included."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:246
+msgid "Two-factor authentication"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:247
+msgid "Enable 2FA and manage trusted devices."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:253
+msgid "API access"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:254
+msgid "Manage API tokens for AI agents and external tools."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:268
+msgid "Reset mail cache"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:269
+msgid ""
+"Clears the locally cached mail for your active account and re-syncs from "
+"the server. Nothing is deleted from your mailbox."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:271 app/templates/error.html:8
+msgid "Reset cache"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:274
+msgid "Clear the cached mail and re-sync from the server?"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:276
+msgid "Yes, reset cache"
+msgstr ""
+
+#: app/modules/mail/templates/twofa.html:4
+msgid "Two-Factor Authentication"
+msgstr ""
+
+#: app/modules/mail/templates/twofa.html:5
+msgid "Enter your verification code"
+msgstr ""
+
+#: app/modules/mail/templates/twofa.html:12
+msgid "Backup code"
+msgstr ""
+
+#: app/modules/mail/templates/twofa.html:18
+msgid "6-digit code"
+msgstr ""
+
+#: app/modules/mail/templates/twofa.html:24
+msgid "Remember this device for 30 days"
+msgstr ""
+
+#: app/modules/mail/templates/twofa.html:26
+msgid "Verify"
+msgstr ""
+
+#: app/modules/mail/templates/twofa.html:30
+msgid "Use authenticator app instead"
+msgstr ""
+
+#: app/modules/mail/templates/twofa.html:32
+msgid "Use a backup code instead"
+msgstr ""
+
+#: app/modules/mail/templates/twofa.html:36 app/templates/error.html:11
+msgid "Back to login"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_confirm.html:4
+#: app/modules/mail/templates/twofa_settings.html:90
+msgid "Enable 2FA"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_confirm.html:12
+msgid ""
+"Scan this QR code with your authenticator app (Google Authenticator, "
+"Authy, 1Password, etc.)."
+msgstr ""
+
+#: app/modules/mail/templates/twofa_confirm.html:14
+msgid "QR code"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_confirm.html:19
+msgid "Can't scan? Enter this key manually:"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_confirm.html:25
+msgid "Enter the 6-digit code from your app"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_confirm.html:28
+msgid "Confirm and Enable"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:8
+msgid "Save your backup codes"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:9
+msgid ""
+"These single-use codes let you sign in if you lose your authenticator "
+"device. Save them now — you will not see them again."
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:20
+msgid "You have a pending 2FA setup."
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:20
+msgid "Continue enrollment"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:27
+msgid "Two-factor authentication is active"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:28
+#, python-brace-format
+msgid "{n} backup codes remaining"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:39
+msgid "Regenerate backup codes"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:40
+msgid "Generate a new set of backup codes. Old codes will stop working."
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:43
+#: app/modules/mail/templates/twofa_settings.html:79
+msgid "Enter current code to confirm"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:46
+msgid "Regenerate"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:51
+msgid "Trusted devices"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:58
+msgid "Added"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:58
+msgid "Last used"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:67
+msgid "Revoke all trusted devices"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:70
+msgid "No trusted devices."
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:75
+msgid "Disable 2FA"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:76
+msgid "Disabling 2FA also revokes all trusted devices."
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:82
+msgid "Disable"
+msgstr ""
+
+#: app/modules/mail/templates/twofa_settings.html:88
+msgid ""
+"Add an extra layer of security to your account. When enabled, you'll need"
+" a verification code from your authenticator app in addition to your "
+"password."
+msgstr ""
+
+#: app/shared/push.py:169 app/shared/push.py:172
+msgid "You have new mail"
+msgstr ""
+
+#: app/shared/push.py:170
+#, python-format
+msgid "%(subject)s (+%(n)d more)"
+msgstr ""
+
+#: app/shared/push.py:174
+msgid "You have a new message in your inbox"
+msgstr ""
+
+#: app/shared/push.py:176
+#, python-format
+msgid "%(count)d new messages in your inbox"
+msgstr ""
+
+#: app/shared/push.py:253
+msgid "Event reminder"
+msgstr ""
+
+#: app/shared/push.py:279
+msgid "Test notification"
+msgstr ""
+
+#: app/shared/push.py:280
+msgid "Notifications are working on this device."
+msgstr ""
+
+#: app/templates/error.html:4
+msgid "Error"
+msgstr ""
+
+#: app/templates/error.html:5
+msgid "An unexpected error occurred."
+msgstr ""
+
+#: app/templates/layout.html:139 app/templates/layout.html:144
+#: app/templates/layout.html:216
+msgid "Search mail"
+msgstr ""
+
+#: app/templates/layout.html:151
+msgid "App launcher"
+msgstr ""
+
+#: app/templates/layout.html:182
+msgid "Docs"
+msgstr ""
+
+#: app/templates/layout.html:188
+msgid "Admin"
+msgstr ""
+
+#: app/templates/layout.html:203 app/templates/layout.html:210
+msgid "Domain Management"
+msgstr ""
+
+#: app/templates/layout.html:205
+msgid "Log out"
+msgstr ""
+
+#: app/templates/layout.html:225
+msgid "Install LocoRooSuite"
+msgstr ""
+
+#: app/templates/layout.html:226
+msgid "Add the app to your home screen for a faster, full-screen experience."
+msgstr ""
+
+#: app/templates/layout.html:228
+msgid "Dismiss install banner"
+msgstr ""
+
+#: app/templates/layout.html:232
+msgid "Install"
+msgstr ""
+
+#: app/templates/layout.html:236 app/templates/layout.html:240
+msgid "Turn on notifications"
+msgstr ""
+
+#: app/templates/layout.html:241
+msgid ""
+"Get a notification when new mail arrives. You can turn this off anytime "
+"in Settings."
+msgstr ""
+
+#: app/templates/layout.html:243
+msgid "Dismiss notifications prompt"
+msgstr ""
+
+#: app/templates/layout.html:247
+msgid "Turn on"
+msgstr ""
+
+#: app/templates/layout.html:248
+msgid "Don’t ask again"
+msgstr ""
+
+#: app/templates/layout.html:276
+msgid "Done."
+msgstr ""
+
+#: app/templates/layout.html:279
+msgid ""
+"Action failed. Please retry. If it keeps happening, check your connection"
+" or refresh."
+msgstr ""
+
+#: app/templates/layout.html:299
+msgid "Preparing to send…"
+msgstr ""
+
+#: app/templates/layout.html:302
+msgid "Dismiss"
+msgstr ""
+
+#: app/templates/layout.html:308
+msgid "Send now"
+msgstr ""
+
+#: app/templates/offline.html:6 app/templates/offline.html:13
+msgid "You're offline"
+msgstr ""
+
+#: app/templates/offline.html:15
+msgid ""
+"LocoRooSuite needs a connection to load your mail. Check your network and"
+" try again."
+msgstr ""
+
+#: app/templates/offline.html:20
+msgid "Try again"
+msgstr ""
+
+#: app/templates/offline.html:24
+msgid "Go to mail"
+msgstr ""
+
+
+# JS-side keys (scripts/i18n_extract_js.py)
+msgid "\"{name}\" is larger than the {size} per-file limit."
+msgstr ""
+
+msgid "(edited)"
+msgstr ""
+
+msgid "(limit {size})"
+msgstr ""
+
+msgid "(popup blocked — use the link)"
+msgstr ""
+
+msgid "+{n} more"
+msgstr ""
+
+msgid "1 hour ago"
+msgstr ""
+
+msgid "1 minute ago"
+msgstr ""
+
+msgid "1 month ago"
+msgstr ""
+
+msgid "1 year ago"
+msgstr ""
+
+msgid "Action failed."
+msgstr ""
+
+msgid "Action failed. Please try again."
+msgstr ""
+
+msgid "Action failed: {error}"
+msgstr ""
+
+msgid "Add attachments"
+msgstr ""
+
+msgid "Add it via Share \\u2192 Add to Home Screen to use the app full screen and get notifications."
+msgstr ""
+
+msgid "Add to calendar"
+msgstr ""
+
+msgid "Added to calendar"
+msgstr ""
+
+msgid "Adding files would exceed the {size} total limit."
+msgstr ""
+
+msgid "Already in calendar"
+msgstr ""
+
+msgid "Android device"
+msgstr ""
+
+msgid "April"
+msgstr ""
+
+msgid "Attach from Docs"
+msgstr ""
+
+msgid "Attached"
+msgstr ""
+
+msgid "August"
+msgstr ""
+
+msgid "Back"
+msgstr ""
+
+msgid "Browse files"
+msgstr ""
+
+msgid "Browser (detected: {tz})"
+msgstr ""
+
+msgid "Cache cleared for {account}. Fresh sync will start when you open a folder."
+msgstr ""
+
+msgid "Chat unavailable: {error} Refresh after fixing the configuration."
+msgstr ""
+
+msgid "Click to copy {email}"
+msgstr ""
+
+msgid "Collapse older messages"
+msgstr ""
+
+msgid "Connection issue ({code}), retrying…"
+msgstr ""
+
+msgid "Conversation started with {peer}{matrixId}"
+msgstr ""
+
+msgid "Conversion failed. Please check your connection or try again."
+msgstr ""
+
+msgid "Conversion failed. Please try again."
+msgstr ""
+
+msgid "Converting..."
+msgstr ""
+
+msgid "Copied {email}"
+msgstr ""
+
+msgid "Copied!"
+msgstr ""
+
+msgid "Could not add tag."
+msgstr ""
+
+msgid "Could not copy email address."
+msgstr ""
+
+msgid "Could not create folder."
+msgstr ""
+
+msgid "Could not create room: {error}"
+msgstr ""
+
+msgid "Could not delete: {error}"
+msgstr ""
+
+msgid "Could not disable notifications. Please retry."
+msgstr ""
+
+msgid "Could not edit: {error}"
+msgstr ""
+
+msgid "Could not enable notifications. Please retry; if it keeps happening, check your connection or refresh."
+msgstr ""
+
+msgid "Could not join: {error}"
+msgstr ""
+
+msgid "Could not leave: {error}"
+msgstr ""
+
+msgid "Could not load chat: {error}"
+msgstr ""
+
+msgid "Could not load documents. Retry from the Docs button."
+msgstr ""
+
+msgid "Could not load invite details"
+msgstr ""
+
+msgid "Could not load messages: {error}"
+msgstr ""
+
+msgid "Could not load registered devices."
+msgstr ""
+
+msgid "Could not load the document from Docs. Retry."
+msgstr ""
+
+msgid "Could not move the document. Please try again."
+msgstr ""
+
+msgid "Could not open in Docs: "
+msgstr ""
+
+msgid "Could not parse invite"
+msgstr ""
+
+msgid "Could not proceed: {error} Check the address and retry."
+msgstr ""
+
+msgid "Could not react: {error}"
+msgstr ""
+
+msgid "Could not remove the device. Please retry."
+msgstr ""
+
+msgid "Could not reset the cache. Please retry, or refresh the page."
+msgstr ""
+
+msgid "Could not save the subscription. Please retry."
+msgstr ""
+
+msgid "Could not save. Please retry."
+msgstr ""
+
+msgid "Could not send the test notification. Please retry."
+msgstr ""
+
+msgid "Could not send: {error} Check your connection and retry."
+msgstr ""
+
+msgid "Could not turn on notifications."
+msgstr ""
+
+msgid "December"
+msgstr ""
+
+msgid "Delete \"{name}\"?"
+msgstr ""
+
+msgid "Delete failed."
+msgstr ""
+
+msgid "Delete protection removed"
+msgstr ""
+
+msgid "Delete this message?"
+msgstr ""
+
+msgid "Delete {name}?"
+msgstr ""
+
+msgid "Deleting..."
+msgstr ""
+
+msgid "Direct message"
+msgstr ""
+
+msgid "Download file"
+msgstr ""
+
+msgid "Draft discarded."
+msgstr ""
+
+msgid "Drag & drop files here"
+msgstr ""
+
+msgid "Edit message"
+msgstr ""
+
+msgid "Enter link URL"
+msgstr ""
+
+msgid "Event cancelled"
+msgstr ""
+
+msgid "Event removed from calendar."
+msgstr ""
+
+msgid "Failed to download attachment"
+msgstr ""
+
+msgid "Failed to handle cancellation."
+msgstr ""
+
+msgid "Failed to import event."
+msgstr ""
+
+msgid "Failed to load events."
+msgstr ""
+
+msgid "Failed to load shares."
+msgstr ""
+
+msgid "Failed to move message. Please retry. If it keeps happening, check your connection or refresh."
+msgstr ""
+
+msgid "Failed to rename. Please retry."
+msgstr ""
+
+msgid "Failed to respond."
+msgstr ""
+
+msgid "Failed to share. Please try again."
+msgstr ""
+
+msgid "Failed to update response."
+msgstr ""
+
+msgid "February"
+msgstr ""
+
+msgid "Fetching from Docs…"
+msgstr ""
+
+msgid "File exceeds 50 MB limit."
+msgstr ""
+
+msgid "Folder \"{name}\" deleted. Contents moved up."
+msgstr ""
+
+msgid "Folder protected from delete"
+msgstr ""
+
+msgid "Fri"
+msgstr ""
+
+msgid "From Docs"
+msgstr ""
+
+msgid "Hide password"
+msgstr ""
+
+msgid "Hide preview"
+msgstr ""
+
+msgid "Hide quoted text"
+msgstr ""
+
+msgid "Hide timezone"
+msgstr ""
+
+msgid "Install the app: tap the Share button, then choose 'Add to Home Screen'."
+msgstr ""
+
+msgid "Invalid email address"
+msgstr ""
+
+msgid "Invited {email}{userId}"
+msgstr ""
+
+msgid "January"
+msgstr ""
+
+msgid "July"
+msgstr ""
+
+msgid "June"
+msgstr ""
+
+msgid "Last:"
+msgstr ""
+
+msgid "Leave this conversation?"
+msgstr ""
+
+msgid "Linux desktop"
+msgstr ""
+
+msgid "Live"
+msgstr ""
+
+msgid "Loading preview..."
+msgstr ""
+
+msgid "Loading…"
+msgstr ""
+
+msgid "Mac"
+msgstr ""
+
+msgid "March"
+msgstr ""
+
+msgid "May"
+msgstr ""
+
+msgid "Message cannot be empty."
+msgstr ""
+
+msgid "Message locked"
+msgstr ""
+
+msgid "Message sent"
+msgstr ""
+
+msgid "Message unlocked"
+msgstr ""
+
+msgid "Mon"
+msgstr ""
+
+msgid "Move failed."
+msgstr ""
+
+msgid "Move failed. Please try again."
+msgstr ""
+
+msgid "Network error."
+msgstr ""
+
+msgid "Network error. Check your connection and retry."
+msgstr ""
+
+msgid "Network error. Check your connection and try again."
+msgstr ""
+
+msgid "Network error. Please check your connection and try again."
+msgstr ""
+
+msgid "Network error. Please retry."
+msgstr ""
+
+msgid "Network error. Please try again."
+msgstr ""
+
+msgid "Never"
+msgstr ""
+
+msgid "No documents available."
+msgstr ""
+
+msgid "No matching documents."
+msgstr ""
+
+msgid "No messages."
+msgstr ""
+
+msgid "No other folders available."
+msgstr ""
+
+msgid "No upcoming events."
+msgstr ""
+
+msgid "Notifications are blocked. Allow them in your browser settings (usually the lock icon in the address bar), then retry."
+msgstr ""
+
+msgid "Notifications are enabled for this device."
+msgstr ""
+
+msgid "Notifications enabled for this device."
+msgstr ""
+
+msgid "November"
+msgstr ""
+
+msgid "October"
+msgstr ""
+
+msgid "On this iPhone or iPad, notifications require the app to be installed to your Home Screen (iOS 16.4 or later). See 'Install the app' above."
+msgstr ""
+
+msgid "Open document"
+msgstr ""
+
+msgid "Please enter a valid name (no slashes, max 255 characters)."
+msgstr ""
+
+msgid "Please retry. If it keeps happening, check your connection or refresh."
+msgstr ""
+
+msgid "Push notifications are not configured on the server."
+msgstr ""
+
+msgid "Push notifications are not configured on the server. Please contact your administrator."
+msgstr ""
+
+msgid "Queued, sending soon…"
+msgstr ""
+
+msgid "React {key}"
+msgstr ""
+
+msgid "Reconnecting…"
+msgstr ""
+
+msgid "Remove"
+msgstr ""
+
+msgid "Remove from calendar"
+msgstr ""
+
+msgid "Rename failed."
+msgstr ""
+
+msgid "Rename folder"
+msgstr ""
+
+msgid "Request failed ({status})"
+msgstr ""
+
+msgid "Requesting permission…"
+msgstr ""
+
+msgid "Reset failed"
+msgstr ""
+
+msgid "Resetting…"
+msgstr ""
+
+msgid "Retry failed. Please refresh."
+msgstr ""
+
+msgid "Revoking..."
+msgstr ""
+
+msgid "Sat"
+msgstr ""
+
+msgid "Save failed"
+msgstr ""
+
+msgid "Saved"
+msgstr ""
+
+msgid "Saving..."
+msgstr ""
+
+msgid "Saving…"
+msgstr ""
+
+msgid "Say hello — messages appear instantly for everyone."
+msgstr ""
+
+msgid "Search documents…"
+msgstr ""
+
+msgid "Select calendar"
+msgstr ""
+
+msgid "Send failed"
+msgstr ""
+
+msgid "Sending in {n}s…"
+msgstr ""
+
+msgid "Sending now…"
+msgstr ""
+
+msgid "Sending test notification…"
+msgstr ""
+
+msgid "Sending..."
+msgstr ""
+
+msgid "September"
+msgstr ""
+
+msgid "Shared with {emails}"
+msgstr ""
+
+msgid "Show password"
+msgstr ""
+
+msgid "Show quoted text"
+msgstr ""
+
+msgid "Sun"
+msgstr ""
+
+msgid "Sync error in {folder}{message}"
+msgstr ""
+
+msgid "Syncing {done} of {total}..."
+msgstr ""
+
+msgid "Syncing {folder} — {done} of {total} downloaded"
+msgstr ""
+
+msgid "Syncing {folder}…"
+msgstr ""
+
+msgid "Syncing..."
+msgstr ""
+
+msgid "Test failed"
+msgstr ""
+
+msgid "Test notification sent. Check your device — if it does not appear, make sure notifications are allowed for this app in the OS/browser settings."
+msgstr ""
+
+msgid "This browser does not support push notifications."
+msgstr ""
+
+msgid "This event conflicts with: {names}. Proceed anyway?"
+msgstr ""
+
+msgid "This event has been cancelled"
+msgstr ""
+
+msgid "This file is empty."
+msgstr ""
+
+msgid "This is the beginning of your conversation with {who}."
+msgstr ""
+
+msgid "Thu"
+msgstr ""
+
+msgid "Tue"
+msgstr ""
+
+msgid "Unable to load preview."
+msgstr ""
+
+msgid "Unable to refresh status."
+msgstr ""
+
+msgid "Unable to save draft."
+msgstr ""
+
+msgid "Unable to send message."
+msgstr ""
+
+msgid "Unable to send now. Retry or refresh."
+msgstr ""
+
+msgid "Unable to send right now."
+msgstr ""
+
+msgid "Unable to start upload."
+msgstr ""
+
+msgid "Unavailable"
+msgstr ""
+
+msgid "Undo failed."
+msgstr ""
+
+msgid "Undo failed. Please refresh."
+msgstr ""
+
+msgid "Unknown"
+msgstr ""
+
+msgid "Unknown device"
+msgstr ""
+
+msgid "Unknown error"
+msgstr ""
+
+msgid "Unnamed room"
+msgstr ""
+
+msgid "Unsupported file type. Accepted: .odt, .ods, .odp, .docx, .xlsx, .pptx"
+msgstr ""
+
+msgid "Untitled"
+msgstr ""
+
+msgid "Up to {max} per file · {total} total"
+msgstr ""
+
+msgid "Upcoming events"
+msgstr ""
+
+msgid "Upload failed"
+msgstr ""
+
+msgid "Upload failed ({status})"
+msgstr ""
+
+msgid "Upload failed."
+msgstr ""
+
+msgid "Upload failed. Please try again."
+msgstr ""
+
+msgid "Upload failed: {error} Retry or check the file size (50 MB max)."
+msgstr ""
+
+msgid "Uploading {name}…"
+msgstr ""
+
+msgid "Uploading..."
+msgstr ""
+
+msgid "View in calendar"
+msgstr ""
+
+msgid "Wed"
+msgstr ""
+
+msgid "Windows PC"
+msgstr ""
+
+msgid "You can install it from your browser's menu (\\u22EE \\u2192 Install app)."
+msgstr ""
+
+msgid "all-day"
+msgstr ""
+
+msgid "browse"
+msgstr ""
+
+msgid "iOS device"
+msgstr ""
+
+msgid "image"
+msgstr ""
+
+msgid "just now"
+msgstr ""
+
+msgid "or"
+msgstr ""
+
+msgid "this contact"
+msgstr ""
+
+msgid "this person"
+msgstr ""
+
+msgid "this room"
+msgstr ""
+
+msgid "unknown"
+msgstr ""
+
+msgid "yesterday"
+msgstr ""
+
+msgid "your account"
+msgstr ""
+
+msgid "{count} conversations"
+msgstr ""
+
+msgid "{n} days ago"
+msgstr ""
+
+msgid "{n} event"
+msgstr ""
+
+msgid "{n} events"
+msgstr ""
+
+msgid "{n} hours ago"
+msgstr ""
+
+msgid "{n} members"
+msgstr ""
+
+msgid "{n} minutes ago"
+msgstr ""
+
+msgid "{n} months ago"
+msgstr ""
+
+msgid "{n} seconds ago"
+msgstr ""
+
+msgid "{n} view"
+msgstr ""
+
+msgid "{n} views"
+msgstr ""
+
+msgid "{n} years ago"
+msgstr ""
+
+msgid "{n}d ago"
+msgstr ""
+
+msgid "{n}h ago"
+msgstr ""
+
+msgid "{n}m ago"
+msgstr ""
+

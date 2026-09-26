@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from email.utils import getaddresses, parsedate_to_datetime
 
 from flask import Blueprint, current_app, request, session, url_for
+from flask_babel import _
 
 from app.modules.mail.services.cache_db import (
     delete_messages_by_uids,
@@ -50,6 +51,7 @@ from app.modules.mail.utils.sanitize import (
     wrap_email_html,
 )
 from app.shared.db import db
+from app.shared.i18n import current_locale_name
 from app.shared.icalendar import parse_icalendar
 from app.shared.keys import get_user_key
 from app.shared.models.core import CustomerAccount, CustomerSettings, Domain
@@ -154,7 +156,7 @@ def _folder_sidebar_context(user_id, account, key, conn):
             user_id,
         )
         folders = _fallback_sidebar_folders(conn, cached_folders)
-        sidebar_warning = (
+        sidebar_warning = _(
             "IMAP is temporarily unavailable. Showing cached data while retrying in the background."
         )
     except Exception:
@@ -164,7 +166,7 @@ def _folder_sidebar_context(user_id, account, key, conn):
             user_id,
         )
         folders = _fallback_sidebar_folders(conn, cached_folders)
-        sidebar_warning = (
+        sidebar_warning = _(
             "IMAP is temporarily unavailable. Showing cached data while retrying in the background."
         )
     settings = CustomerSettings.query.filter_by(customer_id=user_id).first()
@@ -301,7 +303,7 @@ def _message_date_ts(date_value):
 
 def _decorate_message_row(row, timezone_name=None, is_sent=False):
     flags = _parse_flags(row["flags"])
-    subject = normalize_header_text(row["subject"]) or "(no subject)"
+    subject = normalize_header_text(row["subject"]) or _("(no subject)")
     sender_full = decode_address_header(row["sender"])
     sender_display, sender_tooltip = _format_sender(sender_full)
     body = row["body"]
@@ -372,6 +374,20 @@ def _format_sender(sender_raw):
     return cleaned, cleaned
 
 
+def _fmt_dt(dt, pattern: str) -> str:
+    """Locale-aware date/datetime formatting (U26.7): month/day names follow
+    the current UI locale (Babel patterns, not strftime, which is English-only).
+    Falls back to English outside a request context (workers)."""
+    import datetime as _dt_module
+
+    from babel.dates import format_date, format_datetime
+
+    locale = current_locale_name()
+    if isinstance(dt, _dt_module.datetime):
+        return format_datetime(dt, pattern, locale=locale)
+    return format_date(dt, pattern, locale=locale)
+
+
 def _format_short_date(date_value, timezone_name=None):
     if not date_value:
         return ""
@@ -382,10 +398,10 @@ def _format_short_date(date_value, timezone_name=None):
     local_dt = dt.astimezone(tz)
     now = datetime.now(tz)
     if now - timedelta(hours=24) <= local_dt <= now:
-        return local_dt.strftime("%H:%M")
+        return _fmt_dt(local_dt, "HH:mm")
     if local_dt.year == now.year:
-        return local_dt.strftime("%d %b %H:%M")
-    return local_dt.strftime("%d %b %y %H:%M")
+        return _fmt_dt(local_dt, "d MMM HH:mm")
+    return _fmt_dt(local_dt, "d MMM yy HH:mm")
 
 
 def normalize_subject_for_threading(subject):
@@ -616,19 +632,38 @@ def _cleanup_pending_sends(now_ts=None):
                 _send_failure_notice.pop(customer_id, None)
 
 
-def _send_error_message(exc):
+def _send_error_message(exc, user_id=None):
+    """Map a send exception to a user-facing message (HLD U6.6c).
+
+    Returns the English msgid by default; pass ``user_id`` to get the message
+    in the user's locale (worker threads have no request context). The N_()
+    markers keep the strings in the gettext catalog for extraction.
+    """
+    from app.shared.i18n import N_
+
     if isinstance(exc, imaplib.IMAP4.error):
-        return "IMAP rejected this request while finalizing send. Retry or check account settings."
-    message = str(exc or "").strip().lower()
-    if "auth" in message:
-        return "Mail server authentication failed. Retry or verify account credentials."
-    if "timed out" in message or "timeout" in message:
-        return "Connection timed out while sending. Retry, check connection, or refresh."
-    if "refused" in message or "unreachable" in message or "service not known" in message:
-        return "Mail server is temporarily unreachable. Retry in a moment."
-    if "sending limit" in message or "daily sending" in message:
-        return "Daily sending limit reached. Contact support to increase your quota."
-    return "Unable to send this message right now. Retry, check connection, or refresh."
+        msgid = N_(
+            "IMAP rejected this request while finalizing send. Retry or check account settings."
+        )
+    else:
+        message = str(exc or "").strip().lower()
+        if "auth" in message:
+            msgid = N_("Mail server authentication failed. Retry or verify account credentials.")
+        elif "timed out" in message or "timeout" in message:
+            msgid = N_("Connection timed out while sending. Retry, check connection, or refresh.")
+        elif "refused" in message or "unreachable" in message or "service not known" in message:
+            msgid = N_("Mail server is temporarily unreachable. Retry in a moment.")
+        elif "sending limit" in message or "daily sending" in message:
+            msgid = N_("Daily sending limit reached. Contact support to increase your quota.")
+        else:
+            msgid = N_(
+                "Unable to send this message right now. Retry, check connection, or refresh."
+            )
+    if user_id is None:
+        return msgid
+    from app.shared.i18n import translate_for_user
+
+    return translate_for_user(user_id, msgid)
 
 
 def _send_status_snapshot(send_token, payload, now_ts=None):
@@ -665,7 +700,7 @@ def _consume_send_failure_notice(customer_id):
         return {
             "token": token,
             "account_id": payload.get("account_id"),
-            "error": payload.get("error") or "Message failed to send.",
+            "error": payload.get("error") or _("Message failed to send."),
         }
 
 
@@ -743,7 +778,11 @@ def _send_worker(app, send_token, delay_seconds=0):
                     imap_client, "Sent", payload.get("sent_msg") or payload["msg"]
                 )
             except Exception:
-                warning = "Message sent, but saving to Sent failed."
+                from app.shared.i18n import N_, translate_for_user
+
+                warning = translate_for_user(
+                    payload["user_id"], N_("Message sent, but saving to Sent failed.")
+                )
                 logger.exception(
                     "send sent-copy append failed send_token=%s account_id=%s",
                     send_token,
@@ -803,7 +842,7 @@ def _send_worker(app, send_token, delay_seconds=0):
                 logger.debug("drafts-folder sync enqueue failed send_token=%s", send_token)
         except Exception as exc:
             logger.exception("send worker failed send_token=%s", send_token)
-            error_text = _send_error_message(exc)
+            error_text = _send_error_message(exc, user_id=payload.get("user_id"))
             with _pending_sends_lock:
                 latest = _pending_sends.get(send_token)
                 if not latest:
@@ -848,7 +887,7 @@ def _load_message_detail(
     if not message:
         return None, None, None, None, None, None, ""
     message = dict(message)
-    message["subject"] = normalize_header_text(message["subject"]) or "(no subject)"
+    message["subject"] = normalize_header_text(message["subject"]) or _("(no subject)")
     message["sender"] = decode_address_header(message["sender"])
     message["recipients"] = decode_address_header(message["recipients"])
     cached_cc = decode_address_header(message["cc"]) if message["cc"] else ""
@@ -1007,8 +1046,8 @@ def _format_allday_range(dtstart_str, dtend_str):
         with contextlib.suppress(ValueError, TypeError):
             end = date_type.fromisoformat(dtend_str[:10])
     if end and end != start:
-        return f"{start.strftime('%a %d %b %Y')} \u2013 {end.strftime('%a %d %b %Y')}"
-    return start.strftime("%a %d %b %Y")
+        return f"{_fmt_dt(start, 'EEE d MMM y')} \u2013 {_fmt_dt(end, 'EEE d MMM y')}"
+    return _fmt_dt(start, "EEE d MMM y")
 
 
 def _format_timed_range(dtstart_str, dtend_str, event_tzid, user_tz, vtimezones=None):
@@ -1021,9 +1060,15 @@ def _format_timed_range(dtstart_str, dtend_str, event_tzid, user_tz, vtimezones=
     tz_abbr = start_local.strftime("%Z")
     if end_local:
         if start_local.date() == end_local.date():
-            return f"{start_local.strftime('%a %d %b %Y, %I:%M %p')} \u2013 {end_local.strftime('%I:%M %p')} {tz_abbr}"
-        return f"{start_local.strftime('%a %d %b %Y, %I:%M %p')} \u2013 {end_local.strftime('%a %d %b %Y, %I:%M %p')} {tz_abbr}"
-    return f"{start_local.strftime('%a %d %b %Y, %I:%M %p')} {tz_abbr}"
+            return (
+                f"{_fmt_dt(start_local, 'EEE d MMM y, hh:mm a')}"
+                f" \u2013 {_fmt_dt(end_local, 'hh:mm a')} {tz_abbr}"
+            )
+        return (
+            f"{_fmt_dt(start_local, 'EEE d MMM y, hh:mm a')}"
+            f" \u2013 {_fmt_dt(end_local, 'EEE d MMM y, hh:mm a')} {tz_abbr}"
+        )
+    return f"{_fmt_dt(start_local, 'EEE d MMM y, hh:mm a')} {tz_abbr}"
 
 
 def _snippet_debug_enabled():
@@ -1052,21 +1097,21 @@ def _quote_label_style():
 def _build_quote_html(from_addr, to_addr, cc_addr, date_str, text_plain, text_html):
     header_lines = []
     if from_addr:
-        header_lines.append(f"From: {_escape_html_text(from_addr)}")
+        header_lines.append(f"{_('From:')} {_escape_html_text(from_addr)}")
     if date_str:
-        header_lines.append(f"Date: {_escape_html_text(date_str)}")
+        header_lines.append(f"{_('Date:')} {_escape_html_text(date_str)}")
     if to_addr:
-        header_lines.append(f"To: {_escape_html_text(to_addr)}")
+        header_lines.append(f"{_('To:')} {_escape_html_text(to_addr)}")
     if cc_addr:
-        header_lines.append(f"Cc: {_escape_html_text(cc_addr)}")
+        header_lines.append(f"{_('Cc:')} {_escape_html_text(cc_addr)}")
     header_html = "<br>".join(header_lines)
     body = _quoted_body_html(text_plain, text_html)
     if from_addr and date_str:
-        summary = f"On {date_str}, {from_addr} wrote:"
+        summary = _("On %(date)s, %(sender)s wrote:", date=date_str, sender=from_addr)
     elif from_addr:
-        summary = f"{from_addr} wrote:"
+        summary = _("%(sender)s wrote:", sender=from_addr)
     else:
-        summary = "Quoted text"
+        summary = _("Quoted text")
     summary = _escape_html_text(summary)
     return (
         '<div data-quote-block style="margin-top:12px;padding-left:12px;border-left:3px solid #cbd5e1;color:#64748b;">'
@@ -1088,15 +1133,15 @@ def _build_forward_quote_html(
     """Gmail-style forward quote: dashed header block + quoted body."""
     rows = []
     for label, value in (
-        ("From", from_addr),
-        ("Date", date_str),
-        ("Subject", subject),
-        ("To", to_addr),
-        ("Cc", cc_addr),
+        (_("From"), from_addr),
+        (_("Date"), date_str),
+        (_("Subject"), subject),
+        (_("To"), to_addr),
+        (_("Cc"), cc_addr),
     ):
         if value:
             rows.append(
-                f'<div><span style="{_quote_label_style()}">{label}:</span>'
+                f'<div><span style="{_quote_label_style()}">{_escape_html_text(label)}:</span>'
                 f" {_escape_html_text(value)}</div>"
             )
     header_html = "".join(rows)
@@ -1104,8 +1149,14 @@ def _build_forward_quote_html(
     label_style = _quote_label_style()
     return (
         '<div data-quote-block style="margin-top:12px;color:#64748b;">'
-        f'<div style="{label_style}margin-bottom:4px;">---------- Forwarded message ---------</div>'
-        '<div data-quote-summary style="display:none;font-size:12px;margin-bottom:4px;">Forwarded message</div>'
+        '<div style="'
+        + label_style
+        + 'margin-bottom:4px;">---------- '
+        + _("Forwarded message")
+        + " ---------</div>"
+        '<div data-quote-summary style="display:none;font-size:12px;margin-bottom:4px;">'
+        + _("Forwarded message")
+        + "</div>"
         '<div data-quote-header style="margin-bottom:8px;">'
         + header_html
         + "</div>"
@@ -1124,7 +1175,7 @@ def _format_quote_date(date_str, timezone_name=None):
     except Exception:
         logger.warning("quote date timezone conversion failed tz=%s", timezone_name)
         return date_str or ""
-    return local_dt.strftime("%a, %d %b %Y at %H:%M")
+    return f"{_fmt_dt(local_dt, 'EEE, dd MMM y')} {_('at')} {_fmt_dt(local_dt, 'HH:mm')}"
 
 
 def _build_reply_forward_prefill(
@@ -1307,7 +1358,7 @@ def _load_thread_for_detail(
         cc_raw = row["cc"]
         cc_display = decode_address_header(cc_raw) if cc_raw else ""
         display_subject = (
-            original_subject or normalize_header_text(row["subject"]) or "(no subject)"
+            original_subject or normalize_header_text(row["subject"]) or _("(no subject)")
         )
         is_draft = "\\Draft" in msg_flags or (folder and folder.lower() == "drafts")
         attachment_list_raw = row["attachment_list"]

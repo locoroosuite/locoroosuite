@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from flask import current_app, jsonify, redirect, render_template, request, session, url_for
+from flask_babel import _
 
 from app.modules.mail.controllers.helpers import (
     _build_threads,
@@ -71,7 +72,7 @@ def folder_view(account_id, folder):
     if not key:
         logger.warning("folder view missing key user_id=%s account_id=%s", user_id, account.id)
         session.clear()
-        return render_template("login.html", error="Session expired. Please log in again.")
+        return render_template("login.html", error=_("Session expired. Please log in again."))
     session["active_account_id"] = account.id
     _sync_manager().set_active_account(user_id, account.id)
     _sync_manager().set_active_folder(account.id, folder)
@@ -240,7 +241,7 @@ def create_folder_route(account_id):
 
     if not name:
         if is_xhr:
-            return jsonify({"status": "error", "error": "Folder name is required."}), 400
+            return jsonify({"status": "error", "error": _("Folder name is required.")}), 400
         return redirect(url_for("mail.folder_view", account_id=account_id, folder="INBOX"))
     account = CustomerAccount.query.filter_by(id=account_id, customer_id=user_id).first_or_404()
     secret = (
@@ -264,11 +265,11 @@ def create_folder_route(account_id):
                     _data,
                 )
                 return _create_failed(
-                    "Folder could not be created. Retry or check your connection."
+                    _("Folder could not be created. Retry or check your connection.")
                 )
     except Exception:
         logger.exception("folder create imap error account_id=%s folder=%s", account.id, name)
-        return _create_failed("Folder could not be created. Retry or check your connection.")
+        return _create_failed(_("Folder could not be created. Retry or check your connection."))
     finally:
         safe_logout(client)
     conn = open_cache(account.cache_db_path, get_user_key(user_id))
@@ -289,7 +290,9 @@ def create_folder_route(account_id):
 def toggle_pin_folder(account_id, folder):
     settings = CustomerSettings.query.filter_by(customer_id=session.get("user_id")).first()
     if not settings:
-        settings = CustomerSettings(customer_id=session.get("user_id"))
+        settings = CustomerSettings(
+            customer_id=session.get("user_id")  # pyright: ignore[reportCallIssue]
+        )
         db.session.add(settings)
         db.session.commit()
     pinned = []
@@ -315,7 +318,7 @@ def toggle_protect_folder(account_id, folder):
 
     is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     if is_system_folder(folder):
-        msg = "System folders are always protected and cannot be changed."
+        msg = _("System folders are always protected and cannot be changed.")
         if is_xhr:
             return jsonify({"status": "error", "error": msg}), 409
         session["undo_error"] = msg
@@ -339,7 +342,7 @@ def rename_folder_route(account_id, folder):
     if not new_name:
         return redirect(url_for("mail.folder_view", account_id=account_id, folder=folder))
     if is_system_folder(folder):
-        session["undo_error"] = "System folders cannot be renamed."
+        session["undo_error"] = _("System folders cannot be renamed.")
         return redirect(url_for("mail.folder_view", account_id=account_id, folder=folder))
     account = CustomerAccount.query.filter_by(
         id=account_id, customer_id=session.get("user_id")
@@ -356,7 +359,7 @@ def rename_folder_route(account_id, folder):
         imap_rename_folder(client, encode_mailbox_name(folder), encode_mailbox_name(new_name))
     except Exception:
         logger.exception("folder rename failed account_id=%s folder=%s", account_id, folder)
-        session["undo_error"] = "Folder could not be renamed. Retry or check your connection."
+        session["undo_error"] = _("Folder could not be renamed. Retry or check your connection.")
         return redirect(url_for("mail.folder_view", account_id=account_id, folder=folder))
     finally:
         safe_logout(client)
@@ -380,7 +383,7 @@ def delete_folder_route(account_id, folder):
     is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     settings = _get_or_create_settings(session.get("user_id"))
     if folder_is_protected(settings, folder):
-        msg = "This folder is protected and cannot be deleted."
+        msg = _("This folder is protected and cannot be deleted.")
         if is_xhr:
             return jsonify({"status": "error", "error": msg}), 409
         session["undo_error"] = msg
@@ -400,7 +403,7 @@ def delete_folder_route(account_id, folder):
         imap_delete_folder(client, encode_mailbox_name(folder))
     except Exception:
         logger.exception("folder delete failed account_id=%s folder=%s", account_id, folder)
-        msg = "Folder could not be deleted. Retry or check your connection."
+        msg = _("Folder could not be deleted. Retry or check your connection.")
         if is_xhr:
             return jsonify({"status": "error", "error": msg}), 502
         session["undo_error"] = msg

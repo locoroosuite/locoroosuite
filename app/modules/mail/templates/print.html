@@ -2,11 +2,11 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Print</title>
+  <title>{{ _('Print') }}</title>
 </head>
 <body>
   <h1>{{ message["subject"] }}</h1>
-  <p>From {{ message["sender"] }} &middot; To {{ message["recipients"] }}{% if cc_display %} &middot; Cc {{ cc_display }}{% endif %}</p>
+  <p>{{ _('From') }} {{ message["sender"] }} &middot; {{ _('To') }} {{ message["recipients"] }}{% if cc_display %} &middot; {{ _('Cc') }} {{ cc_display }}{% endif %}</p>
   <pre>{{ message["snippet"] }}</pre>
 </body>
 </html>

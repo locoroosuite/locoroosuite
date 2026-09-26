@@ -2,6 +2,7 @@ import json
 import logging
 
 from flask import jsonify, request, session
+from flask_babel import _
 
 from app.modules.calendar.controllers.helpers import (
     _caldav_base_url,
@@ -49,11 +50,11 @@ def ics_parse():
     data = request.get_json(silent=True) or {}
     ical_text = data.get("ical_text", "")
     if not ical_text:
-        return jsonify({"error": "No .ics content provided."}), 400
+        return jsonify({"error": _("No .ics content provided.")}), 400
 
     parsed = parse_icalendar(ical_text)
     if not parsed:
-        return jsonify({"error": "Could not parse .ics content."}), 400
+        return jsonify({"error": _("Could not parse .ics content.")}), 400
 
     method = parsed.get("method", "").upper()
     uid = parsed.get("uid", "")
@@ -159,17 +160,17 @@ def ics_import():
     if not ical_text:
         logger.warning("ics-import: missing ical_text account_id=%s", account_id)
         return jsonify(
-            {"error": "No invitation data found. Try reloading the email and importing again."}
+            {"error": _("No invitation data found. Try reloading the email and importing again.")}
         ), 400
     if not calendar_id:
         logger.warning("ics-import: missing calendar_id account_id=%s", account_id)
         return jsonify(
-            {"error": "No calendar selected. Please select a calendar and try again."}
+            {"error": _("No calendar selected. Please select a calendar and try again.")}
         ), 400
     if not account_id:
         logger.warning("ics-import: no active_account_id in session user_id=%s", user_id)
         return jsonify(
-            {"error": "No active email account. Please refresh the page and try again."}
+            {"error": _("No active email account. Please refresh the page and try again.")}
         ), 400
 
     account = _get_account(account_id, user_id)
@@ -178,7 +179,9 @@ def ics_import():
         logger.warning("ics-import: caldav not configured account_id=%s", account_id)
         return jsonify(
             {
-                "error": "Calendar is not configured for your account. Please contact your administrator."
+                "error": _(
+                    "Calendar is not configured for your account. Please contact your administrator."
+                )
             }
         ), 400
 
@@ -186,13 +189,17 @@ def ics_import():
     if not conn:
         logger.warning("ics-import: cache unavailable account_id=%s", account_id)
         return jsonify(
-            {"error": "Calendar data could not be loaded. Please refresh the page and try again."}
+            {
+                "error": _(
+                    "Calendar data could not be loaded. Please refresh the page and try again."
+                )
+            }
         ), 400
 
     try:
         cal = cache_db.get_calendar(conn, calendar_id)
         if not cal:
-            return jsonify({"error": "Calendar not found."}), 404
+            return jsonify({"error": _("Calendar not found.")}), 404
 
         parsed = parse_icalendar(ical_text)
         uid = parsed.get("uid") or extract_uid(ical_text)
@@ -202,7 +209,9 @@ def ics_import():
             logger.warning("ics-import: credentials unavailable account_id=%s", account_id)
             return jsonify(
                 {
-                    "error": "Could not access your calendar credentials. Please refresh the page and try again."
+                    "error": _(
+                        "Could not access your calendar credentials. Please refresh the page and try again."
+                    )
                 }
             ), 401
 
@@ -211,7 +220,9 @@ def ics_import():
         clean_ical = generate_icalendar(import_data, uid=uid)
 
         try:
-            s, _ = caldav.discover_calendars(_caldav_base_url(config), account.username, password)
+            s, _unused = caldav.discover_calendars(
+                _caldav_base_url(config), account.username, password
+            )
             href, etag = caldav.create_event(s, cal["href"], clean_ical, uid=uid)
         except Exception:
             logger.exception(
@@ -221,7 +232,9 @@ def ics_import():
             )
             return jsonify(
                 {
-                    "error": "Could not save the event to your calendar. Please check your calendar connection and try again, or contact your administrator."
+                    "error": _(
+                        "Could not save the event to your calendar. Please check your calendar connection and try again, or contact your administrator."
+                    )
                 }
             ), 500
 
@@ -246,7 +259,9 @@ def ics_import():
         logger.exception("ics-import: unexpected failure account_id=%s", account_id)
         return jsonify(
             {
-                "error": "An unexpected error occurred while importing the event. Please refresh the page and try again."
+                "error": _(
+                    "An unexpected error occurred while importing the event. Please refresh the page and try again."
+                )
             }
         ), 500
     finally:
@@ -275,20 +290,20 @@ def ics_rsvp():
     if not ical_text:
         logger.warning("ics-rsvp: missing ical_text account_id=%s", account_id)
         return jsonify(
-            {"error": "No invitation data found. Try reloading the email and responding again."}
+            {"error": _("No invitation data found. Try reloading the email and responding again.")}
         ), 400
     if not calendar_id:
         logger.warning("ics-rsvp: missing calendar_id account_id=%s", account_id)
         return jsonify(
-            {"error": "No calendar selected. Please select a calendar and try again."}
+            {"error": _("No calendar selected. Please select a calendar and try again.")}
         ), 400
     if partstat not in ("ACCEPTED", "TENTATIVE", "DECLINED"):
         logger.warning("ics-rsvp: invalid partstat=%s account_id=%s", partstat, account_id)
-        return jsonify({"error": "Invalid response status. Please try again."}), 400
+        return jsonify({"error": _("Invalid response status. Please try again.")}), 400
     if not account_id:
         logger.warning("ics-rsvp: no active_account_id in session user_id=%s", user_id)
         return jsonify(
-            {"error": "No active email account. Please refresh the page and try again."}
+            {"error": _("No active email account. Please refresh the page and try again.")}
         ), 400
 
     account = _get_account(account_id, user_id)
@@ -297,7 +312,9 @@ def ics_rsvp():
         logger.warning("ics-rsvp: caldav not configured account_id=%s", account_id)
         return jsonify(
             {
-                "error": "Calendar is not configured for your account. Please contact your administrator."
+                "error": _(
+                    "Calendar is not configured for your account. Please contact your administrator."
+                )
             }
         ), 400
 
@@ -305,18 +322,22 @@ def ics_rsvp():
     if not conn:
         logger.warning("ics-rsvp: cache unavailable account_id=%s", account_id)
         return jsonify(
-            {"error": "Calendar data could not be loaded. Please refresh the page and try again."}
+            {
+                "error": _(
+                    "Calendar data could not be loaded. Please refresh the page and try again."
+                )
+            }
         ), 400
 
     try:
         cal = cache_db.get_calendar(conn, calendar_id)
         if not cal:
-            return jsonify({"error": "Calendar not found."}), 404
+            return jsonify({"error": _("Calendar not found.")}), 404
 
         parsed = parse_icalendar(ical_text)
         uid = parsed.get("uid") or extract_uid(ical_text)
         if not uid:
-            return jsonify({"error": "No UID in .ics."}), 400
+            return jsonify({"error": _("No UID in .ics.")}), 400
 
         attendees = parsed.get("attendees", [])
         my_email = account.email_address.lower()
@@ -338,12 +359,16 @@ def ics_rsvp():
             logger.warning("ics-rsvp: credentials unavailable account_id=%s", account_id)
             return jsonify(
                 {
-                    "error": "Could not access your calendar credentials. Please refresh the page and try again."
+                    "error": _(
+                        "Could not access your calendar credentials. Please refresh the page and try again."
+                    )
                 }
             ), 401
 
         try:
-            s, _ = caldav.discover_calendars(_caldav_base_url(config), account.username, password)
+            s, _unused = caldav.discover_calendars(
+                _caldav_base_url(config), account.username, password
+            )
             href, etag = caldav.create_event(s, cal["href"], clean_ical, uid=uid)
         except Exception:
             logger.exception(
@@ -354,7 +379,9 @@ def ics_rsvp():
             )
             return jsonify(
                 {
-                    "error": "Could not save the event to your calendar. Please check your calendar connection and try again, or contact your administrator."
+                    "error": _(
+                        "Could not save the event to your calendar. Please check your calendar connection and try again, or contact your administrator."
+                    )
                 }
             ), 500
 
@@ -420,7 +447,9 @@ def ics_rsvp():
         logger.exception("ics-rsvp: unexpected failure account_id=%s", account_id)
         return jsonify(
             {
-                "error": "An unexpected error occurred while responding to the invitation. Please refresh the page and try again."
+                "error": _(
+                    "An unexpected error occurred while responding to the invitation. Please refresh the page and try again."
+                )
             }
         ), 500
     finally:
@@ -441,14 +470,16 @@ def ics_rsvp_existing():
 
     if not event_id:
         logger.warning("ics-rsvp-existing: missing event_id account_id=%s", account_id)
-        return jsonify({"error": "No event specified. Please refresh the page and try again."}), 400
+        return jsonify(
+            {"error": _("No event specified. Please refresh the page and try again.")}
+        ), 400
     if partstat not in ("ACCEPTED", "TENTATIVE", "DECLINED"):
         logger.warning("ics-rsvp-existing: invalid partstat=%s account_id=%s", partstat, account_id)
-        return jsonify({"error": "Invalid response status. Please try again."}), 400
+        return jsonify({"error": _("Invalid response status. Please try again.")}), 400
     if not account_id:
         logger.warning("ics-rsvp-existing: no active_account_id in session user_id=%s", user_id)
         return jsonify(
-            {"error": "No active email account. Please refresh the page and try again."}
+            {"error": _("No active email account. Please refresh the page and try again.")}
         ), 400
 
     account = _get_account(account_id, user_id)
@@ -457,7 +488,9 @@ def ics_rsvp_existing():
         logger.warning("ics-rsvp-existing: caldav not configured account_id=%s", account_id)
         return jsonify(
             {
-                "error": "Calendar is not configured for your account. Please contact your administrator."
+                "error": _(
+                    "Calendar is not configured for your account. Please contact your administrator."
+                )
             }
         ), 400
 
@@ -465,28 +498,32 @@ def ics_rsvp_existing():
     if not conn:
         logger.warning("ics-rsvp-existing: cache unavailable account_id=%s", account_id)
         return jsonify(
-            {"error": "Calendar data could not be loaded. Please refresh the page and try again."}
+            {
+                "error": _(
+                    "Calendar data could not be loaded. Please refresh the page and try again."
+                )
+            }
         ), 400
 
     try:
         event = cache_db.get_event(conn, event_id)
         if not event:
-            return jsonify({"error": "Event not found."}), 404
+            return jsonify({"error": _("Event not found.")}), 404
 
         ical_text = event.get("raw_ical", "")
         if not ical_text:
             logger.warning("ics-rsvp-existing: no raw_ical for event_id=%s", event_id)
-            return jsonify({"error": "Could not load event data. Please try again."}), 400
+            return jsonify({"error": _("Could not load event data. Please try again.")}), 400
 
         calendar_id = event["calendar_id"]
         cal = cache_db.get_calendar(conn, calendar_id)
         if not cal:
-            return jsonify({"error": "Calendar not found."}), 404
+            return jsonify({"error": _("Calendar not found.")}), 404
 
         parsed = parse_icalendar(ical_text)
         uid = parsed.get("uid") or extract_uid(ical_text)
         if not uid:
-            return jsonify({"error": "No UID in event data."}), 400
+            return jsonify({"error": _("No UID in event data.")}), 400
 
         attendees = parsed.get("attendees", [])
         my_email = account.email_address.lower()
@@ -510,12 +547,16 @@ def ics_rsvp_existing():
             logger.warning("ics-rsvp-existing: credentials unavailable account_id=%s", account_id)
             return jsonify(
                 {
-                    "error": "Could not access your calendar credentials. Please refresh the page and try again."
+                    "error": _(
+                        "Could not access your calendar credentials. Please refresh the page and try again."
+                    )
                 }
             ), 401
 
         try:
-            s, _ = caldav.discover_calendars(_caldav_base_url(config), account.username, password)
+            s, _unused = caldav.discover_calendars(
+                _caldav_base_url(config), account.username, password
+            )
             href, etag = caldav.create_event(s, cal["href"], clean_ical, uid=uid)
         except Exception:
             logger.exception(
@@ -523,7 +564,9 @@ def ics_rsvp_existing():
             )
             return jsonify(
                 {
-                    "error": "Could not update the event. Please check your calendar connection and try again."
+                    "error": _(
+                        "Could not update the event. Please check your calendar connection and try again."
+                    )
                 }
             ), 500
 
@@ -594,7 +637,7 @@ def ics_rsvp_existing():
             "ics-rsvp-existing: unexpected failure event_id=%s account_id=%s", event_id, account_id
         )
         return jsonify(
-            {"error": "An unexpected error occurred. Please refresh the page and try again."}
+            {"error": _("An unexpected error occurred. Please refresh the page and try again.")}
         ), 500
     finally:
         conn.close()
@@ -608,20 +651,20 @@ def ics_cancel():
 
     if not ical_text:
         logger.warning("ics-cancel: missing ical_text")
-        return jsonify({"error": "No invitation data found. Try reloading the email."}), 400
+        return jsonify({"error": _("No invitation data found. Try reloading the email.")}), 400
 
     parsed = parse_icalendar(ical_text)
     uid = parsed.get("uid") or extract_uid(ical_text)
     if not uid:
         logger.warning("ics-cancel: no uid in ical_text")
-        return jsonify({"error": "Could not identify the event. Please try again."}), 400
+        return jsonify({"error": _("Could not identify the event. Please try again.")}), 400
 
     user_id = session.get("user_id")
     account_id = session.get("active_account_id")
     if not account_id:
         logger.warning("ics-cancel: no active_account_id in session user_id=%s", user_id)
         return jsonify(
-            {"error": "No active email account. Please refresh the page and try again."}
+            {"error": _("No active email account. Please refresh the page and try again.")}
         ), 400
 
     account = _get_account(account_id, user_id)
@@ -629,14 +672,18 @@ def ics_cancel():
     if not conn:
         logger.warning("ics-cancel: cache unavailable account_id=%s", account_id)
         return jsonify(
-            {"error": "Calendar data could not be loaded. Please refresh the page and try again."}
+            {
+                "error": _(
+                    "Calendar data could not be loaded. Please refresh the page and try again."
+                )
+            }
         ), 400
 
     try:
         event = cache_db.get_event_by_uid(conn, uid)
         if not event:
             return jsonify(
-                {"status": "ok", "action": "not_found", "message": "Event not in calendar."}
+                {"status": "ok", "action": "not_found", "message": _("Event not in calendar.")}
             )
 
         conn.execute(
@@ -657,7 +704,7 @@ def ics_cancel():
     except Exception:
         logger.exception("ics-cancel: unexpected failure uid=%s account_id=%s", uid, account_id)
         return jsonify(
-            {"error": "An unexpected error occurred. Please refresh the page and try again."}
+            {"error": _("An unexpected error occurred. Please refresh the page and try again.")}
         ), 500
     finally:
         conn.close()

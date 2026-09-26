@@ -6,6 +6,7 @@ import uuid
 from urllib.parse import urlparse
 
 from flask import current_app, make_response, redirect, render_template, request, session, url_for
+from flask_babel import _
 
 from app.modules.mail.controllers.helpers import mail_bp
 from app.modules.mail.services.cache import build_cache_path
@@ -80,7 +81,7 @@ def login():
     domain = Domain.query.filter_by(name=domain_name, is_active=True).first()
     if not domain:
         logger.info("login domain disabled request_id=%s domain=%s", request_id, domain_name)
-        return render_template("login.html", error="Domain not enabled.", next=next_url)
+        return render_template("login.html", error=_("Domain not enabled."), next=next_url)
 
     try:
         t0 = time.monotonic()
@@ -109,12 +110,12 @@ def login():
         )
     except Exception:
         logger.exception("login imap failed request_id=%s", request_id)
-        return render_template("login.html", error="IMAP authentication failed.", next=next_url)
+        return render_template("login.html", error=_("IMAP authentication failed."), next=next_url)
 
     customer = User.query.filter_by(email=email).first()
     if customer and not customer.is_active:
         logger.info("login account deactivated request_id=%s user_id=%s", request_id, customer.id)
-        return render_template("login.html", error="Account deactivated.", next=next_url)
+        return render_template("login.html", error=_("Account deactivated."), next=next_url)
     if not customer:
         customer = User()
         customer.role = "customer"
@@ -245,7 +246,7 @@ def twofa_verify():
 
     if is_locked(lock_key, ip):
         return render_template(
-            "twofa.html", error="Too many attempts. Please try again later.", backup_mode=False
+            "twofa.html", error=_("Too many attempts. Please try again later."), backup_mode=False
         )
 
     code = request.form.get("code", "").strip()
@@ -261,7 +262,7 @@ def twofa_verify():
     if not verified:
         record_failed_login(lock_key, ip)
         return render_template(
-            "twofa.html", error="Invalid code. Please try again.", backup_mode=backup_mode
+            "twofa.html", error=_("Invalid code. Please try again."), backup_mode=backup_mode
         )
 
     clear_failed_login(lock_key, ip)

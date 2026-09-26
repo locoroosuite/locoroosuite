@@ -3,6 +3,7 @@ import logging
 from datetime import UTC, datetime
 
 from flask import jsonify, redirect, render_template, request, session, url_for
+from flask_babel import _
 
 from app.modules.calendar.controllers.helpers import (
     _caldav_base_url,
@@ -210,7 +211,7 @@ def new_calendar():
     color = request.form.get("color", "#4285f4").strip()
     errors = {}
     if not name:
-        errors["name"] = "Calendar name is required."
+        errors["name"] = _("Calendar name is required.")
 
     if errors:
         return render_template(
@@ -222,7 +223,7 @@ def new_calendar():
         return redirect(url_for("mail.login"))
 
     try:
-        s, _ = caldav.discover_calendars(_caldav_base_url(config), account.username, password)
+        s, _unused = caldav.discover_calendars(_caldav_base_url(config), account.username, password)
         cal_url = caldav.create_calendar(
             s, _caldav_base_url(config), account.username, name=name, color=color
         )
@@ -243,7 +244,7 @@ def new_calendar():
             calendar=request.form.to_dict(),
             account=account,
             errors={
-                "_server": "Failed to create calendar. Please check your connection and retry."
+                "_server": _("Failed to create calendar. Please check your connection and retry.")
             },
         )
 
@@ -275,7 +276,7 @@ def edit_calendar(calendar_id):
         color = request.form.get("color", "#4285f4").strip()
         errors = {}
         if not name:
-            errors["name"] = "Calendar name is required."
+            errors["name"] = _("Calendar name is required.")
         if errors:
             cal.update(request.form.to_dict())
             return render_template(
@@ -286,7 +287,7 @@ def edit_calendar(calendar_id):
         password = _get_credentials(account)
         if config and password and cal.get("href"):
             try:
-                s, _ = caldav.discover_calendars(
+                s, _unused = caldav.discover_calendars(
                     _caldav_base_url(config), account.username, password
                 )
                 caldav.update_calendar_props(s, cal["href"], displayname=name, color=color)
@@ -367,10 +368,10 @@ def api_quick_create():
     user_id = session.get("user_id")
     account_id = session.get("active_account_id")
     if not account_id:
-        return jsonify({"ok": False, "error": "No active account."}), 400
+        return jsonify({"ok": False, "error": _("No active account.")}), 400
 
     data = request.get_json(silent=True) or {}
-    summary = (data.get("summary") or "").strip() or "(no title)"
+    summary = (data.get("summary") or "").strip() or _("(no title)")
     dtstart = (data.get("dtstart") or "").strip()
     dtend = (data.get("dtend") or "").strip()
     calendar_id = data.get("calendar_id")
@@ -378,23 +379,23 @@ def api_quick_create():
     browser_tz = (data.get("timezone") or "").strip()
 
     if not dtstart:
-        return jsonify({"ok": False, "error": "Start time is required."}), 400
+        return jsonify({"ok": False, "error": _("Start time is required.")}), 400
     if not calendar_id:
-        return jsonify({"ok": False, "error": "Calendar is required."}), 400
+        return jsonify({"ok": False, "error": _("Calendar is required.")}), 400
 
     account = _get_account(account_id, user_id)
     config = _get_caldav_config(account)
     if not config:
-        return jsonify({"ok": False, "error": "CalDAV not configured."}), 400
+        return jsonify({"ok": False, "error": _("CalDAV not configured.")}), 400
 
     conn = _open_cache_for_account(account)
     if not conn:
-        return jsonify({"ok": False, "error": "Cache unavailable."}), 400
+        return jsonify({"ok": False, "error": _("Cache unavailable.")}), 400
 
     try:
         cal = cache_db.get_calendar(conn, int(calendar_id))
         if not cal:
-            return jsonify({"ok": False, "error": "Calendar not found."}), 404
+            return jsonify({"ok": False, "error": _("Calendar not found.")}), 404
 
         from app.modules.calendar.controllers.events import _get_user_timezone
 
@@ -415,16 +416,16 @@ def api_quick_create():
 
         password = _get_credentials(account)
         if not password:
-            return jsonify({"ok": False, "error": "Credentials unavailable."}), 401
+            return jsonify({"ok": False, "error": _("Credentials unavailable.")}), 401
 
-        s, _ = caldav.discover_calendars(_caldav_base_url(config), account.username, password)
+        s, _unused = caldav.discover_calendars(_caldav_base_url(config), account.username, password)
         href, etag = caldav.create_event(s, cal["href"], ical_text, uid=uid)
         event_id = cache_db.upsert_event(conn, uid, href, etag, int(calendar_id), ical_text)
 
         return jsonify({"ok": True, "event_id": event_id})
     except Exception:
         logger.exception("quick create event failed")
-        return jsonify({"ok": False, "error": "Failed to create event."}), 500
+        return jsonify({"ok": False, "error": _("Failed to create event.")}), 500
     finally:
         conn.close()
 

@@ -27,6 +27,7 @@ SAMPLE_ICS_REQUEST = (
 def _setup_caldav_domain(app):
     with app.app_context():
         domain = Domain.query.first()
+        assert domain is not None
         domain.caldav_host = "localhost"
         domain.caldav_port = 5232
         domain.caldav_use_tls = False
@@ -40,6 +41,7 @@ def _create_temp_cache(app, user_id, account_id):
 
     with app.app_context():
         account = db.session.get(CustomerAccount, account_id)
+        assert account is not None
         key = get_user_key(user_id)
         path = get_cache_path(account)
         if os.path.exists(path):
@@ -104,7 +106,9 @@ class TestBuildImipEmail:
         body = ""
         for part in msg.walk():
             if part.get_content_type() == "text/plain":
-                body = part.get_payload(decode=True).decode("utf-8")
+                payload = part.get_payload(decode=True)
+                assert isinstance(payload, bytes)
+                body = payload.decode("utf-8")
                 break
         assert "When:" in body
         assert "12:00 PM" in body
@@ -136,7 +140,9 @@ class TestBuildImipEmail:
         body = ""
         for part in msg.walk():
             if part.get_content_type() == "text/plain":
-                body = part.get_payload(decode=True).decode("utf-8")
+                payload = part.get_payload(decode=True)
+                assert isinstance(payload, bytes)
+                body = payload.decode("utf-8")
                 break
         assert "10:00 AM" in body
         assert "UTC" in body
@@ -276,6 +282,7 @@ class TestSendInviteApi:
         try:
             with app.app_context():
                 account = db.session.get(CustomerAccount, account_id)
+                assert account is not None
                 from cryptography.fernet import Fernet
 
                 key_bytes = bytes.fromhex("0" * 64)
@@ -321,6 +328,7 @@ class TestRsvpReplySending:
         try:
             with app.app_context():
                 account = db.session.get(CustomerAccount, account_id)
+                assert account is not None
                 from cryptography.fernet import Fernet
 
                 key_bytes = bytes.fromhex("0" * 64)
@@ -372,12 +380,14 @@ class TestDeleteWithNotification:
 
         with app.app_context():
             domain = Domain.query.first()
+            assert domain is not None
             domain.caldav_host = "localhost"
             domain.caldav_port = 5232
             domain.caldav_use_tls = False
             db.session.commit()
 
             account = db.session.get(CustomerAccount, account_id)
+            assert account is not None
             key = get_user_key(user_id)
             from app.modules.calendar.services.cache import get_cache_path
 
@@ -406,9 +416,9 @@ class TestDeleteWithNotification:
                 ),
             )
             conn.commit()
-            event_id = conn.execute(
-                "SELECT id FROM calendar_events WHERE uid = 'evt-del'"
-            ).fetchone()[0]
+            row = conn.execute("SELECT id FROM calendar_events WHERE uid = 'evt-del'").fetchone()
+            assert row is not None
+            event_id = row[0]
             conn.close()
 
         try:
@@ -416,7 +426,7 @@ class TestDeleteWithNotification:
             assert resp.status_code == 200
             assert b"delete-btn" in resp.data
             assert b"delete-modal" in resp.data
-            assert b"Delete &amp; notify guests" in resp.data
+            assert b"Delete & notify guests" in resp.data
         finally:
             os.unlink(path)
 
@@ -427,12 +437,14 @@ class TestDeleteWithNotification:
 
         with app.app_context():
             domain = Domain.query.first()
+            assert domain is not None
             domain.caldav_host = "localhost"
             domain.caldav_port = 5232
             domain.caldav_use_tls = False
             db.session.commit()
 
             account = db.session.get(CustomerAccount, account_id)
+            assert account is not None
             key = get_user_key(user_id)
             from app.modules.calendar.services.cache import get_cache_path
 
@@ -461,9 +473,9 @@ class TestDeleteWithNotification:
                 ),
             )
             conn.commit()
-            event_id = conn.execute(
-                "SELECT id FROM calendar_events WHERE uid = 'evt-del2'"
-            ).fetchone()[0]
+            row = conn.execute("SELECT id FROM calendar_events WHERE uid = 'evt-del2'").fetchone()
+            assert row is not None
+            event_id = row[0]
             conn.close()
 
         try:
@@ -483,12 +495,14 @@ class TestDeleteWithNotification:
 
         with app.app_context():
             domain = Domain.query.first()
+            assert domain is not None
             domain.caldav_host = "localhost"
             domain.caldav_port = 5232
             domain.caldav_use_tls = False
             db.session.commit()
 
             account = db.session.get(CustomerAccount, account_id)
+            assert account is not None
             key = get_user_key(user_id)
             from app.modules.calendar.services.cache import get_cache_path
 
@@ -517,14 +531,15 @@ class TestDeleteWithNotification:
                 ),
             )
             conn.commit()
-            event_id = conn.execute(
-                "SELECT id FROM calendar_events WHERE uid = 'evt-del3'"
-            ).fetchone()[0]
+            row = conn.execute("SELECT id FROM calendar_events WHERE uid = 'evt-del3'").fetchone()
+            assert row is not None
+            event_id = row[0]
             conn.close()
 
         try:
             with app.app_context():
                 account = db.session.get(CustomerAccount, account_id)
+                assert account is not None
                 from cryptography.fernet import Fernet
 
                 key_bytes = bytes.fromhex("0" * 64)
@@ -624,12 +639,14 @@ class TestSendUpdatesModal:
 
         with app.app_context():
             domain = Domain.query.first()
+            assert domain is not None
             domain.caldav_host = "localhost"
             domain.caldav_port = 5232
             domain.caldav_use_tls = False
             db.session.commit()
 
             account = db.session.get(CustomerAccount, account_id)
+            assert account is not None
             key = get_user_key(user_id)
             from app.modules.calendar.services.cache import get_cache_path
 
@@ -658,9 +675,9 @@ class TestSendUpdatesModal:
                 ),
             )
             conn.commit()
-            event_id = conn.execute(
-                "SELECT id FROM calendar_events WHERE uid = 'evt-modal'"
-            ).fetchone()[0]
+            row = conn.execute("SELECT id FROM calendar_events WHERE uid = 'evt-modal'").fetchone()
+            assert row is not None
+            event_id = row[0]
             conn.close()
 
         try:

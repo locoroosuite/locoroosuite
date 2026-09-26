@@ -88,13 +88,13 @@
         return f.toLowerCase() !== currentFolder.toLowerCase();
       });
       if (targets.length === 0) {
-        if (window.LR) window.LR.notifyError('No other folders available.');
+          if (window.LR) window.LR.notifyError(window.LR.t('No other folders available.'));
         renderOverflowMenu(menu);
         return;
       }
-      var html = '<button type="button" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2 text-slate-500 hover:bg-slate-50 hover:text-slate-600 whitespace-nowrap" data-move-back>&larr; Back</button>';
+      var html = '<button type="button" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2 text-slate-500 hover:bg-slate-50 hover:text-slate-600 whitespace-nowrap" data-move-back>&larr; ' + window.LR.t('Back') + '</button>';
       html += '<div class="border-t border-slate-100"></div>';
-      html += '<div class="px-2 py-1"><input type="text" placeholder="Filter folders..." class="w-full text-base md:text-[11px] px-2 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:border-slate-400" data-folder-filter /></div>';
+      html += '<div class="px-2 py-1"><input type="text" placeholder="' + window.LR.t('Filter folders...') + '" class="w-full text-base md:text-[11px] px-2 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:border-slate-400" data-folder-filter /></div>';
       html += '<div class="max-h-40 overflow-y-auto" data-folder-list>';
       targets.forEach(function (f) {
         html += '<button type="button" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-target="' + CSS.escape(f) + '">' + f + '</button>';
@@ -207,7 +207,7 @@
             removeRowWithAnimation(row);
           })
           .catch(function () {
-            if (window.LR) window.LR.notifyError('Failed to move message. Please retry. If it keeps happening, check your connection or refresh.');
+            if (window.LR) window.LR.notifyError(window.LR.t('Failed to move message. Please retry. If it keeps happening, check your connection or refresh.'));
             renderOverflowMenu(menu);
           });
         return;
@@ -234,7 +234,7 @@
           if (chevron) chevron.style.transform = 'rotate(0deg)';
           if (label) {
             var count = parseInt(toggleBar.dataset.olderCount || content.querySelectorAll('.message-row').length, 10);
-            label.textContent = count + ' older message' + (count !== 1 ? 's' : '');
+            label.textContent = count !== 1 ? window.LR.t('{n} older messages', {n: count}) : window.LR.t('{n} older message', {n: count});
           }
           if (card && card.dataset.threadKey) {
             expandedThreads.delete(card.dataset.threadKey);
@@ -244,7 +244,7 @@
           content.style.maxHeight = content.scrollHeight + 'px';
           content.style.opacity = '1';
           if (chevron) chevron.style.transform = 'rotate(180deg)';
-          if (label) label.textContent = 'Collapse older messages';
+          if (label) label.textContent = window.LR.t('Collapse older messages');
           var onEnd = function () {
             content.style.maxHeight = 'none';
             content.removeEventListener('transitionend', onEnd);
@@ -329,7 +329,7 @@
           input.value = isUnread ? 'read' : 'unread';
         }
         if (button) {
-          button.textContent = isUnread ? 'Mark as read' : 'Mark as unread';
+          button.textContent = isUnread ? window.LR.t('Mark as read') : window.LR.t('Mark as unread');
         }
       }
     };
@@ -346,7 +346,7 @@
       }
       var starToggle = row.querySelector('[data-star-toggle]');
       if (starToggle) {
-        starToggle.setAttribute('aria-label', isFlagged ? 'Unstar' : 'Star');
+        starToggle.setAttribute('aria-label', isFlagged ? window.LR.t('Unstar') : window.LR.t('Star'));
       }
       var form = row.querySelector('form[data-action="flag"]');
       if (form) {
@@ -447,7 +447,7 @@
           }
           if (data.error || data.status === 'error') {
             if (window.LR) {
-              window.LR.notifyError('Action failed: ' + (data.error || 'Unknown error'), { suffix: !data || data.code !== 'PROTECTED' });
+              window.LR.notifyError(window.LR.t('Action failed: {error}', {error: data.error || window.LR.t('Unknown error')}), { suffix: !data || data.code !== 'PROTECTED' });
             }
             return;
           }
@@ -484,7 +484,7 @@
             var overflowMenu = row.querySelector('[data-overflow-menu]');
             if (overflowMenu) overflowMenu.classList.add('hidden');
             if (window.LR) {
-              window.LR.notifySuccess(data.is_locked ? 'Message locked' : 'Message unlocked');
+              window.LR.notifySuccess(data.is_locked ? window.LR.t('Message locked') : window.LR.t('Message unlocked'));
             }
             return;
           }
@@ -541,7 +541,7 @@
         var chevron = toggle.querySelector('[data-collapse-chevron]');
         if (chevron) chevron.style.transform = 'rotate(180deg)';
         var label = toggle.querySelector('[data-collapse-label]');
-        if (label) label.textContent = 'Collapse older messages';
+        if (label) label.textContent = window.LR.t('Collapse older messages');
       });
     };
 

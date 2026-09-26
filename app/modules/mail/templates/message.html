@@ -8,13 +8,13 @@
   <div class="bg-amber-50 border-b border-amber-200/80 px-3 md:px-5 py-2.5 flex items-center gap-3">
     <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
       <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"/></svg>
-      Draft
+      {{ _('Draft') }}
     </span>
-    <span class="text-xs text-amber-700">This message has not been sent yet.</span>
+    <span class="text-xs text-amber-700">{{ _('This message has not been sent yet.') }}</span>
     <div class="flex items-center gap-1.5 ml-auto">
-      <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message["uid"]) }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">Edit draft</a>
+      <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message["uid"]) }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">{{ _('Edit draft') }}</a>
       <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=message["uid"]) }}" class="message-action" data-action="discard-draft">
-        <button class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
+        <button class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">{{ _('Discard') }}</button>
       </form>
     </div>
   </div>
@@ -22,13 +22,13 @@
   <div class="border-b border-slate-200/80 px-3 md:px-5 py-3">
     <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3 md:gap-4">
       <div class="flex items-start gap-3 min-w-0 flex-1">
-        <a href="{{ url_for('mail.folder_view', account_id=account.id, folder=current_folder) }}" class="mt-0.5 flex-shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition" title="Back to {{ current_folder }}" data-back-link>
+        <a href="{{ url_for('mail.folder_view', account_id=account.id, folder=current_folder) }}" class="mt-0.5 flex-shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition" title="{{ _('Back to') }} {{ current_folder }}" data-back-link>
           <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 0 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10z" clip-rule="evenodd"/></svg>
         </a>
         {% set is_locked = '$Locked' in (flags or []) %}
         <form method="post" action="{{ url_for('mail.flag_message', account_id=account.id, message_id=message["id"]) }}" class="message-action mt-0.5 flex-shrink-0" data-action="flag" data-detail-flag data-no-row-nav>
           <input type="hidden" name="action" value="{{ 'remove' if is_flagged else 'add' }}" />
-          <button type="submit" class="p-1.5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 transition" data-star-toggle aria-label="{{ 'Unstar' if is_flagged else 'Star' }}" title="{{ 'Unstar' if is_flagged else 'Star' }}">
+          <button type="submit" class="p-1.5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 transition" data-star-toggle aria-label="{{ _('Unstar') if is_flagged else _('Star') }}" title="{{ _('Unstar') if is_flagged else _('Star') }}">
             <svg class="w-5 h-5 transition-colors {{ 'text-amber-400' if is_flagged else 'text-slate-300 hover:text-amber-400' }}" data-star-icon viewBox="0 0 24 24" fill="{{ 'currentColor' if is_flagged else 'none' }}" stroke="currentColor" stroke-width="{{ '1' if is_flagged else '1.5' }}">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
             </svg>
@@ -37,7 +37,7 @@
         {% if lock_action_enabled %}
         <form method="post" action="{{ url_for('mail.lock_message', account_id=account.id, message_id=message["id"]) }}" class="message-action mt-0.5 flex-shrink-0" data-action="lock" data-detail-lock data-no-row-nav>
           <input type="hidden" name="action" value="{{ 'remove' if is_locked else 'add' }}" />
-          <button type="submit" class="p-1.5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 transition" data-lock-toggle aria-label="{{ 'Unlock' if is_locked else 'Lock (protect from delete)' }}" title="{{ 'Unlock' if is_locked else 'Lock (protect from delete)' }}">
+          <button type="submit" class="p-1.5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 transition" data-lock-toggle aria-label="{{ _('Unlock') if is_locked else _('Lock (protect from delete)') }}" title="{{ _('Unlock') if is_locked else _('Lock (protect from delete)') }}">
             <svg class="w-5 h-5 transition-colors {{ 'text-slate-600' if is_locked else 'text-slate-300 hover:text-slate-500' }}" data-lock-icon viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V8H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/>
             </svg>
@@ -49,62 +49,62 @@
             <h1 class="text-lg font-semibold text-slate-900 truncate min-w-0">{{ message["subject"] }}</h1>
           </div>
           {% if thread_count > 1 %}
-          <div class="text-[13px] md:text-xs text-slate-500 mt-0.5 truncate">{{ thread_count }} messages in this conversation</div>
+          <div class="text-[13px] md:text-xs text-slate-500 mt-0.5 truncate">{{ _('{n} messages in this conversation').format(n=thread_count) }}</div>
           {% else %}
-          <div class="text-[13px] md:text-xs text-slate-500 mt-0.5 truncate">From {{ message["sender"] }} &middot; To {{ message["recipients"] }}{% if cc_display %} &middot; Cc {{ cc_display }}{% endif %}</div>
+          <div class="text-[13px] md:text-xs text-slate-500 mt-0.5 truncate">{{ _('From') }} {{ message["sender"] }} &middot; {{ _('To') }} {{ message["recipients"] }}{% if cc_display %} &middot; {{ _('Cc') }} {{ cc_display }}{% endif %}</div>
           {% endif %}
         </div>
       </div>
 
       <div class="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
         {% if is_draft %}
-        <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message["uid"]) }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">Edit draft</a>
+        <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message["uid"]) }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">{{ _('Edit draft') }}</a>
         <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=message["uid"]) }}" class="message-action" data-action="discard-draft">
-          <button class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
+          <button class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">{{ _('Discard') }}</button>
         </form>
         {% else %}
-        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"]) }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Reply</a>
-        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], reply_all='1') }}" class="hidden md:inline-block text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Reply All</a>
-        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], forward='1') }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Forward</a>
+        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"]) }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">{{ _('Reply') }}</a>
+        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], reply_all='1') }}" class="hidden md:inline-block text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">{{ _('Reply All') }}</a>
+        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], forward='1') }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">{{ _('Forward') }}</a>
         <span class="hidden md:block h-4 w-px bg-slate-200 mx-0.5"></span>
-        <a id="create-event-btn" href="{{ url_for('calendar.event_new', subject=message["subject"], description=(message["snippet"] or '')[:2000], attendee=message["sender"]) }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition hidden">Create event</a>
+        <a id="create-event-btn" href="{{ url_for('calendar.event_new', subject=message["subject"], description=(message["snippet"] or '')[:2000], attendee=message["sender"]) }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition hidden">{{ _('Create event') }}</a>
         {% endif %}
         <form method="post" action="{{ url_for('mail.archive_message', account_id=account.id, message_id=message["id"]) }}" class="message-action hidden md:inline-block" data-action="archive">
-          <button type="submit" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">Archive</button>
+          <button type="submit" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">{{ _('Archive') }}</button>
         </form>
         <form method="post" action="{{ url_for('mail.delete_message', account_id=account.id, message_id=message["id"]) }}" class="message-action hidden md:inline-block" data-action="delete">
-          <button type="submit" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Delete</button>
+          <button type="submit" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">{{ _('Delete') }}</button>
         </form>
         <div class="relative">
-          <button type="button" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition lr-hit" data-overflow-toggle aria-label="More actions" aria-haspopup="menu" aria-expanded="false">&#8943;</button>
+          <button type="button" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition lr-hit" data-overflow-toggle aria-label="{{ _('More actions') }}" aria-haspopup="menu" aria-expanded="false">&#8943;</button>
           <div class="absolute right-0 mt-1 py-1 min-w-[170px] rounded-lg border border-slate-200 bg-white shadow-lg hidden z-50" data-overflow-menu role="menu">
             {% if not is_draft %}
-            <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], reply_all='1') }}" class="block md:hidden text-[12px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">Reply all</a>
+            <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], reply_all='1') }}" class="block md:hidden text-[12px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Reply all') }}</a>
             {% endif %}
             <form method="post" action="{{ url_for('mail.archive_message', account_id=account.id, message_id=message["id"]) }}" class="message-action md:hidden" data-action="archive">
-              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">Archive</button>
+              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Archive') }}</button>
             </form>
             <form method="post" action="{{ url_for('mail.delete_message', account_id=account.id, message_id=message["id"]) }}" class="message-action md:hidden" data-action="delete">
-              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-rose-600 hover:bg-rose-50 whitespace-nowrap" role="menuitem">Delete</button>
+              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-rose-600 hover:bg-rose-50 whitespace-nowrap" role="menuitem">{{ _('Delete') }}</button>
             </form>
             <div class="border-t border-slate-100 my-1 md:hidden"></div>
             <form method="post" action="{{ url_for('mail.mark_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="mark">
               <input type="hidden" name="action" value="{{ 'read' if is_unread else 'unread' }}" />
-              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ 'Mark as read' if is_unread else 'Mark as unread' }}</button>
+              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Mark as read') if is_unread else _('Mark as unread') }}</button>
             </form>
-            <button type="button" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-to-folder role="menuitem">Move to folder</button>
+            <button type="button" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-to-folder role="menuitem">{{ _('Move to folder') }}</button>
             {% if in_junk_folder %}
             <form method="post" action="{{ url_for('mail.not_junk_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="not-junk">
-              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">Not spam</button>
+              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Not spam') }}</button>
             </form>
             {% elif spam_action_enabled %}
             <form method="post" action="{{ url_for('mail.junk_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="junk">
-              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">Report spam</button>
+              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Report spam') }}</button>
             </form>
             {% endif %}
             <div class="border-t border-slate-100 my-1"></div>
-            <a class="block text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.download_message', account_id=account.id, message_id=message["id"]) }}" role="menuitem">Download .eml</a>
-            <a class="block text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.print_message', account_id=account.id, message_id=message["id"]) }}" target="_blank" role="menuitem">Print</a>
+            <a class="block text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.download_message', account_id=account.id, message_id=message["id"]) }}" role="menuitem">{{ _('Download .eml') }}</a>
+            <a class="block text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.print_message', account_id=account.id, message_id=message["id"]) }}" target="_blank" role="menuitem">{{ _('Print') }}</a>
           </div>
         </div>
       </div>
@@ -117,35 +117,35 @@
       <div class="px-3 md:px-5 py-3 flex items-center justify-between gap-3 cursor-pointer select-none transition-colors duration-150 {% if tm.is_bounce %}bg-red-50/60{% elif tm.is_draft %}bg-amber-50/60{% elif tm.is_current %}bg-slate-50/80{% elif tm.is_sent %}hover:bg-indigo-50/60{% else %}hover:bg-slate-50/80{% endif %}" data-thread-header data-thread-expanded="{{ 'true' if tm.is_current else 'false' }}">
         <div class="flex items-center gap-3 min-w-0">
           <div class="flex-shrink-0 w-8 h-8 rounded-full {% if tm.is_bounce %}bg-red-100 text-red-600{% elif tm.is_draft %}bg-amber-100 text-amber-600{% elif tm.is_sent %}bg-indigo-100 text-indigo-600{% else %}bg-slate-200 text-slate-600{% endif %} flex items-center justify-center text-xs font-semibold overflow-hidden">
-            {% if tm.is_bounce %}<svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>{% elif tm.is_draft %}<svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"/></svg>{% elif tm.is_sent %}You{% else %}{{ tm.sender_display[:1] | upper }}{% endif %}
+            {% if tm.is_bounce %}<svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>{% elif tm.is_draft %}<svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"/></svg>{% elif tm.is_sent %}{{ _('You') }}{% else %}{{ tm.sender_display[:1] | upper }}{% endif %}
           </div>
           <div class="min-w-0">
             <div class="flex items-center gap-2 text-sm flex-wrap">
               {% if tm.is_bounce %}
-              <span class="inline-flex items-center gap-1 text-[11px] md:text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">Delivery failed</span>
+              <span class="inline-flex items-center gap-1 text-[11px] md:text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">{{ _('Delivery failed') }}</span>
               <span class="font-medium text-red-700 truncate" title="{{ tm.sender_tooltip }}">{{ tm.sender_display }}</span>
               {% elif tm.is_draft %}
-              <span class="inline-flex items-center gap-1 text-[11px] md:text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Draft</span>
-              <span class="font-medium text-amber-700">You</span>
+              <span class="inline-flex items-center gap-1 text-[11px] md:text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">{{ _('Draft') }}</span>
+              <span class="font-medium text-amber-700">{{ _('You') }}</span>
               {% if tm.recipients_display %}
               <svg class="w-3 h-3 text-amber-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
-              <span class="text-slate-500 truncate cursor-pointer hover:underline" {% if tm.recipients_email %}data-copy-email="{{ tm.recipients_email }}" title="Click to copy {{ tm.recipients_email }}"{% endif %}>{{ tm.recipients_display }}</span>
+              <span class="text-slate-500 truncate cursor-pointer hover:underline" {% if tm.recipients_email %}data-copy-email="{{ tm.recipients_email }}" title="{{ _('Click to copy') }} {{ tm.recipients_email }}"{% endif %}>{{ tm.recipients_display }}</span>
               {% endif %}
-              {% if tm.cc %}<span class="text-xs text-slate-400 hidden sm:inline"><span class="text-slate-300">&middot;</span> cc {{ tm.cc }}</span>{% endif %}
+              {% if tm.cc %}<span class="text-xs text-slate-400 hidden sm:inline"><span class="text-slate-300">&middot;</span> {{ _('cc') }} {{ tm.cc }}</span>{% endif %}
               {% elif tm.is_sent %}
-              <span class="font-medium text-indigo-700 cursor-pointer hover:underline" data-copy-email="{{ account.email_address }}" title="Click to copy {{ account.email_address }}">You</span>
+              <span class="font-medium text-indigo-700 cursor-pointer hover:underline" data-copy-email="{{ account.email_address }}" title="{{ _('Click to copy') }} {{ account.email_address }}">{{ _('You') }}</span>
               <span class="text-[12px] md:text-[11px] text-slate-500 truncate max-w-[180px]">&lt;{{ account.email_address }}&gt;</span>
               {% if tm.recipients_display %}
               <svg class="w-3 h-3 text-indigo-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
-              <span class="text-slate-500 truncate cursor-pointer hover:underline" {% if tm.recipients_email %}data-copy-email="{{ tm.recipients_email }}" title="Click to copy {{ tm.recipients_email }}"{% endif %}>{{ tm.recipients_display }}</span>
+              <span class="text-slate-500 truncate cursor-pointer hover:underline" {% if tm.recipients_email %}data-copy-email="{{ tm.recipients_email }}" title="{{ _('Click to copy') }} {{ tm.recipients_email }}"{% endif %}>{{ tm.recipients_display }}</span>
               {% endif %}
-              {% if tm.cc %}<span class="text-xs text-slate-400 hidden sm:inline"><span class="text-slate-300">&middot;</span> cc {{ tm.cc }}</span>{% endif %}
+              {% if tm.cc %}<span class="text-xs text-slate-400 hidden sm:inline"><span class="text-slate-300">&middot;</span> {{ _('cc') }} {{ tm.cc }}</span>{% endif %}
               {% else %}
-              <span class="font-medium text-slate-900 truncate cursor-pointer hover:underline" data-copy-email="{% if tm.sender_email %}{{ tm.sender_email }}{% elif tm.sender_tooltip %}{{ tm.sender_tooltip }}{% else %}{{ tm.sender_display }}{% endif %}" title="{% if tm.sender_email %}Click to copy {{ tm.sender_email }}{% elif tm.sender_tooltip %}{{ tm.sender_tooltip }}{% else %}{{ tm.sender_display }}{% endif %}">{{ tm.sender_display }}</span>
+              <span class="font-medium text-slate-900 truncate cursor-pointer hover:underline" data-copy-email="{% if tm.sender_email %}{{ tm.sender_email }}{% elif tm.sender_tooltip %}{{ tm.sender_tooltip }}{% else %}{{ tm.sender_display }}{% endif %}" title="{% if tm.sender_email %}{{ _('Click to copy') }} {{ tm.sender_email }}{% elif tm.sender_tooltip %}{{ tm.sender_tooltip }}{% else %}{{ tm.sender_display }}{% endif %}">{{ tm.sender_display }}</span>
               {% if tm.sender_email %}
               <span class="text-[12px] md:text-[11px] text-slate-500 truncate max-w-[180px]">&lt;{{ tm.sender_email }}&gt;</span>
               {% endif %}
-              <span class="text-xs text-slate-400 hidden sm:inline">to {{ tm.recipients }}{% if tm.cc %} <span class="text-slate-300">&middot;</span> cc {{ tm.cc }}{% endif %}</span>
+              <span class="text-xs text-slate-400 hidden sm:inline">{{ _('to') }} {{ tm.recipients }}{% if tm.cc %} <span class="text-slate-300">&middot;</span> {{ _('cc') }} {{ tm.cc }}{% endif %}</span>
               {% endif %}
               <span class="text-slate-300 hidden sm:inline">&middot;</span>
               <span class="text-xs text-slate-400 whitespace-nowrap">{{ tm.date_display }}</span>
@@ -164,18 +164,18 @@
         {% if not tm.is_current %}
         <div class="flex items-center gap-1.5 flex-shrink-0">
           {% if tm.is_draft %}
-          <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=tm.uid) }}" class="text-[11px] md:text-[10px] px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition" data-no-row-nav>Edit</a>
+          <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=tm.uid) }}" class="text-[11px] md:text-[10px] px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition" data-no-row-nav>{{ _('Edit') }}</a>
           <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=tm.uid) }}" class="thread-draft-discard message-action" data-action="discard-draft" data-no-row-nav data-thread-draft>
-            <button class="text-[11px] md:text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
+            <button class="text-[11px] md:text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">{{ _('Discard') }}</button>
           </form>
           {% endif %}
           <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 flex-shrink-0" data-expand-icon viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
         </div>
         {% elif tm.is_draft and not is_draft %}
         <div class="flex items-center gap-1.5 flex-shrink-0">
-          <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=tm.uid) }}" class="text-[11px] md:text-[10px] px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition">Edit</a>
+          <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=tm.uid) }}" class="text-[11px] md:text-[10px] px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition">{{ _('Edit') }}</a>
           <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=tm.uid) }}" class="thread-draft-discard message-action" data-action="discard-draft" data-thread-draft>
-            <button class="text-[11px] md:text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">Discard</button>
+            <button class="text-[11px] md:text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">{{ _('Discard') }}</button>
           </form>
         </div>
         {% endif %}
@@ -190,7 +190,7 @@
                 <svg class="w-5 h-5 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
               </div>
               <div class="flex-1 min-w-0">
-                <div class="text-sm font-semibold text-red-800">Delivery failed</div>
+                <div class="text-sm font-semibold text-red-800">{{ _('Delivery failed') }}</div>
                 <div class="text-xs text-red-600/80 mt-1 break-words">{{ tm.bounce_reason }}</div>
               </div>
             </div>
@@ -198,7 +198,7 @@
           {% endif %}
           {% if tm.is_current and not allow_images %}
           <div class="text-xs text-slate-500 mb-3">
-            External images blocked. <a class="text-slate-900 underline decoration-slate-300" href="{{ url_for('mail.message_view', account_id=account.id, message_id=message["id"], show_images=1) }}">Show external images</a>
+            {{ _('External images blocked.') }} <a class="text-slate-900 underline decoration-slate-300" href="{{ url_for('mail.message_view', account_id=account.id, message_id=message["id"], show_images=1) }}">{{ _('Show external images') }}</a>
           </div>
           {% endif %}
           {% if tm.is_current and ics_attachments %}
@@ -209,7 +209,7 @@
                 <svg class="w-5 h-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>
               </div>
               <div class="flex-1 min-w-0">
-                <div class="text-sm font-semibold text-slate-900 truncate">{{ ics.parsed.summary or '(no title)' }}</div>
+                <div class="text-sm font-semibold text-slate-900 truncate">{{ ics.parsed.summary or _('(no title)') }}</div>
                 <div class="text-xs text-slate-600 mt-0.5 space-y-0.5">
                   {% if ics.formatted_date %}
                   <div class="font-medium text-slate-700">{{ ics.formatted_date }}</div>
@@ -218,18 +218,18 @@
                   <div>{{ ics.parsed.location }}</div>
                   {% endif %}
                   {% if ics.parsed.organizer %}
-                  <div>Organizer: {{ ics.parsed.organizer.get('cn', ics.parsed.organizer.get('email', '')) }}</div>
+                  <div>{{ _('Organizer:') }} {{ ics.parsed.organizer.get('cn', ics.parsed.organizer.get('email', '')) }}</div>
                   {% endif %}
                   {% if ics.parsed.attendees %}
-                  <div class="truncate">{{ ics.parsed.attendees | length }} attendee(s): {{ ics.parsed.attendees | map(attribute='cn') | join(', ') }}</div>
+                  <div class="truncate">{{ _('{n} attendee(s):').format(n=ics.parsed.attendees | length) }} {{ ics.parsed.attendees | map(attribute='cn') | join(', ') }}</div>
                   {% endif %}
                 </div>
                 <div class="mt-2 flex items-center gap-2" data-ics-actions>
                   <select data-ics-calendar-select class="text-[12px] md:text-[11px] rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-600 shadow-sm">
-                    <option value="">Loading calendars...</option>
+                    <option value="">{{ _('Loading calendars...') }}</option>
                   </select>
                   <div data-ics-buttons data-method="{{ ics.parsed.get('method', '') | upper }}" data-status="{{ ics.parsed.get('status', 'CONFIRMED') | upper }}" class="flex items-center gap-1.5">
-                    <span class="text-xs text-slate-400">Loading...</span>
+                    <span class="text-xs text-slate-400">{{ _('Loading...') }}</span>
                   </div>
                 </div>
               </div>
@@ -240,7 +240,7 @@
           <iframe class="thread-msg-body w-full border border-slate-200/80 rounded-xl bg-white shadow-sm" sandbox="allow-scripts allow-popups allow-same-origin" referrerpolicy="no-referrer"></iframe>
           {% if tm.is_current and attachments %}
           <div class="mt-3 rounded-xl border border-slate-200/80 bg-white px-3 md:px-4 py-3 shadow-sm" data-attachments-section>
-            <div class="text-sm font-semibold text-slate-900 mb-2">Attachments</div>
+            <div class="text-sm font-semibold text-slate-900 mb-2">{{ _('Attachments') }}</div>
             <ul class="text-sm text-slate-600 space-y-1.5">
               {% for attachment in attachments %}
               <li class="flex items-center gap-2">
@@ -249,15 +249,15 @@
                 <div class="flex items-center gap-1 flex-shrink-0">
                   {% set att_actions = attachment_actions.get(attachment.filename, {}) %}
                   {% if att_actions.get("view") %}
-                  <a href="{{ url_for('mail.view_attachment', account_id=account.id, message_id=message["id"], index=attachment.index) }}" target="_blank" title="View" class="p-2.5 -m-1 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition lr-hit" data-no-row-nav>
+                  <a href="{{ url_for('mail.view_attachment', account_id=account.id, message_id=message["id"], index=attachment.index) }}" target="_blank" title="{{ _('View') }}" class="p-2.5 -m-1 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition lr-hit" data-no-row-nav>
                     <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/><path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/></svg>
                   </a>
                   {% endif %}
-                  <a href="{{ url_for('mail.download_attachment', account_id=account.id, message_id=message["id"], index=attachment.index) }}" title="Download" class="p-2.5 -m-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition lr-hit" data-no-row-nav>
+                  <a href="{{ url_for('mail.download_attachment', account_id=account.id, message_id=message["id"], index=attachment.index) }}" title="{{ _('Download') }}" class="p-2.5 -m-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition lr-hit" data-no-row-nav>
                     <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"/><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"/></svg>
                   </a>
                   {% if att_actions.get("open_in_docs") %}
-                  <button type="button" title="Open in Docs" class="p-2.5 -m-1 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition lr-hit" data-open-in-docs data-account-id="{{ account.id }}" data-message-id="{{ message["id"] }}" data-attachment-index="{{ attachment.index }}" data-filename="{{ attachment.filename }}" data-no-row-nav>
+                  <button type="button" title="{{ _('Open in Docs') }}" class="p-2.5 -m-1 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition lr-hit" data-open-in-docs data-account-id="{{ account.id }}" data-message-id="{{ message["id"] }}" data-attachment-index="{{ attachment.index }}" data-filename="{{ attachment.filename }}" data-no-row-nav>
                     <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M3.5 2A1.5 1.5 0 002 3.5V5c0 1.1.9 2 2 2h12a2 2 0 002-2V3.5A1.5 1.5 0 0016.5 2h-13zM4 8.5a.5.5 0 01.5-.5h11a.5.5 0 01.5.5v8a.5.5 0 01-.5.5h-11a.5.5 0 01-.5-.5v-8z"/></svg>
                   </button>
                   {% endif %}
@@ -268,7 +268,7 @@
           </div>
           {% elif not tm.is_current and tm.attachment_names %}
           <div class="mt-3 rounded-xl border border-slate-200/80 bg-white px-3 md:px-4 py-3 shadow-sm">
-            <div class="text-sm font-semibold text-slate-900 mb-2">Attachments</div>
+            <div class="text-sm font-semibold text-slate-900 mb-2">{{ _('Attachments') }}</div>
             <ul class="text-sm text-slate-600 space-y-1">
               {% for filename in tm.attachment_names %}
               <li><a class="text-slate-900 underline decoration-slate-300" href="{{ url_for('mail.message_view', account_id=account.id, message_id=tm.id) }}">{{ filename }}</a></li>
@@ -278,7 +278,7 @@
           {% endif %}
           {% if not tm.is_current %}
           <div class="mt-3 text-center">
-            <a class="text-[12px] md:text-[11px] text-slate-500 hover:text-slate-600 transition" href="{{ url_for('mail.message_view', account_id=account.id, message_id=tm.id) }}">View full message</a>
+            <a class="text-[12px] md:text-[11px] text-slate-500 hover:text-slate-600 transition" href="{{ url_for('mail.message_view', account_id=account.id, message_id=tm.id) }}">{{ _('View full message') }}</a>
           </div>
           {% endif %}
         </div>
@@ -294,17 +294,17 @@
     <div class="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-sm pointer-events-auto overflow-hidden">
       <div class="px-4 py-3 border-b border-slate-200/80">
         <div class="flex items-center justify-between">
-          <span class="text-sm font-semibold text-slate-900">Move to folder</span>
-          <button type="button" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100" data-folder-picker-close aria-label="Close">&times;</button>
+          <span class="text-sm font-semibold text-slate-900">{{ _('Move to folder') }}</span>
+          <button type="button" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100" data-folder-picker-close aria-label="{{ _('Close') }}">&times;</button>
         </div>
-        <input type="text" placeholder="Filter folders..." class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" data-folder-filter />
+        <input type="text" placeholder="{{ _('Filter folders...') }}" class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" data-folder-filter />
       </div>
       <div class="max-h-60 overflow-y-auto px-2 py-1" data-folder-list>
         {% for folder in move_folders %}
         <button type="button" class="w-full text-left text-sm px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 truncate" data-folder-name="{{ folder }}">{{ folder }}</button>
         {% endfor %}
         {% if not move_folders %}
-        <div class="px-3 py-4 text-center text-sm text-slate-400">No other folders available</div>
+        <div class="px-3 py-4 text-center text-sm text-slate-400">{{ _('No other folders available') }}</div>
         {% endif %}
       </div>
     </div>
@@ -468,13 +468,13 @@
             var sep = url.indexOf("?") >= 0 ? "&" : "?";
             window.location.href = url + sep + "undo_token=" + (data.undo_token || "");
           } else {
-            window.LR.notifyError(data.error || "Move failed. Please try again.", { suffix: data.code !== "PROTECTED" });
+            window.LR.notifyError(data.error || window.LR.t("Move failed. Please try again."), { suffix: data.code !== "PROTECTED" });
             window.LR.clearButtonLoading(btnEl);
             closePicker();
           }
         })
         .catch(function () {
-          window.LR.notifyError("Network error. Please check your connection and try again.");
+          window.LR.notifyError(window.LR.t("Network error. Please check your connection and try again."));
           window.LR.clearButtonLoading(btnEl);
         });
     });
@@ -493,7 +493,7 @@
         .then(function (data) {
           var ok = data.ok || data.status === "ok";
           if (!ok) {
-            window.LR.notifyError(data.error || "Action failed. Please try again.", { suffix: data.code !== "PROTECTED" });
+            window.LR.notifyError(data.error || window.LR.t("Action failed. Please try again."), { suffix: data.code !== "PROTECTED" });
             if (btn) window.LR.clearButtonLoading(btn);
             return;
           }
@@ -506,7 +506,7 @@
               setTimeout(function () { msgEl.remove(); }, 200);
             }
             if (btn) window.LR.clearButtonLoading(btn);
-            window.LR.notifySuccess("Draft discarded.");
+            window.LR.notifySuccess(window.LR.t("Draft discarded."));
           } else if (action === "archive" || action === "delete" || action === "junk" || action === "not-junk" || action === "discard-draft") {
             var sep = folderUrl.indexOf("?") >= 0 ? "&" : "?";
             window.location.href = folderUrl + sep + "undo_token=" + (data.undo_token || "");
@@ -520,12 +520,12 @@
                   starIcon.setAttribute('fill', data.is_flagged ? 'currentColor' : 'none');
                   starIcon.setAttribute('stroke-width', data.is_flagged ? '1' : '1.5');
                 }
-                btn.setAttribute('aria-label', data.is_flagged ? 'Unstar' : 'Star');
-                btn.setAttribute('title', data.is_flagged ? 'Unstar' : 'Star');
+                btn.setAttribute('aria-label', data.is_flagged ? window.LR.t('Unstar') : window.LR.t('Star'));
+                btn.setAttribute('title', data.is_flagged ? window.LR.t('Unstar') : window.LR.t('Star'));
                 var hidden = form.querySelector('input[name="action"]');
                 if (hidden) hidden.value = data.is_flagged ? "remove" : "add";
               } else if (action === "mark") {
-                btn.textContent = data.is_unread ? "Mark as read" : "Mark as unread";
+                btn.textContent = data.is_unread ? window.LR.t("Mark as read") : window.LR.t("Mark as unread");
                 var hidden = form.querySelector('input[name="action"]');
                 if (hidden) hidden.value = data.is_unread ? "read" : "unread";
               } else if (action === "lock") {
@@ -533,18 +533,18 @@
                 if (lockIcon) {
                   lockIcon.className = 'w-5 h-5 transition-colors ' + (data.is_locked ? 'text-slate-600' : 'text-slate-300 hover:text-slate-500');
                 }
-                btn.setAttribute('aria-label', data.is_locked ? 'Unlock' : 'Lock (protect from delete)');
-                btn.setAttribute('title', data.is_locked ? 'Unlock' : 'Lock (protect from delete)');
+                btn.setAttribute('aria-label', data.is_locked ? window.LR.t('Unlock') : window.LR.t('Lock (protect from delete)'));
+                btn.setAttribute('title', data.is_locked ? window.LR.t('Unlock') : window.LR.t('Lock (protect from delete)'));
                 var hidden = form.querySelector('input[name="action"]');
                 if (hidden) hidden.value = data.is_locked ? "remove" : "add";
-                window.LR.notifySuccess(data.is_locked ? "Message locked" : "Message unlocked");
+                window.LR.notifySuccess(data.is_locked ? window.LR.t("Message locked") : window.LR.t("Message unlocked"));
               }
             }
             if (btn) window.LR.clearButtonLoading(btn);
           }
         })
         .catch(function () {
-          window.LR.notifyError("Network error. Please check your connection and try again.");
+          window.LR.notifyError(window.LR.t("Network error. Please check your connection and try again."));
           if (btn) window.LR.clearButtonLoading(btn);
         });
     });
@@ -580,7 +580,7 @@
           calendarId = String(calendars[0].id);
           select.style.display = "none";
         } else {
-          var opts = '<option value="">Select calendar</option>';
+          var opts = '<option value="">' + window.LR.t('Select calendar') + '</option>';
           calendars.forEach(function (c) {
             opts += '<option value="' + c.id + '">' + c.displayname + '</option>';
           });
@@ -597,7 +597,7 @@
           .then(function (parsed) {
             buttonsEl.innerHTML = "";
             if (parsed.error) {
-              buttonsEl.innerHTML = '<span class="text-xs text-slate-400">Could not parse invite</span>';
+              buttonsEl.innerHTML = '<span class="text-xs text-slate-400">' + window.LR.t('Could not parse invite') + '</span>';
               return;
             }
 
@@ -607,8 +607,8 @@
             if (isCancelled) {
               if (parsed.already_imported) {
                 buttonsEl.innerHTML =
-                  '<span class="text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-2 py-0.5">Event cancelled</span>' +
-                  '<button type="button" data-ics-cancel class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-rose-200 bg-white text-rose-700 hover:bg-rose-50 transition">Remove from calendar</button>';
+                  '<span class="text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-2 py-0.5">' + window.LR.t('Event cancelled') + '</span>' +
+                  '<button type="button" data-ics-cancel class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-rose-200 bg-white text-rose-700 hover:bg-rose-50 transition">' + window.LR.t('Remove from calendar') + '</button>';
                 var cancelBtn = buttonsEl.querySelector("[data-ics-cancel]");
                 if (cancelBtn) cancelBtn.addEventListener("click", function () {
                   window.LR.setButtonLoading(cancelBtn);
@@ -618,15 +618,15 @@
                     body: JSON.stringify({ ical_text: icalText }),
                   }).then(function (r) { return r.json(); }).then(function (d) {
                     if (d.status === "ok") {
-                      buttonsEl.innerHTML = '<span class="text-xs text-slate-500">Event removed from calendar.</span>';
+                      buttonsEl.innerHTML = '<span class="text-xs text-slate-500">' + window.LR.t('Event removed from calendar.') + '</span>';
                     } else {
-                      window.LR.notifyError(d.error || "Failed to handle cancellation.");
+                      window.LR.notifyError(d.error || window.LR.t("Failed to handle cancellation."));
                       window.LR.clearButtonLoading(cancelBtn);
                     }
-                  }).catch(function () { window.LR.notifyError("Network error."); window.LR.clearButtonLoading(cancelBtn); });
+                  }).catch(function () { window.LR.notifyError(window.LR.t("Network error.")); window.LR.clearButtonLoading(cancelBtn); });
                 });
               } else {
-                buttonsEl.innerHTML = '<span class="text-xs text-slate-400">This event has been cancelled</span>';
+                buttonsEl.innerHTML = '<span class="text-xs text-slate-400">' + window.LR.t('This event has been cancelled') + '</span>';
               }
               select.style.display = "none";
               return;
@@ -637,8 +637,8 @@
                 showRsvpStatus(parsed.existing_my_partstat, String(parsed.existing_calendar_id || ""), parsed.existing_event_id);
               } else {
                 buttonsEl.innerHTML =
-                  '<span class="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">Already in calendar</span>' +
-                  '<a href="/app/calendar/events/' + parsed.existing_event_id + '" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">View in calendar</a>';
+                  '<span class="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">' + window.LR.t('Already in calendar') + '</span>' +
+                  '<a href="/app/calendar/events/' + parsed.existing_event_id + '" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">' + window.LR.t('View in calendar') + '</a>';
               }
               select.style.display = "none";
               return;
@@ -654,9 +654,9 @@
 
             if (isInvitation) {
               buttonsEl.innerHTML =
-                '<button type="button" data-ics-action="ACCEPTED" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">Accept</button>' +
-                '<button type="button" data-ics-action="TENTATIVE" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">Tentative</button>' +
-                '<button type="button" data-ics-action="DECLINED" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">Decline</button>';
+                '<button type="button" data-ics-action="ACCEPTED" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">' + window.LR.t('Accept') + '</button>' +
+                '<button type="button" data-ics-action="TENTATIVE" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">' + window.LR.t('Tentative') + '</button>' +
+                '<button type="button" data-ics-action="DECLINED" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">' + window.LR.t('Decline') + '</button>';
 
               buttonsEl.querySelectorAll("[data-ics-action]").forEach(function (btn) {
                 btn.addEventListener("click", function () {
@@ -670,8 +670,8 @@
                       headers: { "X-Requested-With": "XMLHttpRequest" },
                     }).then(function (r) { return r.json(); }).then(function (conflicts) {
                       if (conflicts.length > 0) {
-                        var names = conflicts.map(function (c) { return c.summary || "Untitled"; }).join(", ");
-                        var proceed = confirm("This event conflicts with: " + names + ". Proceed anyway?");
+                        var names = conflicts.map(function (c) { return c.summary || window.LR.t("Untitled"); }).join(", ");
+                        var proceed = confirm(window.LR.t("This event conflicts with: {names}. Proceed anyway?", { names: names }));
                         if (!proceed) return;
                       }
                       doRsvp(calId, partstat);
@@ -683,7 +683,7 @@
               });
             } else {
               buttonsEl.innerHTML =
-                '<button type="button" data-ics-import class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition">Add to calendar</button>';
+                '<button type="button" data-ics-import class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition">' + window.LR.t('Add to calendar') + '</button>';
               var importBtn = buttonsEl.querySelector("[data-ics-import]");
               if (importBtn) importBtn.addEventListener("click", function () {
                 var calId = getSelectedCalendarId();
@@ -701,14 +701,14 @@
                 }).then(function (r) { return r.json(); }).then(function (d) {
                   if (d.status === "ok") {
                     buttonsEl.innerHTML =
-                      '<span class="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">Added to calendar</span>' +
-                      '<a href="' + (d.calendar_event_url || '/app/calendar/') + '" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 transition">View in calendar</a>';
+                      '<span class="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">' + window.LR.t('Added to calendar') + '</span>' +
+                      '<a href="' + (d.calendar_event_url || '/app/calendar/') + '" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 transition">' + window.LR.t('View in calendar') + '</a>';
                     select.style.display = "none";
                   } else {
-                    window.LR.notifyError(d.error || "Failed to import event.");
+                    window.LR.notifyError(d.error || window.LR.t("Failed to import event."));
                     window.LR.clearButtonLoading(importBtn);
                   }
-                }).catch(function () { window.LR.notifyError("Network error."); window.LR.clearButtonLoading(importBtn); });
+                }).catch(function () { window.LR.notifyError(window.LR.t("Network error.")); window.LR.clearButtonLoading(importBtn); });
               });
             }
 
@@ -731,25 +731,25 @@
                 if (d.status === "ok") {
                   showRsvpStatus(partstat, calId, d.event_id);
                 } else {
-                  window.LR.notifyError(d.error || "Failed to respond.");
+                  window.LR.notifyError(d.error || window.LR.t("Failed to respond."));
                   actionBtns.forEach(function (b) { b.disabled = false; window.LR.clearButtonLoading(b); });
                 }
               }).catch(function () {
-                window.LR.notifyError("Network error.");
+                window.LR.notifyError(window.LR.t("Network error."));
                 actionBtns.forEach(function (b) { b.disabled = false; window.LR.clearButtonLoading(b); });
               });
             }
 
             function showRsvpStatus(partstat, calId, eventId) {
-              var label = partstat === "ACCEPTED" ? "Accepted" : partstat === "TENTATIVE" ? "Tentative" : "Declined";
+              var label = partstat === "ACCEPTED" ? window.LR.t("Accepted") : partstat === "TENTATIVE" ? window.LR.t("Tentative") : window.LR.t("Declined");
               var color = partstat === "ACCEPTED" ? "green" : partstat === "TENTATIVE" ? "amber" : "rose";
               var alternatives = [];
-              if (partstat !== "ACCEPTED") alternatives.push('<button type="button" data-ics-action="ACCEPTED" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">Accept</button>');
-              if (partstat !== "TENTATIVE") alternatives.push('<button type="button" data-ics-action="TENTATIVE" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">Tentative</button>');
-              if (partstat !== "DECLINED") alternatives.push('<button type="button" data-ics-action="DECLINED" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">Decline</button>');
+              if (partstat !== "ACCEPTED") alternatives.push('<button type="button" data-ics-action="ACCEPTED" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">' + window.LR.t('Accept') + '</button>');
+              if (partstat !== "TENTATIVE") alternatives.push('<button type="button" data-ics-action="TENTATIVE" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">' + window.LR.t('Tentative') + '</button>');
+              if (partstat !== "DECLINED") alternatives.push('<button type="button" data-ics-action="DECLINED" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">' + window.LR.t('Decline') + '</button>');
               buttonsEl.innerHTML =
                 '<span class="text-xs font-medium text-' + color + '-700 bg-' + color + '-50 border border-' + color + '-200 rounded-full px-2 py-0.5">' + label + '</span>' +
-                '<a href="/app/calendar/events/' + (eventId || '') + '" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 transition">View in calendar</a>' +
+                '<a href="/app/calendar/events/' + (eventId || '') + '" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 transition">' + window.LR.t('View in calendar') + '</a>' +
                 alternatives.join("");
               buttonsEl.querySelectorAll("[data-ics-action]").forEach(function (btn) {
                 btn.addEventListener("click", function () {
@@ -760,7 +760,7 @@
             }
           })
           .catch(function () {
-            buttonsEl.innerHTML = '<span class="text-xs text-slate-400">Could not load invite details</span>';
+            buttonsEl.innerHTML = '<span class="text-xs text-slate-400">' + window.LR.t('Could not load invite details') + '</span>';
           });
       });
     }
@@ -777,13 +777,13 @@
       navigator.clipboard.writeText(email).then(function () {
         el.classList.add("text-green-600");
         var orig = el.textContent;
-        el.textContent = "Copied!";
+        el.textContent = window.LR.t("Copied!");
         setTimeout(function () {
           el.textContent = orig;
           el.classList.remove("text-green-600");
         }, 1200);
       }).catch(function () {
-        window.LR.notifyError("Could not copy email address.");
+        window.LR.notifyError(window.LR.t("Could not copy email address."));
       });
     });
   });
@@ -799,7 +799,7 @@
       btn.innerHTML = '<svg class="w-4 h-4 animate-spin" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a7 7 0 017 7h-3a4 4 0 00-4-4V3z"/></svg>';
       var downloadUrl = "/app/mail/message/" + accountId + "/" + messageId + "/attachment/" + index;
       fetch(downloadUrl).then(function (r) {
-        if (!r.ok) throw new Error("Failed to download attachment");
+        if (!r.ok) throw new Error(window.LR.t("Failed to download attachment"));
         return r.blob();
       }).then(function (blob) {
         var fd = new FormData();
@@ -810,7 +810,7 @@
           headers: { "X-Requested-With": "XMLHttpRequest" },
         });
       }).then(function (r) {
-        if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || "Upload failed"); });
+        if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || window.LR.t("Upload failed")); });
         return r.json();
       }).then(function (data) {
         if (data.editor_url) {
@@ -823,7 +823,7 @@
       }).catch(function (err) {
         btn.disabled = false;
         btn.innerHTML = origHTML;
-        window.LR.notifyError("Could not open in Docs: " + err.message);
+        window.LR.notifyError(window.LR.t("Could not open in Docs: ") + err.message);
       });
     });
   });

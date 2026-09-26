@@ -267,6 +267,24 @@ def _notification_prefs(conn) -> None:
         )
 
 
+def _customer_settings_language(conn) -> None:
+    if not has_table(conn, "customer_settings"):
+        return
+    if "language" in table_columns(conn, "customer_settings"):
+        return
+    conn.execute(
+        "ALTER TABLE customer_settings ADD COLUMN language VARCHAR(16) NOT NULL DEFAULT 'browser'"
+    )
+
+
+def _customer_settings_browser_locale(conn) -> None:
+    if not has_table(conn, "customer_settings"):
+        return
+    if "browser_locale" in table_columns(conn, "customer_settings"):
+        return
+    conn.execute("ALTER TABLE customer_settings ADD COLUMN browser_locale VARCHAR(8)")
+
+
 APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_domain_status", _domain_status),
     Migration("0002_customer_settings_spam_action", _customer_settings_spam_action),
@@ -283,4 +301,6 @@ APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0013_push_notifications", _push_notifications),
     Migration("0014_domain_matrix", _domain_matrix),
     Migration("0015_notification_prefs", _notification_prefs),
+    Migration("0016_customer_settings_language", _customer_settings_language),
+    Migration("0017_customer_settings_browser_locale", _customer_settings_browser_locale),
 )

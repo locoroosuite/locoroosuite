@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Document not found — LocoRoo Docs</title>
+  <title>{{ _('Document not found') }} — LocoRoo Docs</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}?v={{ static_v('css/fonts.css') }}" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -21,8 +21,8 @@
     <div class="error-icon">
       <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
     </div>
-    <h1>Link unavailable</h1>
-    <p>{{ message or 'This shared link has been revoked or does not exist.' }}</p>
+    <h1>{{ _('Link unavailable') }}</h1>
+    <p>{{ message or _('This shared link has been revoked or does not exist.') }}</p>
     <p class="logo">LocoRoo Docs</p>
   </div>
 </body>

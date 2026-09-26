@@ -25,7 +25,7 @@
     button.type = 'button';
     button.className =
       'absolute inset-y-0 right-0 flex items-center px-2 text-slate-400 hover:text-slate-600';
-    button.setAttribute('aria-label', 'Show password');
+    button.setAttribute('aria-label', window.LR.t('Show password'));
     button.setAttribute('aria-pressed', 'false');
     button.innerHTML = EYE_ICON;
 
@@ -33,7 +33,7 @@
       var show = input.type === 'password';
       input.type = show ? 'text' : 'password';
       button.innerHTML = show ? EYE_OFF_ICON : EYE_ICON;
-      button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      button.setAttribute('aria-label', show ? window.LR.t('Hide password') : window.LR.t('Show password'));
       button.setAttribute('aria-pressed', show ? 'true' : 'false');
     });
 

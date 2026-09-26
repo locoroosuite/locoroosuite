@@ -1,6 +1,7 @@
 Flask
 Flask-SQLAlchemy
 flask-openapi3[swagger]
+flask-babel
 Werkzeug
 requests
 sqlcipher3

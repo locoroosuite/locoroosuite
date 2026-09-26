@@ -487,9 +487,24 @@ class TestSendNewMailPush:
                     app, user_id, 3, {"subject": "Secret", "sender": "a@b.c"}
                 )
             payload = json.loads(wp.call_args.kwargs["data"])
-            assert payload["title"] == "New email"
+            assert payload["title"] == "You have new mail"
             assert "Secret" not in payload["body"]
             assert "3 new messages" in payload["body"]
+
+    def test_spanish_payload_for_spanish_user(self, app, authed_client):
+        _client, user_id, _ = authed_client
+        with app.app_context():
+            _make_subscription(user_id)
+            from app.modules.mail.controllers.helpers import _get_or_create_settings
+
+            settings = _get_or_create_settings(user_id)
+            settings.language = "es"
+            db.session.commit()
+            with patch("pywebpush.webpush") as wp:
+                push_mod.send_new_mail_push(app, user_id, 3, None)
+            payload = json.loads(wp.call_args.kwargs["data"])
+            assert payload["title"] == "Tienes correo nuevo"
+            assert payload["body"] == "Tienes 3 mensajes nuevos en Recibidos"
 
     def test_detailed_payload_when_enabled(self, app, authed_client):
         _client, user_id, _ = authed_client

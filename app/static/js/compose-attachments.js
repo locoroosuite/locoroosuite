@@ -101,16 +101,16 @@
     );
     zone.setAttribute("tabindex", "6");
     zone.setAttribute("role", "button");
-    zone.setAttribute("aria-label", "Add attachments");
+    zone.setAttribute("aria-label", window.LR.t("Add attachments"));
     zone.innerHTML =
       '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" class="text-slate-400 group-hover:text-slate-500" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
       '<path d="M12 16V4m0 0L8 8m4-4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>' +
       '<path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>' +
       "</svg>" +
-      '<div class="text-sm text-slate-600"><span class="font-medium text-slate-800">Drag &amp; drop files here</span> ' +
-      'or <span class="text-blue-600 font-medium underline-offset-2 group-hover:underline">browse</span></div>' +
-      '<div class="text-xs text-slate-400">Up to ' +
-      formatBytes(o.maxFileBytes) + " per file · " + formatBytes(o.maxTotalBytes) + " total</div>";
+      '<div class="text-sm text-slate-600"><span class="font-medium text-slate-800">' + window.LR.t("Drag & drop files here") + "</span> " +
+      window.LR.t("or") + ' <span class="text-blue-600 font-medium underline-offset-2 group-hover:underline">' + window.LR.t("browse") + "</span></div>" +
+      '<div class="text-xs text-slate-400">' +
+      window.LR.t("Up to {max} per file · {total} total", {max: formatBytes(o.maxFileBytes), total: formatBytes(o.maxTotalBytes)}) + "</div>";
 
     this.zone = zone;
 
@@ -163,7 +163,7 @@
     var browseBtn = el(
       "button",
       "inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:text-slate-900",
-      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" stroke="currentColor" stroke-width="1.6"/></svg> Browse files'
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" stroke="currentColor" stroke-width="1.6"/></svg> ' + window.LR.t('Browse files')
     );
     browseBtn.type = "button";
     browseBtn.addEventListener("click", function () {
@@ -173,7 +173,7 @@
     var docsBtn = el(
       "button",
       "inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:text-slate-900",
-      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 3h7l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" stroke="currentColor" stroke-width="1.6"/><path d="M14 3v4a1 1 0 0 0 1 1h3" stroke="currentColor" stroke-width="1.6"/></svg> From Docs'
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 3h7l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" stroke="currentColor" stroke-width="1.6"/><path d="M14 3v4a1 1 0 0 0 1 1h3" stroke="currentColor" stroke-width="1.6"/></svg> ' + window.LR.t('From Docs')
     );
     docsBtn.type = "button";
     docsBtn.addEventListener("click", function () {
@@ -253,7 +253,7 @@
       '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
     );
     removeBtn.type = "button";
-    removeBtn.title = "Remove";
+    removeBtn.title = window.LR.t("Remove");
     removeBtn.disabled = true;
 
     card.appendChild(iconWrap);
@@ -281,7 +281,7 @@
   ComposeAttachments.prototype._addPrefilled = function (a) {
     var ui = this._makeCard(a.name || a.id, a.size || 0);
     ui.status.classList.remove("hidden");
-    ui.status.textContent = "Attached";
+        ui.status.textContent = window.LR.t("Attached");
     ui.status.className = "mt-0.5 text-xs text-emerald-600";
     ui.removeBtn.disabled = false;
     this.list.appendChild(ui.card);
@@ -293,12 +293,12 @@
 
   ComposeAttachments.prototype._validate = function (size, name) {
     var o = this.opts;
-    if (size <= 0) return "This file is empty.";
+    if (size <= 0) return window.LR.t("This file is empty.");
     if (size > o.maxFileBytes) {
-      return '"' + name + '" is larger than the ' + formatBytes(o.maxFileBytes) + " per-file limit.";
+      return window.LR.t('"{name}" is larger than the {size} per-file limit.', {name: name, size: formatBytes(o.maxFileBytes)});
     }
     if (this.used + size > o.maxTotalBytes) {
-      return "Adding files would exceed the " + formatBytes(o.maxTotalBytes) + " total limit.";
+      return window.LR.t("Adding files would exceed the {size} total limit.", {size: formatBytes(o.maxTotalBytes)});
     }
     return null;
   };
@@ -320,7 +320,7 @@
     ui.barWrap.classList.remove("hidden");
     ui.pct.classList.remove("hidden");
     ui.status.classList.remove("hidden");
-    ui.status.textContent = "Uploading…";
+    ui.status.textContent = window.LR.t("Uploading…");
     ui.status.className = "mt-0.5 text-xs text-slate-400";
 
     var xhr = new XMLHttpRequest();
@@ -339,7 +339,7 @@
         ui.bar.style.width = "100%";
         ui.barWrap.classList.add("hidden");
         ui.pct.classList.add("hidden");
-        ui.status.textContent = "Attached";
+    ui.status.textContent = window.LR.t("Attached");
         ui.status.className = "mt-0.5 text-xs text-emerald-600";
         ui.removeBtn.disabled = false;
         self.items[data.id] = { name: data.name || name, size: data.size || size, mime: data.mime || meta.mime };
@@ -347,15 +347,15 @@
         self._updateTotal();
         self._bindRemove(ui.removeBtn, data.id);
       } else {
-        var msg = (data && data.error && data.error.message) || "Upload failed.";
+        var msg = (data && data.error && data.error.message) || window.LR.t("Upload failed.");
         if (xhr.status === 413 && data && data.error && data.error.limit) {
-          msg += " (limit " + formatBytes(data.error.limit) + ")";
+          msg += " " + window.LR.t("(limit {size})", {size: formatBytes(data.error.limit)});
         }
         self._failCard(ui, msg);
       }
     };
     xhr.onerror = function () {
-      self._failCard(ui, "Network error. Check your connection and retry.");
+      self._failCard(ui, window.LR.t("Network error. Check your connection and retry."));
     };
 
     var fd = new FormData();
@@ -364,7 +364,7 @@
     try {
       xhr.send(fd);
     } catch (e) {
-      self._failCard(ui, "Unable to start upload.");
+      self._failCard(ui, window.LR.t("Unable to start upload."));
     }
   };
 
@@ -382,7 +382,7 @@
     ui.status.textContent = message;
     ui.status.className = "mt-0.5 text-xs text-rose-600";
     ui.removeBtn.disabled = false;
-    ui.removeBtn.title = "Dismiss";
+    ui.removeBtn.title = window.LR.t("Dismiss");
     var self = this;
     ui.removeBtn.onclick = function () {
       ui.card.remove();
@@ -419,7 +419,7 @@
       "mt-10 w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-slate-200"
     );
     var header = el("div", "flex items-center justify-between border-b border-slate-100 px-4 py-3");
-    header.appendChild(el("h3", "text-sm font-semibold text-slate-900", "Attach from Docs"));
+    header.appendChild(el("h3", "text-sm font-semibold text-slate-900", window.LR.t("Attach from Docs")));
     var closeBtn = el("button", "inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600",
       '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>');
     closeBtn.type = "button";
@@ -428,11 +428,11 @@
     var searchWrap = el("div", "border-b border-slate-100 px-4 py-2");
     var search = el("input", "w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200");
     search.type = "text";
-    search.placeholder = "Search documents…";
+    search.placeholder = window.LR.t("Search documents…");
     searchWrap.appendChild(search);
 
     var body = el("div", "max-h-80 overflow-y-auto px-2 py-2 text-sm");
-    body.appendChild(el("div", "px-2 py-6 text-center text-slate-400", "Loading…"));
+    body.appendChild(el("div", "px-2 py-6 text-center text-slate-400", window.LR.t("Loading…")));
 
     modal.appendChild(header);
     modal.appendChild(searchWrap);
@@ -461,7 +461,7 @@
         return !f || (d.name || "").toLowerCase().indexOf(f) >= 0;
       });
       if (!docs.length) {
-        body.appendChild(el("div", "px-2 py-6 text-center text-slate-400", allDocs.length ? "No matching documents." : "No documents available."));
+        body.appendChild(el("div", "px-2 py-6 text-center text-slate-400", allDocs.length ? window.LR.t("No matching documents.") : window.LR.t("No documents available.")));
         return;
       }
       docs.forEach(function (doc) {
@@ -472,7 +472,7 @@
         iconWrap.innerHTML = ic.svg;
         var meta = el("div", "min-w-0 flex-1");
         var nameRow = el("div", "flex items-center gap-2");
-        nameRow.appendChild(el("span", "truncate text-sm font-medium text-slate-800", esc(doc.name || "Untitled")));
+        nameRow.appendChild(el("span", "truncate text-sm font-medium text-slate-800", esc(doc.name || window.LR.t("Untitled"))));
         var badge = el("span"); badge.innerHTML = ic.badge; nameRow.appendChild(badge);
         meta.appendChild(nameRow);
         meta.appendChild(el("div", "mt-0.5 text-xs text-slate-400", esc(formatBytes(doc.file_size))));
@@ -499,7 +499,7 @@
       })
       .catch(function () {
         body.innerHTML = "";
-        body.appendChild(el("div", "px-2 py-6 text-center text-rose-600", "Could not load documents. Retry from the Docs button."));
+        body.appendChild(el("div", "px-2 py-6 text-center text-rose-600", window.LR.t("Could not load documents. Retry from the Docs button.")));
       });
   };
 
@@ -513,7 +513,7 @@
     ui.barWrap.classList.remove("hidden");
     ui.pct.classList.remove("hidden");
     ui.status.classList.remove("hidden");
-    ui.status.textContent = "Fetching from Docs…";
+    ui.status.textContent = window.LR.t("Fetching from Docs…");
     ui.status.className = "mt-0.5 text-xs text-slate-400";
 
     var err = this._validate(size, filename);
@@ -538,7 +538,7 @@
         self._uploadFile(file, { name: filename, size: blob.size, mime: blob.type });
       })
       .catch(function () {
-        self._failCard(ui, "Could not load the document from Docs. Retry.");
+        self._failCard(ui, window.LR.t("Could not load the document from Docs. Retry."));
       });
   };
 

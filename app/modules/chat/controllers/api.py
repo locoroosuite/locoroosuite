@@ -6,6 +6,7 @@ import json
 import logging
 
 from flask import Response, jsonify, request
+from flask_babel import _
 
 from app.modules.chat.controllers.helpers import (
     ChatApiError,
@@ -65,16 +66,22 @@ def _resolve_peer_by_email(account, domain, email: str, server_name: str):
     if not peer:
         raise ChatApiError(
             "NO_SUCH_ACCOUNT",
-            f"There is no account with the email address {email}. "
-            "Check the address or create the account first.",
+            _(
+                "There is no account with the email address %(email)s. "
+                "Check the address or create the account first.",
+                email=email,
+            ),
             404,
         )
     peer_domain = db.session.get(Domain, peer.domain_id)
     if not peer_domain or not peer_domain.matrix_host:
         raise ChatApiError(
             "CHAT_PEER_NOT_CONFIGURED",
-            f"Chat is not configured for the domain of {email}. "
-            "An administrator must enable chat for that domain first.",
+            _(
+                "Chat is not configured for the domain of %(email)s. "
+                "An administrator must enable chat for that domain first.",
+                email=email,
+            ),
             400,
         )
     if (peer_domain.matrix_host, peer_domain.matrix_port) != (
@@ -83,8 +90,11 @@ def _resolve_peer_by_email(account, domain, email: str, server_name: str):
     ):
         raise ChatApiError(
             "CHAT_CROSS_SERVER",
-            f"{email} belongs to a domain on a different chat server. "
-            "Conversations across chat servers are not supported yet.",
+            _(
+                "%(email)s belongs to a domain on a different chat server. "
+                "Conversations across chat servers are not supported yet.",
+                email=email,
+            ),
             400,
         )
     try:
@@ -100,7 +110,7 @@ def create_dm():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
     if not email or "@" not in email:
-        raise ChatApiError("VALIDATION", "Enter the exact email address of the person")
+        raise ChatApiError("VALIDATION", _("Enter the exact email address of the person"))
     account, _user_id, conn, client, creds = chat_context()
     try:
         domain = db.session.get(Domain, account.domain_id)
@@ -110,7 +120,7 @@ def create_dm():
         resp = client.create_room(is_direct=True, invite=[peer_matrix_id])
         room_id = resp.get("room_id")
         if not room_id:
-            raise ChatApiError("MATRIX_BAD_RESPONSE", "Chat server returned no room id", 502)
+            raise ChatApiError("MATRIX_BAD_RESPONSE", _("Chat server returned no room id"), 502)
         own_id = creds.get("matrix_user_id") or own_matrix_id(conn)
         cache_db.upsert_room(conn, room_id, is_direct=True, membership="join")
         display_name = client.get_displayname(peer_matrix_id) or email.split("@", 1)[0]
@@ -175,7 +185,7 @@ def room_messages(room_id: str):
         own_id = creds.get("matrix_user_id") or own_matrix_id(conn)
         room = cache_db.get_room(conn, room_id)
         if not room:
-            raise ChatApiError("ROOM_NOT_FOUND", "Room not found", 404)
+            raise ChatApiError("ROOM_NOT_FOUND", _("Room not found"), 404)
         limit = min(int(request.args.get("limit", 50) or 50), 200)
         before_ts = request.args.get("before_ts", type=int)
         rows = cache_db.list_messages(conn, room_id, limit=limit, before_ts=before_ts)
@@ -206,9 +216,9 @@ def create_room():
     is_direct = bool(data.get("is_direct"))
     is_public = bool(data.get("is_public"))
     if is_direct and not invite:
-        raise ChatApiError("VALIDATION", "A direct message needs at least one invitee")
+        raise ChatApiError("VALIDATION", _("A direct message needs at least one invitee"))
     if not is_direct and not name:
-        raise ChatApiError("VALIDATION", "Room name is required")
+        raise ChatApiError("VALIDATION", _("Room name is required"))
     if not isinstance(invite, list) or not all(isinstance(u, str) for u in invite):
         raise ChatApiError("VALIDATION", "invite must be a list of user ids")
     account, _user_id, conn, client, creds = chat_context()
@@ -223,7 +233,7 @@ def create_room():
         )
         room_id = resp.get("room_id")
         if not room_id:
-            raise ChatApiError("MATRIX_BAD_RESPONSE", "Chat server returned no room id", 502)
+            raise ChatApiError("MATRIX_BAD_RESPONSE", _("Chat server returned no room id"), 502)
         cache_db.upsert_room(
             conn,
             room_id,
@@ -286,7 +296,7 @@ def invite_to_room(room_id: str):
     user_to_invite = (data.get("user_id") or "").strip()
     invite_email = (data.get("email") or "").strip().lower()
     if not user_to_invite and not invite_email:
-        raise ChatApiError("VALIDATION", "email (or user_id) is required")
+        raise ChatApiError("VALIDATION", _("email (or user_id) is required"))
     account, _user_id, conn, client, creds = chat_context()
     try:
         if invite_email:
@@ -310,12 +320,12 @@ def send_message(room_id: str):
     body = (data.get("body") or "").strip()
     formatted = (data.get("formatted_body") or "").strip() or None
     if not body:
-        raise ChatApiError("VALIDATION", "Message body is required")
+        raise ChatApiError("VALIDATION", _("Message body is required"))
     account, _user_id, conn, client, creds = chat_context()
     try:
         room = cache_db.get_room(conn, room_id)
         if not room or room.get("membership") != "join":
-            raise ChatApiError("ROOM_NOT_FOUND", "Room not found", 404)
+            raise ChatApiError("ROOM_NOT_FOUND", _("Room not found"), 404)
         resp = client.send_message(room_id, body, formatted)
         own_id = creds.get("matrix_user_id") or own_matrix_id(conn)
         content: dict = {"msgtype": "m.text", "body": body}
@@ -343,22 +353,22 @@ def send_message(room_id: str):
 def upload_to_room(room_id: str):
     file = request.files.get("file")
     if file is None:
-        raise ChatApiError("VALIDATION", "file is required")
+        raise ChatApiError("VALIDATION", _("file is required"))
     data = file.read()
     if not data:
-        raise ChatApiError("VALIDATION", "Uploaded file is empty")
+        raise ChatApiError("VALIDATION", _("Uploaded file is empty"))
     if len(data) > _MAX_UPLOAD_BYTES:
-        raise ChatApiError("VALIDATION", "File exceeds the 50 MB limit", 413)
+        raise ChatApiError("VALIDATION", _("File exceeds the 50 MB limit"), 413)
     account, _user_id, conn, client, creds = chat_context()
     try:
         room = cache_db.get_room(conn, room_id)
         if not room or room.get("membership") != "join":
-            raise ChatApiError("ROOM_NOT_FOUND", "Room not found", 404)
+            raise ChatApiError("ROOM_NOT_FOUND", _("Room not found"), 404)
         mimetype = file.mimetype or "application/octet-stream"
         upload = client.upload_media(data, file.filename or "upload", mimetype)
         content_uri = upload.get("content_uri")
         if not content_uri:
-            raise ChatApiError("MATRIX_BAD_RESPONSE", "Chat server returned no content URI", 502)
+            raise ChatApiError("MATRIX_BAD_RESPONSE", _("Chat server returned no content URI"), 502)
         msgtype = _msgtype_for_mimetype(mimetype)
         body = file.filename or "upload"
         content = {
@@ -402,7 +412,7 @@ def room_members(room_id: str):
     _account, _user_id, conn, _client, _creds = chat_context()
     try:
         if not cache_db.get_room(conn, room_id):
-            raise ChatApiError("ROOM_NOT_FOUND", "Room not found", 404)
+            raise ChatApiError("ROOM_NOT_FOUND", _("Room not found"), 404)
         members = cache_db.list_members(conn, room_id)
         return jsonify({"members": members})
     finally:
@@ -415,7 +425,7 @@ def mark_read(room_id: str):
     data = request.get_json(silent=True) or {}
     event_id = (data.get("event_id") or "").strip()
     if not event_id:
-        raise ChatApiError("VALIDATION", "event_id is required")
+        raise ChatApiError("VALIDATION", _("event_id is required"))
     _account, _user_id, conn, client, _creds = chat_context()
     try:
         try:
@@ -454,7 +464,7 @@ def update_room_settings(room_id: str):
     name = (data.get("name") or "").strip()
     topic = (data.get("topic") or "").strip()
     if not name and not topic:
-        raise ChatApiError("VALIDATION", "Nothing to update")
+        raise ChatApiError("VALIDATION", _("Nothing to update"))
     account, _user_id, conn, client, _creds = chat_context()
     try:
         if name:
@@ -476,13 +486,13 @@ def react_to_message(event_id: str):
     data = request.get_json(silent=True) or {}
     key = (data.get("key") or "").strip()
     if not key:
-        raise ChatApiError("VALIDATION", "key (emoji) is required")
+        raise ChatApiError("VALIDATION", _("key (emoji) is required"))
     account, _user_id, conn, client, creds = chat_context()
     try:
         own_id = creds.get("matrix_user_id") or own_matrix_id(conn)
         row = cache_db.get_message(conn, event_id)
         if not row:
-            raise ChatApiError("MESSAGE_NOT_FOUND", "Message not found", 404)
+            raise ChatApiError("MESSAGE_NOT_FOUND", _("Message not found"), 404)
         reactions = cache_db.list_reactions(conn, row["room_id"]).get(event_id, [])
         mine = next((r for r in reactions if r["sender"] == own_id and r["key"] == key), None)
         if mine:
@@ -529,9 +539,9 @@ def edit_message(event_id: str):
         own_id = creds.get("matrix_user_id") or own_matrix_id(conn)
         row = cache_db.get_message(conn, event_id)
         if not row or row["type"] != "m.room.message":
-            raise ChatApiError("MESSAGE_NOT_FOUND", "Message not found", 404)
+            raise ChatApiError("MESSAGE_NOT_FOUND", _("Message not found"), 404)
         if row["sender"] != own_id:
-            raise ChatApiError("FORBIDDEN", "Only your own messages can be edited", 403)
+            raise ChatApiError("FORBIDDEN", _("Only your own messages can be edited"), 403)
         resp = client.send_edit(row["room_id"], event_id, new_body)
         cache_db.update_message_content(
             conn, event_id, json.dumps({"msgtype": "m.text", "body": new_body}), new_body
@@ -550,7 +560,7 @@ def redact_message(event_id: str):
     try:
         row = cache_db.get_message(conn, event_id)
         if not row:
-            raise ChatApiError("MESSAGE_NOT_FOUND", "Message not found", 404)
+            raise ChatApiError("MESSAGE_NOT_FOUND", _("Message not found"), 404)
         client.redact(row["room_id"], event_id)
         if row["type"] == "m.reaction":
             cache_db.delete_message(conn, event_id)

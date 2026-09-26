@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from flask import Response, redirect, render_template, request, session, url_for
+from flask_babel import _
 
 from app.modules.mail.controllers.helpers import mail_bp
 from app.shared import totp as totp_mod
@@ -75,7 +76,7 @@ def twofa_confirm():
             "twofa_confirm.html",
             secret=secret,
             otpauth_uri=uri,
-            error="Invalid code. Please try again.",
+            error=_("Invalid code. Please try again."),
         )
 
     session.pop("_pending_totp_secret", None)
@@ -112,7 +113,7 @@ def twofa_disable():
             twofa_enabled=True,
             backup_remaining=totp_mod.backup_codes_remaining(user),
             devices=[_device_info(d) for d in totp_mod.list_trusted_devices(user.id)],
-            disable_error="Invalid code. Please try again.",
+            disable_error=_("Invalid code. Please try again."),
         )
     totp_mod.disable_2fa(user)
     logger.info("2FA disabled for customer user_id=%s", user.id)
@@ -133,7 +134,7 @@ def twofa_regenerate():
             twofa_enabled=True,
             backup_remaining=totp_mod.backup_codes_remaining(user),
             devices=[_device_info(d) for d in totp_mod.list_trusted_devices(user.id)],
-            regen_error="Invalid code. Please try again.",
+            regen_error=_("Invalid code. Please try again."),
         )
     codes = totp_mod.regenerate_backup_codes(user)
     session["_new_backup_codes"] = codes

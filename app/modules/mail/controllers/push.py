@@ -6,6 +6,7 @@ Session-authenticated JSON endpoints backing the Settings -> Notifications UI.
 import logging
 
 from flask import current_app, jsonify, request, session
+from flask_babel import _
 
 from app.modules.mail.controllers.helpers import _get_or_create_settings, mail_bp
 from app.shared import push as push_service
@@ -47,8 +48,10 @@ def push_key():
     except Exception:
         _logger.exception("push vapid config invalid; cannot serve key")
         return _error(
-            "Push notifications are misconfigured on the server. "
-            "Contact your administrator (PUSH_VAPID_* settings).",
+            _(
+                "Push notifications are misconfigured on the server. "
+                "Contact your administrator (PUSH_VAPID_* settings)."
+            ),
             503,
         )
     return jsonify({"public_key": vapid["public_key"]})
@@ -64,9 +67,9 @@ def push_subscribe():
     p256dh = (keys.get("p256dh") or "").strip()
     auth = (keys.get("auth") or "").strip()
     if not endpoint or not p256dh or not auth:
-        return _error("endpoint, keys.p256dh and keys.auth are required.", 400)
+        return _error(_("endpoint, keys.p256dh and keys.auth are required."), 400)
     if len(endpoint) > MAX_ENDPOINT_LEN or len(p256dh) > MAX_KEY_LEN or len(auth) > MAX_KEY_LEN:
-        return _error("Subscription fields exceed the maximum allowed length.", 400)
+        return _error(_("Subscription fields exceed the maximum allowed length."), 400)
     user_agent = (request.headers.get("User-Agent") or "")[:255]
     existing = PushSubscription.query.filter_by(endpoint=endpoint).first()
     if existing is not None:
@@ -118,10 +121,10 @@ def push_unsubscribe():
     payload = request.get_json(silent=True) or {}
     endpoint = (payload.get("endpoint") or "").strip()
     if not endpoint:
-        return _error("endpoint is required.", 400)
+        return _error(_("endpoint is required."), 400)
     row = PushSubscription.query.filter_by(endpoint=endpoint, user_id=user_id).first()
     if row is None:
-        return _error("Unknown subscription for this user.", 404)
+        return _error(_("Unknown subscription for this user."), 404)
     db.session.delete(row)
     db.session.commit()
     _logger.info("push subscription removed user_id=%s endpoint=%s", user_id, endpoint[:80])
@@ -159,7 +162,7 @@ def push_device_remove(device_id: int):
     user_id = session.get("user_id")
     row = PushSubscription.query.filter_by(id=device_id, user_id=user_id).first()
     if row is None:
-        return _error("Unknown device for this user.", 404)
+        return _error(_("Unknown device for this user."), 404)
     db.session.delete(row)
     db.session.commit()
     _logger.info("push device removed user_id=%s device_id=%s", user_id, device_id)
@@ -174,7 +177,7 @@ def push_detailed():
     user_id = session.get("user_id")
     payload = request.get_json(silent=True) or {}
     if not isinstance(payload.get("enabled"), bool):
-        return _error("'enabled' boolean is required.", 400)
+        return _error(_("'enabled' boolean is required."), 400)
     settings = _get_or_create_settings(user_id)
     settings.push_detailed = payload["enabled"]
     db.session.commit()
@@ -190,11 +193,14 @@ def push_category():
     category = payload.get("category")
     if category not in push_service.CATEGORY_SETTINGS:
         return _error(
-            "'category' must be one of: " + ", ".join(sorted(push_service.CATEGORY_SETTINGS)) + ".",
+            _(
+                "'category' must be one of: %(categories)s.",
+                categories=", ".join(sorted(push_service.CATEGORY_SETTINGS)),
+            ),
             400,
         )
     if not isinstance(payload.get("enabled"), bool):
-        return _error("'enabled' boolean is required.", 400)
+        return _error(_("'enabled' boolean is required."), 400)
     settings = _get_or_create_settings(user_id)
     setattr(settings, push_service.CATEGORY_SETTINGS[category], payload["enabled"])
     db.session.commit()
@@ -213,14 +219,16 @@ def push_test():
     """Send a benign test notification to every active device (U24.28)."""
     user_id = session.get("user_id")
     if user_id is None:
-        return _error("Unknown user.", 401)
+        return _error(_("Unknown user."), 401)
     if not _has_active_subscription(user_id):
         return (
             jsonify(
                 {
                     "error": {
                         "code": "PUSH_NO_SUBSCRIPTION",
-                        "message": "No registered device yet. Enable notifications on this device first, then retry.",
+                        "message": _(
+                            "No registered device yet. Enable notifications on this device first, then retry."
+                        ),
                     }
                 }
             ),
@@ -233,7 +241,9 @@ def push_test():
                 {
                     "error": {
                         "code": "PUSH_SEND_FAILED",
-                        "message": "The test notification could not be delivered. Check the server push configuration (PUSH_VAPID_* settings) and retry.",
+                        "message": _(
+                            "The test notification could not be delivered. Check the server push configuration (PUSH_VAPID_* settings) and retry."
+                        ),
                     }
                 }
             ),

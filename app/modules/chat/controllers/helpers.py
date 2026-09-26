@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from flask import Blueprint, jsonify, session
+from flask_babel import _
 
 from app.shared.auth import require_customer
 from app.shared.db import db
@@ -52,13 +53,13 @@ def chat_context():
     account_id = session.get("active_account_id")
     user_id = session.get("user_id")
     if not account_id or not user_id:
-        raise ChatApiError("NO_ACCOUNT", "No active account for this session", 404)
+        raise ChatApiError("NO_ACCOUNT", _("No active account for this session"), 404)
     account = db.session.get(CustomerAccount, account_id)
     if not account or account.customer_id != user_id or not account.is_active:
-        raise ChatApiError("NO_ACCOUNT", "No active account for this session", 404)
+        raise ChatApiError("NO_ACCOUNT", _("No active account for this session"), 404)
     domain = db.session.get(Domain, account.domain_id)
     if not domain:
-        raise ChatApiError("DOMAIN_NOT_FOUND", "Account domain not found", 404)
+        raise ChatApiError("DOMAIN_NOT_FOUND", _("Account domain not found"), 404)
 
     from app.modules.chat.services.matrix import MatrixError
 

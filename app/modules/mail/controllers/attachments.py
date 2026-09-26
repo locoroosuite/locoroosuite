@@ -5,6 +5,7 @@ import time
 import uuid
 
 from flask import current_app, jsonify, request, session
+from flask_babel import _
 
 from app.modules.mail.controllers.helpers import mail_bp
 from app.modules.mail.services import attachments as staging
@@ -86,31 +87,36 @@ def _maybe_gc():
 def stage_attachment():
     user_id = session.get("user_id")
     if not user_id:
-        return jsonify({"error": {"code": "unauthorized", "message": "Session expired."}}), 401
+        return jsonify({"error": {"code": "unauthorized", "message": _("Session expired.")}}), 401
 
     compose_session_id = _get_session_id()
     if not compose_session_id:
         return jsonify(
-            {"error": {"code": "invalid_session", "message": "Invalid or missing compose session."}}
+            {
+                "error": {
+                    "code": "invalid_session",
+                    "message": _("Invalid or missing compose session."),
+                }
+            }
         ), 400
 
     uploaded = request.files.get("file")
     if not uploaded or not uploaded.filename:
-        return jsonify({"error": {"code": "no_file", "message": "No file was provided."}}), 400
+        return jsonify({"error": {"code": "no_file", "message": _("No file was provided.")}}), 400
 
     raw = uploaded.read()
     size = len(raw)
     max_file = _max_file_bytes()
     if size <= 0:
         return jsonify(
-            {"error": {"code": "empty_file", "message": "The selected file is empty."}}
+            {"error": {"code": "empty_file", "message": _("The selected file is empty.")}}
         ), 400
     if size > max_file:
         return jsonify(
             {
                 "error": {
                     "code": "file_too_large",
-                    "message": "This file exceeds the per-file size limit.",
+                    "message": _("This file exceeds the per-file size limit."),
                     "limit": max_file,
                     "size": size,
                 }
@@ -124,7 +130,7 @@ def stage_attachment():
             {
                 "error": {
                     "code": "total_too_large",
-                    "message": "Adding this file exceeds the total attachment size limit.",
+                    "message": _("Adding this file exceeds the total attachment size limit."),
                     "limit": max_total,
                     "used": current_total,
                 }
@@ -142,7 +148,7 @@ def stage_attachment():
             {
                 "error": {
                     "code": "stage_failed",
-                    "message": "Unable to store the file. Please retry.",
+                    "message": _("Unable to store the file. Please retry."),
                 }
             }
         ), 500
@@ -166,12 +172,12 @@ def stage_attachment():
 def delete_attachment(file_id):
     user_id = session.get("user_id")
     if not user_id:
-        return jsonify({"error": {"code": "unauthorized", "message": "Session expired."}}), 401
+        return jsonify({"error": {"code": "unauthorized", "message": _("Session expired.")}}), 401
 
     compose_session_id = _get_session_id()
     if not compose_session_id or not staging.is_valid_id(file_id):
         return jsonify(
-            {"error": {"code": "invalid_request", "message": "Invalid attachment or session."}}
+            {"error": {"code": "invalid_request", "message": _("Invalid attachment or session.")}}
         ), 400
 
     staging.delete_staged(user_id, compose_session_id, file_id)
@@ -183,12 +189,17 @@ def delete_attachment(file_id):
 def list_attachments():
     user_id = session.get("user_id")
     if not user_id:
-        return jsonify({"error": {"code": "unauthorized", "message": "Session expired."}}), 401
+        return jsonify({"error": {"code": "unauthorized", "message": _("Session expired.")}}), 401
 
     compose_session_id = _get_session_id()
     if not compose_session_id:
         return jsonify(
-            {"error": {"code": "invalid_session", "message": "Invalid or missing compose session."}}
+            {
+                "error": {
+                    "code": "invalid_session",
+                    "message": _("Invalid or missing compose session."),
+                }
+            }
         ), 400
 
     items = staging.list_staged(user_id, compose_session_id)

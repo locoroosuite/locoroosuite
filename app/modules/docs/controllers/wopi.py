@@ -2,6 +2,7 @@ import os
 import time
 
 from flask import Response, jsonify, request
+from flask_babel import _
 
 from app.modules.docs.controllers.helpers import docs_bp, logger
 from app.modules.docs.services import cache_db, storage, wopi_token
@@ -125,11 +126,11 @@ def _wopi_check_file_info_share(doc_id, payload):
 
     writable = payload.get("writable", False)
     info = {
-        "BaseFileName": f"{share.doc_name or 'Document'}.{share.doc_type or 'odt'}",
+        "BaseFileName": f"{share.doc_name or _('Document')}.{share.doc_type or 'odt'}",
         "Size": file_size,
         "OwnerId": str(owner_user_id),
         "UserId": "share-" + str(share.id),
-        "UserFriendlyName": share.recipient_email or "Guest",
+        "UserFriendlyName": share.recipient_email or _("Guest"),
         "UserCanWrite": writable,
         "ReadOnly": not writable,
         "LastModifiedTime": share.doc_updated_at or "",

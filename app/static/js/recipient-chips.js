@@ -115,12 +115,12 @@
     var displayName = name || email.split('@')[0];
     var chip = document.createElement('span');
     chip.className = 'inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700 hover:bg-slate-200 cursor-pointer transition-colors group relative';
-    chip.title = 'Click to copy ' + email;
+    chip.title = window.LR.t('Click to copy {email}', {email: email});
     chip.setAttribute('data-email', email);
 
     chip.innerHTML =
       '<span class="max-w-[200px] truncate">' + escHtml(displayName) + '</span>' +
-      '<button type="button" class="ml-0.5 rounded-full p-0.5 hover:bg-slate-300 opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-slate-700 shrink-0" data-remove-chip title="Remove">' +
+      '<button type="button" class="ml-0.5 rounded-full p-0.5 hover:bg-slate-300 opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-slate-700 shrink-0" data-remove-chip title="' + window.LR.t('Remove') + '">' +
         '<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>' +
       '</button>';
 
@@ -228,7 +228,7 @@
         item.innerHTML =
           '<div class="h-8 w-8 rounded-full bg-indigo-50 flex items-center justify-center text-xs font-medium text-indigo-600 shrink-0">' + escHtml(initials) + '</div>' +
           '<div class="min-w-0 flex-1">' +
-            '<div class="font-medium text-slate-900 truncate">' + escHtml(result.fn || 'Unknown') + '</div>' +
+            '<div class="font-medium text-slate-900 truncate">' + escHtml(result.fn || window.LR.t('Unknown')) + '</div>' +
             '<div class="text-xs text-slate-500 truncate">' + escHtml(emailStr) + '</div>' +
           '</div>';
         item.addEventListener('mousedown', function (e) {
@@ -300,7 +300,7 @@
   RecipientChips.prototype._showCopied = function (chip, email) {
     var tip = document.createElement('div');
     tip.className = 'absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-50 pointer-events-none';
-    tip.textContent = 'Copied ' + email;
+    tip.textContent = window.LR.t('Copied {email}', {email: email});
     chip.style.position = 'relative';
     chip.appendChild(tip);
     setTimeout(function () {
@@ -314,7 +314,7 @@
     var self = this;
     var originalPlaceholder = this.input.placeholder;
     this.input.classList.add('!border-rose-400', '!ring-rose-200');
-    this.input.placeholder = 'Invalid email address';
+    this.input.placeholder = window.LR.t('Invalid email address');
     setTimeout(function () {
       self.input.classList.remove('!border-rose-400', '!ring-rose-200');
       self.input.placeholder = originalPlaceholder;

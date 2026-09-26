@@ -33,7 +33,7 @@
     }
     if (!resp.ok) {
       const code = data && data.error ? data.error.code : "REQUEST_FAILED";
-      const message = data && data.error ? data.error.message : "Request failed (" + resp.status + ")";
+      const message = data && data.error ? data.error.message : window.LR.t("Request failed ({status})", {status: resp.status});
       const err = new Error(message);
       err.code = code;
       err.status = resp.status;
@@ -92,7 +92,7 @@
       const active = room.room_id === state.activeRoomId;
       const badge = room.notification_count > 0;
       const label =
-        room.display_name || room.name || (room.is_direct ? "Direct message" : "Unnamed room");
+        room.display_name || room.name || (room.is_direct ? window.LR.t("Direct message") : window.LR.t("Unnamed room"));
       const peer = room.is_direct ? state.dmPeers[room.room_id] || {} : {};
       item.className =
         "group flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer text-sm transition-colors " +
@@ -129,14 +129,14 @@
         actions.className = "shrink-0 flex items-center gap-1";
         const accept = document.createElement("button");
         accept.className = "px-1.5 py-0.5 rounded text-[11px] md:text-[10px] bg-emerald-500 text-white";
-        accept.textContent = "Accept";
+        accept.textContent = window.LR.t("Accept");
         accept.addEventListener("click", function (ev) {
           ev.stopPropagation();
           window.Chat.actions.joinRoom(room.room_id);
         });
         const decline = document.createElement("button");
         decline.className = "px-1.5 py-0.5 rounded text-[11px] md:text-[10px] border border-slate-300 text-slate-500";
-        decline.textContent = "Decline";
+        decline.textContent = window.LR.t("Decline");
         decline.addEventListener("click", function (ev) {
           ev.stopPropagation();
           window.Chat.actions.leaveRoom(room.room_id);
@@ -199,10 +199,10 @@
     const es = new EventSource("/app/chat/api/stream");
     state.es = es;
     es.addEventListener("chat_ready", function () {
-      setSyncStatus("Live", false);
+      setSyncStatus(window.LR.t("Live"), false);
     });
     es.addEventListener("chat_sync", function (ev) {
-      setSyncStatus("Live", false);
+      setSyncStatus(window.LR.t("Live"), false);
       try {
         const changes = JSON.parse(ev.data);
         window.Chat.sync.handleChanges(changes);
@@ -217,10 +217,10 @@
       } catch (e) {
         /* keep default */
       }
-      setSyncStatus("Connection issue (" + code + "), retrying…", true);
+      setSyncStatus(window.LR.t("Connection issue ({code}), retrying…", {code: code}), true);
     });
     es.onerror = function () {
-      setSyncStatus("Reconnecting…", true);
+      setSyncStatus(window.LR.t("Reconnecting…"), true);
     };
   }
 
@@ -229,10 +229,10 @@
     const identityError = JSON.parse(root.dataset.identityError || "null");
     if (identityError) {
       banner(
-        "Chat unavailable: " + identityError.message + " Refresh after fixing the configuration.",
+        window.LR.t("Chat unavailable: {error} Refresh after fixing the configuration.", {error: identityError.message}),
         true
       );
-      setSyncStatus("Unavailable", true);
+      setSyncStatus(window.LR.t("Unavailable"), true);
       return;
     }
     try {
@@ -246,8 +246,8 @@
       }
       startStream();
     } catch (err) {
-      banner("Could not load chat: " + err.message, true);
-      setSyncStatus("Unavailable", true);
+      banner(window.LR.t("Could not load chat: {error}", {error: err.message}), true);
+      setSyncStatus(window.LR.t("Unavailable"), true);
     }
   }
 

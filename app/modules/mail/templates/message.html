@@ -67,7 +67,6 @@
         <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], reply_all='1') }}" class="hidden md:inline-block text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">{{ _('Reply All') }}</a>
         <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], forward='1') }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">{{ _('Forward') }}</a>
         <span class="hidden md:block h-4 w-px bg-slate-200 mx-0.5"></span>
-        <a id="create-event-btn" href="{{ url_for('calendar.event_new', subject=message["subject"], description=(message["snippet"] or '')[:2000], attendee=message["sender"]) }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition hidden">{{ _('Create event') }}</a>
         {% endif %}
         <form method="post" action="{{ url_for('mail.archive_message', account_id=account.id, message_id=message["id"]) }}" class="message-action hidden md:inline-block" data-action="archive">
           <button type="submit" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">{{ _('Archive') }}</button>
@@ -88,6 +87,9 @@
               <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-rose-600 hover:bg-rose-50 whitespace-nowrap" role="menuitem">{{ _('Delete') }}</button>
             </form>
             <div class="border-t border-slate-100 my-1 md:hidden"></div>
+            {% if not is_draft %}
+            <a href="{{ url_for('calendar.event_new', summary=message["subject"], description=(message["snippet"] or '')[:2000], attendee=message["sender"]) }}" class="block text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Create event') }}</a>
+            {% endif %}
             <form method="post" action="{{ url_for('mail.mark_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="mark">
               <input type="hidden" name="action" value="{{ 'read' if is_unread else 'unread' }}" />
               <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Mark as read') if is_unread else _('Mark as unread') }}</button>
@@ -224,11 +226,11 @@
                   <div class="truncate">{{ _('{n} attendee(s):').format(n=ics.parsed.attendees | length) }} {{ ics.parsed.attendees | map(attribute='cn') | join(', ') }}</div>
                   {% endif %}
                 </div>
-                <div class="mt-2 flex items-center gap-2" data-ics-actions>
-                  <select data-ics-calendar-select class="text-[12px] md:text-[11px] rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-600 shadow-sm">
+                <div class="mt-2 flex flex-wrap items-center gap-2" data-ics-actions>
+                  <select data-ics-calendar-select class="text-xs rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-600 shadow-sm">
                     <option value="">{{ _('Loading calendars...') }}</option>
                   </select>
-                  <div data-ics-buttons data-method="{{ ics.parsed.get('method', '') | upper }}" data-status="{{ ics.parsed.get('status', 'CONFIRMED') | upper }}" class="flex items-center gap-1.5">
+                  <div data-ics-buttons data-method="{{ ics.parsed.get('method', '') | upper }}" data-status="{{ ics.parsed.get('status', 'CONFIRMED') | upper }}" class="flex flex-wrap items-center gap-2">
                     <span class="text-xs text-slate-400">{{ _('Loading...') }}</span>
                   </div>
                 </div>
@@ -560,11 +562,20 @@
     }
   });
 
-  var createEventBtn = document.getElementById("create-event-btn");
-  if (createEventBtn) createEventBtn.classList.remove("hidden");
-
   var icsCards = document.querySelectorAll("[data-ics-card]");
   if (icsCards.length > 0) {
+    var ICS_BTN_BASE = "text-xs px-3 py-1.5 rounded-lg border transition ";
+    var ICS_BTN_ACCEPT = ICS_BTN_BASE + "border-green-200 bg-green-50 text-green-700 hover:bg-green-100";
+    var ICS_BTN_TENTATIVE = ICS_BTN_BASE + "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100";
+    var ICS_BTN_DECLINE = ICS_BTN_BASE + "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100";
+    var ICS_BTN_REMOVE = ICS_BTN_BASE + "border-rose-200 bg-white text-rose-700 hover:bg-rose-50";
+    var ICS_BTN_IMPORT = ICS_BTN_BASE + "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100";
+    var ICS_LINK = "text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition";
+    var ICS_PILL = {
+      ACCEPTED: "text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5",
+      TENTATIVE: "text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5",
+      DECLINED: "text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-2 py-0.5"
+    };
     var calendarsLoaded = fetch("/app/calendar/api/calendars", { headers: { "X-Requested-With": "XMLHttpRequest" } })
       .then(function (r) { return r.json(); })
       .catch(function () { return []; });
@@ -607,8 +618,8 @@
             if (isCancelled) {
               if (parsed.already_imported) {
                 buttonsEl.innerHTML =
-                  '<span class="text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-2 py-0.5">' + window.LR.t('Event cancelled') + '</span>' +
-                  '<button type="button" data-ics-cancel class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-rose-200 bg-white text-rose-700 hover:bg-rose-50 transition">' + window.LR.t('Remove from calendar') + '</button>';
+                  '<span class="' + ICS_PILL.DECLINED + '">' + window.LR.t('Event cancelled') + '</span>' +
+                  '<button type="button" data-ics-cancel class="' + ICS_BTN_REMOVE + '">' + window.LR.t('Remove from calendar') + '</button>';
                 var cancelBtn = buttonsEl.querySelector("[data-ics-cancel]");
                 if (cancelBtn) cancelBtn.addEventListener("click", function () {
                   window.LR.setButtonLoading(cancelBtn);
@@ -634,11 +645,17 @@
 
             if (parsed.already_imported && parsed.existing_event_id) {
               if (parsed.is_invitation && parsed.existing_my_partstat) {
-                showRsvpStatus(parsed.existing_my_partstat, String(parsed.existing_calendar_id || ""), parsed.existing_event_id);
+                showRsvpStatus(
+                  parsed.existing_my_partstat,
+                  String(parsed.existing_calendar_id || ""),
+                  parsed.existing_event_id,
+                  true,
+                  parsed.existing_my_rsvp === true
+                );
               } else {
                 buttonsEl.innerHTML =
-                  '<span class="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">' + window.LR.t('Already in calendar') + '</span>' +
-                  '<a href="/app/calendar/events/' + parsed.existing_event_id + '" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">' + window.LR.t('View in calendar') + '</a>';
+                  '<span class="' + ICS_PILL.ACCEPTED + '">' + window.LR.t('Already in calendar') + '</span>' +
+                  '<a href="/app/calendar/events/' + parsed.existing_event_id + '" class="' + ICS_LINK + '">' + window.LR.t('View in calendar') + '</a>';
               }
               select.style.display = "none";
               return;
@@ -654,9 +671,9 @@
 
             if (isInvitation) {
               buttonsEl.innerHTML =
-                '<button type="button" data-ics-action="ACCEPTED" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">' + window.LR.t('Accept') + '</button>' +
-                '<button type="button" data-ics-action="TENTATIVE" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">' + window.LR.t('Tentative') + '</button>' +
-                '<button type="button" data-ics-action="DECLINED" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">' + window.LR.t('Decline') + '</button>';
+                '<button type="button" data-ics-action="ACCEPTED" class="' + ICS_BTN_ACCEPT + '">' + window.LR.t('Accept') + '</button>' +
+                '<button type="button" data-ics-action="TENTATIVE" class="' + ICS_BTN_TENTATIVE + '">' + window.LR.t('Tentative') + '</button>' +
+                '<button type="button" data-ics-action="DECLINED" class="' + ICS_BTN_DECLINE + '">' + window.LR.t('Decline') + '</button>';
 
               buttonsEl.querySelectorAll("[data-ics-action]").forEach(function (btn) {
                 btn.addEventListener("click", function () {
@@ -683,7 +700,7 @@
               });
             } else {
               buttonsEl.innerHTML =
-                '<button type="button" data-ics-import class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition">' + window.LR.t('Add to calendar') + '</button>';
+                '<button type="button" data-ics-import class="' + ICS_BTN_IMPORT + '">' + window.LR.t('Add to calendar') + '</button>';
               var importBtn = buttonsEl.querySelector("[data-ics-import]");
               if (importBtn) importBtn.addEventListener("click", function () {
                 var calId = getSelectedCalendarId();
@@ -701,8 +718,8 @@
                 }).then(function (r) { return r.json(); }).then(function (d) {
                   if (d.status === "ok") {
                     buttonsEl.innerHTML =
-                      '<span class="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">' + window.LR.t('Added to calendar') + '</span>' +
-                      '<a href="' + (d.calendar_event_url || '/app/calendar/') + '" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 transition">' + window.LR.t('View in calendar') + '</a>';
+                      '<span class="' + ICS_PILL.ACCEPTED + '">' + window.LR.t('Added to calendar') + '</span>' +
+                      '<a href="' + (d.calendar_event_url || '/app/calendar/') + '" class="' + ICS_LINK + '">' + window.LR.t('View in calendar') + '</a>';
                     select.style.display = "none";
                   } else {
                     window.LR.notifyError(d.error || window.LR.t("Failed to import event."));
@@ -740,21 +757,48 @@
               });
             }
 
-            function showRsvpStatus(partstat, calId, eventId) {
+            function doRsvpExisting(eventId, partstat) {
+              var actionBtns = buttonsEl.querySelectorAll("[data-ics-action]");
+              actionBtns.forEach(function (b) { b.disabled = true; });
+              var activeBtn = buttonsEl.querySelector('[data-ics-action="' + partstat + '"]');
+              if (activeBtn) window.LR.setButtonLoading(activeBtn);
+              fetch("/app/calendar/api/ics-rsvp-existing", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+                body: JSON.stringify({ event_id: parseInt(eventId, 10), partstat: partstat }),
+              }).then(function (r) { return r.json(); }).then(function (d) {
+                if (d.status === "ok") {
+                  showRsvpStatus(partstat, String(parsed.existing_calendar_id || ""), d.event_id, true, false);
+                } else {
+                  window.LR.notifyError(d.error || window.LR.t("Failed to respond."));
+                  actionBtns.forEach(function (b) { b.disabled = false; window.LR.clearButtonLoading(b); });
+                }
+              }).catch(function () {
+                window.LR.notifyError(window.LR.t("Network error."));
+                actionBtns.forEach(function (b) { b.disabled = false; window.LR.clearButtonLoading(b); });
+              });
+            }
+
+            function showRsvpStatus(partstat, calId, eventId, isExisting, notResponded) {
               var label = partstat === "ACCEPTED" ? window.LR.t("Accepted") : partstat === "TENTATIVE" ? window.LR.t("Tentative") : window.LR.t("Declined");
-              var color = partstat === "ACCEPTED" ? "green" : partstat === "TENTATIVE" ? "amber" : "rose";
+              var pillClass = ICS_PILL[partstat] || ICS_PILL.TENTATIVE;
               var alternatives = [];
-              if (partstat !== "ACCEPTED") alternatives.push('<button type="button" data-ics-action="ACCEPTED" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">' + window.LR.t('Accept') + '</button>');
-              if (partstat !== "TENTATIVE") alternatives.push('<button type="button" data-ics-action="TENTATIVE" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">' + window.LR.t('Tentative') + '</button>');
-              if (partstat !== "DECLINED") alternatives.push('<button type="button" data-ics-action="DECLINED" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">' + window.LR.t('Decline') + '</button>');
+              if (partstat !== "ACCEPTED") alternatives.push('<button type="button" data-ics-action="ACCEPTED" class="' + ICS_BTN_ACCEPT + '">' + window.LR.t('Accept') + '</button>');
+              if (partstat !== "TENTATIVE") alternatives.push('<button type="button" data-ics-action="TENTATIVE" class="' + ICS_BTN_TENTATIVE + '">' + window.LR.t('Tentative') + '</button>');
+              if (partstat !== "DECLINED") alternatives.push('<button type="button" data-ics-action="DECLINED" class="' + ICS_BTN_DECLINE + '">' + window.LR.t('Decline') + '</button>');
               buttonsEl.innerHTML =
-                '<span class="text-xs font-medium text-' + color + '-700 bg-' + color + '-50 border border-' + color + '-200 rounded-full px-2 py-0.5">' + label + '</span>' +
-                '<a href="/app/calendar/events/' + (eventId || '') + '" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 transition">' + window.LR.t('View in calendar') + '</a>' +
+                '<span class="' + pillClass + '">' + label + '</span>' +
+                (notResponded ? '<span class="text-xs text-slate-400">' + window.LR.t('Not responded yet') + '</span>' : '') +
+                '<a href="/app/calendar/events/' + (eventId || '') + '" class="' + ICS_LINK + '">' + window.LR.t('View in calendar') + '</a>' +
                 alternatives.join("");
               buttonsEl.querySelectorAll("[data-ics-action]").forEach(function (btn) {
                 btn.addEventListener("click", function () {
                   var newPartstat = btn.getAttribute("data-ics-action");
-                  doRsvp(calId, newPartstat);
+                  if (isExisting) {
+                    doRsvpExisting(eventId, newPartstat);
+                  } else {
+                    doRsvp(calId, newPartstat);
+                  }
                 });
               });
             }

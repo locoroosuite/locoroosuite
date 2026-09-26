@@ -54,6 +54,7 @@ SAMPLE_ICS_CANCEL = (
 def _setup_caldav_domain(app):
     with app.app_context():
         domain = Domain.query.first()
+        assert domain is not None
         domain.caldav_host = "localhost"
         domain.caldav_port = 5232
         domain.caldav_use_tls = False
@@ -131,6 +132,78 @@ class TestIcsParse:
         data = resp.get_json()
         assert data["is_cancellation"] is True
         assert data["is_invitation"] is False
+
+    def _seed_existing_event(self, app, user_id, account_id, uid, partstat, rsvp):
+        from app.modules.calendar.services import cache_db
+        from app.shared.icalendar import generate_icalendar
+
+        conn, path, key = _create_temp_cache(app, user_id, account_id)
+        cal_id = cache_db.upsert_calendar(
+            conn, "cal-uid-1", "http://localhost:5232/user/cal1/", displayname="Test Cal"
+        )
+        ical = generate_icalendar(
+            {
+                "summary": "Team Meeting",
+                "dtstart": "20260615T100000Z",
+                "dtend": "20260615T110000Z",
+                "attendees": [
+                    {
+                        "cn": "Me",
+                        "email": "test@example.com",
+                        "partstat": partstat,
+                        "rsvp": rsvp,
+                    }
+                ],
+            },
+            uid=uid,
+        )
+        cache_db.upsert_event(conn, uid, "/evt.ics", "e1", cal_id, ical)
+        conn.close()
+        return path, key
+
+    def test_parse_existing_event_returns_my_partstat_and_rsvp_true(self, app, authed_client):
+        import os
+
+        client, user_id, account_id = authed_client
+        path, _key = self._seed_existing_event(
+            app, user_id, account_id, "test-uid-123@example.com", "TENTATIVE", "TRUE"
+        )
+        try:
+            resp = client.post(
+                "/app/calendar/api/ics-parse",
+                data=json.dumps({"ical_text": SAMPLE_ICS_REQUEST}),
+                content_type="application/json",
+            )
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data["already_imported"] is True
+            assert data["existing_event_id"] is not None
+            assert data["existing_my_partstat"] == "TENTATIVE"
+            assert data["existing_my_rsvp"] is True
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
+
+    def test_parse_existing_event_returns_rsvp_false_after_response(self, app, authed_client):
+        import os
+
+        client, user_id, account_id = authed_client
+        path, _key = self._seed_existing_event(
+            app, user_id, account_id, "test-uid-123@example.com", "ACCEPTED", "FALSE"
+        )
+        try:
+            resp = client.post(
+                "/app/calendar/api/ics-parse",
+                data=json.dumps({"ical_text": SAMPLE_ICS_REQUEST}),
+                content_type="application/json",
+            )
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data["existing_my_partstat"] == "ACCEPTED"
+            assert data["existing_my_rsvp"] is False
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
 
 
 class TestIcsConflicts:
@@ -369,6 +442,7 @@ class TestIcsCancel:
 
         conn = open_cache(path, key)
         event = cache_db.get_event(conn, event_id)
+        assert event is not None
         assert event["status"] == "CANCELLED"
         conn.close()
         os.unlink(path)

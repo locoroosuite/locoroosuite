@@ -105,6 +105,9 @@ def ics_parse():
                                         result["existing_my_partstat"] = att.get(
                                             "partstat", "NEEDS-ACTION"
                                         )
+                                        result["existing_my_rsvp"] = (
+                                            str(att.get("rsvp", "TRUE")).upper() == "TRUE"
+                                        )
                                         break
                     finally:
                         conn.close()

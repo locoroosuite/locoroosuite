@@ -29,20 +29,20 @@
         <div id="rsvp-actions" class="flex items-center gap-1.5">
           {% if my_rsvp_status == 'ACCEPTED' %}
           <span class="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">{{ _('Accepted') }}</span>
-          <button type="button" data-rsvp="TENTATIVE" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">{{ _('Tentative') }}</button>
-          <button type="button" data-rsvp="DECLINED" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">{{ _('Decline') }}</button>
+          <button type="button" data-rsvp="TENTATIVE" class="text-xs px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">{{ _('Tentative') }}</button>
+          <button type="button" data-rsvp="DECLINED" class="text-xs px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">{{ _('Decline') }}</button>
           {% elif my_rsvp_status == 'TENTATIVE' %}
           <span class="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">{{ _('Tentative') }}</span>
-          <button type="button" data-rsvp="ACCEPTED" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">{{ _('Accept') }}</button>
-          <button type="button" data-rsvp="DECLINED" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">{{ _('Decline') }}</button>
+          <button type="button" data-rsvp="ACCEPTED" class="text-xs px-3 py-1.5 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">{{ _('Accept') }}</button>
+          <button type="button" data-rsvp="DECLINED" class="text-xs px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">{{ _('Decline') }}</button>
           {% elif my_rsvp_status == 'DECLINED' %}
           <span class="text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-2 py-0.5">{{ _('Declined') }}</span>
-          <button type="button" data-rsvp="ACCEPTED" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">{{ _('Accept') }}</button>
-          <button type="button" data-rsvp="TENTATIVE" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">{{ _('Tentative') }}</button>
+          <button type="button" data-rsvp="ACCEPTED" class="text-xs px-3 py-1.5 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">{{ _('Accept') }}</button>
+          <button type="button" data-rsvp="TENTATIVE" class="text-xs px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">{{ _('Tentative') }}</button>
           {% else %}
-          <button type="button" data-rsvp="ACCEPTED" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">{{ _('Accept') }}</button>
-          <button type="button" data-rsvp="TENTATIVE" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">{{ _('Tentative') }}</button>
-          <button type="button" data-rsvp="DECLINED" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">{{ _('Decline') }}</button>
+          <button type="button" data-rsvp="ACCEPTED" class="text-xs px-3 py-1.5 rounded-lg border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition">{{ _('Accept') }}</button>
+          <button type="button" data-rsvp="TENTATIVE" class="text-xs px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">{{ _('Tentative') }}</button>
+          <button type="button" data-rsvp="DECLINED" class="text-xs px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition">{{ _('Decline') }}</button>
           {% endif %}
         </div>
         {% endif %}

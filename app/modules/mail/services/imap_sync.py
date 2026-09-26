@@ -51,7 +51,7 @@ CACHE_MAX = 100
 logger = logging.getLogger(__name__)
 
 
-def _check_imip_reply(account, msg, sender):
+def _check_imip_reply(account, msg, sender, message_id=None):
     try:
         if not msg or not msg.is_multipart():
             return
@@ -73,6 +73,9 @@ def _check_imip_reply(account, msg, sender):
             if not parsed:
                 continue
             method = (parsed.get("method") or "").upper()
+            if method == "REQUEST":
+                _process_invite_request(account, ical_text, message_id)
+                return
             if method != "REPLY":
                 continue
             uid = parsed.get("uid")
@@ -116,6 +119,42 @@ def _check_imip_reply(account, msg, sender):
             return
     except Exception:
         logger.debug("imip reply check failed", exc_info=True)
+
+
+def _process_invite_request(account, ical_text, message_id=None):
+    """Auto-import a METHOD:REQUEST invitation as a silent Tentative event (U12.39d)."""
+    from app.modules.calendar.services.cache import get_cache_path
+
+    cache_path = get_cache_path(account)
+    if not cache_path:
+        return
+
+    key = get_user_key(account.customer_id)
+    if not key:
+        return
+
+    from app.modules.calendar.services.cache_db import open_cache as open_cal_cache
+
+    try:
+        cal_conn = open_cal_cache(cache_path, key)
+    except Exception:
+        logger.warning(
+            "invite processing: calendar cache open failed account_id=%s",
+            account.id,
+            exc_info=True,
+        )
+        return
+    if not cal_conn:
+        return
+
+    try:
+        from app.modules.calendar.services.invite_processor import process_incoming_invite
+
+        process_incoming_invite(cal_conn, ical_text, account, message_id=message_id)
+    except Exception:
+        logger.warning("invite processing failed account_id=%s", account.id, exc_info=True)
+    finally:
+        cal_conn.close()
 
 
 def _decode_part(part):
@@ -379,7 +418,7 @@ def _sync_initial_folder(
         if not msg:
             continue
         args = _prepare_message_args(msg, account=account)
-        upsert_message(
+        message_row_id = upsert_message(
             conn,
             uid_str,
             folder,
@@ -402,7 +441,7 @@ def _sync_initial_folder(
             cc=args["cc"],
             attachment_list=args["attachment_list"],
         )
-        _check_imip_reply(account, msg, args["sender"])
+        _check_imip_reply(account, msg, args["sender"], message_id=message_row_id)
         new_added += 1
         last_new_at = datetime.now(UTC).isoformat()
     unseen = status_info.get("UNSEEN")
@@ -438,7 +477,7 @@ def _sync_incremental_folder(
         if not msg:
             continue
         args = _prepare_message_args(msg, account=account)
-        upsert_message(
+        message_row_id = upsert_message(
             conn,
             uid_str,
             folder,
@@ -462,7 +501,7 @@ def _sync_incremental_folder(
             attachment_list=args["attachment_list"],
             body_html=args["body_html"],
         )
-        _check_imip_reply(account, msg, args["sender"])
+        _check_imip_reply(account, msg, args["sender"], message_id=message_row_id)
         new_added += 1
         last_new_at = datetime.now(UTC).isoformat()
 
@@ -478,7 +517,7 @@ def _sync_incremental_folder(
                 if not msg:
                     continue
                 args = _prepare_message_args(msg, account=account)
-                upsert_message(
+                message_row_id = upsert_message(
                     conn,
                     uid_str,
                     folder,
@@ -502,7 +541,7 @@ def _sync_incremental_folder(
                     attachment_list=args["attachment_list"],
                     body_html=args["body_html"],
                 )
-                _check_imip_reply(account, msg, args["sender"])
+                _check_imip_reply(account, msg, args["sender"], message_id=message_row_id)
                 new_added += 1
                 last_new_at = datetime.now(UTC).isoformat()
 

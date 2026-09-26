@@ -274,6 +274,10 @@ def upsert_message(
         ),
     )
     conn.commit()
+    row = conn.execute(
+        "SELECT id FROM messages WHERE uid = ? AND folder = ?", (uid, folder)
+    ).fetchone()
+    return row[0] if row else None
 
 
 def list_message_uids(conn, folder):

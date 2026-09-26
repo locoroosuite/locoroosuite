@@ -280,6 +280,55 @@ class TestMessageView:
             resp = client.get(url)
         assert resp.status_code == 200
 
+    def test_create_event_in_overflow_menu_with_summary_prefill(self, app, authed_client):
+        client, _user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1"
+        with (
+            patch("app.modules.mail.controllers.message._load_message_detail") as mock_load,
+            patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings,
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders,
+            patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam,
+            patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread,
+        ):
+            mock_load.return_value = (MOCK_MSG, "<p>body</p>", [], ["\\Seen"], ("", ""), [], "")
+            mock_settings.return_value = MagicMock()
+            mock_cache.return_value = MagicMock()
+            mock_folders.return_value = []
+            mock_spam.return_value = False
+            mock_thread.return_value = [
+                {
+                    "id": 1,
+                    "uid": "100",
+                    "folder": "INBOX",
+                    "subject": "Test Subject",
+                    "sender": "sender@test.com",
+                    "sender_display": "sender",
+                    "sender_tooltip": "sender@test.com",
+                    "recipients": "recip@test.com",
+                    "recipients_display": "recip",
+                    "date": "date",
+                    "date_display": "Jan 1",
+                    "date_ts": 0,
+                    "flags": ["\\Seen"],
+                    "is_unread": False,
+                    "is_flagged": False,
+                    "is_sent": False,
+                    "is_current": True,
+                    "snippet": "body",
+                    "body_html": "<html></html>",
+                    "has_attachments": False,
+                    "cc": "",
+                }
+            ]
+            resp = client.get(url)
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert "Create event" in html
+        assert "/app/calendar/events/new" in html
+        assert "summary=Test" in html
+        assert "subject=Test" not in html
+
     def test_message_preview(self, app, authed_client):
         client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/preview"
@@ -788,6 +837,60 @@ class TestMessageViewDraft:
         assert "Draft" in html
         assert "Edit draft" in html
         assert "Discard" in html
+
+    def test_draft_message_has_no_create_event_action(self, app, authed_client):
+        client, _user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1"
+        with (
+            patch("app.modules.mail.controllers.message._load_message_detail") as mock_load,
+            patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings,
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders,
+            patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam,
+            patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread,
+        ):
+            mock_load.return_value = (
+                self.MOCK_DRAFT_MSG,
+                "<p>body</p>",
+                [],
+                ["\\Draft"],
+                ("", ""),
+                [],
+                "",
+            )
+            mock_settings.return_value = MagicMock()
+            mock_cache.return_value = MagicMock()
+            mock_folders.return_value = []
+            mock_spam.return_value = False
+            mock_thread.return_value = [
+                {
+                    "id": 1,
+                    "uid": "100",
+                    "folder": "Drafts",
+                    "subject": "Test Subject",
+                    "sender": "sender@test.com",
+                    "sender_display": "sender",
+                    "sender_tooltip": "sender@test.com",
+                    "recipients": "recip@test.com",
+                    "recipients_display": "recip",
+                    "date": "date",
+                    "date_display": "Jan 1",
+                    "date_ts": 0,
+                    "flags": ["\\Draft"],
+                    "is_unread": False,
+                    "is_flagged": False,
+                    "is_sent": False,
+                    "is_draft": True,
+                    "is_current": True,
+                    "snippet": "body",
+                    "body_html": "<html></html>",
+                    "has_attachments": False,
+                    "cc": "",
+                }
+            ]
+            resp = client.get(url)
+        assert resp.status_code == 200
+        assert "Create event" not in resp.data.decode()
 
     def test_non_draft_message_no_draft_banner(self, app, authed_client):
         client, _user_id, account_id = authed_client

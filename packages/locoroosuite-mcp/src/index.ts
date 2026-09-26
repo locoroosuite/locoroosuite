@@ -55,7 +55,7 @@ async function main() {
 
   const server = new McpServer({
     name: "locoroosuite",
-    version: "0.22.0",
+    version: "0.23.0",
   });
 
   server.tool(

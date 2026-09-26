@@ -1499,17 +1499,31 @@ U19.19 - The development environment uses `docker-compose.dev.yml` with the foll
   - **dovecot** — IMAP server (ports 143, 993) with self-signed TLS
   - **postfix** — SMTP server (ports 25, 587) with local-only delivery
   - **opendkim** — DKIM signing (internal port 8891)
+  - **rspamd** — Spam filtering milter (internal port 11332; controller on host `127.0.0.1:11334`)
+  - **redis** — Bayes/metadata backend for rspamd (db 2, persistent volume)
   - **collabora** — Document editing (port 9980)
   - **radicale** — CalDAV/CardDAV (port 5232)
 
 U19.20 - All mail infrastructure uses custom Dockerfiles under `dev-infra/`:
   - `dev-infra/dovecot/` — Dovecot with pre-configured virtual mailbox setup matching production (`%d/%n` maildir layout, passwd-file auth, LMTP).
-  - `dev-infra/postfix/` — Postfix with virtual domain transport to Dovecot LMTP, DKIM milter, and local-only relay (no outbound delivery).
+  - `dev-infra/postfix/` — Postfix with virtual domain transport to Dovecot LMTP, rspamd + DKIM milter chain, and local-only relay (no outbound delivery).
   - `dev-infra/opendkim/` — OpenDKIM with auto-generated dev key.
+  - `dev-infra/rspamd/` — rspamd mirroring production local overrides (`actions.conf`, `classifier-bayes.conf` with `min_learns = 20`, `milter_headers.conf`, `redis.conf` db 2). Dev-only deviation: greylisting is disabled so e2e send-and-verify tests deliver immediately.
+
+U19.20a - Spam training mirror (added 2026-09-26, mirrors the production Dovecot/rspamd wiring):
+  - The dev Dovecot loads `imap_sieve` (rules in `dev-infra/dovecot/conf.d/90-imap-sieve.conf`): COPY into `Junk` learns the message as spam, COPY out of `Junk` learns it as ham — the same COPY-cause-only rules as production, so the webmail "Report spam"/"Not spam" actions (IMAP COPY + expunge) and any other IMAP client train the classifier.
+  - Pipe scripts (`dev-infra/dovecot/pipe/learn-{spam,ham}.sh`) POST the message to the rspamd controller (`/learnspam`, `/learnham`) via a fully-static busybox `wget` (the Dovecot image ships no HTTP client and its bullseye apt pools are gone post-LTS). Production uses `rspamc` against the same controller API.
+  - `dev-infra/dovecot/sieve/global-spam.sieve` (installed as `sieve_before`) files messages with `X-Spam: yes` into Junk at LMTP delivery, mirroring production's global script.
+  - Junk and Trash have `autoexpunge = 30d`; the Dovecot entrypoint also runs a daily retention sweep over `/var/lib/dovecot-users/passwd` (dev userdb — the mirror of production's `/etc/dovecot/users` + `mailbox-retention.timer`), tunable via `JUNK_RETENTION`/`TRASH_RETENTION` env vars.
+  - e2e coverage: `tests/e2e/test_spam_training.py` (send → IMAP move to Junk → rspamd `learned` counter increases; move back → increases again) and the GTUBE pattern is rejected by the milter.
 
 U19.21 - Self-signed TLS certificates are auto-generated on first start for Dovecot and Postfix. The IMAP/SMTP clients in the LocoRoomail app skip certificate verification when `APP_ENV=development`.
 
 U19.22 - The `mail-api` and Dovecot share a Docker volume (`dovecot-users`) for the passwd-file. The `mail-api` and Postfix share a Docker volume (`postfix-config`) for virtual domain maps. The `maildata` volume is shared between Dovecot, Postfix, and mail-api for maildir storage.
+
+U19.22a - Image-baked config must survive Docker volumes:
+  - The `dovecot/dovecot` base image declares `VOLUME /etc/dovecot`, so `make dev-up` passes `--renew-anon-volumes` — otherwise a preserved anonymous volume keeps masking rebuilt Dovecot config.
+  - `/etc/postfix` is a named volume; the Postfix entrypoint re-copies image-baked `main.cf` and `master.cf` over the volume on every start (certs and mail-api-managed maps are preserved), so `dev-infra/postfix/main.cf` changes apply after `make dev-build`.
 
 ## Quota & Sending Limits
 

@@ -26,7 +26,11 @@ dev-build:
 
 dev-up:
 	@mkdir -p data/caches data/logs data/import_uploads data/radicale
-	$(COMPOSE) up -d
+	# --renew-anon-volumes: the dovecot/dovecot base image declares VOLUME
+	# /etc/dovecot, so a preserved anonymous volume would keep masking
+	# image-baked config after rebuilds. Runtime state (users, maildir,
+	# sieve) lives in named volumes and is not affected.
+	$(COMPOSE) up -d --renew-anon-volumes
 
 dev-down:
 	$(COMPOSE) down

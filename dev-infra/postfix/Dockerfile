@@ -9,6 +9,7 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 COPY main.cf /etc/postfix/main.cf
+COPY main.cf /tmp/main.cf.override
 COPY master.cf /tmp/master.cf.override
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

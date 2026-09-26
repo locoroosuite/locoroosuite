@@ -69,11 +69,41 @@ services:
     ports:
       - "143:143"
       - "993:993"
+    environment:
+      - JUNK_RETENTION=${JUNK_RETENTION:-30d}
+      - TRASH_RETENTION=${TRASH_RETENTION:-30d}
     volumes:
       - dovecot-users:/var/lib/dovecot-users
       - maildata:/var/mail/vhosts
       - dovecot-sieve:/var/lib/dovecot-sieve
       - postfix-spool:/var/spool/postfix
+    depends_on:
+      - rspamd
+    networks:
+      - locoroomail-dev
+
+  rspamd:
+    build:
+      context: ./dev-infra/rspamd
+      dockerfile: Dockerfile
+    container_name: locoroomail-rspamd
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:11334:11334"
+    volumes:
+      - rspamd-data:/var/lib/rspamd
+    depends_on:
+      - redis
+    networks:
+      - locoroomail-dev
+
+  redis:
+    image: redis:alpine
+    container_name: locoroomail-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
     networks:
       - locoroomail-dev
 
@@ -92,6 +122,7 @@ services:
     depends_on:
       - dovecot
       - opendkim
+      - rspamd
     networks:
       - locoroomail-dev
 
@@ -162,6 +193,8 @@ volumes:
   opendkim-keys:
   opendkim-config:
   synapse-data:
+  rspamd-data:
+  redis-data:
 
 networks:
   locoroomail-dev:

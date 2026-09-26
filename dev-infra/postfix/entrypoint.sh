@@ -3,7 +3,12 @@ set -e
 
 mkdir -p /var/spool/postfix/private
 
+# /etc/postfix is a named volume (shared with mail-api), so image-baked
+# config is masked after the first run. Master.cf is already synced on every
+# start; do the same for main.cf so dev-infra/postfix/main.cf changes apply
+# after a rebuild (certs and mail-api-managed maps in the volume are kept).
 cp /tmp/master.cf.override /etc/postfix/master.cf
+cp /tmp/main.cf.override /etc/postfix/main.cf
 
 if [ ! -f /etc/postfix/ssl/tls.crt ]; then
   echo "Generating self-signed TLS certificate for Postfix..."

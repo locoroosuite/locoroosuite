@@ -41,5 +41,7 @@ inet_socket_bind = all
 
 milter_default_action = accept
 milter_protocol = 6
-smtpd_milters = inet:opendkim:8891
+# Mirror of production: Rspamd scans first, OpenDKIM signs after.
+# On failure of either milter mail still flows (milter_default_action = accept).
+smtpd_milters = inet:rspamd:11332, inet:opendkim:8891
 non_smtpd_milters = inet:opendkim:8891

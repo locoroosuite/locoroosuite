@@ -101,6 +101,7 @@
       <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
       {{ _('Convert to editable document') }}
     </button>
+    <span id="convert-error" role="alert" style="display:none;font-size:12px;color:#e11d48;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
     {% else %}
     <button class="fb-action share-btn" id="share-btn" title="{{ _('Share') }}">
       <svg viewBox="0 0 20 20" fill="currentColor"><path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z"/></svg>
@@ -175,6 +176,7 @@
 
 <form method="post" action="{{ url_for('docs.delete', doc_id=doc.id) }}" id="delete-form" style="display:none"></form>
 
+<script src="/app/i18n/messages.js?v={{ i18n_v() }}"></script>
 <script>
 (() => {
   const docName = document.getElementById('doc-name');
@@ -252,9 +254,21 @@
 
   {% if doc.original_format %}
   const convertBtn = document.getElementById('convert-btn');
+  const convertError = document.getElementById('convert-error');
+  const convertBtnLabel = '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg> ' + window.LR.t('Convert to editable document');
+  const convertFailed = (msg) => {
+    convertBtn.disabled = false;
+    convertBtn.innerHTML = convertBtnLabel;
+    if (convertError) {
+      convertError.textContent = msg;
+      convertError.title = msg;
+      convertError.style.display = 'inline';
+    }
+  };
   if (convertBtn) {
     convertBtn.addEventListener('click', () => {
       convertBtn.disabled = true;
+      if (convertError) convertError.style.display = 'none';
       convertBtn.innerHTML = '<svg style="width:14px;height:14px;animation:spin 1s linear infinite;" viewBox="0 0 24 24"><circle style="opacity:0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path style="opacity:0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> ' + window.LR.t('Converting...');
       fetch('{{ url_for("docs.convert", doc_id=doc.id) }}', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(r => r.json())
@@ -262,15 +276,11 @@
           if (data.editor_url) {
             window.location.href = data.editor_url;
           } else {
-            convertBtn.disabled = false;
-            convertBtn.innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg> ' + window.LR.t('Convert to editable document');
-            alert(data.error || window.LR.t('Conversion failed. Please try again.'));
+            convertFailed(data.error || window.LR.t('Conversion failed. Please try again.'));
           }
         })
         .catch(() => {
-          convertBtn.disabled = false;
-          convertBtn.innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg> ' + window.LR.t('Convert to editable document');
-          alert(window.LR.t('Conversion failed. Please check your connection or try again.'));
+          convertFailed(window.LR.t('Conversion failed. Please check your connection or try again.'));
         });
     });
   }

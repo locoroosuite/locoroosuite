@@ -160,6 +160,13 @@ def test_docs_editor_page_for_pdf_shows_convert(authed_client, app):
         # ...so its handler lookup MUST be null-guarded (the regression).
         assert b"if (renameBtn)" in resp.data
         assert b"if (shareBtnEl)" in resp.data
+        # The editor is a standalone page (no layout.html): it must load the
+        # i18n catalog itself, or every window.LR.t() call in its handlers
+        # (incl. the convert click) throws "Cannot read properties of
+        # undefined (reading 't')" and the click silently does nothing.
+        assert b"/app/i18n/messages.js" in resp.data
+        # Conversion failures surface inline next to the button, not via alert().
+        assert b'id="convert-error"' in resp.data
     finally:
         _safe_unlink(paths["cache"])
 

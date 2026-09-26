@@ -139,14 +139,20 @@ services:
       - locoroomail-dev
 
   collabora:
-    image: collabora/code:latest
+    # Pinned by digest (CODE 25.04.9.4): the floating :latest tag broke
+    # background conversion on 2026-09-26 after an upstream rebuild.
+    image: collabora/code@sha256:fe49c08c27e102c1877ad4ef2ac1a7bd8ccd2dfaa6641d4533389c204a92bb88
     container_name: locoroomail-collabora
     restart: unless-stopped
     environment:
       - aliasgroup1=http://app:5001
       - extra_params=--o:ssl.enable=false --o:ssl.termination=false --o:net.frame_ancestors=http://localhost:5001 --o:welcome.enable=false --o:ui.about.enabled=false --o:productbranding.logoLink=http://localhost:5001/app/docs/
-    cap_add:
-      - MKNOD
+    # convert-to spawns jailed worker processes: the forkit needs mount(2) +
+    # unshare(CLONE_NEWNS) (coolmount/systemplate cloning). Neither
+    # cap_add: [SYS_ADMIN] + seccomp/apparmor=unconfined nor userns tricks
+    # satisfied this host (CapEff stayed 0, CLONE_NEWNS -> EPERM), so the dev
+    # stack runs the container privileged. Dev-only: never copy this to prod.
+    privileged: true
     expose:
       - "9980"
     ports:

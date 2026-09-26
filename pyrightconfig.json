@@ -2,5 +2,5 @@
   "venvPath": ".",
   "venv": "venv",
   "include": ["app", "tests"],
-  "extraPaths": ["stubs"]
+  "extraPaths": ["stubs", "mail-api"]
 }

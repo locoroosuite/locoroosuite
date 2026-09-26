@@ -1,11 +1,21 @@
 from pathlib import Path
 
+import pytest
+
 from tests.e2e.conftest import skip_if_no_services
+from tests.e2e.services import is_collabora_conversion_available
 
 _PDF_FIXTURE = Path(__file__).parent.parent / "fixtures" / "sample.pdf"
 
+skip_if_collabora_cannot_convert = pytest.mark.skipif(
+    not is_collabora_conversion_available(),
+    reason="Collabora is up but /cool/convert-to cannot convert "
+    "(container likely lacks jail/mount permissions — see docker-compose.dev.yml)",
+)
+
 
 @skip_if_no_services
+@skip_if_collabora_cannot_convert
 class TestDocsEditorConvert:
     """Guards the editor 'Convert to editable document' button.
 

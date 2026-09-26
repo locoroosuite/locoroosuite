@@ -15,6 +15,7 @@ IMAP_HOST = "localhost"
 IMAP_PORT = 143
 CARDDAV_URL = "http://localhost:5232"
 CALDAV_URL = "http://localhost:5232"
+COLLABORA_URL = "http://localhost:9980"
 
 E2E_TEST_USERS = {
     "e2e-test@test.localhost": E2E_DEFAULT_PASSWORD,
@@ -52,18 +53,84 @@ def wait_for(condition, timeout=10, interval=0.5):
     raise TimeoutError(f"Condition not met within {timeout}s")
 
 
-def login_session(email: str, password: str | None = None) -> requests.Session:
+def _login_page_error(html: str) -> str:
+    """Extract the rendered error message from login.html.
+
+    The template renders errors as ``<div class="... text-red-600">{{ error }}</div>``
+    — not as an alert block — so this is the only reliable scrape.
+    """
+    match = re.search(r"text-red-600[^>]*>\s*([^<]+?)\s*<", html)
+    return match.group(1) if match else ""
+
+
+def login_session(
+    email: str,
+    password: str | None = None,
+    app_url: str = APP_URL,
+) -> requests.Session:
     s = requests.Session()
     r = s.post(
-        f"{APP_URL}/app/login",
+        f"{app_url}/app/login",
         data={"email": email, "password": password or _TEST_USERS[email]},
         allow_redirects=True,
     )
     assert r.status_code == 200, f"Login failed for {email}: {r.status_code}"
     assert "login" not in r.url or r.url.endswith("/mail/"), (
-        f"Login did not redirect to mail: {r.url}"
+        f"Login failed for {email}: url={r.url} page_error={_login_page_error(r.text)!r}"
     )
     return s
+
+
+def wait_for_imap_login(email: str, password: str | None = None, timeout: int = 15) -> None:
+    """Block until Dovecot accepts IMAP login for the user.
+
+    Dovecot's passwd-file backend re-stats the passwd file at most once per
+    second (db-passwd-file.c: ``last_sync_time == ioloop_time`` skips the
+    stat). A user written by mail-api can therefore fail IMAP authentication
+    for up to ~1s after it already shows up in the passwd file. Any test that
+    logs in through the app right after creating a user must wait for the
+    IMAP path to be ready, not just for mail-api to report the user exists.
+    """
+    wait_for(
+        lambda: _imap_login_ok(email, password or E2E_DEFAULT_PASSWORD),
+        timeout=timeout,
+        interval=0.5,
+    )
+
+
+_collabora_convert_ok: bool | None = None
+
+
+def is_collabora_conversion_available() -> bool:
+    """Probe whether Collabora's /cool/convert-to actually converts.
+
+    Environment detection for the docs convert e2e tests: a Collabora
+    container that is up but cannot spawn jailed convert workers (the
+    coolmount/EPERM failure mode) serves /hosting/discovery happily yet
+    fails every conversion — which used to surface as a 30s test timeout.
+    Cached: one probe per process.
+    """
+    global _collabora_convert_ok
+    if _collabora_convert_ok is None:
+        try:
+            r = requests.post(
+                f"{COLLABORA_URL}/cool/convert-to",
+                files={"data": ("probe.txt", b"e2e conversion probe", "text/plain")},
+                data={"format": "odt"},
+                timeout=45,
+            )
+            _collabora_convert_ok = r.status_code == 200 and r.content[:4] == b"PK\x03\x04"
+        except requests.RequestException:
+            _collabora_convert_ok = False
+    return _collabora_convert_ok is True
+
+
+def _imap_login_ok(user: str, password: str) -> bool:
+    try:
+        imap_connect(user, password).logout()
+        return True
+    except Exception:
+        return False
 
 
 def admin_session(
@@ -109,8 +176,9 @@ def imap_fetch_subjects(user: str, password: str, folder: str, criteria: str = "
         subjects = []
         for msg_id in data[0].split():
             status, msg_data = conn.fetch(msg_id, "(BODY.PEEK[HEADER.FIELDS (SUBJECT)])")
-            if status == "OK":
-                raw = msg_data[0][1].decode("utf-8", errors="replace")
+            item = msg_data[0] if msg_data else None
+            if status == "OK" and isinstance(item, tuple):
+                raw = item[1].decode("utf-8", errors="replace")
                 subject = raw.replace("Subject:", "").strip()
                 subjects.append(subject)
         return subjects
@@ -132,8 +200,9 @@ def imap_folder_has_message(
                 return len(data[0].split()) > 0
             for msg_id in data[0].split():
                 status, msg_data = conn.fetch(msg_id, "(BODY.PEEK[HEADER.FIELDS (SUBJECT)])")
-                if status == "OK":
-                    raw = msg_data[0][1].decode("utf-8", errors="replace")
+                item = msg_data[0] if msg_data else None
+                if status == "OK" and isinstance(item, tuple):
+                    raw = item[1].decode("utf-8", errors="replace")
                     if subject_contains.lower() in raw.lower():
                         return True
             return False
@@ -439,6 +508,7 @@ def setup_e2e_users(app_url: str = APP_URL):
         wait_for(lambda e=email: mailapi_user_exists(e), timeout=15)
 
     for email, password in E2E_TEST_USERS.items():
+        wait_for_imap_login(email, password)
         login_session(email, password)
 
 

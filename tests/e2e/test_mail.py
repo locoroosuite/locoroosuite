@@ -12,9 +12,11 @@ from tests.e2e.services import (
     admin_session,
     get_account_id,
     imap_folder_has_message,
+    login_session,
     mailapi_delete_user,
     mailapi_user_exists,
     wait_for,
+    wait_for_imap_login,
 )
 
 
@@ -395,26 +397,16 @@ class TestSendingLimit:
         admin = admin_session()
         _create_app_user(app_url, admin, sender)
         _create_app_user(app_url, admin, recipient)
-        _set_sending_limit(sender, max_per_day=2)
 
         try:
             wait_for(lambda: mailapi_user_exists(sender), timeout=15)
             wait_for(lambda: mailapi_user_exists(recipient), timeout=15)
-            import requests as _requests
-
-            _test_sess = _requests.Session()
-            _login_r = _test_sess.post(
-                f"{app_url}/app/login",
-                data={"email": sender, "password": E2E_DEFAULT_PASSWORD},
-                allow_redirects=True,
-            )
-            if "login" in _login_r.url and not _login_r.url.endswith("/mail/"):
-                _error_msgs = re.findall(r"alert[^>]*>([^<]+)<", _login_r.text)
-                _has_dovecot = mailapi_user_exists(sender)
-                raise AssertionError(
-                    f"Login failed for {sender}: url={_login_r.url} errors={_error_msgs} dovecot_exists={_has_dovecot}"
-                )
-            sess = _test_sess
+            _set_sending_limit(sender, max_per_day=2)
+            # mail-api reporting the user is not enough: Dovecot's passwd-file
+            # backend re-stats the file at most once per second, so IMAP auth
+            # can still fail for ~1s after creation (see wait_for_imap_login).
+            wait_for_imap_login(sender)
+            sess = login_session(sender, E2E_DEFAULT_PASSWORD, app_url)
             account_id = get_account_id(app_url, sess)
 
             subject1 = f"Limit test 1 {uuid.uuid4().hex[:8]}"

@@ -3930,3 +3930,48 @@ msgstr ""
 msgid "{n}m ago"
 msgstr ""
 
+
+msgid "Schedule"
+msgstr ""
+
+msgid "3 days"
+msgstr ""
+
+msgid "More details"
+msgstr ""
+
+msgid "guest"
+msgstr ""
+
+msgid "guests"
+msgstr ""
+
+msgid "Previous month"
+msgstr ""
+
+msgid "Next month"
+msgstr ""
+
+msgid "Calendar view"
+msgstr ""
+
+msgid "Delete event"
+msgstr ""
+
+msgid "Delete and notify"
+msgstr ""
+
+msgid "Repeat"
+msgstr ""
+
+msgid "This event has guests. Notify them by email about the cancellation?"
+msgstr ""
+
+msgid "Event editor"
+msgstr ""
+
+msgid "Failed to move event. Please check your connection and retry."
+msgstr ""
+
+msgid "Failed to delete event."
+msgstr ""

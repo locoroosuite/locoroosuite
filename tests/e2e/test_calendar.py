@@ -44,19 +44,19 @@ class TestCalendarEvents:
         next_week = tomorrow + timedelta(days=7)
 
         r = user_session.post(
-            f"{app_url}/app/calendar/events/new",
-            data={
+            f"{app_url}/app/calendar/api/events",
+            json={
                 "summary": summary,
                 "dtstart_date": tomorrow.isoformat(),
                 "dtstart_time": "10:00",
                 "dtend_date": tomorrow.isoformat(),
                 "dtend_time": "11:00",
-                "calendar_id": calendar_id,
+                "calendar_id": int(calendar_id),
                 "timezone": "UTC",
             },
-            allow_redirects=True,
         )
         assert r.status_code == 200
+        assert r.json().get("ok") is True
 
         r = user_session.get(
             f"{app_url}/app/calendar/api/events",
@@ -81,20 +81,20 @@ class TestCalendarEvents:
             )
 
         edited_summary = f"E2E Edited {tag}"
-        r = user_session.post(
-            f"{app_url}/app/calendar/events/{event_id}/edit",
-            data={
+        r = user_session.put(
+            f"{app_url}/app/calendar/api/events/{event_id}",
+            json={
                 "summary": edited_summary,
                 "dtstart_date": tomorrow.isoformat(),
                 "dtstart_time": "10:00",
                 "dtend_date": tomorrow.isoformat(),
                 "dtend_time": "11:00",
-                "calendar_id": calendar_id,
+                "calendar_id": int(calendar_id),
                 "timezone": "UTC",
             },
-            allow_redirects=True,
         )
         assert r.status_code == 200
+        assert r.json().get("ok") is True
 
         r = user_session.get(
             f"{app_url}/app/calendar/api/events",

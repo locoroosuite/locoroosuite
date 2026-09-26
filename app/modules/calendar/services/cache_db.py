@@ -316,6 +316,49 @@ def get_events_range(conn, start, end, calendar_ids=None):
     return [dict(zip(cols, r, strict=False)) for r in rows]
 
 
+def get_recurring_events(conn, calendar_ids=None):
+    """Fetch recurring masters and RECURRENCE-ID override rows.
+
+    Range queries miss recurring series whose first occurrence ended before
+    the requested window, so U12.56f expansion loads these rows separately.
+    """
+    if calendar_ids:
+        placeholders = ",".join("?" for _ in calendar_ids)
+        rows = conn.execute(
+            f"""
+            SELECT e.*, c.color as calendar_color, c.displayname as calendar_name
+            FROM calendar_events e
+            JOIN calendars c ON e.calendar_id = c.id
+            WHERE (COALESCE(e.rrule, '') != '' OR e.recurrence_id IS NOT NULL)
+              AND e.calendar_id IN ({placeholders})
+              AND c.is_visible = 1
+            ORDER BY e.dtstart ASC
+            """,
+            tuple(calendar_ids),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            """
+            SELECT e.*, c.color as calendar_color, c.displayname as calendar_name
+            FROM calendar_events e
+            JOIN calendars c ON e.calendar_id = c.id
+            WHERE (COALESCE(e.rrule, '') != '' OR e.recurrence_id IS NOT NULL)
+              AND c.is_visible = 1
+            ORDER BY e.dtstart ASC
+            """,
+            (),
+        ).fetchall()
+    if not rows:
+        return []
+    cols = [
+        desc[0]
+        for desc in conn.execute(
+            "SELECT e.*, c.color as calendar_color, c.displayname as calendar_name FROM calendar_events e JOIN calendars c ON e.calendar_id = c.id LIMIT 0"
+        ).description
+    ]
+    return [dict(zip(cols, r, strict=False)) for r in rows]
+
+
 def get_upcoming_events(conn, limit=30):
     import datetime
 

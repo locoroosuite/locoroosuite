@@ -46,7 +46,7 @@
           {% endif %}
         </div>
         {% endif %}
-        <a href="{{ url_for('calendar.event_edit', event_id=event.id) }}" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50">{{ _('Edit') }}</a>
+        <a href="{{ url_for('calendar.index', edit=event.id) }}" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50">{{ _('Edit') }}</a>
         {% if event.attendees and event.attendees|length > 0 %}
         <button type="button" id="delete-btn" class="rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-rose-700 shadow-sm hover:bg-rose-50">{{ _('Delete') }}</button>
         {% else %}

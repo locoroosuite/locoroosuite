@@ -2,6 +2,8 @@
 
 import contextlib
 
+import pytest
+
 from tests.e2e.conftest import skip_if_no_services
 
 
@@ -173,15 +175,32 @@ class TestMobileCalendarUi:
         sidebar = page.wait_for_selector("#cal-sidebar:not(.-translate-x-full)", timeout=5000)
         assert sidebar is not None
 
-    def test_day_view_default_on_phone(self, mobile_logged_in_page):
+    def test_schedule_view_default_on_phone(self, mobile_logged_in_page):
+        """U12.56: phones default to the Schedule view (7-col week unsupported)."""
         page = mobile_logged_in_page
         page.goto("http://localhost:8001/app/calendar/?view=week")
         page.wait_for_load_state("load")
         page.wait_for_selector("#calendar-grid", timeout=10000)
+        page.wait_for_timeout(800)
+        select_value = page.eval_on_selector("#cal-view-select", "el => el.value")
+        assert select_value == "schedule"
         active = page.eval_on_selector(
-            ".view-btn[data-view='day']", "el => el.className.includes('bg-slate-900')"
+            ".view-btn[data-view='schedule']", "el => el.className.includes('bg-slate-900')"
         )
         assert active
+
+    def test_fab_visible_on_phone(self, mobile_logged_in_page):
+        """U12.56d: floating action button opens the editor on mobile."""
+        page = mobile_logged_in_page
+        page.goto("http://localhost:8001/app/calendar/")
+        page.wait_for_selector("#calendar-grid", timeout=10000)
+        fab = page.query_selector("#cal-fab")
+        if fab is None:
+            pytest.skip("No calendars available")
+        assert fab.is_visible()
+        fab.click()
+        editor = page.wait_for_selector("#cal-editor:not(.hidden)", timeout=5000)
+        assert editor is not None
 
 
 @skip_if_no_services
@@ -248,8 +267,9 @@ class TestMobileDensityUi:
             "el => ({ pl: getComputedStyle(el).paddingLeft, pt: getComputedStyle(el).paddingTop })",
         )
         assert padding["pl"] == "0px"
-        # py-3 = 12px (was py-6 = 24px) per U24.33
-        assert padding["pt"] == "12px"
+        # py-3 = 12px (was py-6 = 24px) per U24.33; the U24.35 phone font
+        # bump (106.25% root) scales it to 12.75px at mobile viewports.
+        assert padding["pt"] == "12.75px"
 
     def test_message_list_is_full_bleed_on_mobile(self, mobile_logged_in_page):
         page = mobile_logged_in_page
@@ -275,8 +295,9 @@ class TestMobileDensityUi:
             ".message-row",
             "el => ({ pl: getComputedStyle(el).paddingLeft, h: Math.round(el.getBoundingClientRect().height) })",
         )
-        # px-3 compact gutter (was px-4) per U24.34
-        assert metrics["pl"] == "12px"
+        # px-3 compact gutter (was px-4) per U24.34; 12.75px with the U24.35
+        # phone root font bump (12px * 1.0625).
+        assert metrics["pl"] == "12.75px"
         # U24.36: density must not shrink tap targets below 40px
         assert metrics["h"] >= 40
 

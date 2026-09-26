@@ -1,3 +1,5 @@
+import pytest
+
 from tests.e2e.conftest import skip_if_no_services
 
 
@@ -24,9 +26,11 @@ class TestCalendarUI:
     def test_new_event_and_sync_buttons_present(self, logged_in_page):
         logged_in_page.goto("http://localhost:8001/app/calendar/")
         logged_in_page.wait_for_load_state("load")
-        new_event = logged_in_page.query_selector('a:has-text("New event")')
-        sync_btn = logged_in_page.query_selector('button:has-text("Sync")')
-        assert new_event is not None or sync_btn is not None
+        logged_in_page.wait_for_selector("#calendar-grid", timeout=10000)
+        new_event = logged_in_page.query_selector("#cal-new-event")
+        sync_btn = logged_in_page.query_selector("button:has-text('Sync')")
+        fab = logged_in_page.query_selector("#cal-fab")
+        assert new_event is not None or sync_btn is not None or fab is not None
 
     def test_week_view_now_line_visible_on_current_week(self, logged_in_page):
         logged_in_page.goto("http://localhost:8001/app/calendar/?view=week")
@@ -58,4 +62,25 @@ class TestCalendarUI:
         cell = logged_in_page.query_selector(".time-cell")
         cls = (cell.get_attribute("class") or "") if cell else ""
         assert "border-slate-100" in cls
-        assert "border-slate-200" in cls
+        column = cell.evaluate("el => el.parentElement.className")
+        assert "border-slate-200" in column
+
+    def test_editor_dialog_opens(self, logged_in_page):
+        """U12.56b: New event opens the dialog editor."""
+        logged_in_page.goto("http://localhost:8001/app/calendar/")
+        logged_in_page.wait_for_selector("#calendar-grid", timeout=10000)
+        btn = logged_in_page.query_selector("#cal-new-event")
+        if btn is None:
+            pytest.skip("No calendars available")
+        btn.click()
+        editor = logged_in_page.wait_for_selector("#cal-editor:not(.hidden)", timeout=5000)
+        assert editor is not None
+        assert logged_in_page.query_selector("#ce-title") is not None
+
+    def test_prefill_deep_link_opens_editor(self, logged_in_page):
+        """U12.39c/U12.56b: ?new=1 opens the editor pre-populated."""
+        logged_in_page.goto("http://localhost:8001/app/calendar/?new=1&summary=Prefill%20Check")
+        editor = logged_in_page.wait_for_selector("#cal-editor:not(.hidden)", timeout=10000)
+        assert editor is not None
+        value = logged_in_page.input_value("#ce-title")
+        assert value == "Prefill Check"

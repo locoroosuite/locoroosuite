@@ -1,6 +1,7 @@
 import contextlib
 import logging
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 from flask import jsonify, redirect, render_template, request, session, url_for
 from flask_babel import _
@@ -14,11 +15,19 @@ from app.modules.calendar.controllers.helpers import (
     calendar_bp,
 )
 from app.modules.calendar.services import cache_db, caldav
+from app.modules.calendar.services.recurrence import expand_events
 from app.shared.auth import require_customer
 from app.shared.models.core import CustomerSettings
-from app.shared.timezone import resolve_user_timezone
+from app.shared.timezone import COMMON_TIMEZONES, resolve_user_timezone
 
 logger = logging.getLogger(__name__)
+
+
+def _today_in_tz(tz_name: str) -> str:
+    try:
+        return datetime.now(ZoneInfo(tz_name)).strftime("%Y-%m-%d")
+    except Exception:
+        return datetime.now(UTC).strftime("%Y-%m-%d")
 
 
 @calendar_bp.route("/calendar/")
@@ -50,18 +59,16 @@ def index():
                 sync_error = True
         view = request.args.get("view", "week")
         date_str = request.args.get("date")
+        user_tz_name = None
         if date_str:
             selected_date = date_str
         else:
             settings = CustomerSettings.query.filter_by(customer_id=user_id).first()
             user_tz_name = resolve_user_timezone(settings.timezone if settings else "browser")
-            try:
-                from zoneinfo import ZoneInfo
-
-                user_tz = ZoneInfo(user_tz_name)
-            except Exception:
-                user_tz = UTC
-            selected_date = datetime.now(user_tz).strftime("%Y-%m-%d")
+            selected_date = _today_in_tz(user_tz_name)
+        if user_tz_name is None:
+            settings = CustomerSettings.query.filter_by(customer_id=user_id).first()
+            user_tz_name = resolve_user_timezone(settings.timezone if settings else "browser")
         return render_template(
             "index.html",
             calendars=calendars,
@@ -70,6 +77,8 @@ def index():
             view=view,
             selected_date=selected_date,
             account=account,
+            timezone_options=COMMON_TIMEZONES,
+            user_timezone=user_tz_name,
         )
     finally:
         conn.close()
@@ -105,7 +114,16 @@ def api_events():
                 calendar_ids = [int(x) for x in cal_ids.split(",") if x.strip()]
 
         events = cache_db.get_events_range(conn, start, end, calendar_ids)
-        return jsonify(_serialize_events(events))
+        # U12.56f: recurring masters / overrides outside the raw range window
+        # still generate occurrences inside it — merge before expansion.
+        recurring = cache_db.get_recurring_events(conn, calendar_ids)
+        seen_ids = {e["id"] for e in events}
+        for row in recurring:
+            if row["id"] not in seen_ids:
+                seen_ids.add(row["id"])
+                events.append(row)
+        expanded = expand_events(events, start, end)
+        return jsonify(_serialize_events(expanded))
     except Exception:
         logger.exception("calendar api events failed")
         return jsonify([])
@@ -128,8 +146,16 @@ def api_upcoming():
 
     try:
         limit = request.args.get("limit", 30, type=int)
-        events = cache_db.get_upcoming_events(conn, limit)
-        return jsonify(_serialize_events(events))
+        now_iso = datetime.now(UTC).isoformat()
+        events = cache_db.get_events_range(conn, "", "9999-12-31", None)
+        recurring = cache_db.get_recurring_events(conn, None)
+        seen_ids = {e["id"] for e in events}
+        for row in recurring:
+            if row["id"] not in seen_ids:
+                seen_ids.add(row["id"])
+                events.append(row)
+        expanded = expand_events(events, now_iso, "9999-12-31")
+        return jsonify(_serialize_events(expanded[:limit]))
     except Exception:
         logger.exception("calendar api upcoming failed")
         return jsonify([])
@@ -482,26 +508,28 @@ def _serialize_events(events):
                 organizer = json.loads(organizer)
             except (ValueError, TypeError):
                 organizer = None
-        result.append(
-            {
-                "id": e["id"],
-                "uid": e["uid"],
-                "summary": e.get("summary", ""),
-                "description": e.get("description") or "",
-                "location": e.get("location") or "",
-                "dtstart": e.get("dtstart", ""),
-                "dtend": e.get("dtend") or "",
-                "all_day": bool(e.get("all_day")),
-                "rrule": e.get("rrule") or "",
-                "status": e.get("status", "CONFIRMED"),
-                "calendar_id": e.get("calendar_id"),
-                "calendar_color": e.get("calendar_color", "#4285f4"),
-                "calendar_name": e.get("calendar_name", ""),
-                "organizer": organizer,
-                "attendees": attendees or [],
-                "href": e.get("href", ""),
-                "timezone": e.get("timezone") or "",
-                "timezone_resolved": _resolve_event_tz_name(e),
-            }
-        )
+        serialized = {
+            "id": e["id"],
+            "uid": e["uid"],
+            "summary": e.get("summary", ""),
+            "description": e.get("description") or "",
+            "location": e.get("location") or "",
+            "dtstart": e.get("dtstart", ""),
+            "dtend": e.get("dtend") or "",
+            "all_day": bool(e.get("all_day")),
+            "rrule": e.get("rrule") or "",
+            "status": e.get("status", "CONFIRMED"),
+            "calendar_id": e.get("calendar_id"),
+            "calendar_color": e.get("calendar_color", "#4285f4"),
+            "calendar_name": e.get("calendar_name", ""),
+            "organizer": organizer,
+            "attendees": attendees or [],
+            "href": e.get("href", ""),
+            "timezone": e.get("timezone") or "",
+            "timezone_resolved": _resolve_event_tz_name(e),
+            "recurrence_id": e.get("recurrence_id") or "",
+            "recurrence_date": e.get("recurrence_date") or "",
+            "is_occurrence": bool(e.get("is_occurrence")),
+        }
+        result.append(serialized)
     return result

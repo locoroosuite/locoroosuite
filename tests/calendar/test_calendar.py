@@ -95,7 +95,8 @@ def test_calendar_index_with_calendars(authed_client, app):
         _safe_unlink(paths["cache"])
 
 
-def test_event_new_get(authed_client, app):
+def test_event_new_redirects_to_index(authed_client, app):
+    """U12.56b: the full-page form is gone; /events/new opens the dialog."""
     client, user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
 
@@ -114,13 +115,30 @@ def test_event_new_get(authed_client, app):
 
     try:
         resp = client.get("/app/calendar/events/new")
-        assert resp.status_code == 200
-        assert b"New Event" in resp.data
+        assert resp.status_code == 302
+        assert "/app/calendar/" in resp.headers["Location"]
+        assert "new=1" in resp.headers["Location"]
     finally:
         _safe_unlink(paths["cache"])
 
 
-def test_event_new_post_validation_error(authed_client, app):
+def test_event_new_prefill_params_preserved(authed_client, app):
+    client, _user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+    try:
+        resp = client.get(
+            "/app/calendar/events/new?summary=Lunch&attendee=alice%40example.com&dtstart=2026-03-02T12%3A00"
+        )
+        assert resp.status_code == 302
+        location = resp.headers["Location"]
+        assert "summary=Lunch" in location
+        assert "attendee=alice" in location
+        assert "new=1" in location
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_api_event_create_validation_error(authed_client, app):
     client, user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
 
@@ -139,10 +157,74 @@ def test_event_new_post_validation_error(authed_client, app):
 
     try:
         resp = client.post(
-            "/app/calendar/events/new", data={"summary": "", "dtstart": "", "calendar_id": ""}
+            "/app/calendar/api/events",
+            json={"summary": "", "dtstart_date": "", "calendar_id": 1},
         )
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert data["ok"] is False
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_api_event_create_happy_path(authed_client, app):
+    client, user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+
+    from app.modules.calendar.services.cache_db import open_cache
+    from app.shared.keys import get_user_key
+
+    with app.app_context():
+        key = get_user_key(user_id)
+        conn = open_cache(paths["cache"], key)
+        conn.execute(
+            "INSERT INTO calendars (uid, href, displayname, color) VALUES (?, ?, ?, ?)",
+            ("cal-1", "/test/cal1/", "Work", "#4285f4"),
+        )
+        conn.commit()
+        conn.close()
+
+    try:
+        with (
+            patch("app.modules.calendar.controllers.events_api.caldav") as mock_caldav,
+            patch(
+                "app.modules.calendar.controllers.events_api._get_credentials",
+                return_value="test-password",
+            ),
+        ):
+            mock_session = MagicMock()
+            mock_caldav.discover_calendars.return_value = (mock_session, [])
+            mock_caldav.create_event.return_value = ("/test/new.ics", "etag-new")
+            resp = client.post(
+                "/app/calendar/api/events",
+                json={
+                    "summary": "API Event",
+                    "dtstart_date": "2026-03-02",
+                    "dtstart_time": "10:00",
+                    "dtend_date": "2026-03-02",
+                    "dtend_time": "11:00",
+                    "calendar_id": 1,
+                    "timezone": "UTC",
+                },
+            )
         assert resp.status_code == 200
-        assert b"required" in resp.data
+        data = resp.get_json()
+        assert data["ok"] is True
+        assert data["event_id"]
+
+        from app.modules.calendar.services.cache_db import open_cache as _open
+
+        with app.app_context():
+            key = get_user_key(user_id)
+            conn = _open(paths["cache"], key)
+            row = conn.execute(
+                "SELECT summary, dtstart FROM calendar_events WHERE id = ?",
+                (data["event_id"],),
+            ).fetchone()
+            assert row is not None
+            assert row[0] == "API Event"
+            assert row[1].startswith("2026-03-02T10:00")
+            conn.close()
     finally:
         _safe_unlink(paths["cache"])
 
@@ -245,7 +327,170 @@ def test_event_detail_shows_user_timezone(authed_client, app):
         _safe_unlink(paths["cache"])
 
 
-def test_event_edit_get(authed_client, app):
+def test_api_event_update_happy_path(authed_client, app):
+    """U12.56b: editing goes through the JSON update endpoint."""
+    client, user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+
+    from app.modules.calendar.services.cache_db import open_cache
+    from app.shared.keys import get_user_key
+
+    with app.app_context():
+        key = get_user_key(user_id)
+        conn = open_cache(paths["cache"], key)
+        conn.execute(
+            "INSERT INTO calendars (uid, href, displayname, color) VALUES (?, ?, ?, ?)",
+            ("cal-1", "/test/cal1/", "Work", "#4285f4"),
+        )
+        conn.execute(
+            "INSERT INTO calendar_events (uid, href, etag, calendar_id, summary, dtstart, dtend, all_day, timezone, raw_ical) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "evt-2",
+                "/test/evt2.ics",
+                "etag2",
+                1,
+                "Standup",
+                "2026-01-15T09:00:00",
+                "2026-01-15T09:30:00",
+                0,
+                "UTC",
+                "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Standup\r\nDTSTART:20260115T090000Z\r\nDTEND:20260115T093000Z\r\nEND:VEVENT\r\nEND:VCALENDAR",
+            ),
+        )
+        conn.commit()
+        event_id = _fetch_scalar(conn, "SELECT id FROM calendar_events WHERE uid = 'evt-2'")
+        conn.close()
+
+    try:
+        with (
+            patch("app.modules.calendar.controllers.events_api.caldav") as mock_caldav,
+            patch(
+                "app.modules.calendar.controllers.events_api._get_credentials",
+                return_value="test-password",
+            ),
+        ):
+            mock_session = MagicMock()
+            mock_caldav.discover_calendars.return_value = (mock_session, [])
+            mock_caldav.update_event.return_value = "etag-new"
+            resp = client.put(
+                f"/app/calendar/api/events/{event_id}",
+                json={
+                    "summary": "Standup v2",
+                    "dtstart_date": "2026-01-15",
+                    "dtstart_time": "10:00",
+                    "dtend_date": "2026-01-15",
+                    "dtend_time": "10:30",
+                    "calendar_id": 1,
+                    "timezone": "UTC",
+                },
+            )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["ok"] is True
+
+        from app.modules.calendar.services.cache_db import open_cache as _open
+
+        with app.app_context():
+            key = get_user_key(user_id)
+            conn = _open(paths["cache"], key)
+            row = conn.execute(
+                "SELECT summary, dtstart FROM calendar_events WHERE id = ?", (event_id,)
+            ).fetchone()
+            assert row is not None
+            assert row[0] == "Standup v2"
+            assert row[1].startswith("2026-01-15T10:00")
+            conn.close()
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_api_event_update_not_found(authed_client, app):
+    client, _user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+    try:
+        resp = client.put(
+            "/app/calendar/api/events/99999",
+            json={"summary": "X", "dtstart_date": "2026-01-15", "calendar_id": 1},
+        )
+        assert resp.status_code == 404
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_api_event_move_updates_times(authed_client, app):
+    """U12.56e/U12.20: drag-move persists new dtstart/dtend only."""
+    client, user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+
+    from app.modules.calendar.services.cache_db import open_cache
+    from app.shared.keys import get_user_key
+
+    with app.app_context():
+        key = get_user_key(user_id)
+        conn = open_cache(paths["cache"], key)
+        conn.execute(
+            "INSERT INTO calendars (uid, href, displayname, color) VALUES (?, ?, ?, ?)",
+            ("cal-1", "/test/cal1/", "Work", "#4285f4"),
+        )
+        conn.execute(
+            "INSERT INTO calendar_events (uid, href, etag, calendar_id, summary, dtstart, dtend, all_day, timezone, raw_ical) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "evt-mv",
+                "/test/evtmv.ics",
+                "etag-mv",
+                1,
+                "Movable",
+                "2026-01-15T09:00:00",
+                "2026-01-15T10:00:00",
+                0,
+                "UTC",
+                "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Movable\r\nDTSTART:20260115T090000Z\r\nDTEND:20260115T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR",
+            ),
+        )
+        conn.commit()
+        event_id = _fetch_scalar(conn, "SELECT id FROM calendar_events WHERE uid = 'evt-mv'")
+        conn.close()
+
+    try:
+        with (
+            patch("app.modules.calendar.controllers.events_api.caldav") as mock_caldav,
+            patch(
+                "app.modules.calendar.controllers.events_api._get_credentials",
+                return_value="test-password",
+            ),
+        ):
+            mock_session = MagicMock()
+            mock_caldav.discover_calendars.return_value = (mock_session, [])
+            mock_caldav.update_event.return_value = "etag-mv2"
+            resp = client.post(
+                f"/app/calendar/api/events/{event_id}/move",
+                json={
+                    "dtstart": "2026-01-16T11:00:00",
+                    "dtend": "2026-01-16T12:00:00",
+                },
+            )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["ok"] is True
+
+        from app.modules.calendar.services.cache_db import open_cache as _open
+
+        with app.app_context():
+            key = get_user_key(user_id)
+            conn = _open(paths["cache"], key)
+            row = conn.execute(
+                "SELECT summary, dtstart, dtend FROM calendar_events WHERE id = ?", (event_id,)
+            ).fetchone()
+            assert row is not None
+            assert row[0] == "Movable"
+            assert row[1].startswith("2026-01-16T11:00")
+            assert row[2].startswith("2026-01-16T12:00")
+            conn.close()
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_api_event_get_single(authed_client, app):
     client, user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
 
@@ -262,24 +507,26 @@ def test_event_edit_get(authed_client, app):
         conn.execute(
             "INSERT INTO calendar_events (uid, href, etag, calendar_id, summary, dtstart, raw_ical) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
-                "evt-2",
-                "/test/evt2.ics",
-                "etag2",
+                "evt-get",
+                "/test/evtget.ics",
+                "etag-get",
                 1,
-                "Standup",
-                "2025-01-15T09:00:00+00:00",
-                "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Standup\r\nEND:VEVENT\r\nEND:VCALENDAR",
+                "Single Event",
+                "2026-01-15T09:00:00+00:00",
+                "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Single Event\r\nEND:VEVENT\r\nEND:VCALENDAR",
             ),
         )
         conn.commit()
-        event_id = _fetch_scalar(conn, "SELECT id FROM calendar_events WHERE uid = 'evt-2'")
+        event_id = _fetch_scalar(conn, "SELECT id FROM calendar_events WHERE uid = 'evt-get'")
         conn.close()
 
     try:
-        resp = client.get(f"/app/calendar/events/{event_id}/edit")
+        resp = client.get(f"/app/calendar/api/events/{event_id}")
         assert resp.status_code == 200
-        assert b"Edit Event" in resp.data
-        assert b"Standup" in resp.data
+        data = resp.get_json()
+        assert data["summary"] == "Single Event"
+        assert data["calendar_color"] == "#4285f4"
+        assert data["calendar_name"] == "Work"
     finally:
         _safe_unlink(paths["cache"])
 
@@ -469,13 +716,18 @@ def test_calendar_toggle_visibility(authed_client, app):
         _safe_unlink(paths["cache"])
 
 
-def test_event_new_no_calendars_shows_error(authed_client, app):
+def test_api_event_create_unknown_calendar(authed_client, app):
+    """U12.56b: creating against a missing calendar is a structured 404."""
     client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)
     try:
-        resp = client.get("/app/calendar/events/new")
-        assert resp.status_code == 200
-        assert b"No calendars available" in resp.data
+        resp = client.post(
+            "/app/calendar/api/events",
+            json={"summary": "X", "dtstart_date": "2026-01-15", "calendar_id": 999},
+        )
+        assert resp.status_code == 404
+        data = resp.get_json()
+        assert data["ok"] is False
     finally:
         _safe_unlink(paths["cache"])
 
@@ -859,8 +1111,10 @@ def test_quick_create_caldav_failure(authed_client, app):
 
 
 def test_quick_create_includes_popover_html(authed_client, app):
+    """U12.56: the shell ships the popover + editor + FAB; grid cells are
+    rendered by the versioned static JS (time-grid/month classes live there)."""
     client, _user_id, account_id = authed_client
-    paths, _ = _setup_calendar_and_cache(app, account_id)
+    paths, _cal_id = _setup_calendar_and_cache(app, account_id)
     try:
         with patch("app.modules.calendar.controllers.views._sync_calendars_and_events"):
             resp = client.get("/app/calendar/")
@@ -870,8 +1124,10 @@ def test_quick_create_includes_popover_html(authed_client, app):
         assert b"qc-calendar" in resp.data
         assert b"qc-save" in resp.data
         assert b"qc-more-options" in resp.data
-        assert b"time-cell" in resp.data
-        assert b"month-day-cell" in resp.data
+        assert b"cal-editor" in resp.data
+        assert b"ce-title" in resp.data
+        assert b"cal-fab" in resp.data
+        assert b"js/calendar/main.js" in resp.data
     finally:
         _safe_unlink(paths["cache"])
 

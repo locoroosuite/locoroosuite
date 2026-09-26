@@ -4188,3 +4188,49 @@ msgstr "hace {n} min"
 #~ msgid "W"
 #~ msgstr "X"
 
+
+msgid "Schedule"
+msgstr "Programa"
+
+msgid "3 days"
+msgstr "3 días"
+
+msgid "More details"
+msgstr "Más detalles"
+
+msgid "guest"
+msgstr "invitado"
+
+msgid "guests"
+msgstr "invitados"
+
+msgid "Previous month"
+msgstr "Mes anterior"
+
+msgid "Next month"
+msgstr "Mes siguiente"
+
+msgid "Calendar view"
+msgstr "Vista del calendario"
+
+msgid "Delete event"
+msgstr "Eliminar evento"
+
+msgid "Delete and notify"
+msgstr "Eliminar y avisar"
+
+msgid "Repeat"
+msgstr "Repetir"
+
+msgid "This event has guests. Notify them by email about the cancellation?"
+msgstr "Este evento tiene invitados. ¿Avisarles por correo electrónico de la cancelación?"
+
+msgid "Event editor"
+msgstr "Editor de eventos"
+
+msgid "Failed to move event. Please check your connection and retry."
+msgstr "No se pudo mover el evento. Comprueba tu conexión y reintenta."
+
+msgid "Failed to delete event."
+msgstr "No se pudo eliminar el evento."
+

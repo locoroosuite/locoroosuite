@@ -450,26 +450,19 @@ class TestIcsCancel:
 
 class TestEventPrefill:
     def test_event_new_with_prefill(self, app, authed_client):
+        """U12.56b/U12.39c: prefill links redirect to the dialog-enabled index."""
         _setup_caldav_domain(app)
-        client, user_id, account_id = authed_client
-
-        import os
-
-        from app.modules.calendar.services import cache_db
-
-        conn, path, _key = _create_temp_cache(app, user_id, account_id)
-        cache_db.upsert_calendar(conn, "cal-uid-pf", "http://localhost/pf/", displayname="My Cal")
-        conn.close()
+        client, _user_id, _account_id = authed_client
 
         resp = client.get(
             "/app/calendar/events/new?summary=Test+Subject&description=Test+Body&attendee=alice%40example.com"
         )
-        assert resp.status_code == 200
-        html = resp.data.decode()
-        assert "Test Subject" in html
-        assert "Test Body" in html
-        assert "alice@example.com" in html
-        os.unlink(path)
+        assert resp.status_code == 302
+        location = resp.headers["Location"]
+        assert "new=1" in location
+        assert "summary=Test+Subject" in location
+        assert "description=Test+Body" in location
+        assert "attendee=alice" in location
 
 
 class TestEventDetailEmailLink:

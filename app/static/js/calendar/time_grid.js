@@ -32,13 +32,16 @@
 
     var isCompact = days.length >= 3;
     var gutter = days.length === 1 ? 56 : isCompact ? 36 : 48;
-    var gridCols =
-      'grid-cols-[' + gutter + 'px_repeat(' + days.length + ',minmax(0,1fr))]';
+    /* Grid template must be inline CSS, NOT a Tailwind arbitrary class: the
+     * JIT scanner only emits classes it sees as literals, so a runtime-built
+     * grid-cols class silently does not exist in the compiled CSS. */
+    var gridStyle =
+      'grid-template-columns:' + gutter + 'px repeat(' + days.length + ',minmax(0,1fr))';
 
     var html = '';
 
     /* Sticky day header row */
-    html += '<div class="grid ' + gridCols + ' border-b border-slate-100 bg-white">';
+    html += '<div class="grid border-b border-slate-100 bg-white" style="' + gridStyle + '">';
     html += '<div class="py-2"></div>';
     days.forEach(function (d) {
       var iso = LRCal.toISO(d);
@@ -62,7 +65,7 @@
     html +=
       '<div class="border-b border-slate-100 bg-slate-50/30 ' +
       (allDayRows ? '' : 'h-0 overflow-hidden ') +
-      '"><div class="grid ' + gridCols + '">';
+      '"><div class="grid" style="' + gridStyle + '">';
     html +=
       '<div class="py-1 pr-1 text-[11px] md:text-[10px] text-slate-500 text-right">' +
       (allDayRows ? window.LR.t('all-day') : '') +
@@ -90,7 +93,7 @@
 
     /* Scrollable hour grid */
     html += '<div class="overflow-y-auto cal-scroll" style="max-height:calc(100vh - 300px)">';
-    html += '<div class="grid ' + gridCols + ' relative cal-timegrid">';
+    html += '<div class="grid relative cal-timegrid" style="' + gridStyle + '">';
     html += '<div class="relative">';
     for (var h = 0; h < 24; h++) {
       html +=
@@ -98,22 +101,22 @@
         (h === 0 ? '' : LRCal.pad(h) + ':00') + '</div>';
     }
     html += '</div>';
-    days.forEach(function (d) {
+    /* Timed chips + now-line live INSIDE each day column: percentages then
+     * resolve against the column itself, so no gutter-width drift (the old
+     * full-width overlay computed left as % of the whole grid incl. gutter). */
+    var perDayHtml = renderTimedEvents(timed, days);
+    days.forEach(function (d, dayIdx) {
       var iso = LRCal.toISO(d);
       var isToday = iso === todayISO;
       html += '<div class="relative border-l ' + (isToday ? 'border-slate-200 bg-blue-50/20' : 'border-slate-200') + '">';
-      for (var h = 0; h < 24; h++) {
+      for (var h2 = 0; h2 < 24; h2++) {
         html +=
-          '<div class="time-cell border-b border-slate-100 relative" style="height:' + HOUR_H + 'px" data-date="' + iso + '" data-hour="' + h + '"></div>';
+          '<div class="time-cell border-b border-slate-100 relative" style="height:' + HOUR_H + 'px" data-date="' + iso + '" data-hour="' + h2 + '"></div>';
       }
+      html += perDayHtml[dayIdx] || '';
+      if (isToday) html += renderNowLine();
       html += '</div>';
     });
-
-    /* Events overlay */
-    html += '<div class="cal-events-layer" style="position:absolute;inset:0;pointer-events:none;overflow:hidden">';
-    html += renderTimedEvents(timed, days, gutter, isCompact);
-    html += renderNowLine(days, now, gutter);
-    html += '</div>';
 
     html += '</div></div>';
 
@@ -168,9 +171,10 @@
     return rows;
   }
 
-  function renderTimedEvents(timed, days, gutter, isCompact) {
-    var html = '';
-    var colWidthPct = 100 / days.length;
+  function renderTimedEvents(timed, days) {
+    var perDay = days.map(function () {
+      return '';
+    });
 
     days.forEach(function (day, dayIdx) {
       var items = [];
@@ -202,16 +206,18 @@
         var color = it.ev.calendar_color || '#4285f4';
         var top = (it.startMin / 60) * HOUR_H;
         var height = Math.max(((it.endMin - it.startMin) / 60) * HOUR_H, 18);
-        var leftPct = dayIdx * colWidthPct + (it.col / it.cols) * colWidthPct;
-        var widthPct = colWidthPct / it.cols;
+        /* Percentages resolve against the day column (the chip's parent). */
+        var leftFrac = (it.col / it.cols).toFixed(6);
+        var widthFrac = (1 / it.cols).toFixed(6);
         var solid = height < 34; // short events render as a solid chip
         var cancelled = it.ev.status === 'CANCELLED';
-        html +=
+        perDay[dayIdx] +=
           '<div class="cal-event rounded-md px-1 py-0.5 overflow-hidden cursor-pointer ' +
           (solid ? 'font-medium text-white' : 'text-slate-900 font-medium') +
           (cancelled ? ' line-through opacity-60' : '') +
           '" style="position:absolute;pointer-events:auto;top:' + top + 'px;height:' + height + 'px;' +
-          'left:calc(' + leftPct + '% + ' + (gutter + 2) + 'px);width:calc(' + (widthPct - 0.6) + '% - 4px);' +
+          'left:calc((100% - 4px) * ' + leftFrac + ' + 2px);' +
+          'width:calc((100% - 4px) * ' + widthFrac + ' - 1px);' +
           (solid
             ? 'background-color:' + color + ';'
             : 'background-color:' + LRCal.tint(color, 0.22) + ';border-left:3px solid ' + color + ';') +
@@ -226,25 +232,14 @@
           '</div>';
       });
     });
-    return html;
+    return perDay;
   }
 
-  function renderNowLine(days, now, gutter) {
-    var nowISO = LRCal.toISO(now);
-    var dayIdx = -1;
-    for (var i = 0; i < days.length; i++) {
-      if (LRCal.toISO(days[i]) === nowISO) {
-        dayIdx = i;
-        break;
-      }
-    }
-    if (dayIdx < 0) return '';
-    var colWidthPct = 100 / days.length;
-    var left = 'calc(' + dayIdx * colWidthPct + '% + ' + (gutter + 2) + 'px)';
-    var width = 'calc(' + (colWidthPct - 0.6) + '% - 4px)';
+  /* Rendered inside today's day column (caller checks isToday). */
+  function renderNowLine() {
     return (
       '<div id="cal-now-line" data-px-per-hour="' + HOUR_H + '" data-top-offset="0" ' +
-      'style="position:absolute;left:' + left + ';width:' + width + ';height:2px;background-color:#ef4444;border-radius:1px">' +
+      'style="position:absolute;left:2px;width:calc(100% - 4px);height:2px;background-color:#ef4444;border-radius:1px">' +
       '<span style="position:absolute;left:-4px;top:50%;transform:translateY(-50%);width:9px;height:9px;border-radius:50%;background-color:#ef4444"></span>' +
       '</div>'
     );

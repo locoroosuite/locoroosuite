@@ -45,8 +45,15 @@
       window.LR.t('Thu'), window.LR.t('Fri'), window.LR.t('Sat'),
     ];
     // Single letters collide across days in gettext; derive from Intl (es: D/L/M/X/J/V/S).
-    var locale = (window.LR_I18N && window.LR_I18N.locale) || 'en';
-    var fmt = new Intl.DateTimeFormat(locale, { weekday: 'narrow' });
+    // window.LR_I18N.locale carries gettext catalog names ("es_ES"); Intl needs
+    // BCP-47 tags ("es-ES") — normalize, and fall back to English on bad tags.
+    var locale = String((window.LR_I18N && window.LR_I18N.locale) || 'en').replace(/_/g, '-');
+    var fmt;
+    try {
+      fmt = new Intl.DateTimeFormat(locale, { weekday: 'narrow' });
+    } catch (e) {
+      fmt = new Intl.DateTimeFormat('en', { weekday: 'narrow' });
+    }
     DAYS_MINI = [0, 1, 2, 3, 4, 5, 6].map(function (i) {
       return fmt.format(new Date(2024, 0, 7 + i)); // 2024-01-07 = Sunday
     });

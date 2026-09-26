@@ -84,3 +84,58 @@ class TestCalendarUI:
         assert editor is not None
         value = logged_in_page.input_value("#ce-title")
         assert value == "Prefill Check"
+
+    def test_week_view_time_grid_columns(self, logged_in_page):
+        """U12.56: the week grid must lay out as gutter + 7 day columns.
+
+        Regression: the grid template was built as a runtime-concatenated
+        Tailwind class that does not exist in the compiled CSS, collapsing
+        the grid to one stacked column.
+        """
+        logged_in_page.goto("http://localhost:8001/app/calendar/?view=week")
+        logged_in_page.wait_for_selector(".time-cell", timeout=15000)
+        tracks = logged_in_page.evaluate(
+            """() => {
+              const grid = document.querySelector('.cal-timegrid');
+              return getComputedStyle(grid).gridTemplateColumns
+                .split(' ').filter(Boolean).length;
+            }"""
+        )
+        assert tracks == 8  # hour gutter + 7 days
+
+    def test_week_view_day_headers_share_one_row(self, logged_in_page):
+        """U12.56: day headers align horizontally, each in its own column."""
+        logged_in_page.goto("http://localhost:8001/app/calendar/?view=week")
+        logged_in_page.wait_for_selector(".time-cell", timeout=15000)
+        geometry = logged_in_page.evaluate(
+            """() => {
+              const header = document.querySelector('#calendar-grid .grid');
+              const cells = [...header.children].slice(1); // skip hour-gutter spacer
+              const boxes = cells.map((c) => c.getBoundingClientRect());
+              return {
+                tops: [...new Set(boxes.map((b) => Math.round(b.top)))],
+                lefts: boxes.map((b) => Math.round(b.left)),
+              };
+            }"""
+        )
+        assert len(geometry["tops"]) == 1
+        assert len(geometry["lefts"]) == 7
+        assert geometry["lefts"] == sorted(geometry["lefts"])
+
+    def test_spanish_locale_renders_without_js_errors(self, logged_in_page):
+        """U26: Spanish must not crash calendar boot.
+
+        Regression: window.LR_I18N.locale ("es_ES") was passed unnormalized
+        to Intl.DateTimeFormat, throwing RangeError and killing the views.
+        """
+        errors = []
+        logged_in_page.on("pageerror", lambda exc: errors.append(str(exc)))
+        logged_in_page.context.add_cookies(
+            [{"name": "browser_lang", "value": "es", "url": "http://localhost:8001"}]
+        )
+        logged_in_page.goto("http://localhost:8001/app/calendar/?view=week")
+        logged_in_page.wait_for_selector(".time-cell", timeout=15000)
+        assert errors == []
+        mini = logged_in_page.evaluate("() => window.LRCal.DAYS_MINI()")
+        assert len(mini) == 7
+        assert all(isinstance(name, str) and name for name in mini)

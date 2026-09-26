@@ -134,6 +134,21 @@ The test suite treats new warnings as failures (`filterwarnings = ["error", ...]
 - TailwindCSS — professional, Big Tech quality.
 - Module switcher in header: Mail, Contacts, Calendar.
 
+### Tailwind utility classes must be static literals
+
+- Never construct Tailwind class names at runtime (string concatenation/interpolation with variables). The JIT scanner (`tailwind.config.js` content globs) only emits classes it sees as **literals** in templates and `app/static/js/`; a runtime-built class silently does not exist in the compiled CSS. Symptom: layout collapses (the week view shipped with a concatenated `grid-cols-[36px_repeat(7,...)]` that was never generated).
+- For runtime-computed values, use inline `style` (e.g. `style="grid-template-columns:36px repeat(7,minmax(0,1fr))"`) instead of arbitrary-value classes.
+- Guarded by `tests/calendar/test_static_js.py`.
+
+### Internationalization (i18n)
+
+Every user-facing change — **new features and bug fixes** — must consider i18n from the start (HLD U26.10):
+
+- User-visible strings go through `_()` / `N_()` (Python) or `window.LR.t()` (JS), never hardcoded at the rendering layer. REST API / MCP stay English (U26.8).
+- Locale-sensitive formatting: Flask-Babel `format_datetime` + `current_locale_name()` server-side; `Intl` client-side.
+- **`Intl` requires BCP-47 tags (`es-ES`), but `window.LR_I18N.locale` carries gettext catalog names (`es_ES`)** — normalize `_` → `-` before any `Intl` call and fall back to English if the tag is rejected. An unnormalized locale throws `RangeError` and can kill the whole view's boot JS.
+- When touching user-facing UI or strings, verify both `en` and `es` render (e.g. e2e `test_spanish_locale_renders_without_js_errors`).
+
 ### Static Asset Versioning (cache busting)
 
 Browsers cache JS/CSS heuristically; without versioning, users run **stale JS against new HTML** after a deploy (symptom: `TypeError: can't access property ... of null` on elements that exist in the new markup).

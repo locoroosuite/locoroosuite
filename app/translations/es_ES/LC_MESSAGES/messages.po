@@ -4234,3 +4234,74 @@ msgstr "No se pudo mover el evento. Comprueba tu conexión y reintenta."
 msgid "Failed to delete event."
 msgstr "No se pudo eliminar el evento."
 
+
+msgid "Notification"
+msgstr "Notificación"
+
+msgid "10 minutes before"
+msgstr "10 minutos antes"
+
+msgid "1 week before"
+msgstr "1 semana antes"
+
+msgid "Custom…"
+msgstr "Personalizar…"
+
+msgid "minutes"
+msgstr "minutos"
+
+msgid "hours"
+msgstr "horas"
+
+msgid "days"
+msgstr "días"
+
+msgid "weeks"
+msgstr "semanas"
+
+msgid "before"
+msgstr "antes"
+
+msgid "No notification"
+msgstr "Sin notificación"
+
+msgid "Add notification"
+msgstr "Añadir notificación"
+
+msgid "Enter a valid notification time."
+msgstr "Introduce una hora de notificación válida."
+
+msgid "Invalid notifications."
+msgstr "Notificaciones no válidas."
+
+msgid "Too many notifications (maximum %(max)d)."
+msgstr "Demasiadas notificaciones (máximo %(max)d)."
+
+msgid "Invalid notification type."
+msgstr "Tipo de notificación no válido."
+
+msgid "Invalid notification time."
+msgstr "Hora de notificación no válida."
+
+msgid "Duplicate notification."
+msgstr "Notificación duplicada."
+
+msgid "%(num)d week"
+msgid_plural "%(num)d weeks"
+msgstr[0] "%(num)d semana"
+msgstr[1] "%(num)d semanas"
+
+msgid "%(num)d day"
+msgid_plural "%(num)d days"
+msgstr[0] "%(num)d día"
+msgstr[1] "%(num)d días"
+
+msgid "%(num)d hour"
+msgid_plural "%(num)d hours"
+msgstr[0] "%(num)d hora"
+msgstr[1] "%(num)d horas"
+
+msgid "%(num)d minute"
+msgid_plural "%(num)d minutes"
+msgstr[0] "%(num)d minuto"
+msgstr[1] "%(num)d minutos"

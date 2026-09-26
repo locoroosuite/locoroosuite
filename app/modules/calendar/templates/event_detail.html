@@ -124,13 +124,13 @@
       </div>
       {% endif %}
 
-      {% if event.reminders and event.reminders|length > 0 %}
+      {% if event.reminder_labels and event.reminder_labels|length > 0 %}
       <div class="px-4 md:px-6 py-3.5 md:py-4 flex gap-4">
-        <dt class="w-28 flex-shrink-0 text-sm text-slate-500">{{ _('Reminders') }}</dt>
+        <dt class="w-28 flex-shrink-0 text-sm text-slate-500">{{ _('Notifications') }}</dt>
         <dd class="text-sm">
-          {% for rem in event.reminders %}
+          {% for rem in event.reminder_labels %}
           <div class="py-0.5 text-slate-900">
-            {{ rem.trigger_val }} ({{ rem.action }})
+            {{ rem.when }} <span class="text-slate-500">· {{ rem.kind }}</span>
           </div>
           {% endfor %}
         </dd>

@@ -1,8 +1,10 @@
 import base64
 import logging
+import re
 
 from cryptography.fernet import Fernet
 from flask import Blueprint, session
+from flask_babel import _, ngettext
 
 from app.modules.calendar.services.cache import get_cache_path
 from app.modules.calendar.services.cache_db import open_cache as open_calendar_cache
@@ -58,3 +60,47 @@ def _open_cache_for_account(account):
     if not path:
         return None
     return open_calendar_cache(path, key)
+
+
+_DURATION_RE = re.compile(r"^-P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?$")
+
+
+def parse_negative_duration(text):
+    """Parse a negative ISO 8601 duration (e.g. ``-PT15M``, ``-P1DT2H``).
+
+    Returns ``(weeks, days, hours, minutes)`` ints, or ``None`` when the value
+    is not a valid non-empty negative duration. ``-PT0M`` (at time of event)
+    is valid and parses to all zeros.
+    """
+    if not isinstance(text, str):
+        return None
+    match = _DURATION_RE.match(text.strip())
+    if match is None:
+        return None
+    if all(group is None for group in match.groups()):
+        return None
+    return tuple(int(group) if group else 0 for group in match.groups())
+
+
+def _humanize_reminder(trigger_val, action):
+    """Humanize one calendar reminder for display ("15 minutes before")."""
+    parsed = parse_negative_duration(trigger_val)
+    if parsed is None:
+        when = trigger_val or ""
+    else:
+        weeks, days, hours, minutes = parsed
+        if not (weeks or days or hours or minutes):
+            when = _("At time of event")
+        else:
+            chunks = []
+            if weeks:
+                chunks.append(ngettext("%(num)d week", "%(num)d weeks", weeks))
+            if days:
+                chunks.append(ngettext("%(num)d day", "%(num)d days", days))
+            if hours:
+                chunks.append(ngettext("%(num)d hour", "%(num)d hours", hours))
+            if minutes:
+                chunks.append(ngettext("%(num)d minute", "%(num)d minutes", minutes))
+            when = ", ".join(chunks) + " " + _("before")
+    kind = _("Email") if (action or "DISPLAY").upper() == "EMAIL" else _("Notification")
+    return {"when": when, "kind": kind}

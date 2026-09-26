@@ -1160,3 +1160,327 @@ def test_sync_success_no_warning_banner(authed_client, app):
     finally:
         if os.path.exists(paths["cache"]):
             _safe_unlink(paths["cache"])
+
+
+# ---- multiple notifications (U12.30/U12.31) ----
+
+
+def _create_event_with_reminders(client, app, paths, user_id, reminders, summary="Multi Rem"):
+    """POST to the JSON event API with a reminders array; return (resp, event_id)."""
+    with (
+        patch("app.modules.calendar.controllers.events_api.caldav") as mock_caldav,
+        patch(
+            "app.modules.calendar.controllers.events_api._get_credentials",
+            return_value="test-password",
+        ),
+    ):
+        mock_session = MagicMock()
+        mock_caldav.discover_calendars.return_value = (mock_session, [])
+        mock_caldav.create_event.return_value = ("/test/multi.ics", "etag-multi")
+        resp = client.post(
+            "/app/calendar/api/events",
+            json={
+                "summary": summary,
+                "dtstart_date": "2026-06-01",
+                "dtstart_time": "10:00",
+                "dtend_date": "2026-06-01",
+                "dtend_time": "11:00",
+                "calendar_id": 1,
+                "timezone": "UTC",
+                "reminders": reminders,
+            },
+        )
+    return resp
+
+
+def _fetch_reminders(conn, event_id):
+    # Column order per calendar_reminders schema: id, event_id, trigger_val, action, description
+    rows = conn.execute(
+        "SELECT trigger_val, action FROM calendar_reminders WHERE event_id = ? ORDER BY id",
+        (event_id,),
+    ).fetchall()
+    return [(r[0], r[1]) for r in rows]
+
+
+def test_api_event_create_multiple_reminders(authed_client, app):
+    client, user_id, account_id = authed_client
+    paths, _cal_id = _setup_calendar_and_cache(app, account_id)
+    try:
+        resp = _create_event_with_reminders(
+            client,
+            app,
+            paths,
+            user_id,
+            [
+                {"action": "DISPLAY", "trigger": "-PT15M"},
+                {"action": "EMAIL", "trigger": "-P1D"},
+                {"action": "DISPLAY", "trigger": "-PT90M"},
+            ],
+        )
+        assert resp.status_code == 200
+        import json as _json
+
+        data = _json.loads(resp.data)
+        assert data["ok"] is True
+
+        from app.modules.calendar.services.cache_db import open_cache
+        from app.shared.keys import get_user_key
+
+        with app.app_context():
+            key = get_user_key(user_id)
+            conn = open_cache(paths["cache"], key)
+            reminders = _fetch_reminders(conn, data["event_id"])
+            row = conn.execute(
+                "SELECT raw_ical FROM calendar_events WHERE id = ?", (data["event_id"],)
+            ).fetchone()
+            assert row is not None
+            raw_ical = row[0]
+            conn.close()
+
+        assert reminders == [
+            ("-PT15M", "DISPLAY"),
+            ("-P1D", "EMAIL"),
+            ("-PT90M", "DISPLAY"),
+        ]
+        assert raw_ical.count("BEGIN:VALARM") == 3
+        assert "ACTION:EMAIL" in raw_ical
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_api_event_create_reminders_accept_type_alias(authed_client, app):
+    """The REST API shape ({type, trigger}) is tolerated by the dialog API parser."""
+    client, user_id, account_id = authed_client
+    paths, _cal_id = _setup_calendar_and_cache(app, account_id)
+    try:
+        resp = _create_event_with_reminders(
+            client,
+            app,
+            paths,
+            user_id,
+            [{"type": "EMAIL", "trigger": "-PT30M"}],
+        )
+        assert resp.status_code == 200
+        import json as _json
+
+        event_id = _json.loads(resp.data)["event_id"]
+
+        from app.modules.calendar.services.cache_db import open_cache
+        from app.shared.keys import get_user_key
+
+        with app.app_context():
+            key = get_user_key(user_id)
+            conn = open_cache(paths["cache"], key)
+            assert _fetch_reminders(conn, event_id) == [("-PT30M", "EMAIL")]
+            conn.close()
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_api_event_create_reminder_validation_errors(authed_client, app):
+    client, user_id, account_id = authed_client
+    paths, _cal_id = _setup_calendar_and_cache(app, account_id)
+    bad_payloads = [
+        # unknown action
+        [{"action": "SMS", "trigger": "-PT15M"}],
+        # not a negative ISO duration
+        [{"action": "DISPLAY", "trigger": "PT15M"}],
+        [{"action": "DISPLAY", "trigger": "-P"}],
+        [{"action": "DISPLAY", "trigger": ""}],
+        # exact duplicate (same action + trigger)
+        [
+            {"action": "DISPLAY", "trigger": "-PT15M"},
+            {"action": "DISPLAY", "trigger": "-PT15M"},
+        ],
+        # over the cap
+        [{"action": "DISPLAY", "trigger": f"-PT{n}M"} for n in range(1, 12)],
+        # not a list of dicts
+        ["DISPLAY"],
+    ]
+    try:
+        for reminders in bad_payloads:
+            resp = _create_event_with_reminders(client, app, paths, user_id, reminders)
+            assert resp.status_code == 400, reminders
+            import json as _json
+
+            data = _json.loads(resp.data)
+            assert data["ok"] is False
+            assert data["error"]
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_api_event_create_reminders_optional(authed_client, app):
+    """No reminders key at all -> zero alarms, event saves fine."""
+    client, user_id, account_id = authed_client
+    paths, _cal_id = _setup_calendar_and_cache(app, account_id)
+    try:
+        resp = _create_event_with_reminders(client, app, paths, user_id, None)
+        assert resp.status_code == 200
+        import json as _json
+
+        event_id = _json.loads(resp.data)["event_id"]
+
+        from app.modules.calendar.services.cache_db import open_cache
+        from app.shared.keys import get_user_key
+
+        with app.app_context():
+            key = get_user_key(user_id)
+            conn = open_cache(paths["cache"], key)
+            assert _fetch_reminders(conn, event_id) == []
+            conn.close()
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_api_event_update_replaces_reminders(authed_client, app):
+    client, user_id, account_id = authed_client
+    paths, _cal_id = _setup_calendar_and_cache(app, account_id)
+    try:
+        resp = _create_event_with_reminders(
+            client,
+            app,
+            paths,
+            user_id,
+            [{"action": "DISPLAY", "trigger": "-PT15M"}],
+            summary="Replace Me",
+        )
+        import json as _json
+
+        event_id = _json.loads(resp.data)["event_id"]
+
+        with (
+            patch("app.modules.calendar.controllers.events_api.caldav") as mock_caldav,
+            patch(
+                "app.modules.calendar.controllers.events_api._get_credentials",
+                return_value="test-password",
+            ),
+        ):
+            mock_session = MagicMock()
+            mock_caldav.discover_calendars.return_value = (mock_session, [])
+            mock_caldav.update_event.return_value = "etag-updated"
+            resp = client.put(
+                f"/app/calendar/api/events/{event_id}",
+                json={
+                    "summary": "Replace Me",
+                    "dtstart_date": "2026-06-01",
+                    "dtstart_time": "10:00",
+                    "dtend_date": "2026-06-01",
+                    "dtend_time": "11:00",
+                    "calendar_id": 1,
+                    "timezone": "UTC",
+                    "reminders": [
+                        {"action": "EMAIL", "trigger": "-PT5M"},
+                        {"action": "DISPLAY", "trigger": "-P1W"},
+                    ],
+                },
+            )
+        assert resp.status_code == 200
+        assert _json.loads(resp.data)["ok"] is True
+
+        from app.modules.calendar.services.cache_db import open_cache
+        from app.shared.keys import get_user_key
+
+        with app.app_context():
+            key = get_user_key(user_id)
+            conn = open_cache(paths["cache"], key)
+            assert _fetch_reminders(conn, event_id) == [
+                ("-PT5M", "EMAIL"),
+                ("-P1W", "DISPLAY"),
+            ]
+            conn.close()
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_api_event_get_returns_reminders(authed_client, app):
+    """Regression: the editor fetches reminders via GET; they must be serialized."""
+    client, user_id, account_id = authed_client
+    paths, _cal_id = _setup_calendar_and_cache(app, account_id)
+    try:
+        resp = _create_event_with_reminders(
+            client,
+            app,
+            paths,
+            user_id,
+            [
+                {"action": "DISPLAY", "trigger": "-PT15M"},
+                {"action": "EMAIL", "trigger": "-P1D"},
+            ],
+            summary="Fetch Me",
+        )
+        import json as _json
+
+        event_id = _json.loads(resp.data)["event_id"]
+        resp = client.get(f"/app/calendar/api/events/{event_id}")
+        assert resp.status_code == 200
+        data = _json.loads(resp.data)
+        assert data["reminders"] == [
+            {"trigger_val": "-PT15M", "action": "DISPLAY"},
+            {"trigger_val": "-P1D", "action": "EMAIL"},
+        ]
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_event_detail_humanizes_reminders(authed_client, app):
+    client, user_id, account_id = authed_client
+    paths, _cal_id = _setup_calendar_and_cache(app, account_id)
+    try:
+        resp = _create_event_with_reminders(
+            client,
+            app,
+            paths,
+            user_id,
+            [
+                {"action": "DISPLAY", "trigger": "-PT15M"},
+                {"action": "EMAIL", "trigger": "-P1DT2H"},
+                {"action": "DISPLAY", "trigger": "-PT0M"},
+            ],
+            summary="Humanize Me",
+        )
+        import json as _json
+
+        event_id = _json.loads(resp.data)["event_id"]
+        resp = client.get(f"/app/calendar/events/{event_id}")
+        assert resp.status_code == 200
+        body = resp.data.decode()
+        assert "15 minutes before" in body
+        assert "1 day, 2 hours before" in body
+        assert "At time of event" in body
+        assert "Notification" in body
+        assert "Email" in body
+        assert "-PT15M" not in body
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_humanize_reminder_unit(app):
+    from app.modules.calendar.controllers.helpers import _humanize_reminder
+
+    with app.test_request_context():
+        assert _humanize_reminder("-PT15M", "DISPLAY") == {
+            "when": "15 minutes before",
+            "kind": "Notification",
+        }
+        assert _humanize_reminder("-P1W", "EMAIL") == {"when": "1 week before", "kind": "Email"}
+        assert _humanize_reminder("-PT0M", None) == {
+            "when": "At time of event",
+            "kind": "Notification",
+        }
+        assert _humanize_reminder("garbage", "DISPLAY")["when"] == "garbage"
+
+
+def test_parse_negative_duration_unit():
+    from app.modules.calendar.controllers.helpers import parse_negative_duration
+
+    assert parse_negative_duration("-PT15M") == (0, 0, 0, 15)
+    assert parse_negative_duration("-P1DT2H") == (0, 1, 2, 0)
+    assert parse_negative_duration("-PT0M") == (0, 0, 0, 0)
+    assert parse_negative_duration("-P2W") == (2, 0, 0, 0)
+    assert parse_negative_duration("-P") is None
+    assert parse_negative_duration("-PT") is None
+    assert parse_negative_duration("PT15M") is None
+    assert parse_negative_duration("") is None
+    assert parse_negative_duration(None) is None
+    assert parse_negative_duration("-PT15") is None

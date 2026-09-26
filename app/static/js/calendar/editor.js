@@ -120,6 +120,197 @@
     return [iso.slice(0, 10), '09:00'];
   }
 
+  /* ---- notifications (multiple VALARMs, U12.30/U12.31) ---- */
+
+  var REMINDER_PRESETS = [
+    { value: '-PT0M', key: 'At time of event' },
+    { value: '-PT5M', key: '5 minutes before' },
+    { value: '-PT10M', key: '10 minutes before' },
+    { value: '-PT15M', key: '15 minutes before' },
+    { value: '-PT30M', key: '30 minutes before' },
+    { value: '-PT1H', key: '1 hour before' },
+    { value: '-PT2H', key: '2 hours before' },
+    { value: '-P1D', key: '1 day before' },
+    { value: '-P1W', key: '1 week before' },
+  ];
+  var REMINDER_ACTIONS = [
+    { value: 'DISPLAY', key: 'Notification' },
+    { value: 'EMAIL', key: 'Email' },
+  ];
+  var REMINDER_UNITS = [
+    { value: 'minutes', key: 'minutes' },
+    { value: 'hours', key: 'hours' },
+    { value: 'days', key: 'days' },
+    { value: 'weeks', key: 'weeks' },
+  ];
+  var REMINDER_MAX = 10;
+
+  function parseNegDuration(v) {
+    if (typeof v !== 'string') return null;
+    var m = /^-P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?$/.exec(v.trim());
+    if (!m) return null;
+    var parts = m.slice(1);
+    if (parts.every(function (g) { return g === undefined; })) return null;
+    return {
+      weeks: parseInt(m[1] || '0', 10),
+      days: parseInt(m[2] || '0', 10),
+      hours: parseInt(m[3] || '0', 10),
+      minutes: parseInt(m[4] || '0', 10),
+    };
+  }
+
+  function customToTrigger(amount, unit) {
+    var n = parseInt(amount, 10);
+    if (isNaN(n) || n < 1 || n > 9999) return '';
+    if (unit === 'weeks') return '-P' + n + 'W';
+    if (unit === 'days') return '-P' + n + 'D';
+    if (unit === 'hours') return '-PT' + n + 'H';
+    return '-PT' + n + 'M';
+  }
+
+  function triggerToRowState(v) {
+    for (var i = 0; i < REMINDER_PRESETS.length; i++) {
+      if (REMINDER_PRESETS[i].value === v) return { preset: v };
+    }
+    var d = parseNegDuration(v);
+    if (!d) return { preset: '' };
+    if (d.weeks && !d.days && !d.hours && !d.minutes) return { amount: d.weeks, unit: 'weeks' };
+    if (d.days && !d.weeks && !d.hours && !d.minutes) return { amount: d.days, unit: 'days' };
+    if (d.hours && !d.weeks && !d.days && !d.minutes) return { amount: d.hours, unit: 'hours' };
+    return {
+      amount: d.weeks * 10080 + d.days * 1440 + d.hours * 60 + d.minutes,
+      unit: 'minutes',
+    };
+  }
+
+  function rowHtml() {
+    var actionOpts = REMINDER_ACTIONS.map(function (a) {
+      return '<option value="' + a.value + '">' + window.LR.t(a.key) + '</option>';
+    }).join('');
+    var triggerOpts = REMINDER_PRESETS
+      .map(function (p) {
+        return '<option value="' + p.value + '">' + window.LR.t(p.key) + '</option>';
+      })
+      .join('');
+    var unitOpts = REMINDER_UNITS.map(function (u) {
+      return '<option value="' + u.value + '">' + window.LR.t(u.key) + '</option>';
+    }).join('');
+    return (
+      '<div class="ce-reminder-row flex flex-wrap items-center gap-1.5">' +
+      '<select class="ce-rem-action w-32 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none">' +
+      actionOpts +
+      '</select>' +
+      '<select class="ce-rem-trigger w-40 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none">' +
+      triggerOpts +
+      '<option value="custom">' + window.LR.t('Custom…') + '</option>' +
+      '</select>' +
+      '<span class="ce-rem-custom hidden items-center gap-1.5">' +
+      '<input type="number" min="1" max="9999" value="30" class="ce-rem-amount w-16 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none" />' +
+      '<select class="ce-rem-unit w-24 rounded-lg border border-slate-200 bg-white px-1.5 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none">' +
+      unitOpts +
+      '</select>' +
+      '</span>' +
+      '<button type="button" class="ce-rem-remove rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none" title="' + window.LR.t('Remove') + '" aria-label="' + window.LR.t('Remove') + '">' +
+      '<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/></svg>' +
+      '</button>' +
+      '</div>'
+    );
+  }
+
+  function applyRowState(row, state) {
+    var trigSel = row.querySelector('.ce-rem-trigger');
+    var custom = row.querySelector('.ce-rem-custom');
+    if (state.preset !== undefined) {
+      trigSel.value = state.preset;
+      custom.classList.add('hidden');
+      custom.classList.remove('flex');
+    } else {
+      trigSel.value = 'custom';
+      custom.classList.remove('hidden');
+      custom.classList.add('flex');
+      row.querySelector('.ce-rem-amount').value = state.amount;
+      row.querySelector('.ce-rem-unit').value = state.unit;
+    }
+  }
+
+  function addReminderRow(action, trigger) {
+    var wrap = el('ce-reminders');
+    if (wrap.querySelectorAll('.ce-reminder-row').length >= REMINDER_MAX) return;
+    wrap.insertAdjacentHTML('beforeend', rowHtml());
+    var row = wrap.lastElementChild;
+    row.querySelector('.ce-rem-action').value = action || 'DISPLAY';
+    applyRowState(row, triggerToRowState(trigger || '-PT10M'));
+    row.querySelector('.ce-rem-trigger').addEventListener('change', function () {
+      applyRowState(row, this.value === 'custom' ? { amount: 30, unit: 'minutes' } : { preset: this.value });
+    });
+    row.querySelector('.ce-rem-remove').addEventListener('click', function () {
+      row.remove();
+      refreshReminderUi();
+    });
+    refreshReminderUi();
+  }
+
+  function renderReminders(reminders) {
+    var wrap = el('ce-reminders');
+    wrap.innerHTML = '';
+    (reminders || []).forEach(function (r) {
+      addReminderRow(r.action || 'DISPLAY', r.trigger_val || r.trigger || '');
+    });
+    refreshReminderUi();
+  }
+
+  function refreshReminderUi() {
+    var count = el('ce-reminders').querySelectorAll('.ce-reminder-row').length;
+    el('ce-reminders-empty').classList.toggle('hidden', count > 0);
+    el('ce-add-reminder').classList.toggle('hidden', count >= REMINDER_MAX);
+  }
+
+  function collectReminders() {
+    var out = [];
+    document.querySelectorAll('#ce-reminders .ce-reminder-row').forEach(function (row) {
+      var trigSel = row.querySelector('.ce-rem-trigger');
+      var trigger;
+      if (trigSel.value === 'custom') {
+        trigger = customToTrigger(
+          row.querySelector('.ce-rem-amount').value,
+          row.querySelector('.ce-rem-unit').value
+        );
+      } else {
+        trigger = trigSel.value;
+      }
+      if (trigger) out.push({ action: row.querySelector('.ce-rem-action').value, trigger: trigger });
+    });
+    return out;
+  }
+
+  function remindersValid() {
+    var rows = document.querySelectorAll('#ce-reminders .ce-reminder-row');
+    var seen = {};
+    for (var i = 0; i < rows.length; i++) {
+      var trigSel = rows[i].querySelector('.ce-rem-trigger');
+      var trigger;
+      if (trigSel.value === 'custom') {
+        trigger = customToTrigger(
+          rows[i].querySelector('.ce-rem-amount').value,
+          rows[i].querySelector('.ce-rem-unit').value
+        );
+        if (!trigger) {
+          showError(window.LR.t('Enter a valid notification time.'));
+          return false;
+        }
+      } else {
+        trigger = trigSel.value;
+      }
+      var key = rows[i].querySelector('.ce-rem-action').value + '|' + trigger;
+      if (seen[key]) {
+        showError(window.LR.t('Duplicate notification.'));
+        return false;
+      }
+      seen[key] = true;
+    }
+    return true;
+  }
+
   /* Convert event dt (event frame) -> browser-local date+time inputs. */
   function eventToFormDates(ev) {
     var span = LRCal.eventSpan(ev);
@@ -166,9 +357,7 @@
     el('ce-location').value = ev.location || '';
     el('ce-description').value = ev.description || '';
     el('ce-rrule').value = ev.rrule || '';
-    var reminder = '';
-    if (isEdit && ev.reminders && ev.reminders.length) reminder = ev.reminders[0].trigger_val || ev.reminders[0].trigger || '';
-    el('ce-reminder').value = reminder;
+    renderReminders(isEdit && Array.isArray(ev.reminders) ? ev.reminders : []);
     el('ce-status').value = ev.status || 'CONFIRMED';
     el('ce-class').value = ev.class || ev.class_ || 'PUBLIC';
 
@@ -258,7 +447,7 @@
       location: el('ce-location').value.trim(),
       description: el('ce-description').value.trim(),
       rrule: el('ce-rrule').value,
-      reminder_trigger: el('ce-reminder').value,
+      reminders: collectReminders(),
       status: el('ce-status').value,
       class_: el('ce-class').value,
       attendees: attendeesJson(),
@@ -275,6 +464,7 @@
       showError(window.LR.t('Start date is required.'));
       return;
     }
+    if (!remindersValid()) return;
 
     var btn = el('ce-save');
     btn.disabled = true;
@@ -581,6 +771,10 @@
     });
     el('cal-editor').addEventListener('mousedown', function (e) {
       if (e.target === el('cal-editor') || e.target.hasAttribute('data-cal-backdrop')) close();
+    });
+
+    el('ce-add-reminder').addEventListener('click', function () {
+      addReminderRow('DISPLAY', '-PT10M');
     });
 
     el('qc-form').addEventListener('submit', function (e) {

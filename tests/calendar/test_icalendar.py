@@ -147,6 +147,29 @@ def test_generate_with_reminder():
     assert "END:VALARM" in result
 
 
+def test_generate_and_parse_multiple_reminders_roundtrip():
+    """U12.30/U12.31: multiple VALARMs with per-alarm actions survive a round trip."""
+    data = {
+        "summary": "Multi Alarm",
+        "dtstart": "2025-01-15T10:00:00+00:00",
+        "alarms": [
+            {"trigger": "-PT15M", "action": "DISPLAY", "description": "Multi Alarm"},
+            {"trigger": "-P1D", "action": "EMAIL", "description": "Multi Alarm"},
+            {"trigger": "-PT90M", "action": "DISPLAY", "description": "Multi Alarm"},
+        ],
+    }
+    ical = generate_icalendar(data, uid="multi-alarm-1")
+    assert ical.count("BEGIN:VALARM") == 3
+    parsed = parse_icalendar(ical)
+    alarms = parsed["alarms"]
+    assert len(alarms) == 3
+    # Order and per-alarm fields are preserved (mock contract: parsed alarm
+    # dicts have keys trigger/action/description).
+    assert alarms[0] == {"trigger": "-PT15M", "action": "DISPLAY", "description": "Multi Alarm"}
+    assert alarms[1] == {"trigger": "-P1D", "action": "EMAIL", "description": "Multi Alarm"}
+    assert alarms[2] == {"trigger": "-PT90M", "action": "DISPLAY", "description": "Multi Alarm"}
+
+
 def test_extract_uid():
     ical = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:abc-123\r\nSUMMARY:Test\r\nEND:VEVENT\r\nEND:VCALENDAR"
     assert extract_uid(ical) == "abc-123"

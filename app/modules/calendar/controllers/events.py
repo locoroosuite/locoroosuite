@@ -10,6 +10,7 @@ from app.modules.calendar.controllers.helpers import (
     _get_account,
     _get_caldav_config,
     _get_credentials,
+    _humanize_reminder,
     _open_cache_for_account,
     calendar_bp,
 )
@@ -156,6 +157,11 @@ def event_detail(event_id):
             }
         user_tz_name = _get_user_timezone(user_id)
         event["when_display"] = _format_event_date_range(event, user_tz_name)
+        event["reminder_labels"] = [
+            _humanize_reminder(r.get("trigger_val"), r.get("action"))
+            for r in (event.get("reminders") or [])
+            if isinstance(r, dict)
+        ]
         event_tz = event.get("timezone") or ""
         my_rsvp_status = None
         is_invitee = False

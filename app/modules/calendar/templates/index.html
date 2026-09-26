@@ -221,31 +221,26 @@
 
       <div id="ce-attendees-wrap"></div>
 
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block text-xs font-medium text-slate-500 mb-1">{{ _('Repeat') }}</label>
-          <select id="ce-rrule" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none">
-            <option value="">{{ _('Does not repeat') }}</option>
-            <option value="FREQ=DAILY">{{ _('Daily') }}</option>
-            <option value="FREQ=WEEKLY">{{ _('Weekly') }}</option>
-            <option value="FREQ=WEEKLY;INTERVAL=2">{{ _('Biweekly') }}</option>
-            <option value="FREQ=MONTHLY">{{ _('Monthly') }}</option>
-            <option value="FREQ=YEARLY">{{ _('Yearly') }}</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-500 mb-1">{{ _('Reminder') }}</label>
-          <select id="ce-reminder" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none">
-            <option value="">{{ _('No reminder') }}</option>
-            <option value="-PT0M">{{ _('At time of event') }}</option>
-            <option value="-PT5M">{{ _('5 minutes before') }}</option>
-            <option value="-PT15M">{{ _('15 minutes before') }}</option>
-            <option value="-PT30M">{{ _('30 minutes before') }}</option>
-            <option value="-PT1H">{{ _('1 hour before') }}</option>
-            <option value="-PT2H">{{ _('2 hours before') }}</option>
-            <option value="-P1D">{{ _('1 day before') }}</option>
-          </select>
-        </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1">{{ _('Repeat') }}</label>
+        <select id="ce-rrule" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none">
+          <option value="">{{ _('Does not repeat') }}</option>
+          <option value="FREQ=DAILY">{{ _('Daily') }}</option>
+          <option value="FREQ=WEEKLY">{{ _('Weekly') }}</option>
+          <option value="FREQ=WEEKLY;INTERVAL=2">{{ _('Biweekly') }}</option>
+          <option value="FREQ=MONTHLY">{{ _('Monthly') }}</option>
+          <option value="FREQ=YEARLY">{{ _('Yearly') }}</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1">{{ _('Notifications') }}</label>
+        <div id="ce-reminders" class="space-y-1.5"></div>
+        <p id="ce-reminders-empty" class="text-xs text-slate-400">{{ _('No notification') }}</p>
+        <button type="button" id="ce-add-reminder" class="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 focus:outline-none">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z"/></svg>
+          {{ _('Add notification') }}
+        </button>
       </div>
 
       <div class="grid grid-cols-2 gap-3">

@@ -19,6 +19,7 @@ from app.modules.calendar.controllers.helpers import (
     _get_credentials,
     _open_cache_for_account,
     calendar_bp,
+    parse_negative_duration,
 )
 from app.modules.calendar.services import cache_db, caldav
 from app.shared.auth import require_customer
@@ -35,6 +36,8 @@ RRULE_PRESETS = (
 )
 STATUS_OPTIONS = ("CONFIRMED", "TENTATIVE", "CANCELLED")
 CLASS_OPTIONS = ("PUBLIC", "PRIVATE", "CONFIDENTIAL")
+REMINDER_ACTIONS = ("DISPLAY", "EMAIL")
+MAX_REMINDERS = 10
 
 
 def _get_user_timezone(user_id):
@@ -61,6 +64,9 @@ def _validate_payload(payload):
         errors["dtstart"] = _("Start date is required.")
     if not payload.get("calendar_id"):
         errors["calendar_id"] = _("Calendar is required.")
+    _alarms, reminder_error = _normalize_reminders(payload.get("reminders"), "")
+    if reminder_error:
+        errors["reminders"] = reminder_error
     return errors
 
 
@@ -91,6 +97,47 @@ def _normalize_attendees(raw):
     return attendees
 
 
+def _normalize_reminders(raw, summary):
+    """Validate and normalize a reminders payload into VALARM dicts.
+
+    Accepts a list of ``{"action": "DISPLAY"|"EMAIL", "trigger": "-PT15M"}``
+    dicts (the legacy ``reminder_trigger`` scalar is intentionally dropped:
+    callers that send it simply get no alarms). Returns ``(alarms, error)``
+    where exactly one of the two is None/empty on success.
+    """
+    if raw is None or raw == "":
+        return [], None
+    if isinstance(raw, str):
+        with contextlib.suppress(ValueError, TypeError):
+            raw = json.loads(raw)
+    if not isinstance(raw, list):
+        return None, _("Invalid notifications.")
+    if len(raw) > MAX_REMINDERS:
+        return None, _("Too many notifications (maximum %(max)d).", max=MAX_REMINDERS)
+    alarms = []
+    seen = set()
+    for item in raw:
+        if not isinstance(item, dict):
+            return None, _("Invalid notifications.")
+        action = str(item.get("action") or item.get("type") or "DISPLAY").strip().upper()
+        if action not in REMINDER_ACTIONS:
+            return None, _("Invalid notification type.")
+        trigger = str(item.get("trigger") or "").strip()
+        if parse_negative_duration(trigger) is None:
+            return None, _("Invalid notification time.")
+        if (action, trigger) in seen:
+            return None, _("Duplicate notification.")
+        seen.add((action, trigger))
+        alarms.append(
+            {
+                "trigger": trigger,
+                "action": action,
+                "description": (summary or "").strip(),
+            }
+        )
+    return alarms, None
+
+
 def _payload_to_event_data(payload, user_id):
     """Build a generate_icalendar-compatible dict from a JSON payload."""
     all_day = bool(payload.get("all_day"))
@@ -112,16 +159,11 @@ def _payload_to_event_data(payload, user_id):
         except ValueError:
             dtend = dtend[:10]
 
-    reminders = []
-    reminder_trigger = (payload.get("reminder_trigger") or "").strip()
-    if reminder_trigger:
-        reminders.append(
-            {
-                "trigger": reminder_trigger,
-                "action": "DISPLAY",
-                "description": (payload.get("summary") or "").strip(),
-            }
-        )
+    reminders, reminder_error = _normalize_reminders(
+        payload.get("reminders"), (payload.get("summary") or "").strip()
+    )
+    if reminder_error:
+        reminders = []
 
     rrule = (payload.get("rrule") or "").strip()
     if rrule and rrule not in RRULE_PRESETS:
@@ -225,7 +267,13 @@ def api_event_create():
     payload = request.get_json(silent=True) or {}
     errors = _validate_payload(payload)
     if errors:
-        return jsonify({"ok": False, "error": errors.get("summary") or _("Invalid event.")}), 400
+        first_error = (
+            errors.get("summary")
+            or errors.get("dtstart")
+            or errors.get("calendar_id")
+            or errors.get("reminders")
+        )
+        return jsonify({"ok": False, "error": first_error or _("Invalid event.")}), 400
 
     account = _get_account(account_id, user_id)
     config = _get_caldav_config(account)
@@ -290,7 +338,13 @@ def api_event_update(event_id):
     payload = request.get_json(silent=True) or {}
     errors = _validate_payload(payload)
     if errors:
-        return jsonify({"ok": False, "error": errors.get("summary") or _("Invalid event.")}), 400
+        first_error = (
+            errors.get("summary")
+            or errors.get("dtstart")
+            or errors.get("calendar_id")
+            or errors.get("reminders")
+        )
+        return jsonify({"ok": False, "error": first_error or _("Invalid event.")}), 400
 
     account = _get_account(account_id, user_id)
     conn = _open_cache_for_account(account)

@@ -530,6 +530,11 @@ def _serialize_events(events):
             "recurrence_id": e.get("recurrence_id") or "",
             "recurrence_date": e.get("recurrence_date") or "",
             "is_occurrence": bool(e.get("is_occurrence")),
+            "reminders": [
+                {"trigger_val": r.get("trigger_val"), "action": r.get("action")}
+                for r in (e.get("reminders") or [])
+                if isinstance(r, dict)
+            ],
         }
         result.append(serialized)
     return result

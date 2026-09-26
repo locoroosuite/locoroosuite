@@ -191,7 +191,11 @@ def _persist_browser_locale() -> None:
 
 
 def catalog_messages() -> dict[str, str]:
-    """Message catalog for the current locale (empty dict = passthrough)."""
+    """Message catalog for the current locale (empty dict = passthrough).
+
+    Plural msgids are stored by gettext as ``(singular, plural)`` tuple keys;
+    they are not representable in the flat JS catalog and are skipped.
+    """
     if current_locale_name() == DEFAULT_LOCALE:
         return {}
     from flask_babel import get_translations
@@ -200,7 +204,11 @@ def catalog_messages() -> dict[str, str]:
     catalog = getattr(translations, "_catalog", None)
     if not isinstance(catalog, dict):
         return {}
-    return {msgid: msgstr for msgid, msgstr in catalog.items() if msgid and msgstr}
+    return {
+        msgid: msgstr
+        for msgid, msgstr in catalog.items()
+        if isinstance(msgid, str) and msgid and msgstr
+    }
 
 
 def catalog_version() -> str:

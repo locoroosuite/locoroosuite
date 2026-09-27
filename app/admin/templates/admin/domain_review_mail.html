@@ -81,7 +81,6 @@
       <svg class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
       Save mail settings
     </button>
-    <span id="mail-save-result" class="text-xs"></span>
   </div>
 </form>
 <script>
@@ -96,20 +95,16 @@
   el('mail-form').addEventListener('submit', function(e) {
     e.preventDefault();
     var btn = el('btn-save-mail');
-    var result = el('mail-save-result');
     btnState(btn, true);
-    result.textContent = '';
-    result.className = 'text-xs';
     var fd = new FormData(el('mail-form'));
     fetch('/admin/domains/' + domainId + '/mail-config', { method: 'POST', body: fd })
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      result.textContent = data.ok ? 'Mail settings saved.' : (data.error || 'Failed to save.');
-      result.className = 'text-xs ' + (data.ok ? 'text-emerald-600' : 'text-red-600');
+      if (data.ok) window.LR.notifySuccess('Mail settings saved.');
+      else window.LR.notifyError(data.error || 'Failed to save.');
     })
     .catch(function(e) {
-      result.textContent = 'Request failed: ' + e.message;
-      result.className = 'text-xs text-red-600';
+      window.LR.notifyError('Request failed: ' + e.message);
     })
     .finally(function() { btnState(btn, false); });
   });

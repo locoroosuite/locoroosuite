@@ -141,6 +141,7 @@ U1b.6 - DNS health checks query the domain's authoritative nameservers directly 
 U1b.7 - DNS checks are performed asynchronously via JavaScript to avoid blocking page load. The admin can test all records at once or individually.
 U1b.8 - DKIM key pairs are generated per domain via the mail-api (`POST /api/dkim/<domain>`). The mail-api manages OpenDKIM KeyTable and SigningTable entries. The public key is retrieved for DNS record instructions.
 U1b.9 - The domain list page shows a "Self-hosted" badge for domains with self-hosted enabled.
+U1b.10 - Inline admin actions in the domain review pages (save settings, toggle self-hosted, test Mail API connection, DKIM generate/regenerate) confirm outcomes via the shared toast notifications (`window.LR.notifySuccess` / `notifyError` from the app layout): green toast for success, red toast with retry guidance for failure. Tiny inline text-status spans next to buttons are not used; buttons keep their spinner + disabled state while in flight.
 
 # Use Case U2 – Managers (General)
 On the MVPv0.1 the managers see the Customer that logged in in their domain.  

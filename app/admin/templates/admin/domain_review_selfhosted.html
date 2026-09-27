@@ -14,8 +14,6 @@
   </label>
 </div>
 
-<div id="self-hosted-error" class="hidden mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"></div>
-
 <div id="self-hosted-body" class="{{ 'hidden' if not dns_config or not dns_config.is_self_hosted }}">
 
   <div class="border border-slate-200 rounded-lg p-4 mb-4">
@@ -35,7 +33,6 @@
         <svg class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
         Test connection
       </button>
-      <span id="conn-result" class="text-xs"></span>
     </div>
   </div>
 
@@ -80,7 +77,6 @@
           <svg class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
           Generate DKIM key
         </button>
-        <span id="dkim-generate-result" class="text-xs"></span>
       </div>
       <div id="dkim-key-present" class="hidden">
         <div class="flex items-start justify-between mb-2">
@@ -105,7 +101,6 @@
             </div>
           </div>
         </details>
-        <span id="dkim-regenerate-result" class="text-xs"></span>
       </div>
       <div id="dkim-key-unavailable" class="hidden">
         <p class="text-xs text-slate-400">Mail API is not configured. DKIM key management requires a Mail API connection.</p>
@@ -119,7 +114,6 @@
         <svg class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
         Save DKIM / DMARC settings
       </button>
-      <span id="self-hosted-save-result" class="text-xs"></span>
     </div>
   </div>
 
@@ -228,8 +222,6 @@
 
   window.toggleSelfHosted = function() {
     var newState = !isSelfHosted;
-    var errorDiv = el('self-hosted-error');
-    errorDiv.classList.add('hidden');
     var fd = new FormData();
     fd.append('is_self_hosted', newState ? '1' : '0');
     fd.append('dkim_selector', el('dkim-selector') ? el('dkim-selector').value : 'default');
@@ -241,31 +233,25 @@
       if (data.ok) {
         updateSelfHostedUI(newState);
         if (newState) {
-          el('self-hosted-save-result').textContent = 'Self-hosted enabled.';
-          el('self-hosted-save-result').className = 'text-xs text-emerald-600';
+          window.LR.notifySuccess('Self-hosted enabled.');
           if (!dnsHealthLoaded) { dnsHealthLoaded = true; runDnsCheck(); }
           loadDkimKeyStatus();
         } else {
-          el('self-hosted-save-result').textContent = '';
+          window.LR.notifySuccess('Self-hosted disabled.');
           dnsHealthLoaded = false;
         }
       } else {
-        errorDiv.textContent = data.error || 'Failed to update self-hosted setting.';
-        errorDiv.classList.remove('hidden');
+        window.LR.notifyError(data.error || 'Failed to update self-hosted setting.');
       }
     })
     .catch(function(e) {
-      errorDiv.textContent = 'Request failed: ' + e.message;
-      errorDiv.classList.remove('hidden');
+      window.LR.notifyError('Request failed: ' + e.message);
     });
   };
 
   window.saveSelfHosted = function() {
     var btn = el('btn-save-self-hosted');
-    var result = el('self-hosted-save-result');
     btnState(btn, true);
-    result.textContent = '';
-    result.className = 'text-xs';
     var saveApi = new FormData();
     saveApi.append('mail_api_url', el('mail_api_url').value.trim());
     saveApi.append('mail_api_key', el('mail_api_key').value.trim());
@@ -282,29 +268,23 @@
       var apiOk = responses[0].ok;
       var dkimOk = responses[1].ok;
       if (apiOk && dkimOk) {
-        result.textContent = 'Settings saved.';
-        result.className = 'text-xs text-emerald-600';
+        window.LR.notifySuccess('Settings saved.');
       } else {
         var errors = [];
         if (!apiOk) errors.push(responses[0].error || 'Mail API failed');
         if (!dkimOk) errors.push(responses[1].error || 'DKIM/DMARC failed');
-        result.textContent = errors.join('; ');
-        result.className = 'text-xs text-red-600';
+        window.LR.notifyError(errors.join('; '));
       }
     })
     .catch(function(e) {
-      result.textContent = 'Request failed: ' + e.message;
-      result.className = 'text-xs text-red-600';
+      window.LR.notifyError('Request failed: ' + e.message);
     })
     .finally(function() { btnState(btn, false); });
   };
 
   window.testConnection = function() {
     var btn = el('btn-test-conn');
-    var result = el('conn-result');
     btnState(btn, true);
-    result.textContent = '';
-    result.className = 'text-xs';
     var fd = new FormData();
     fd.append('mail_api_url', el('mail_api_url').value.trim());
     fd.append('mail_api_key', el('mail_api_key').value.trim());
@@ -315,12 +295,11 @@
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      result.textContent = data.ok ? data.message : data.error;
-      result.className = 'text-xs ' + (data.ok ? 'text-emerald-600' : 'text-red-600');
+      if (data.ok) window.LR.notifySuccess(data.message);
+      else window.LR.notifyError(data.error || 'Connection test failed.');
     })
     .catch(function(e) {
-      result.textContent = 'Request failed: ' + e.message;
-      result.className = 'text-xs text-red-600';
+      window.LR.notifyError('Request failed: ' + e.message);
     })
     .finally(function() { btnState(btn, false); });
   };
@@ -352,25 +331,19 @@
 
   window.generateDkimKey = function() {
     var btn = el('btn-generate-dkim');
-    var result = el('dkim-generate-result');
     btnState(btn, true);
-    result.textContent = '';
-    result.className = 'text-xs';
     fetch('/admin/domains/' + domainId + '/dkim-generate', { method: 'POST' })
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.ok) {
-        result.textContent = 'DKIM key generated. Update your DNS record.';
-        result.className = 'text-xs text-emerald-600';
+        window.LR.notifySuccess('DKIM key generated. Update your DNS record below.');
         showDkimKey({has_key: true, selector: data.selector, public_key: data.public_key, txt_record: data.txt_record});
       } else {
-        result.textContent = data.error || 'Failed to generate.';
-        result.className = 'text-xs text-red-600';
+        window.LR.notifyError(data.error || 'Failed to generate.');
       }
     })
     .catch(function(e) {
-      result.textContent = 'Request failed: ' + e.message;
-      result.className = 'text-xs text-red-600';
+      window.LR.notifyError('Request failed: ' + e.message);
     })
     .finally(function() { btnState(btn, false); });
   };
@@ -378,25 +351,19 @@
   window.confirmRegenerate = function() {
     if (!confirm('This will replace the current DKIM key. You must update the DNS TXT record with the new public key. Continue?')) return;
     var btn = el('btn-regenerate-dkim');
-    var result = el('dkim-regenerate-result');
     btnState(btn, true);
-    result.textContent = '';
-    result.className = 'text-xs';
     fetch('/admin/domains/' + domainId + '/dkim-generate', { method: 'POST' })
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.ok) {
-        result.textContent = 'New key generated. Update your DNS record immediately.';
-        result.className = 'text-xs text-amber-600';
+        window.LR.notifySuccess('New key generated. Update your DNS record immediately — see the TXT record below.');
         showDkimKey({has_key: true, selector: data.selector, public_key: data.public_key, txt_record: data.txt_record});
       } else {
-        result.textContent = data.error || 'Failed to regenerate.';
-        result.className = 'text-xs text-red-600';
+        window.LR.notifyError(data.error || 'Failed to regenerate.');
       }
     })
     .catch(function(e) {
-      result.textContent = 'Request failed: ' + e.message;
-      result.className = 'text-xs text-red-600';
+      window.LR.notifyError('Request failed: ' + e.message);
     })
     .finally(function() { btnState(btn, false); });
   };

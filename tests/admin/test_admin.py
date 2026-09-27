@@ -66,12 +66,11 @@ def test_admin_domains_page_with_domains(mock_collabora, mock_tcp, admin_client,
         db.session.add(domain)
         db.session.flush()
 
-        dns_cfg = DomainDnsConfig(
-            domain_id=domain.id,
-            is_self_hosted=True,
-            dkim_selector="default",
-            dmarc_policy="none",
-        )
+        dns_cfg = DomainDnsConfig()
+        dns_cfg.domain_id = domain.id
+        dns_cfg.is_self_hosted = True
+        dns_cfg.dkim_selector = "default"
+        dns_cfg.dmarc_policy = "none"
         db.session.add(dns_cfg)
         db.session.commit()
 
@@ -318,7 +317,9 @@ def test_admin_create_customer_existing_user_with_sync_link(mock_audit, admin_cl
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
-        existing = User(email="dup@example.com", role="customer")
+        existing = User()
+        existing.email = "dup@example.com"
+        existing.role = "customer"
         db.session.add(existing)
         db.session.commit()
 
@@ -353,7 +354,9 @@ def test_admin_create_customer_existing_user_no_mail_api(mock_audit, admin_clien
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
-        existing = User(email="dup@example.com", role="customer")
+        existing = User()
+        existing.email = "dup@example.com"
+        existing.role = "customer"
         db.session.add(existing)
         db.session.commit()
 
@@ -439,7 +442,10 @@ def test_admin_toggle_customer(mock_audit, admin_client, app):
     client, _ = admin_client
     cust_id = None
     with app.app_context():
-        cust = User(email="toggle-cust@example.com", role="customer", is_active=True)
+        cust = User()
+        cust.email = "toggle-cust@example.com"
+        cust.role = "customer"
+        cust.is_active = True
         db.session.add(cust)
         db.session.flush()
         cust_id = cust.id
@@ -522,6 +528,75 @@ def test_admin_review_domain_page(mock_discover, admin_client, app):
     assert resp.status_code == 200
 
 
+def _create_review_domain(app, name):
+    domain_id = None
+    with app.app_context():
+        domain = Domain()
+        domain.name = name
+        domain.is_active = True
+        domain.status = "review"
+        domain.imap_host = ""
+        domain.imap_port = 993
+        domain.smtp_host = ""
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        db.session.add(domain)
+        db.session.flush()
+        domain_id = domain.id
+        db.session.commit()
+    return domain_id
+
+
+def test_admin_review_dav_page_toast_feedback(admin_client, app):
+    client, _ = admin_client
+    domain_id = _create_review_domain(app, "toast-dav.com")
+
+    resp = client.get(f"/admin/domains/{domain_id}/review/dav")
+    assert resp.status_code == 200
+    html = resp.get_data(as_text=True)
+    assert "dav-save-result" not in html
+    assert "window.LR.notifySuccess('Contacts, calendar & chat settings saved.')" in html
+
+
+@patch(
+    "app.admin.controllers.admin.discover_domain_settings",
+    return_value={
+        "imap_primary": None,
+        "smtp_primary": None,
+        "imap_candidates": [],
+        "smtp_candidates": [],
+    },
+)
+def test_admin_review_mail_page_toast_feedback(mock_discover, admin_client, app):
+    client, _ = admin_client
+    domain_id = _create_review_domain(app, "toast-mail.com")
+
+    resp = client.get(f"/admin/domains/{domain_id}/review/mail")
+    assert resp.status_code == 200
+    html = resp.get_data(as_text=True)
+    assert "mail-save-result" not in html
+    assert "window.LR.notifySuccess('Mail settings saved.')" in html
+
+
+def test_admin_review_selfhosted_page_toast_feedback(admin_client, app):
+    client, _ = admin_client
+    domain_id = _create_review_domain(app, "toast-selfhosted.com")
+
+    resp = client.get(f"/admin/domains/{domain_id}/review/self-hosted")
+    assert resp.status_code == 200
+    html = resp.get_data(as_text=True)
+    for removed_id in (
+        "self-hosted-save-result",
+        "self-hosted-error",
+        "conn-result",
+        "dkim-generate-result",
+        "dkim-regenerate-result",
+    ):
+        assert removed_id not in html
+    assert "window.LR.notifySuccess('Settings saved.')" in html
+    assert "window.LR.notifySuccess('Self-hosted enabled.')" in html
+
+
 @patch("app.admin.controllers.admin.log_audit")
 def test_admin_update_domain_carddav(mock_audit, admin_client, app):
     client, _ = admin_client
@@ -558,6 +633,7 @@ def test_admin_update_domain_carddav(mock_audit, admin_client, app):
 
     with app.app_context():
         domain = db.session.get(Domain, domain_id)
+        assert domain is not None
         assert domain.carddav_host == "dav.test.com"
         assert domain.carddav_port == 5232
         assert domain.carddav_use_tls is True
@@ -601,6 +677,7 @@ def test_admin_update_domain_carddav_clear(mock_audit, admin_client, app):
 
     with app.app_context():
         domain = db.session.get(Domain, domain_id)
+        assert domain is not None
         assert domain.carddav_host is None
         assert domain.carddav_use_tls is False
 
@@ -650,6 +727,7 @@ def test_admin_review_domain_saves_carddav(mock_discover, mock_audit, admin_clie
 
     with app.app_context():
         domain = db.session.get(Domain, domain_id)
+        assert domain is not None
         assert domain.carddav_host == "carddav.test.com"
         assert domain.carddav_port == 8443
         assert domain.carddav_use_tls is True
@@ -758,6 +836,7 @@ def test_admin_save_mail_config(mock_sync, mock_audit, admin_client, app):
 
     with app.app_context():
         domain = db.session.get(Domain, domain_id)
+        assert domain is not None
         assert domain.imap_host == "new-imap.com"
         assert domain.smtp_port == 465
         assert domain.smtp_tls_mode == "tls"
@@ -797,6 +876,7 @@ def test_admin_save_dav_config(mock_audit, admin_client, app):
 
     with app.app_context():
         domain = db.session.get(Domain, domain_id)
+        assert domain is not None
         assert domain.caldav_host == "caldav.new.com"
         assert domain.caldav_port == 8443
         assert domain.caldav_use_tls is True
@@ -820,7 +900,10 @@ def test_admin_domain_accounts_json(admin_client, app):
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
-        cust = User(email="user@accounts-test.com", role="customer", is_active=True)
+        cust = User()
+        cust.email = "user@accounts-test.com"
+        cust.role = "customer"
+        cust.is_active = True
         db.session.add(cust)
         db.session.flush()
         account = CustomerAccount()
@@ -896,13 +979,17 @@ def test_admin_save_mail_api_config(mock_sync, mock_audit, admin_client, app):
 
     with app.app_context():
         domain = db.session.get(Domain, domain_id)
+        assert domain is not None
         assert domain.mail_api_url == "http://mail-api:8800"
         assert domain.mail_api_key == "test-key"
 
 
 def _create_customer_with_account(app, domain_id, email, auth_type="password"):
     with app.app_context():
-        cust = User(email=email, role="customer", is_active=True)
+        cust = User()
+        cust.email = email
+        cust.role = "customer"
+        cust.is_active = True
         db.session.add(cust)
         db.session.flush()
         account = CustomerAccount()
@@ -975,6 +1062,7 @@ def test_admin_reset_customer_password(mock_audit, admin_client, app):
 
     with app.app_context():
         account = CustomerAccount.query.filter_by(customer_id=cust_id).first()
+        assert account is not None
         assert account.signup_token is not None
         assert account.signup_expires_at is not None
 
@@ -984,7 +1072,10 @@ def test_admin_reset_customer_password_no_account(mock_audit, admin_client, app)
     client, _ = admin_client
     cust_id = None
     with app.app_context():
-        cust = User(email="noaccount@reset.com", role="customer", is_active=True)
+        cust = User()
+        cust.email = "noaccount@reset.com"
+        cust.role = "customer"
+        cust.is_active = True
         db.session.add(cust)
         db.session.flush()
         cust_id = cust.id
@@ -1022,6 +1113,7 @@ def test_admin_set_customer_password(mock_mail_api, mock_audit, admin_client, ap
 
     with app.app_context():
         account = CustomerAccount.query.filter_by(customer_id=cust_id).first()
+        assert account is not None
         assert account.auth_type == "password"
         assert account.signup_token is None
         assert account.signup_expires_at is None
@@ -1100,6 +1192,7 @@ def test_admin_toggle_customer_external_from_hosted(mock_audit, admin_client, ap
 
     with app.app_context():
         account = CustomerAccount.query.filter_by(customer_id=cust_id).first()
+        assert account is not None
         assert account.auth_type == "external"
         assert account.signup_token is None
 
@@ -1130,6 +1223,7 @@ def test_admin_toggle_customer_external_to_hosted(mock_audit, admin_client, app)
 
     with app.app_context():
         account = CustomerAccount.query.filter_by(customer_id=cust_id).first()
+        assert account is not None
         assert account.auth_type == "password"
 
 
@@ -1150,7 +1244,10 @@ def test_admin_toggle_customer_external_no_account(mock_audit, admin_client, app
 
     cust_id = None
     with app.app_context():
-        cust = User(email="noacc@noacc.com", role="customer", is_active=True)
+        cust = User()
+        cust.email = "noacc@noacc.com"
+        cust.role = "customer"
+        cust.is_active = True
         db.session.add(cust)
         db.session.flush()
         cust_id = cust.id
@@ -1162,13 +1259,17 @@ def test_admin_toggle_customer_external_no_account(mock_audit, admin_client, app
     with app.app_context():
         account = CustomerAccount.query.filter_by(customer_id=cust_id).first()
         assert account is not None
+        assert account is not None
         assert account.auth_type == "external"
 
 
 def test_admin_customers_page_shows_no_account_badge(admin_client, app):
     client, _ = admin_client
     with app.app_context():
-        cust = User(email="nobadge@noacc.com", role="customer", is_active=True)
+        cust = User()
+        cust.email = "nobadge@noacc.com"
+        cust.role = "customer"
+        cust.is_active = True
         db.session.add(cust)
         db.session.flush()
         db.session.commit()
@@ -1279,9 +1380,14 @@ def _setup_self_hosted_domain(app):
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
-        cfg = DomainDnsConfig(domain_id=domain_id, is_self_hosted=True)
+        cfg = DomainDnsConfig()
+        cfg.domain_id = domain_id
+        cfg.is_self_hosted = True
         db.session.add(cfg)
-        cust = User(email="user@selfhosted.com", role="customer", is_active=True)
+        cust = User()
+        cust.email = "user@selfhosted.com"
+        cust.role = "customer"
+        cust.is_active = True
         db.session.add(cust)
         db.session.flush()
         account = CustomerAccount()
@@ -1314,6 +1420,7 @@ def test_account_reset_password(mock_mail_api, admin_client, app):
     mock_mail_api.assert_called()
     with app.app_context():
         acc = db.session.get(CustomerAccount, account_id)
+        assert acc is not None
         assert acc.auth_type == "password"
         assert acc.signup_token is None
 
@@ -1333,7 +1440,10 @@ def test_account_reset_password_not_self_hosted(admin_client, app):
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
-        cust = User(email="user@notself.com", role="customer", is_active=True)
+        cust = User()
+        cust.email = "user@notself.com"
+        cust.role = "customer"
+        cust.is_active = True
         db.session.add(cust)
         db.session.flush()
         account = CustomerAccount()
@@ -1383,6 +1493,7 @@ def test_account_login_link(admin_client, app):
     assert "/signup/" in data["login_url"]
     with app.app_context():
         acc = db.session.get(CustomerAccount, account_id)
+        assert acc is not None
         assert acc.signup_token is not None
         assert acc.signup_expires_at is not None
 

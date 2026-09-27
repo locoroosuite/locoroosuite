@@ -8,8 +8,10 @@ lists (docs, folder sidebar) must be always visible on touch.
 """
 
 import contextlib
+import uuid
 
 from tests.e2e.conftest import skip_if_no_services
+from tests.e2e.services import APP_URL, get_account_id, login_session, wait_for
 
 
 def _assert_touch_emulation(page):
@@ -95,6 +97,102 @@ class TestTouchMailList:
             f".message-row[data-message-id='{msg_id}']",
             state="detached",
             timeout=10000,
+        )
+
+    def test_overflow_menu_reopen_after_close_shows_options(
+        self, seeded_inbox_message, mobile_logged_in_page
+    ):
+        """Regression: closing the "more actions" (⋮) overflow menu used to
+        wipe its innerHTML (restore from a never-captured originalContent
+        cache), so the open → close → open cycle left an empty menu."""
+        page = mobile_logged_in_page
+        row = page.wait_for_selector(".message-row", timeout=15000)
+        assert row is not None
+        msg_id = row.get_attribute("data-message-id")
+        assert msg_id
+        row_sel = f".message-row[data-message-id='{msg_id}']"
+        menu_sel = f"{row_sel} [data-overflow-menu]"
+
+        page.click(f"{row_sel} [data-message-actions-toggle]")
+        page.wait_for_selector(f"{row_sel}[data-overlay-locked]", timeout=5000)
+
+        for _ in range(2):  # open, then reopen after close
+            page.click(f"{row_sel} [data-overflow-toggle]")
+            page.wait_for_selector(menu_sel, state="visible", timeout=5000)
+            assert page.is_visible(f"{menu_sel} [data-move-to-folder]"), (
+                "overflow menu reopened empty (originalContent wipe regression)"
+            )
+            assert page.query_selector(f"{menu_sel} form[data-action='mark']") is not None
+            page.click(f"{row_sel} [data-overflow-toggle]")
+            page.wait_for_selector(menu_sel, state="hidden", timeout=5000)
+
+    def test_overflow_menu_layered_above_following_row_toggle(
+        self, seeded_inbox_message, mobile_logged_in_page
+    ):
+        """Regression: the overflow menu's z-50 is confined to the action
+        overlay's z-20 stacking context, so following rows' "..." toggles
+        (z-30) painted over the open menu. The active row must be elevated
+        above sibling toggles, and the revealed actions must stay clear of
+        the still-visible toggle on the row below."""
+        page = mobile_logged_in_page
+        subject = f"E2E UI overflow {uuid.uuid4().hex[:8]}"
+        session = login_session("e2e-test@test.localhost")
+        account_id = get_account_id(APP_URL, session)
+        r = session.post(
+            f"{APP_URL}/app/mail/send",
+            data={
+                "account_id": account_id,
+                "to": "e2e-test@test.localhost",
+                "subject": subject,
+                "body_html": f"<p>{subject}</p>",
+            },
+            allow_redirects=True,
+        )
+        assert r.status_code == 200, f"send failed: {r.status_code}"
+
+        def folder_lists_subject() -> bool:
+            resp = session.get(f"{APP_URL}/app/mail/folder/{account_id}/INBOX")
+            return resp.status_code == 200 and subject in resp.text
+
+        wait_for(folder_lists_subject, timeout=30)
+
+        page.reload()
+        page.wait_for_function("document.querySelectorAll('.message-row').length >= 2")
+        # Bounce/draft/sent row variants have no "..." toggle; only rows
+        # that can open the overlay are relevant for the layering check.
+        rows = [
+            r
+            for r in page.query_selector_all(".message-row")
+            if r.query_selector("[data-message-actions-toggle]") is not None
+        ]
+        assert len(rows) >= 2, "need two tappable rows for the layering check"
+        first = rows[0]
+        following = rows[1]
+        msg_id = first.get_attribute("data-message-id")
+        assert msg_id
+        row_sel = f".message-row[data-message-id='{msg_id}']"
+
+        page.click(f"{row_sel} [data-message-actions-toggle]")
+        page.wait_for_selector(f"{row_sel}[data-overlay-locked]", timeout=5000)
+        page.click(f"{row_sel} [data-overflow-toggle]")
+        page.wait_for_selector(f"{row_sel} [data-overflow-menu]", state="visible", timeout=5000)
+
+        z_row = first.evaluate("el => getComputedStyle(el).zIndex")
+        toggle = following.query_selector("[data-message-actions-toggle]")
+        assert toggle is not None
+        z_toggle = toggle.evaluate("el => getComputedStyle(el).zIndex")
+        assert int(z_row) > int(z_toggle), (
+            f"active row z-index ({z_row}) must beat sibling toggle ({z_toggle})"
+        )
+
+        menu = page.query_selector(f"{row_sel} [data-overflow-menu]")
+        assert menu is not None
+        menu_box = menu.bounding_box()
+        toggle_box = toggle.bounding_box()
+        assert menu_box is not None and toggle_box is not None
+        menu_right = menu_box["x"] + menu_box["width"]
+        assert menu_right <= toggle_box["x"] + 1, (
+            "open overflow menu overlaps the following row's '...' toggle"
         )
 
     def test_folder_sidebar_actions_visible_on_touch(self, mobile_logged_in_page):

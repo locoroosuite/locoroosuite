@@ -59,8 +59,8 @@
     };
 
     var renderOverflowMenu = function (menu) {
-      if (!menu) return;
-      menu.innerHTML = menu.dataset.originalContent || '';
+      if (!menu || !menu.dataset.originalContent) return;
+      menu.innerHTML = menu.dataset.originalContent;
     };
 
     var closeOverflowMenu = function () {
@@ -143,6 +143,9 @@
           closeOverflowMenu();
         }
         if (wasHidden) {
+          if (!menu.dataset.originalContent) {
+            menu.dataset.originalContent = menu.innerHTML;
+          }
           menu.classList.remove('hidden');
           positionOverflowMenu(menu, row);
           openOverflowMenu = menu;
@@ -463,7 +466,12 @@
               opts.onStarredDelta(delta);
             }
             var overflowMenu = row.querySelector('[data-overflow-menu]');
-            if (overflowMenu) overflowMenu.classList.add('hidden');
+            if (overflowMenu) {
+              overflowMenu.classList.add('hidden');
+              if (openOverflowMenu === overflowMenu) {
+                openOverflowMenu = null;
+              }
+            }
             if (typeof opts.onListChanged === 'function') opts.onListChanged();
             return;
           }
@@ -482,7 +490,12 @@
           }
           if (action === 'lock') {
             var overflowMenu = row.querySelector('[data-overflow-menu]');
-            if (overflowMenu) overflowMenu.classList.add('hidden');
+            if (overflowMenu) {
+              overflowMenu.classList.add('hidden');
+              if (openOverflowMenu === overflowMenu) {
+                openOverflowMenu = null;
+              }
+            }
             if (window.LR) {
               window.LR.notifySuccess(data.is_locked ? window.LR.t('Message locked') : window.LR.t('Message unlocked'));
             }

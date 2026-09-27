@@ -76,12 +76,25 @@
   .message-row.is-dragging {
     opacity: 0.45;
   }
+  .message-row.is-actions-open,
+  .message-row[data-overlay-locked] {
+    /* Lift the active row (35) above sibling rows' "..." toggles (z-30):
+     * the overflow menu's z-50 is confined to the action overlay's z-20
+     * stacking context, so without this, neighboring rows' toggles paint
+     * over the open menu. 35 stays below the sticky header / toasts
+     * (z-40) and drawers (z-50). */
+    z-index: 35;
+  }
   .message-row[data-overlay-locked] > [data-message-actions] {
     opacity: 1 !important;
     pointer-events: auto !important;
   }
-  .message-row[data-overlay-locked] [data-message-actions-toggle] {
-    display: none !important;
+  /* UX3b: the "..." toggle stays visible while locked (reveal/hide), so
+   * the revealed actions shift clear of it below the lg breakpoint. */
+  @media (max-width: 1023.98px) {
+    .message-row[data-overlay-locked] > [data-message-actions] {
+      padding-right: 3rem !important;
+    }
   }
 
   .folder-drop.is-drag-over {

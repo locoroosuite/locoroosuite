@@ -79,6 +79,25 @@ def _baseline_schema(conn) -> None:
     )
 
 
+def _receipts_table(conn) -> None:
+    """chat_0002: peers' read receipts (latest per room+user+type), HLD U25.18."""
+    if has_table(conn, "chat_receipts"):
+        return
+    conn.executescript(
+        """
+        CREATE TABLE chat_receipts (
+            room_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            receipt_type TEXT NOT NULL,
+            event_id TEXT NOT NULL,
+            receipt_ts INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (room_id, user_id, receipt_type)
+        );
+        """
+    )
+
+
 CHAT_CACHE_MIGRATIONS: tuple[Migration, ...] = (
     Migration("chat_0001_baseline_schema", _baseline_schema),
+    Migration("chat_0002_receipts", _receipts_table),
 )

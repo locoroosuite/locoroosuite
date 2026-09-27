@@ -82,6 +82,26 @@ class CustomerAccount(db.Model):
     signup_expires_at = db.Column(db.DateTime, nullable=True)
 
 
+class ChatMessageDelivery(db.Model):
+    """App-internal DM delivery tracking (HLD U25.18).
+
+    Written by the recipient's server-side sync loop when it ingests foreign
+    messages in a direct-message room; read by the sender's side to compute
+    the "delivered" tick. Nothing here is written to Matrix.
+    """
+
+    __tablename__ = "chat_message_delivery"
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.String(255), nullable=False)
+    room_id = db.Column(db.String(255), nullable=False, index=True)
+    sender_matrix_id = db.Column(db.String(255), nullable=False, index=True)
+    recipient_matrix_id = db.Column(db.String(255), nullable=False)
+    delivered_at = db.Column(db.DateTime, default=_utcnow, nullable=False, index=True)
+    __table_args__ = (
+        db.UniqueConstraint("event_id", "recipient_matrix_id", name="uq_chat_delivery_event_rcpt"),
+    )
+
+
 class CustomerSettings(db.Model):
     __tablename__ = "customer_settings"
     customer_id = db.Column(db.Integer, db.ForeignKey("users.id"), primary_key=True)

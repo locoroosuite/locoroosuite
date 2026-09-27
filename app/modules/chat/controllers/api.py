@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 
 from flask import Response, jsonify, request
 from flask_babel import _
@@ -18,7 +19,7 @@ from app.modules.chat.controllers.helpers import (
     same_homeserver,
     visible_domain_ids,
 )
-from app.modules.chat.services import cache_db
+from app.modules.chat.services import cache_db, receipts
 from app.modules.chat.services.cache_db import _decorate_room_display_name
 from app.modules.chat.services.matrix import MatrixError
 from app.modules.chat.services.provisioning import ensure_matrix_user
@@ -180,8 +181,19 @@ def sync_now():
         resp = client.sync(since=since, timeout_ms=0)
         with sync_lock(user_id):
             changes = process_sync(conn, own_id, resp)
+            # HLD U25.18: this user's sync ingesting foreign DM messages
+            # counts as delivery for their senders.
+            receipts.record_deliveries(conn, own_id, changes)
         rooms = [_room_dict(r) for r in cache_db.list_rooms(conn, own_id)]
-        return jsonify({"rooms": rooms, "messages": changes.get("messages", {})})
+        # identity is required by the browser bootstrap (window.Chat.state.
+        # identity gates own-message actions and delivery ticks, U25.18).
+        return jsonify(
+            {
+                "identity": {"matrix_user_id": own_id},
+                "rooms": rooms,
+                "messages": changes.get("messages", {}),
+            }
+        )
     except MatrixError as exc:
         raise _matrix_to_chat_error(exc, account.id) from exc
     finally:
@@ -203,14 +215,22 @@ def room_messages(room_id: str):
         if not rows and room.get("prev_batch"):
             resp = client.room_messages(room_id, room["prev_batch"], limit=limit)
             with sync_lock(user_id):
-                process_backfill(conn, own_id, room_id, resp)
+                backfilled = process_backfill(conn, own_id, room_id, resp)
+                receipts.record_backfill_deliveries(conn, own_id, room_id, backfilled)
             rows = cache_db.list_messages(conn, room_id, limit=limit)
         reactions = cache_db.list_reactions(conn, room_id)
         messages = [
             cache_db.message_to_api(r, reactions.get(r["event_id"]), own_user_id=own_id)
             for r in rows
         ]
-        return jsonify({"messages": messages, "has_more": len(rows) >= limit})
+        receipts.decorate_statuses(conn, room, messages, own_id)
+        return jsonify(
+            {
+                "messages": messages,
+                "has_more": len(rows) >= limit,
+                "receipts": receipts.receipts_payload(conn, room_id),
+            }
+        )
     except MatrixError as exc:
         raise _matrix_to_chat_error(exc, account.id) from exc
     finally:
@@ -350,7 +370,10 @@ def send_message(room_id: str):
             type="m.room.message",
             body=body,
             content_json=json.dumps(content),
-            origin_server_ts=resp.get("ts", 0) or 0,
+            # Synapse's send response carries no timestamp; approximate with
+            # server time until the sender's own sync stores the real one
+            # (ts=0 would compare as older than every receipt, U25.18).
+            origin_server_ts=resp.get("ts") or int(time.time() * 1000),
         )
         return jsonify({"event_id": resp.get("event_id")}), 201
     except MatrixError as exc:
@@ -398,7 +421,7 @@ def upload_to_room(room_id: str):
             type="m.room.message",
             body=body,
             content_json=json.dumps(content),
-            origin_server_ts=resp.get("ts", 0) or 0,
+            origin_server_ts=resp.get("ts") or int(time.time() * 1000),
         )
         return jsonify({"event_id": resp.get("event_id"), "content_uri": content_uri}), 201
     except MatrixError as exc:
@@ -529,7 +552,7 @@ def react_to_message(event_id: str):
             ),
             relates_to=event_id,
             rel_type="m.annotation",
-            origin_server_ts=resp.get("ts", 0) or 0,
+            origin_server_ts=resp.get("ts") or int(time.time() * 1000),
         )
         return jsonify({"ok": True, "removed": False}), 201
     except MatrixError as exc:

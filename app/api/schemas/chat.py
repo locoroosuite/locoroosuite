@@ -37,11 +37,25 @@ class ChatMessageItem(BaseModel):
     redacted: bool = Field(False, description="Whether the message was deleted")
     edited: bool = Field(False, description="Whether the message was edited")
     reactions: list[dict] = Field(..., description="Aggregated reactions [{key, count, mine}]")
+    status: str | None = Field(
+        None,
+        description="Delivery status for own messages in DMs: sent | delivered | read (U25.18); null otherwise",
+    )
+
+
+class ChatReceiptItem(BaseModel):
+    user_id: str = Field(..., description="Matrix user ID of the receipt sender")
+    receipt_type: str = Field("m.read", description="Receipt type")
+    event_id: str = Field(..., description="Event the receipt points at")
+    ts: int = Field(0, description="Receipt timestamp (ms)")
 
 
 class ChatMessageListResponse(BaseModel):
     data: list[ChatMessageItem] = Field(..., description="List of messages (chronological)")
     pagination: dict = Field(..., description="Pagination info")
+    receipts: list[ChatReceiptItem] = Field(
+        default_factory=list, description="Cached peer read receipts for the room (U25.18)"
+    )
 
 
 class ChatRoomIdPath(BaseModel):

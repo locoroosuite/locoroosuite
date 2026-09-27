@@ -14,6 +14,7 @@ def test_open_cache_creates_schema(chat_cache):
         "chat_room_members",
         "chat_messages",
         "chat_read_state",
+        "chat_receipts",
         "chat_sync_state",
     } <= tables
 
@@ -116,3 +117,15 @@ def test_read_state_and_sync_state(chat_cache):
     sync = cache_db.get_sync_state(chat_cache)
     assert sync is not None
     assert sync["since_token"] == "s1_123"
+
+
+def test_receipt_upsert_keeps_latest_per_user_and_type(chat_cache):
+    cache_db.upsert_receipt(chat_cache, "!r:server", "@peer:server", "m.read", "$a", 100)
+    cache_db.upsert_receipt(chat_cache, "!r:server", "@peer:server", "m.read", "$b", 200)
+    cache_db.upsert_receipt(chat_cache, "!r:server", "@other:server", "m.read", "$c", 150)
+
+    stored = cache_db.list_receipts(chat_cache, "!r:server")
+    assert {(r["user_id"], r["event_id"], r["receipt_ts"]) for r in stored} == {
+        ("@peer:server", "$b", 200),
+        ("@other:server", "$c", 150),
+    }

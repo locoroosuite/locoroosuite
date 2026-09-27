@@ -76,6 +76,11 @@ describe.skipIf(!(await isServerAvailable()))("MCP Client → API: Chat", () => 
       expect(found).toHaveProperty("sender");
       expect(found).toHaveProperty("origin_server_ts");
       expect(found).toHaveProperty("content");
+      // U25.18 delivery ticks contract: status (null in group rooms) + receipts.
+      expect(found).toHaveProperty("status");
+      expect(found!.status).toBeNull();
+      expect(r).toHaveProperty("receipts");
+      expect(Array.isArray(r.receipts)).toBe(true);
     });
 
     it("reacts to the message", async () => {

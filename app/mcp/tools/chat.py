@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Annotated, Any
 
 from flask import Flask
@@ -12,7 +13,7 @@ from pydantic import Field
 from app.mcp.auth import McpAuthError
 from app.mcp.errors import resilient_tool
 from app.mcp.helpers import err, ok, resolve_read, resolve_write
-from app.modules.chat.services import cache_db
+from app.modules.chat.services import cache_db, receipts
 from app.modules.chat.services.cache import get_cache_path
 from app.modules.chat.services.cache_db import _decorate_room_display_name
 from app.modules.chat.services.matrix import MatrixClient, MatrixError, homeserver_url
@@ -159,7 +160,8 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         with flask_app.app_context():
             conn, _client, own_id = _open_chat(aid, dek)
             try:
-                if not cache_db.get_room(conn, room_id):
+                room = cache_db.get_room(conn, room_id)
+                if not room:
                     return err("ROOM_NOT_FOUND", f"Room {room_id} not found")
                 rows = cache_db.list_messages(conn, room_id, limit=limit)
                 reactions = cache_db.list_reactions(conn, room_id)
@@ -167,6 +169,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
                     cache_db.message_to_api(r, reactions.get(r["event_id"]), own_user_id=own_id)
                     for r in rows
                 ]
+                receipts.decorate_statuses(conn, room, items, own_id)
             finally:
                 conn.close()
         return ok(items)
@@ -205,7 +208,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
                     type="m.room.message",
                     body=body,
                     content_json=_json.dumps(content),
-                    origin_server_ts=resp.get("ts", 0) or 0,
+                    origin_server_ts=resp.get("ts") or int(time.time() * 1000),
                 )
                 return ok({"event_id": resp.get("event_id")})
             finally:
@@ -318,7 +321,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
                     ),
                     relates_to=event_id,
                     rel_type="m.annotation",
-                    origin_server_ts=resp.get("ts", 0) or 0,
+                    origin_server_ts=resp.get("ts") or int(time.time() * 1000),
                 )
                 return ok({"event_id": resp.get("event_id")})
             finally:

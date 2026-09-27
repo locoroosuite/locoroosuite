@@ -28,6 +28,7 @@ export interface ApiResponse<T = unknown> {
   error?: { code: string; message: string };
   pagination?: { next_cursor: string | null; has_more: boolean };
   total_count?: number;
+  receipts?: Array<Record<string, unknown>>;
 }
 
 export function assertSuccess<T>(response: unknown, label: string): ApiResponse<T> {

@@ -198,6 +198,56 @@ def test_process_sync_dm_display_name_from_member(chat_cache):
     assert dm["is_direct"] == 1
 
 
+def test_process_sync_persists_peer_read_receipts(chat_cache):
+    resp = {
+        "next_batch": "s4",
+        "rooms": {
+            "join": {
+                "!room1:server": {
+                    "timeline": {"events": []},
+                    "ephemeral": {
+                        "events": [
+                            {
+                                "type": "m.receipt",
+                                "content": {
+                                    "$m1": {"m.read": {"@peer:server": {"ts": 1234}}},
+                                    "$m2": {"m.read": {OWN: {"ts": 9999}}},
+                                    "$m3": {"m.read.private": {"@peer:server": {"ts": 5555}}},
+                                },
+                            }
+                        ]
+                    },
+                }
+            }
+        },
+    }
+    changes = process_sync(chat_cache, OWN, resp)
+
+    # SSE payload: only the peer's public receipt, own/private ignored.
+    assert changes["receipts"]["!room1:server"] == [
+        {"user_id": "@peer:server", "event_id": "$m1", "ts": 1234}
+    ]
+    # Cache: latest per (room, user, type) is persisted.
+    stored = cache_db.list_receipts(chat_cache, "!room1:server")
+    assert stored == [
+        {
+            "room_id": "!room1:server",
+            "user_id": "@peer:server",
+            "receipt_type": "m.read",
+            "event_id": "$m1",
+            "receipt_ts": 1234,
+        }
+    ]
+
+
+def test_process_sync_replaces_read_changes_key(chat_cache):
+    """The old ignored `read` key was replaced by `receipts` (U25.18)."""
+    resp = {"next_batch": "s5", "rooms": {"join": {"!r:server": {"timeline": {"events": []}}}}}
+    changes = process_sync(chat_cache, OWN, resp)
+    assert "receipts" in changes
+    assert "read" not in changes
+
+
 def test_process_backfill_applies_history_and_token(chat_cache):
     cache_db.upsert_room(chat_cache, "!r:server", name="R", prev_batch="t5")
     resp = {

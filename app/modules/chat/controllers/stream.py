@@ -5,11 +5,12 @@ from __future__ import annotations
 import json
 import logging
 import time
+from datetime import UTC, datetime
 
-from flask import Response
+from flask import Response, current_app
 
 from app.modules.chat.controllers.helpers import chat_bp, chat_context, require_customer
-from app.modules.chat.services import cache_db
+from app.modules.chat.services import cache_db, receipts
 from app.modules.chat.services.matrix import MatrixError
 from app.modules.chat.services.sync import process_sync, sync_lock
 
@@ -27,6 +28,8 @@ def stream():
     # before the generator starts, so no stream_with_context is needed.
     account, user_id, conn, client, creds = chat_context()
     own_id = creds.get("matrix_user_id") or ""
+    # Real app object (not the proxy): the generator outlives the request.
+    app = current_app._get_current_object()  # type: ignore[attr-defined]
     # Translated here (request context): the generator below runs without one.
     from flask_babel import _
 
@@ -36,6 +39,10 @@ def stream():
         logger.info("chat sse stream opened user_id=%s account_id=%s", user_id, account.id)
         lock = sync_lock(user_id)
         consecutive_errors = 0
+        # Delivery relay marker (HLD U25.18): rows newer than this are pushed
+        # to the browser as `delivered` changes. Starts at stream open — the
+        # page-load fetch already computes statuses for visible messages.
+        delivered_marker = datetime.now(UTC)
         yield "event: chat_ready\ndata: {}\n\n"
         try:
             while True:
@@ -45,6 +52,18 @@ def stream():
                     resp = client.sync(since=since, timeout_ms=_SYNC_TIMEOUT_MS)
                     with lock:
                         changes = process_sync(conn, own_id, resp)
+                        # Recipient side: record ingestion of foreign DM
+                        # messages as deliveries. Sender side: relay new
+                        # delivery rows for own messages to the browser on
+                        # every wake. App DB access needs an app context
+                        # (the generator itself runs without one).
+                        with app.app_context():
+                            receipts.record_deliveries(conn, own_id, changes)
+                            delivered, delivered_marker = receipts.new_deliveries_for_sender(
+                                own_id, delivered_marker
+                            )
+                        if delivered:
+                            changes["delivered"] = delivered
                     consecutive_errors = 0
                     yield f"event: chat_sync\ndata: {json.dumps(changes)}\n\n"
                 except MatrixError as exc:

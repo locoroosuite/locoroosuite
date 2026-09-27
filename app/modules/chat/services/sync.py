@@ -11,7 +11,7 @@ import json
 import logging
 import threading
 
-from app.modules.chat.services import cache_db
+from app.modules.chat.services import cache_db, receipts
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ def process_sync(conn, own_user_id: str, response: dict) -> dict:
         "rooms_removed": [],
         "messages": {},
         "typing": {},
-        "read": {},
+        "receipts": {},
     }
     rooms = response.get("rooms", {})
 
@@ -115,14 +115,18 @@ def _process_joined(conn, own_user_id: str, room_id: str, data: dict, changes: d
     if typing_users:
         changes["typing"][room_id] = typing_users
 
-    for event in ephemeral.get("events", []):
-        if event.get("type") == "m.receipt":
-            for event_id, receipts in event.get("content", {}).items():
-                for user_id in receipts.get("m.read", {}):
-                    if user_id != own_user_id:
-                        changes["read"].setdefault(room_id, []).append(
-                            {"event_id": event_id, "user_id": user_id}
-                        )
+    room_receipts = receipts.extract_read_receipts(ephemeral.get("events", []), own_user_id)
+    for receipt in room_receipts:
+        cache_db.upsert_receipt(
+            conn,
+            room_id,
+            receipt["user_id"],
+            receipts.RECEIPT_TYPE_READ,
+            receipt["event_id"],
+            receipt["ts"],
+        )
+    if room_receipts:
+        changes["receipts"][room_id] = room_receipts
 
     fully_read = next(
         (

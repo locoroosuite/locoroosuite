@@ -11,6 +11,11 @@
     typingTimers: {},
     es: null,
     sending: false,
+    /* HLD U25.18 delivery ticks: per-room read receipts
+       {roomId: {userId: {event_id, ts}}} and per-room delivered event ids
+       {roomId: {eventId: true}}, updated by API loads and SSE changes. */
+    receipts: {},
+    delivered: {},
   };
 
   function el(id) {

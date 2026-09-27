@@ -108,6 +108,57 @@ def test_room_messages(seeded_client):
     assert resp.status_code == 200
     data = resp.get_json()
     assert [m["event_id"] for m in data["messages"]] == ["$m1"]
+    # U25.18: status + receipts are part of the response contract.
+    assert data["messages"][0]["status"] is None  # group room: no ticks
+    assert data["receipts"] == []
+
+
+def test_room_messages_dm_statuses_and_receipts(app, seeded_client):
+    client, _mock, path, user_id = seeded_client
+    from app.shared.keys import get_user_key
+
+    with app.app_context():
+        conn = cache_db.open_cache(path, get_user_key(user_id))
+        cache_db.upsert_room(conn, "!dm:server", is_direct=True)
+        cache_db.upsert_member(conn, "!dm:server", OWN_ID)
+        cache_db.upsert_member(conn, "!dm:server", "@peer:server", displayname="Peer")
+        for event_id, ts in (("$own1", 1000), ("$own2", 2000)):
+            cache_db.insert_message(
+                conn,
+                event_id=event_id,
+                room_id="!dm:server",
+                sender=OWN_ID,
+                type="m.room.message",
+                body=event_id,
+                content_json=json.dumps({"msgtype": "m.text", "body": event_id}),
+                origin_server_ts=ts,
+            )
+        # The peer read up to $own1.
+        cache_db.upsert_receipt(conn, "!dm:server", "@peer:server", "m.read", "$own1", 1500)
+        from app.modules.chat.services import receipts
+
+        # The peer's device ingested $own2 (delivered, not read).
+        receipts.record_deliveries(
+            conn,
+            "@peer:server",
+            {"messages": {"!dm:server": [{"event_id": "$own2", "sender": OWN_ID}]}},
+        )
+        conn.close()
+
+    resp = client.get("/app/chat/api/rooms/!dm:server/messages")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    by_id = {m["event_id"]: m for m in data["messages"]}
+    assert by_id["$own1"]["status"] == "read"
+    assert by_id["$own2"]["status"] == "delivered"
+    assert data["receipts"] == [
+        {
+            "user_id": "@peer:server",
+            "receipt_type": "m.read",
+            "event_id": "$own1",
+            "ts": 1500,
+        }
+    ]
 
 
 def test_room_messages_not_found(seeded_client):
@@ -184,7 +235,11 @@ def test_sync_now(seeded_client):
     client, mock, _path, _user_id = seeded_client
     resp = client.post("/app/chat/api/sync-now")
     assert resp.status_code == 200
-    assert "rooms" in resp.get_json()
+    data = resp.get_json()
+    assert "rooms" in data
+    # identity feeds window.Chat.state.identity in the browser bootstrap;
+    # without it own-message actions and ticks never render (U25.18).
+    assert data["identity"]["matrix_user_id"] == OWN_ID
     mock.sync.assert_called_once()
 
 

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-27 10:52+0930\n"
+"POT-Creation-Date: 2026-09-27 12:43+0930\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -376,7 +376,7 @@ msgid "New Calendar"
 msgstr ""
 
 #: app/modules/calendar/templates/calendar_form.html:24
-#: app/modules/chat/templates/chat/index.html:115
+#: app/modules/chat/templates/chat/index.html:117
 #: app/modules/contacts/templates/list.html:74
 #: app/modules/docs/templates/docs_list.html:135
 #: app/modules/docs/templates/docs_list.html:350
@@ -403,8 +403,8 @@ msgstr ""
 #: app/modules/calendar/templates/calendar_form.html:39
 #: app/modules/calendar/templates/index.html:269
 #: app/modules/calendar/templates/index.html:298
-#: app/modules/chat/templates/chat/index.html:127
-#: app/modules/chat/templates/chat/index.html:148
+#: app/modules/chat/templates/chat/index.html:129
+#: app/modules/chat/templates/chat/index.html:150
 #: app/modules/contacts/templates/form.html:92
 #: app/modules/docs/templates/docs_editor.html:132
 #: app/modules/mail/templates/settings.html:277
@@ -562,7 +562,7 @@ msgstr ""
 
 #: app/modules/calendar/templates/event_detail.html:180
 #: app/modules/calendar/templates/index.html:287
-#: app/modules/chat/templates/chat/index.html:97
+#: app/modules/chat/templates/chat/index.html:99
 #: app/modules/mail/templates/compose.html:89
 msgid "Send"
 msgstr ""
@@ -708,7 +708,7 @@ msgid "New Event"
 msgstr ""
 
 #: app/modules/calendar/templates/index.html:168
-#: app/modules/chat/templates/chat/index.html:170
+#: app/modules/chat/templates/chat/index.html:172
 #: app/modules/mail/templates/message.html:300
 msgid "Close"
 msgstr ""
@@ -842,68 +842,68 @@ msgid "Enter the exact email address of the person"
 msgstr ""
 
 #: app/modules/chat/controllers/api.py:134
-#: app/modules/chat/controllers/api.py:247
+#: app/modules/chat/controllers/api.py:258
 msgid "Chat server returned no room id"
 msgstr ""
 
-#: app/modules/chat/controllers/api.py:199
-#: app/modules/chat/controllers/api.py:339
-#: app/modules/chat/controllers/api.py:377
-#: app/modules/chat/controllers/api.py:426
+#: app/modules/chat/controllers/api.py:202
+#: app/modules/chat/controllers/api.py:350
+#: app/modules/chat/controllers/api.py:388
+#: app/modules/chat/controllers/api.py:437
 msgid "Room not found"
 msgstr ""
 
-#: app/modules/chat/controllers/api.py:230
+#: app/modules/chat/controllers/api.py:241
 msgid "A direct message needs at least one invitee"
 msgstr ""
 
-#: app/modules/chat/controllers/api.py:232
+#: app/modules/chat/controllers/api.py:243
 msgid "Room name is required"
 msgstr ""
 
-#: app/modules/chat/controllers/api.py:310
+#: app/modules/chat/controllers/api.py:321
 msgid "email (or user_id) is required"
 msgstr ""
 
-#: app/modules/chat/controllers/api.py:334
+#: app/modules/chat/controllers/api.py:345
 msgid "Message body is required"
 msgstr ""
 
-#: app/modules/chat/controllers/api.py:367
+#: app/modules/chat/controllers/api.py:378
 msgid "file is required"
 msgstr ""
 
-#: app/modules/chat/controllers/api.py:370
+#: app/modules/chat/controllers/api.py:381
 msgid "Uploaded file is empty"
 msgstr ""
 
-#: app/modules/chat/controllers/api.py:372
+#: app/modules/chat/controllers/api.py:383
 msgid "File exceeds the 50 MB limit"
 msgstr ""
 
-#: app/modules/chat/controllers/api.py:382
+#: app/modules/chat/controllers/api.py:393
 msgid "Chat server returned no content URI"
 msgstr ""
 
-#: app/modules/chat/controllers/api.py:439
+#: app/modules/chat/controllers/api.py:450
 msgid "event_id is required"
 msgstr ""
 
-#: app/modules/chat/controllers/api.py:478
+#: app/modules/chat/controllers/api.py:489
 msgid "Nothing to update"
 msgstr ""
 
-#: app/modules/chat/controllers/api.py:500
+#: app/modules/chat/controllers/api.py:511
 msgid "key (emoji) is required"
 msgstr ""
 
-#: app/modules/chat/controllers/api.py:506
-#: app/modules/chat/controllers/api.py:553
-#: app/modules/chat/controllers/api.py:574
+#: app/modules/chat/controllers/api.py:517
+#: app/modules/chat/controllers/api.py:564
+#: app/modules/chat/controllers/api.py:585
 msgid "Message not found"
 msgstr ""
 
-#: app/modules/chat/controllers/api.py:555
+#: app/modules/chat/controllers/api.py:566
 msgid "Only your own messages can be edited"
 msgstr ""
 
@@ -916,7 +916,7 @@ msgstr ""
 msgid "Account domain not found"
 msgstr ""
 
-#: app/modules/chat/controllers/stream.py:33
+#: app/modules/chat/controllers/stream.py:35
 msgid "Chat sync failed; retrying."
 msgstr ""
 
@@ -924,126 +924,126 @@ msgstr ""
 msgid "Chat"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:22
-#: app/modules/chat/templates/chat/index.html:67
-#: app/modules/chat/templates/chat/index.html:113
-msgid "Create a room"
-msgstr ""
-
-#: app/modules/chat/templates/chat/index.html:26
-#: app/modules/chat/templates/chat/index.html:135
-msgid "New direct message"
-msgstr ""
-
-#: app/modules/chat/templates/chat/index.html:34
+#: app/modules/chat/templates/chat/index.html:25
 msgid "Rooms"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:36
+#: app/modules/chat/templates/chat/index.html:26
+#: app/modules/chat/templates/chat/index.html:69
+#: app/modules/chat/templates/chat/index.html:115
+msgid "Create a room"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:32
 msgid "No rooms yet. Create one with +."
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:39
+#: app/modules/chat/templates/chat/index.html:36
 msgid "Direct messages"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:41
+#: app/modules/chat/templates/chat/index.html:37
+#: app/modules/chat/templates/chat/index.html:137
+msgid "New direct message"
+msgstr ""
+
+#: app/modules/chat/templates/chat/index.html:43
 msgid "No direct messages yet. Start one with the pencil icon."
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:44
+#: app/modules/chat/templates/chat/index.html:46
 msgid "Invitations"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:48
+#: app/modules/chat/templates/chat/index.html:50
 msgid "Connecting…"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:56
+#: app/modules/chat/templates/chat/index.html:58
 msgid "Welcome to chat"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:57
+#: app/modules/chat/templates/chat/index.html:59
 msgid "Pick a conversation on the left, or start a new one."
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:62
+#: app/modules/chat/templates/chat/index.html:64
 msgid "New conversation"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:74
+#: app/modules/chat/templates/chat/index.html:76
 msgid "Back to conversations"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:79
+#: app/modules/chat/templates/chat/index.html:81
 msgid "Room"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:84
-#: app/modules/chat/templates/chat/index.html:173
+#: app/modules/chat/templates/chat/index.html:86
+#: app/modules/chat/templates/chat/index.html:175
 msgid "Invite"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:85
+#: app/modules/chat/templates/chat/index.html:87
 msgid "Leave"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:91
+#: app/modules/chat/templates/chat/index.html:93
 msgid "Attach a file"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:95
+#: app/modules/chat/templates/chat/index.html:97
 msgid "Message… (Enter to send, Shift+Enter for a new line)"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:104
+#: app/modules/chat/templates/chat/index.html:106
 msgid "Uploading…"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:116
+#: app/modules/chat/templates/chat/index.html:118
 msgid "e.g. Team updates"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:119
+#: app/modules/chat/templates/chat/index.html:121
 msgid "Topic (optional)"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:120
+#: app/modules/chat/templates/chat/index.html:122
 msgid "What is this room about?"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:124
+#: app/modules/chat/templates/chat/index.html:126
 msgid "Public (anyone on this server can join)"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:128
+#: app/modules/chat/templates/chat/index.html:130
 msgid "Create room"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:137
-#: app/modules/chat/templates/chat/index.html:161
+#: app/modules/chat/templates/chat/index.html:139
+#: app/modules/chat/templates/chat/index.html:163
 msgid "Email address"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:143
+#: app/modules/chat/templates/chat/index.html:145
 msgid ""
 "Start typing to pick a person from your domain. Their chat identity is "
 "created automatically if missing — for example"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:144
+#: app/modules/chat/templates/chat/index.html:146
 msgid "maps to"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:151
+#: app/modules/chat/templates/chat/index.html:153
 msgid "Start conversation"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:159
+#: app/modules/chat/templates/chat/index.html:161
 msgid "Invite to room"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:167
+#: app/modules/chat/templates/chat/index.html:169
 msgid ""
 "Start typing to pick a person from your domain. Their chat identity is "
 "created automatically if missing."
@@ -3663,6 +3663,9 @@ msgstr ""
 msgid "Failed to respond."
 msgstr ""
 
+msgid "Failed to send"
+msgstr ""
+
 msgid "Failed to share. Please try again."
 msgstr ""
 
@@ -3750,7 +3753,13 @@ msgstr ""
 msgid "Message cannot be empty."
 msgstr ""
 
+msgid "Message delivered"
+msgstr ""
+
 msgid "Message locked"
+msgstr ""
+
+msgid "Message read"
 msgstr ""
 
 msgid "Message sent"
@@ -3928,6 +3937,9 @@ msgid "Sending test notification…"
 msgstr ""
 
 msgid "Sending..."
+msgstr ""
+
+msgid "Sending…"
 msgstr ""
 
 msgid "September"

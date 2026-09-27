@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from functools import wraps
 
 from flask import g
@@ -32,7 +33,7 @@ from app.api.schemas.chat import (
     SendChatMessageBody,
 )
 from app.api.schemas.common import AccountIdQuery, EmptyResponse, ErrorResponse
-from app.modules.chat.services import cache_db
+from app.modules.chat.services import cache_db, receipts
 from app.modules.chat.services.cache import get_cache_path
 from app.modules.chat.services.cache_db import _decorate_room_display_name
 from app.modules.chat.services.matrix import MatrixClient, MatrixError, homeserver_url
@@ -275,15 +276,20 @@ def api_list_messages(path: ChatRoomIdPath, query: ListMessagesQuery):
                 raise _matrix_error(exc) from exc
             from app.modules.chat.services.sync import process_backfill
 
-            process_backfill(conn, own_id, path.room_id, resp)
+            receipts.record_backfill_deliveries(
+                conn, own_id, path.room_id, process_backfill(conn, own_id, path.room_id, resp)
+            )
             rows = cache_db.list_messages(conn, path.room_id, limit=query.limit)
         reactions = cache_db.list_reactions(conn, path.room_id)
         items = [
             cache_db.message_to_api(r, reactions.get(r["event_id"]), own_user_id=own_id)
             for r in rows
         ]
+        receipts.decorate_statuses(conn, room, items, own_id)
         has_more = len(rows) >= query.limit
-        return api_paginated(items, has_more=has_more)
+        response = api_paginated(items, has_more=has_more)
+        response["receipts"] = receipts.receipts_payload(conn, path.room_id)
+        return response
     finally:
         conn.close()
 
@@ -317,7 +323,7 @@ def api_send_message(path: ChatRoomIdPath, body: SendChatMessageBody, query: Acc
             type="m.room.message",
             body=body.body,
             content_json=json.dumps(content),
-            origin_server_ts=resp.get("ts", 0) or 0,
+            origin_server_ts=resp.get("ts") or int(time.time() * 1000),
         )
         return api_response({"event_id": resp.get("event_id")})
     finally:
@@ -393,7 +399,7 @@ def api_react_to_message(path: ChatEventIdPath, body: ReactChatMessageBody, quer
             ),
             relates_to=path.event_id,
             rel_type="m.annotation",
-            origin_server_ts=resp.get("ts", 0) or 0,
+            origin_server_ts=resp.get("ts") or int(time.time() * 1000),
         )
         return api_response({"ok": True})
     finally:

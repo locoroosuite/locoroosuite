@@ -60,6 +60,7 @@
     state.messages[roomId] = [];
     try {
       const data = await Chat.api("/app/chat/api/rooms/" + encodeURIComponent(roomId) + "/messages?limit=50");
+      indexReceipts(roomId, data.receipts);
       mergeMessages(roomId, data.messages || []);
       renderTimeline(roomId);
       markRoomRead(roomId);
@@ -88,6 +89,99 @@
     if (roomId === state.activeRoomId) {
       renderTimeline(roomId);
     }
+  }
+
+  /* ---------------- delivery ticks (HLD U25.18) ---------------- */
+
+  function indexReceipts(roomId, receiptList) {
+    const room = (state.receipts[roomId] = state.receipts[roomId] || {});
+    (receiptList || []).forEach(function (r) {
+      if (!r || !r.user_id || !r.event_id) return;
+      const prev = room[r.user_id];
+      if (!prev || (r.ts || 0) >= (prev.ts || 0)) room[r.user_id] = r;
+    });
+  }
+
+  function receiptCoverTs(roomId, receipt) {
+    const list = state.messages[roomId] || [];
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].event_id === receipt.event_id) return list[i].origin_server_ts;
+    }
+    return receipt.ts || 0;
+  }
+
+  function messageStatus(m) {
+    if (m.sender !== state.identity || m.redacted) return null;
+    const room = findRoom(m.room_id || state.activeRoomId);
+    if (!room || !room.is_direct) return null;
+    if (m._failed) return "failed";
+    if (m._pending) return "sending";
+    const receipts = state.receipts[m.room_id] || {};
+    for (const userId in receipts) {
+      if (receiptCoverTs(m.room_id, receipts[userId]) >= m.origin_server_ts) return "read";
+    }
+    if (m.status === "read") return "read";
+    if ((state.delivered[m.room_id] || {})[m.event_id] || m.status === "delivered") {
+      return "delivered";
+    }
+    return "sent";
+  }
+
+  /* Literal class sets (Tailwind JIT only emits classes it sees as literals). */
+  var TICK_TEXT = " text-slate-400";
+  var TICK_READ = " text-blue-500";
+
+  var TICK_SVG_CLOCK =
+    '<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"></circle><path d="M10 6.5V10l2.5 2"></path></svg>';
+  var TICK_SVG_ONE =
+    '<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 10.5l4 4 7.5-9"></path></svg>';
+  var TICK_SVG_TWO =
+    '<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 10.5l3.5 4 7-8.5"></path><path d="M8.5 13.5l2 1 7-8.5"></path></svg>';
+  var TICK_SVG_ALERT =
+    '<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-11a1 1 0 112 0v4a1 1 0 11-2 0V7zm1 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>';
+
+  function statusNode(status, m) {
+    if (status === "failed") {
+      const wrap = document.createElement("div");
+      wrap.className = "self-end shrink-0 ml-1 pb-0.5 flex items-center gap-1";
+      const icon = document.createElement("span");
+      icon.className = "h-3.5 w-3.5 shrink-0 text-red-500";
+      icon.innerHTML = TICK_SVG_ALERT;
+      icon.title = window.LR.t("Failed to send");
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className =
+        "px-1.5 py-0.5 rounded text-[11px] md:text-[10px] border border-slate-300 text-slate-600 hover:bg-slate-100";
+      retry.textContent = window.LR.t("Retry");
+      retry.addEventListener("click", function () {
+        resendMessage(m.room_id, m);
+      });
+      const drop = document.createElement("button");
+      drop.type = "button";
+      drop.className = "px-1 py-0.5 rounded text-[11px] md:text-[10px] text-slate-400 hover:text-slate-600";
+      drop.textContent = "\u00d7";
+      drop.title = window.LR.t("Discard");
+      drop.addEventListener("click", function () {
+        removeLocalMessage(m.room_id, m.event_id);
+      });
+      wrap.appendChild(icon);
+      wrap.appendChild(retry);
+      wrap.appendChild(drop);
+      return wrap;
+    }
+    const labels = {
+      sending: window.LR.t("Sending…"),
+      sent: window.LR.t("Message sent"),
+      delivered: window.LR.t("Message delivered"),
+      read: window.LR.t("Message read"),
+    };
+    const span = document.createElement("span");
+    span.className =
+      "self-end shrink-0 ml-1 pb-1" + (status === "read" ? TICK_READ : TICK_TEXT);
+    span.title = labels[status] || "";
+    span.innerHTML =
+      status === "sending" ? TICK_SVG_CLOCK : status === "sent" ? TICK_SVG_ONE : TICK_SVG_TWO;
+    return span;
   }
 
   function renderTimeline(roomId) {
@@ -247,6 +341,8 @@
     body.appendChild(hover);
 
     row.appendChild(body);
+    const status = messageStatus(m);
+    if (status) row.appendChild(statusNode(status, m));
     return row;
   }
 
@@ -321,7 +417,7 @@
   async function markRoomRead(roomId) {
     const messages = state.messages[roomId] || [];
     const last = messages[messages.length - 1];
-    if (!last) return;
+    if (!last || String(last.event_id).indexOf("pending-") === 0) return;
     try {
       await Chat.api("/app/chat/api/rooms/" + encodeURIComponent(roomId) + "/read", {
         method: "POST",
@@ -343,6 +439,35 @@
   let typingActive = false;
   let typingTimer = null;
 
+  function removeLocalMessage(roomId, eventId) {
+    state.messages[roomId] = (state.messages[roomId] || []).filter(function (m) {
+      return m.event_id !== eventId;
+    });
+    if (roomId === state.activeRoomId) {
+      renderTimeline(roomId);
+    }
+  }
+
+  async function deliverEcho(roomId, echo, body) {
+    await Chat.api("/app/chat/api/rooms/" + encodeURIComponent(roomId) + "/send", {
+      method: "POST",
+      json: { body: body },
+    });
+    removeLocalMessage(roomId, echo.event_id);
+    await pollRoom(roomId);
+  }
+
+  function markEchoFailed(roomId, echo, err) {
+    echo._pending = false;
+    echo._failed = true;
+    if (roomId === state.activeRoomId) {
+      renderTimeline(roomId);
+    }
+    Chat.banner(
+      window.LR.t("Could not send: {error} Check your connection and retry.", {error: err.message})
+    );
+  }
+
   async function sendCurrent() {
     const input = el("chat-input");
     const body = input.value.trim();
@@ -350,16 +475,28 @@
     state.sending = true;
     const sendBtn = el("chat-send");
     sendBtn.disabled = true;
+    const roomId = state.activeRoomId;
+    const echo = {
+      event_id: "pending-" + Date.now() + "-" + String(Math.random()).slice(2, 8),
+      room_id: roomId,
+      sender: state.identity,
+      type: "m.room.message",
+      body: body,
+      content: { msgtype: "m.text", body: body },
+      origin_server_ts: Date.now(),
+      redacted: false,
+      edited: false,
+      reactions: [],
+      status: null,
+      _pending: true,
+    };
+    mergeMessages(roomId, [echo]);
+    input.value = "";
+    input.style.height = "auto";
     try {
-      await Chat.api("/app/chat/api/rooms/" + encodeURIComponent(state.activeRoomId) + "/send", {
-        method: "POST",
-        json: { body: body },
-      });
-      input.value = "";
-      input.style.height = "auto";
-      await pollRoom(state.activeRoomId);
+      await deliverEcho(roomId, echo, body);
     } catch (err) {
-      Chat.banner(window.LR.t("Could not send: {error} Check your connection and retry.", {error: err.message}));
+      markEchoFailed(roomId, echo, err);
     } finally {
       state.sending = false;
       sendBtn.disabled = false;
@@ -367,9 +504,24 @@
     }
   }
 
+  async function resendMessage(roomId, echo) {
+    if (echo._pending) return;
+    echo._failed = false;
+    echo._pending = true;
+    if (roomId === state.activeRoomId) {
+      renderTimeline(roomId);
+    }
+    try {
+      await deliverEcho(roomId, echo, echo.body);
+    } catch (err) {
+      markEchoFailed(roomId, echo, err);
+    }
+  }
+
   async function pollRoom(roomId) {
     try {
       const data = await Chat.api("/app/chat/api/rooms/" + encodeURIComponent(roomId) + "/messages?limit=50");
+      indexReceipts(roomId, data.receipts);
       mergeMessages(roomId, data.messages || []);
       markRoomRead(roomId);
     } catch (err) {
@@ -583,6 +735,23 @@
             showTyping(roomId, []);
           }, 6000);
         });
+      }
+      if (changes.receipts) {
+        Object.keys(changes.receipts).forEach(function (roomId) {
+          indexReceipts(roomId, changes.receipts[roomId]);
+          if (roomId === state.activeRoomId) {
+            renderTimeline(roomId);
+          }
+        });
+      }
+      if (changes.delivered && changes.delivered.length) {
+        changes.delivered.forEach(function (d) {
+          if (!d || !d.room_id || !d.event_id) return;
+          (state.delivered[d.room_id] = state.delivered[d.room_id] || {})[d.event_id] = true;
+        });
+        if (state.activeRoomId) {
+          renderTimeline(state.activeRoomId);
+        }
       }
     },
     mergeMessages: mergeMessages,

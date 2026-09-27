@@ -108,13 +108,49 @@ def test_list_messages_and_404(chat_api_env):
     headers = auth_header(env["token"])
     resp = env["client"].get("/api/v1/chat/rooms/!room1:server/messages", headers=headers)
     assert resp.status_code == 200
-    messages = resp.get_json()["data"]
-    assert messages[0]["event_id"] == "$m1"
-    assert messages[0]["content"]["body"] == "hello"
+    body = resp.get_json()
+    assert body["data"][0]["event_id"] == "$m1"
+    assert body["data"][0]["content"]["body"] == "hello"
+    # U25.18 contract: status (null in group rooms) + receipts array.
+    assert body["data"][0]["status"] is None
+    assert body["receipts"] == []
 
     resp = env["client"].get("/api/v1/chat/rooms/!missing:server/messages", headers=headers)
     assert resp.status_code == 404
     assert resp.get_json()["error"]["code"] == "ROOM_NOT_FOUND"
+
+
+def test_list_messages_dm_delivery_status(chat_api_env):
+    env = chat_api_env
+    conn = cache_db.open_cache(env["cache_path"], "a" * 64)
+    cache_db.upsert_room(conn, "!dm:server", is_direct=True)
+    cache_db.insert_message(
+        conn,
+        event_id="$dm1",
+        room_id="!dm:server",
+        sender=OWN_ID,
+        type="m.room.message",
+        body="dm hello",
+        content_json=json.dumps({"msgtype": "m.text", "body": "dm hello"}),
+        origin_server_ts=1000,
+    )
+    cache_db.upsert_receipt(conn, "!dm:server", "@peer:server", "m.read", "$dm1", 1500)
+    conn.close()
+
+    resp = env["client"].get(
+        "/api/v1/chat/rooms/!dm:server/messages", headers=auth_header(env["token"])
+    )
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["data"][0]["status"] == "read"
+    assert body["receipts"] == [
+        {
+            "user_id": "@peer:server",
+            "receipt_type": "m.read",
+            "event_id": "$dm1",
+            "ts": 1500,
+        }
+    ]
 
 
 def test_create_room_validation(chat_api_env):

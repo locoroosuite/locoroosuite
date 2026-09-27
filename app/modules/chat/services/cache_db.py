@@ -438,6 +438,44 @@ def get_read_state(conn, room_id: str) -> dict | None:
     return _row_to_dict(row)
 
 
+# --- peer receipts (HLD U25.18) -----------------------------------------
+
+
+def upsert_receipt(
+    conn,
+    room_id: str,
+    user_id: str,
+    receipt_type: str,
+    event_id: str,
+    receipt_ts: int,
+) -> None:
+    """Store the latest receipt of one type from one user for one room.
+
+    Matrix receipts are cumulative (a receipt for event E covers all earlier
+    events), so only the latest per (room, user, type) is kept.
+    """
+    conn.execute(
+        """
+        INSERT INTO chat_receipts (room_id, user_id, receipt_type, event_id, receipt_ts)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(room_id, user_id, receipt_type) DO UPDATE SET
+            event_id = excluded.event_id,
+            receipt_ts = excluded.receipt_ts
+        """,
+        (room_id, user_id, receipt_type, event_id, receipt_ts),
+    )
+    conn.commit()
+
+
+def list_receipts(conn, room_id: str) -> list[dict]:
+    rows = conn.execute(
+        "SELECT room_id, user_id, receipt_type, event_id, receipt_ts FROM chat_receipts "
+        "WHERE room_id = ? ORDER BY receipt_ts",
+        (room_id,),
+    ).fetchall()
+    return _rows_to_dicts(rows)
+
+
 def message_to_api(
     row: dict, reactions: list[dict] | None = None, own_user_id: str | None = None
 ) -> dict:

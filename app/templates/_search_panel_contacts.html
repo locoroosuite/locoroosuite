@@ -1,0 +1,35 @@
+{# Contacts advanced search panel (HLD U7.8, U11.18).
+   Included from layout.html when the active module is contacts (U7.7).
+   Submits GET params consumed by contacts.contact_list:
+   q (free text over name/email/phone/org/title), email, phone, org.
+   Structured fields are echoed server-side from the query string. #}
+<form id="search-options-panel" method="get" action="{{ url_for('contacts.contact_list') }}" class="hidden border-t border-slate-200/80 bg-white px-3 sm:px-6 lg:px-8 py-4" data-search-panel>
+  <div class="max-w-screen-2xl mx-auto">
+    <div class="flex items-center justify-between mb-3">
+      <div class="text-sm font-semibold text-slate-900">{{ _('Search options') }}</div>
+      <button type="button" class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100" data-search-panel-clear>{{ _('Clear fields') }}</button>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+      <label class="block">
+        <span class="text-xs text-slate-500">{{ _('Email') }}</span>
+        <input name="email" type="text" autocomplete="off" value="{{ request.args.get('email', '') }}" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+      </label>
+      <label class="block">
+        <span class="text-xs text-slate-500">{{ _('Phone') }}</span>
+        <input name="phone" type="text" autocomplete="off" value="{{ request.args.get('phone', '') }}" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+      </label>
+      <label class="block">
+        <span class="text-xs text-slate-500">{{ _('Organization') }}</span>
+        <input name="org" type="text" autocomplete="off" value="{{ request.args.get('org', '') }}" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+      </label>
+      <label class="block sm:col-span-2 lg:col-span-3">
+        <span class="text-xs text-slate-500">{{ _('Name or any field') }}</span>
+        <input name="q" type="search" autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+      </label>
+    </div>
+    <div class="flex items-center justify-end gap-2 mt-3">
+      <span class="text-xs text-slate-400 mr-auto hidden sm:inline">{{ _('Filters combine with the text search.') }}</span>
+      <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800">{{ _('Search') }}</button>
+    </div>
+  </div>
+</form>

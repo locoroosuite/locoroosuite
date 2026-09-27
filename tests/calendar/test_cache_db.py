@@ -40,13 +40,18 @@ def test_upsert_and_get_calendar():
         assert cid > 0
 
         cal = cache_db.get_calendar(conn, cid)
+        assert cal is not None
         assert cal["displayname"] == "Work"
+        assert cal is not None
         assert cal["color"] == "#ff0000"
+        assert cal is not None
         assert cal["href"] == "/cals/cal1/"
 
         cache_db.upsert_calendar(conn, "cal1", "/cals/cal1/", "Personal", "#00ff00")
         cal2 = cache_db.get_calendar(conn, cid)
+        assert cal2 is not None
         assert cal2["displayname"] == "Personal"
+        assert cal2 is not None
         assert cal2["color"] == "#00ff00"
     finally:
         conn.close()
@@ -77,8 +82,11 @@ def test_update_calendar():
             conn, cid, displayname="New Name", color="#0000ff", is_visible=False
         )
         cal = cache_db.get_calendar(conn, cid)
+        assert cal is not None
         assert cal["displayname"] == "New Name"
+        assert cal is not None
         assert cal["color"] == "#0000ff"
+        assert cal is not None
         assert cal["is_visible"] == 0
     finally:
         conn.close()
@@ -110,7 +118,9 @@ def test_upsert_and_get_event():
         assert eid > 0
 
         event = cache_db.get_event(conn, eid)
+        assert event is not None
         assert event["summary"] == "Meeting"
+        assert event is not None
         assert event["uid"] == "evt1"
 
         event_by_uid = cache_db.get_event_by_uid(conn, "evt1")
@@ -225,6 +235,61 @@ def test_search_events():
         os.unlink(path)
 
 
+def test_search_events_filters():
+    """U12.46: location + after/before date range, AND-combined; invalid
+    dates are ignored; an empty query with only filters still matches."""
+    conn, path, _key = _make_cache()
+    try:
+        from app.modules.calendar.services import cache_db
+
+        cid = cache_db.upsert_calendar(conn, "c1", "/c1/", "Work", "#4285f4")
+
+        def ical(uid, summary, dtstart, location="HQ"):
+            return (
+                "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\n"
+                f"UID:{uid}\r\nSUMMARY:{summary}\r\nLOCATION:{location}\r\n"
+                f"DTSTART:{dtstart}\r\nEND:VEVENT\r\nEND:VCALENDAR"
+            )
+
+        # Event columns store ISO strings (parse_icalendar emits
+        # e.g. "2025-01-10T09:00:00+00:00"; date-prefix comparison holds).
+        cache_db.upsert_event(
+            conn, "e1", "/c1/e1.ics", "e", cid, ical("e1", "Standup", "20250110T090000Z")
+        )
+        cache_db.upsert_event(
+            conn, "e2", "/c1/e2.ics", "e", cid, ical("e2", "Retrospective", "20250220T150000Z")
+        )
+        cache_db.upsert_event(
+            conn,
+            "e3",
+            "/c1/e3.ics",
+            "e",
+            cid,
+            ical("e3", "Offsite", "20250305T080000Z", location="Elsewhere"),
+        )
+
+        by_location = cache_db.search_events(conn, "", location="HQ")
+        assert {r["summary"] for r in by_location} == {"Standup", "Retrospective"}
+
+        after_only = cache_db.search_events(conn, "", after="2025-02-01")
+        assert {r["summary"] for r in after_only} == {"Retrospective", "Offsite"}
+
+        before_only = cache_db.search_events(conn, "", before="2025-02-01")
+        assert {r["summary"] for r in before_only} == {"Standup"}
+
+        both = cache_db.search_events(conn, "", after="2025-01-01", before="2025-02-28")
+        assert {r["summary"] for r in both} == {"Standup", "Retrospective"}
+
+        combined = cache_db.search_events(conn, "Standup", location="Elsewhere")
+        assert combined == []
+
+        invalid_dates = cache_db.search_events(conn, "", after="not-a-date", before="")
+        assert len(invalid_dates) == 3
+    finally:
+        conn.close()
+        os.unlink(path)
+
+
 def test_sync_state():
     conn, path, _key = _make_cache()
     try:
@@ -234,13 +299,18 @@ def test_sync_state():
 
         cache_db.set_sync_state(conn, "/cals/c1/", sync_token="token-1", ctag="ctag-1")
         state = cache_db.get_sync_state(conn, "/cals/c1/")
+        assert state is not None
         assert state["sync_token"] == "token-1"
+        assert state is not None
         assert state["ctag"] == "ctag-1"
+        assert state is not None
         assert state["last_sync_at"] is not None
 
         cache_db.set_sync_state(conn, "/cals/c1/", sync_token="token-2")
         state2 = cache_db.get_sync_state(conn, "/cals/c1/")
+        assert state2 is not None
         assert state2["sync_token"] == "token-2"
+        assert state2 is not None
         assert state2["ctag"] == "ctag-1"
     finally:
         conn.close()
@@ -258,8 +328,10 @@ def test_event_with_alarm():
         eid = cache_db.upsert_event(conn, "evt-alarm", "/c1/a.ics", "e", cid, ical)
 
         event = cache_db.get_event(conn, eid)
+        assert event is not None
         assert len(event["reminders"]) == 1
         assert event["reminders"][0]["trigger_val"] == "-PT15M"
+        assert event is not None
         assert event["reminders"][0]["action"] == "DISPLAY"
     finally:
         conn.close()
@@ -281,6 +353,7 @@ def test_upsert_event_preserves_timezone_on_sync():
         )
         eid = cache_db.upsert_event(conn, "evt-tz-sync", "/c1/tz.ics", "e1", cid, ical_with_tz)
         event = cache_db.get_event(conn, eid)
+        assert event is not None
         assert event["timezone"] == "Australia/Adelaide"
 
         ical_utc_sync = (
@@ -291,6 +364,7 @@ def test_upsert_event_preserves_timezone_on_sync():
         )
         cache_db.upsert_event(conn, "evt-tz-sync", "/c1/tz.ics", "e2", cid, ical_utc_sync)
         event_after_sync = cache_db.get_event(conn, eid)
+        assert event_after_sync is not None
         assert event_after_sync["timezone"] == "Australia/Adelaide"
     finally:
         conn.close()

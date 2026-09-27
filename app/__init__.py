@@ -114,12 +114,19 @@ def create_app():
 
     @app.context_processor
     def inject_user_menu():
+        # HLD U7.7: the header search box is module-contextual; expose the
+        # active customer module (blueprint name) to the layout templates.
+        active_module = (
+            request.blueprint
+            if request.blueprint in {"mail", "contacts", "calendar", "chat", "docs"}
+            else None
+        )
         if request.path == "/app/auth/check":
-            return {"user_menu": None}
+            return {"user_menu": None, "active_module": active_module}
         user_id = session.get("user_id")
         role = session.get("role")
         if not user_id:
-            return {"user_menu": None}
+            return {"user_menu": None, "active_module": active_module}
         user = db.session.get(core.User, user_id)
         email = user.email if user else ""
         show_domain = False
@@ -156,6 +163,7 @@ def create_app():
             },
             "accounts": customer_accounts,
             "active_account_id": active_account_id,
+            "active_module": active_module,
         }
 
     @app.before_request

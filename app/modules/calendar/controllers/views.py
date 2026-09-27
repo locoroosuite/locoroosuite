@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from flask import jsonify, redirect, render_template, request, session, url_for
 from flask_babel import _
 
+from app.modules.calendar.controllers.events import _format_event_date_range
 from app.modules.calendar.controllers.helpers import (
     _caldav_base_url,
     _get_account,
@@ -186,6 +187,90 @@ def api_search():
     except Exception:
         logger.exception("calendar api search failed")
         return jsonify([])
+    finally:
+        conn.close()
+
+
+@calendar_bp.route("/calendar/search")
+@require_customer
+def search():
+    """Server-rendered calendar search results page (HLD U7.9, U12.46).
+
+    Free text (summary/description/location) plus optional location and
+    after/before date range against the local cache; results link to the
+    event detail page.
+    """
+    user_id = session.get("user_id")
+    account_id = session.get("active_account_id")
+    if not account_id:
+        return redirect(url_for("mail.mailbox"))
+
+    q = request.args.get("q", "").strip()
+    location = request.args.get("location", "").strip()
+    after = request.args.get("after", "").strip()
+    before = request.args.get("before", "").strip()
+    has_query = bool(q or location or after or before)
+
+    account = _get_account(account_id, user_id)
+    config = _get_caldav_config(account)
+    if not config:
+        return render_template(
+            "search_events.html",
+            caldav_configured=False,
+            events=[],
+            total=0,
+            q=q,
+            has_query=has_query,
+            search_error=False,
+        )
+
+    conn = _open_cache_for_account(account)
+    if not conn:
+        return redirect(url_for("mail.login"))
+
+    try:
+        events = []
+        if has_query:
+            events = cache_db.search_events(
+                conn,
+                q,
+                location=location or None,
+                after=after or None,
+                before=before or None,
+            )
+        settings = CustomerSettings.query.filter_by(customer_id=user_id).first()
+        user_tz = resolve_user_timezone(settings.timezone if settings else "browser")
+        results = [
+            {
+                "id": e["id"],
+                "summary": e.get("summary") or _("(no title)"),
+                "when": _format_event_date_range(e, user_tz),
+                "location": e.get("location") or "",
+                "calendar_name": e.get("calendar_name") or "",
+                "calendar_color": e.get("calendar_color") or "#4285f4",
+            }
+            for e in events
+        ]
+        return render_template(
+            "search_events.html",
+            caldav_configured=True,
+            events=results,
+            total=len(results),
+            q=q,
+            has_query=has_query,
+            search_error=False,
+        )
+    except Exception:
+        logger.exception("calendar search failed account_id=%s", account_id)
+        return render_template(
+            "search_events.html",
+            caldav_configured=True,
+            events=[],
+            total=0,
+            q=q,
+            has_query=has_query,
+            search_error=True,
+        )
     finally:
         conn.close()
 

@@ -21,7 +21,9 @@ def _setup_test_env(app, account_id, with_carddav=True, with_cache=True):
         from app.shared.models.core import CustomerAccount
 
         account = db.session.get(CustomerAccount, account_id)
+        assert account is not None, "fixture account missing"
         domain = db.session.get(Domain, account.domain_id)
+        assert domain is not None, "fixture domain missing"
         if with_carddav:
             domain.carddav_host = "localhost"
             domain.carddav_port = 5232
@@ -244,6 +246,110 @@ def test_contact_search(authed_client, app):
         assert resp.status_code == 200
         assert b"Alice Smith" in resp.data
         assert b"Bob Jones" not in resp.data
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_contact_search_field_filters(authed_client, app):
+    """U11.18: header/panel field filters (email/phone/org) filter the list."""
+    client, user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+
+    from app.modules.contacts.services.cache_db import open_cache
+    from app.shared.keys import get_user_key
+
+    with app.app_context():
+        key = get_user_key(user_id)
+        conn = open_cache(paths["cache"], key)
+        conn.execute(
+            "INSERT INTO contacts (uid, href, etag, fn, email_work, org) VALUES (?, ?, ?, ?, ?, ?)",
+            ("uid-a", "/a.vcf", "e1", "Alice Smith", "alice@acme.test", "Acme Inc."),
+        )
+        conn.execute(
+            "INSERT INTO contacts (uid, href, etag, fn, email_work, org) VALUES (?, ?, ?, ?, ?, ?)",
+            ("uid-b", "/b.vcf", "e2", "Bob Jones", "bob@other.test", "Other LLC"),
+        )
+        conn.commit()
+        conn.close()
+
+    try:
+        with patch("app.modules.contacts.controllers.contacts._sync_contacts"):
+            resp = client.get("/app/contacts/?email=acme")
+        assert resp.status_code == 200
+        assert b"Alice Smith" in resp.data
+        assert b"Bob Jones" not in resp.data
+
+        with patch("app.modules.contacts.controllers.contacts._sync_contacts"):
+            resp = client.get("/app/contacts/?org=Other")
+        assert resp.status_code == 200
+        assert b"Bob Jones" in resp.data
+        assert b"Alice Smith" not in resp.data
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_contact_search_no_results_state(authed_client, app):
+    """U11.18: a fruitless search shows a no-match empty state with a clear
+    action, not the generic 'No contacts yet' card; the in-page search box
+    is gone (header box is the single entry point)."""
+    client, user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+
+    from app.modules.contacts.services.cache_db import open_cache
+    from app.shared.keys import get_user_key
+
+    with app.app_context():
+        key = get_user_key(user_id)
+        conn = open_cache(paths["cache"], key)
+        conn.execute(
+            "INSERT INTO contacts (uid, href, etag, fn, email_work) VALUES (?, ?, ?, ?, ?)",
+            ("uid-a", "/a.vcf", "e1", "Alice Smith", "alice@example.com"),
+        )
+        conn.commit()
+        conn.close()
+
+    try:
+        with patch("app.modules.contacts.controllers.contacts._sync_contacts"):
+            resp = client.get("/app/contacts/?q=zzznothing")
+        assert resp.status_code == 200
+        assert b"No contacts match your search." in resp.data
+        assert b"Clear search" in resp.data
+        assert b"No contacts yet" not in resp.data
+        # The header box is the single search entry point (U11.18).
+        assert b"contacts-search-input" not in resp.data
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_contact_search_pagination_total(authed_client, app):
+    """U11.18: searches report the true total (>50 matches page correctly)
+    and pagination links preserve the active filters."""
+    client, user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+
+    from app.modules.contacts.services.cache_db import open_cache
+    from app.shared.keys import get_user_key
+
+    with app.app_context():
+        key = get_user_key(user_id)
+        conn = open_cache(paths["cache"], key)
+        for i in range(55):
+            conn.execute(
+                "INSERT INTO contacts (uid, href, etag, fn, org) VALUES (?, ?, ?, ?, ?)",
+                (f"uid-{i:03d}", f"/{i:03d}.vcf", f"e{i}", f"Person {i:03d}", "Acme Inc."),
+            )
+        conn.commit()
+        conn.close()
+
+    try:
+        with patch("app.modules.contacts.controllers.contacts._sync_contacts"):
+            resp = client.get("/app/contacts/?org=Acme")
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert "Page 1 of 2" in html
+        assert "55 contacts" in html
+        assert "org=Acme" in html
+        assert "page=2" in html
     finally:
         _safe_unlink(paths["cache"])
 

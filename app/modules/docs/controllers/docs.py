@@ -88,6 +88,12 @@ def index():
     current_folder = (request.args.get("folder") or "").strip().strip("/")
     current_tag = (request.args.get("tag") or "").strip()
     section = request.args.get("section", "my")
+    # HLD U13.16: name search (+ optional type filter) composes with
+    # folder/tag filters (logical AND).
+    search_q = (request.args.get("q") or "").strip()
+    type_filter = (request.args.get("type") or "").strip()
+    if type_filter not in {"odt", "ods", "odp", "odg"}:
+        type_filter = ""
 
     def _snapshot():
         docs = cache_db.list_documents(
@@ -96,6 +102,11 @@ def index():
             folder=current_folder or None,
             tag=current_tag or None,
         )
+        if search_q:
+            needle = search_q.lower()
+            docs = [d for d in docs if needle in (d.get("name") or "").lower()]
+        if type_filter:
+            docs = [d for d in docs if d.get("doc_type") == type_filter]
         for d in docs:
             d["tag_list"] = cache_db.parse_tags(d.get("tags"))
         return (
@@ -142,6 +153,8 @@ def index():
         current_folder=current_folder,
         current_tag=current_tag,
         breadcrumbs=breadcrumbs,
+        search_q=search_q,
+        type_filter=type_filter,
     )
 
 

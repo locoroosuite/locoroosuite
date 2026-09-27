@@ -1,8 +1,10 @@
 {# Advanced search panel ("Show search options", HLD U7.5).
-   Included from layout.html — one instance per page, under the header.
-   search-panel.js: toggle, server-side prefill via /mail/search/parse,
-   lazy folder options via /mail/search/folders. #}
-<form id="search-options-panel" method="get" action="{{ url_for('mail.search') }}" class="hidden border-t border-slate-200/80 bg-white px-3 sm:px-6 lg:px-8 py-4" data-search-panel>
+   Included from layout.html when the active module is mail (U7.7) — one
+   instance per page, under the header.
+   search-panel.js: toggle, server-side prefill via data-parse-url
+   (the Python grammar is the single source of truth — never duplicated in
+   JS), lazy folder options via data-folders-url. #}
+<form id="search-options-panel" method="get" action="{{ url_for('mail.search') }}" class="hidden border-t border-slate-200/80 bg-white px-3 sm:px-6 lg:px-8 py-4" data-search-panel data-parse-url="{{ url_for('mail.search_parse') }}" data-folders-url="{{ url_for('mail.search_folders') }}">
   <div class="max-w-screen-2xl mx-auto">
     <div class="flex items-center justify-between mb-3">
       <div class="text-sm font-semibold text-slate-900">{{ _('Search options') }}</div>

@@ -1,0 +1,34 @@
+{# Docs advanced search panel (HLD U7.10, U13.16).
+   Included from layout.html when the active module is docs (U7.7).
+   Submits GET params consumed by docs.index: q (document name substring)
+   and type (odt/ods/odp/odg). Folder/tag context is preserved via hidden
+   inputs so the filters compose (U13.91d). #}
+<form id="search-options-panel" method="get" action="{{ url_for('docs.index') }}" class="hidden border-t border-slate-200/80 bg-white px-3 sm:px-6 lg:px-8 py-4" data-search-panel>
+  <div class="max-w-screen-2xl mx-auto">
+    <div class="flex items-center justify-between mb-3">
+      <div class="text-sm font-semibold text-slate-900">{{ _('Search options') }}</div>
+      <button type="button" class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100" data-search-panel-clear>{{ _('Clear fields') }}</button>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+      <label class="block">
+        <span class="text-xs text-slate-500">{{ _('Type') }}</span>
+        <select name="type" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none">
+          <option value="">{{ _('Any type') }}</option>
+          {% for t in ('odt', 'ods', 'odp', 'odg') %}
+          <option value="{{ t }}" {% if request.args.get('type') == t %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="block sm:col-span-2">
+        <span class="text-xs text-slate-500">{{ _('Document name') }}</span>
+        <input name="q" type="search" autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+      </label>
+    </div>
+    {% if current_folder %}<input type="hidden" name="folder" value="{{ current_folder }}" />{% endif %}
+    {% if current_tag %}<input type="hidden" name="tag" value="{{ current_tag }}" />{% endif %}
+    <div class="flex items-center justify-end gap-2 mt-3">
+      <span class="text-xs text-slate-400 mr-auto hidden sm:inline">{{ _('Filters combine with folder and tag.') }}</span>
+      <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800">{{ _('Search') }}</button>
+    </div>
+  </div>
+</form>

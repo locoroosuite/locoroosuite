@@ -1,25 +1,69 @@
 /**
- * "Show search options" panel (HLD U7.5).
+ * Module-contextual search shell (HLD U7.5, U7.7–U7.11).
  *
- * The toggle lives inside the global search box (desktop + mobile); the
- * panel slides open under the header on every customer page. Opening it
- * parses the query currently in the box via GET /mail/search/parse (the
- * Python grammar is the single source of truth — never duplicated here)
- * and pre-fills the matching fields. Folder options are fetched lazily
- * from /mail/search/folders the first time the panel opens.
+ * Generic behavior present on every customer page:
+ *  - keeps the desktop and mobile search-box inputs in sync;
+ *  - "live" modules (chat, U7.11): dispatches an `lr:search-live`
+ *    CustomEvent on the document as the user types and prevents form
+ *    submission (filtering happens client-side, no navigation).
+ *
+ * Advanced-panel behavior (only when a panel is rendered, U7.5):
+ *  - toggle open/close, Escape to close, "Clear fields" button;
+ *  - mail specifics (grammar prefill, lazy folder options) are driven by
+ *    the panel's data-parse-url / data-folders-url attributes so this file
+ *    stays module-agnostic. Panels without those attributes just copy the
+ *    current query into their "Has the words"/free-text field.
  */
 (function () {
   'use strict';
 
-  var PARSE_URL = '/app/mail/search/parse';
-  var FOLDERS_URL = '/app/mail/search/folders';
+  var boxForms = Array.prototype.slice.call(document.querySelectorAll('[data-mail-search-form]'));
+  var boxInputs = boxForms.reduce(function (acc, form) {
+    var input = form.querySelector('input[name="q"]');
+    if (input) acc.push(input);
+    return acc;
+  }, []);
+  var liveMode = boxForms.some(function (form) {
+    return form.hasAttribute('data-search-live');
+  });
+
+  function currentQuery() {
+    for (var i = 0; i < boxInputs.length; i++) {
+      if (boxInputs[i].value && boxInputs[i].value.trim()) {
+        return boxInputs[i].value.trim();
+      }
+    }
+    return '';
+  }
+
+  // Keep the desktop and mobile search-box inputs in sync; in live mode
+  // also broadcast the value so the active module can filter in place.
+  boxInputs.forEach(function (input) {
+    input.addEventListener('input', function () {
+      boxInputs.forEach(function (other) {
+        if (other !== input) other.value = input.value;
+      });
+      if (liveMode) {
+        document.dispatchEvent(new CustomEvent('lr:search-live', { detail: input.value }));
+      }
+    });
+  });
+
+  // Live modules never navigate on submit.
+  if (liveMode) {
+    boxForms.forEach(function (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+      });
+    });
+  }
 
   var panel = document.getElementById('search-options-panel');
   if (!panel) return;
+
+  var parseUrl = panel.getAttribute('data-parse-url');
+  var foldersUrl = panel.getAttribute('data-folders-url');
   var toggles = Array.prototype.slice.call(document.querySelectorAll('[data-search-options-toggle]'));
-  var boxInputs = Array.prototype.slice.call(
-    document.querySelectorAll('[data-mail-search-form] input[name="q"]')
-  );
   var foldersLoaded = false;
 
   function field(name) {
@@ -29,15 +73,6 @@
   function accountId() {
     var el = field('account_id');
     return el ? el.value : '';
-  }
-
-  function currentQuery() {
-    for (var i = 0; i < boxInputs.length; i++) {
-      if (boxInputs[i].value && boxInputs[i].value.trim()) {
-        return boxInputs[i].value.trim();
-      }
-    }
-    return '';
   }
 
   function escapeHtml(value) {
@@ -80,7 +115,14 @@
 
   function prefill() {
     var q = currentQuery();
-    var url = PARSE_URL + '?q=' + encodeURIComponent(q) + '&account_id=' + encodeURIComponent(accountId());
+    if (!parseUrl) {
+      // Panels without a grammar parser (contacts/calendar/docs) keep the
+      // current query in their free-text field; structured fields are
+      // echoed server-side from the query string on render.
+      setText('q', q);
+      return;
+    }
+    var url = parseUrl + '?q=' + encodeURIComponent(q) + '&account_id=' + encodeURIComponent(accountId());
     fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(function (resp) {
         if (!resp.ok) throw new Error('parse failed');
@@ -96,11 +138,12 @@
   }
 
   function loadFolders() {
+    if (!foldersUrl) return;
     if (foldersLoaded) {
       applyFolderValue();
       return;
     }
-    var url = FOLDERS_URL + '?account_id=' + encodeURIComponent(accountId());
+    var url = foldersUrl + '?account_id=' + encodeURIComponent(accountId());
     fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(function (resp) {
         if (!resp.ok) throw new Error('folders failed');
@@ -128,6 +171,15 @@
       });
   }
 
+  function firstPanelField() {
+    var names = ['f_from', 'q', 'location', 'email'];
+    for (var i = 0; i < names.length; i++) {
+      var el = field(names[i]);
+      if (el) return el;
+    }
+    return null;
+  }
+
   function setOpen(willOpen) {
     panel.classList.toggle('hidden', !willOpen);
     toggles.forEach(function (btn) {
@@ -136,7 +188,7 @@
     if (willOpen) {
       prefill();
       loadFolders();
-      var first = field('f_from');
+      var first = firstPanelField();
       if (first) first.focus();
     }
   }
@@ -144,15 +196,6 @@
   toggles.forEach(function (btn) {
     btn.addEventListener('click', function () {
       setOpen(panel.classList.contains('hidden'));
-    });
-  });
-
-  // Keep the desktop and mobile search-box inputs in sync.
-  boxInputs.forEach(function (input) {
-    input.addEventListener('input', function () {
-      boxInputs.forEach(function (other) {
-        if (other !== input) other.value = input.value;
-      });
     });
   });
 

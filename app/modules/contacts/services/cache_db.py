@@ -109,22 +109,59 @@ def count_contacts(conn):
     return row[0] if row else 0
 
 
-def search_contacts(conn, query, page=1, per_page=50):
+def _search_conditions(query, email, phone, org):
+    """Build the WHERE clause for contact search (HLD U11.18).
+
+    All filters are optional and combine with logical AND; the free-text
+    ``query`` matches name/email/phone/org/title columns (logical OR).
+    """
+    conditions = []
+    params = []
+    if query:
+        like = f"%{query}%"
+        conditions.append(
+            "(fn LIKE ? OR email_work LIKE ? OR email_home LIKE ? "
+            "OR tel_work LIKE ? OR tel_home LIKE ? OR tel_cell LIKE ? "
+            "OR org LIKE ? OR title LIKE ?)"
+        )
+        params.extend([like] * 8)
+    if email:
+        email_like = f"%{email}%"
+        conditions.append("(email_work LIKE ? OR email_home LIKE ?)")
+        params.extend([email_like, email_like])
+    if phone:
+        phone_like = f"%{phone}%"
+        conditions.append("(tel_work LIKE ? OR tel_home LIKE ? OR tel_cell LIKE ?)")
+        params.extend([phone_like] * 3)
+    if org:
+        org_like = f"%{org}%"
+        conditions.append("(org LIKE ? OR title LIKE ?)")
+        params.extend([org_like, org_like])
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    return where, params
+
+
+def search_contacts(conn, query, page=1, per_page=50, email=None, phone=None, org=None):
     offset = (page - 1) * per_page
-    like = f"%{query}%"
+    where, params = _search_conditions(query, email, phone, org)
     rows = conn.execute(
-        """
+        f"""
         SELECT * FROM contacts
-        WHERE fn LIKE ? OR email_work LIKE ? OR email_home LIKE ?
-           OR tel_work LIKE ? OR tel_home LIKE ? OR tel_cell LIKE ?
-           OR org LIKE ? OR title LIKE ?
+        {where}
         ORDER BY fn COLLATE NOCASE ASC
         LIMIT ? OFFSET ?
         """,
-        (like, like, like, like, like, like, like, like, per_page, offset),
+        (*params, per_page, offset),
     ).fetchall()
     cols = [desc[0] for desc in conn.execute("SELECT * FROM contacts LIMIT 0").description]
     return [dict(zip(cols, r, strict=False)) for r in rows]
+
+
+def count_search_contacts(conn, query="", email=None, phone=None, org=None):
+    """Total match count for a contact search (pagination, HLD U11.18)."""
+    where, params = _search_conditions(query, email, phone, org)
+    row = conn.execute(f"SELECT COUNT(*) FROM contacts {where}", tuple(params)).fetchone()
+    return row[0] if row else 0
 
 
 def search_contacts_api(conn, query, limit=10):

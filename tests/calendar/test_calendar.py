@@ -666,6 +666,125 @@ def test_api_search_too_short(authed_client, app):
     assert json.loads(resp.data) == []
 
 
+def _seed_search_events(app, user_id, paths):
+    from app.modules.calendar.services.cache_db import open_cache
+    from app.shared.keys import get_user_key
+
+    with app.app_context():
+        key = get_user_key(user_id)
+        conn = open_cache(paths["cache"], key)
+        conn.execute(
+            "INSERT INTO calendars (uid, href, displayname, color) VALUES (?, ?, ?, ?)",
+            ("cal-1", "/test/cal1/", "Work", "#4285f4"),
+        )
+        conn.execute(
+            "INSERT INTO calendar_events (uid, href, etag, calendar_id, summary, dtstart, dtend, location, raw_ical) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "evt-standup",
+                "/test/standup.ics",
+                "e1",
+                1,
+                "Standup Meeting",
+                "2025-01-10T09:00:00+00:00",
+                "2025-01-10T09:30:00+00:00",
+                "HQ",
+                "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Standup Meeting\r\nEND:VEVENT\r\nEND:VCALENDAR",
+            ),
+        )
+        conn.execute(
+            "INSERT INTO calendar_events (uid, href, etag, calendar_id, summary, dtstart, dtend, location, raw_ical) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "evt-retro",
+                "/test/retro.ics",
+                "e2",
+                1,
+                "Retrospective",
+                "2025-02-20T15:00:00+00:00",
+                "2025-02-20T16:00:00+00:00",
+                "HQ",
+                "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Retrospective\r\nEND:VEVENT\r\nEND:VCALENDAR",
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+
+def test_search_page(authed_client, app):
+    """U12.46: search results page lists matches and links to event detail."""
+    client, user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+    _seed_search_events(app, user_id, paths)
+
+    try:
+        resp = client.get("/app/calendar/search?q=Standup")
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert "Standup Meeting" in html
+        assert "1 result" in html
+        # Result rows link to the event detail page.
+        assert "/calendar/events/" in html
+        assert "Retrospective" not in html
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_search_page_date_range_and_location(authed_client, app):
+    """U12.46: after/before + location filters scope the results."""
+    client, user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+    _seed_search_events(app, user_id, paths)
+
+    try:
+        resp = client.get("/app/calendar/search?after=2025-02-01&before=2025-02-28&location=HQ")
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert "Retrospective" in html
+        assert "Standup Meeting" not in html
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_search_page_no_results(authed_client, app):
+    """U12.46: explicit no-match empty state."""
+    client, user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+    _seed_search_events(app, user_id, paths)
+
+    try:
+        resp = client.get("/app/calendar/search?q=zzznothing")
+        assert resp.status_code == 200
+        assert b"No events match your search." in resp.data
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_search_page_without_query(authed_client, app):
+    """U12.46: no query yet — prompt state, no results rendered."""
+    client, _user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+
+    try:
+        with patch("app.modules.calendar.controllers.views._sync_calendars_and_events"):
+            resp = client.get("/app/calendar/search")
+        assert resp.status_code == 200
+        assert b"No events match your search." not in resp.data
+        assert b"Search events by summary" in resp.data
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_search_page_no_caldav_config(authed_client, app):
+    client, _user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id, with_caldav=False)
+    try:
+        resp = client.get("/app/calendar/search?q=x")
+        assert resp.status_code == 200
+        assert b"not configured" in resp.data
+    finally:
+        if paths.get("cache"):
+            _safe_unlink(paths["cache"])
+
+
 def test_calendar_sync(authed_client, app):
     client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)

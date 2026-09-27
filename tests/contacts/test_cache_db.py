@@ -3,6 +3,7 @@ import tempfile
 
 from app.modules.contacts.services.cache_db import (
     count_contacts,
+    count_search_contacts,
     delete_contact_by_uid,
     get_contact,
     get_contact_by_uid,
@@ -64,6 +65,7 @@ def test_upsert_updates_existing():
         upsert_contact(conn, "uid1", "/a.vcf", "etag2", vcard2)
         assert count_contacts(conn) == 1
         c = get_contact_by_uid(conn, "uid1")
+        assert c is not None
         assert c["fn"] == "Alice Updated"
     finally:
         _cleanup(conn, path)
@@ -171,6 +173,77 @@ def test_search_contacts():
         _cleanup(conn, path)
 
 
+def _vcard(uid, fn, extra=""):
+    return (
+        f"BEGIN:VCARD\r\nVERSION:3.0\r\nUID:{uid}\r\nFN:{fn}\r\n{extra}\r\nEND:VCARD"
+        if extra
+        else f"BEGIN:VCARD\r\nVERSION:3.0\r\nUID:{uid}\r\nFN:{fn}\r\nEND:VCARD"
+    )
+
+
+def test_search_contacts_field_filters():
+    """U11.18: email/phone/org filters, AND-combined with free text."""
+    conn, path, _key = _make_cache()
+    try:
+        upsert_contact(
+            conn,
+            "uid-a",
+            "/a.vcf",
+            "e1",
+            _vcard(
+                "uid-a",
+                "Alice Smith",
+                "EMAIL;TYPE=WORK:alice@acme.test\r\nTEL;TYPE=WORK:+1 555 0100\r\nORG:Acme Inc.",
+            ),
+        )
+        upsert_contact(
+            conn,
+            "uid-b",
+            "/b.vcf",
+            "e2",
+            _vcard(
+                "uid-b",
+                "Bob Jones",
+                "EMAIL;TYPE=WORK:bob@other.test\r\nTEL;TYPE=CELL:+1 555 0200\r\nORG:Other LLC",
+            ),
+        )
+        by_email = search_contacts(conn, "", email="acme")
+        assert [c["fn"] for c in by_email] == ["Alice Smith"]
+        by_phone = search_contacts(conn, "", phone="0100")
+        assert [c["fn"] for c in by_phone] == ["Alice Smith"]
+        by_org = search_contacts(conn, "", org="Other")
+        assert [c["fn"] for c in by_org] == ["Bob Jones"]
+        # Filters AND-combine with free text.
+        assert [c["fn"] for c in search_contacts(conn, "Alice", email="acme")] == ["Alice Smith"]
+        assert search_contacts(conn, "Alice", email="other") == []
+        # No filters at all returns everything (count parity).
+        assert count_search_contacts(conn, "") == 2
+        assert count_search_contacts(conn, "", email="acme") == 1
+    finally:
+        _cleanup(conn, path)
+
+
+def test_search_contacts_pagination_total():
+    """U11.18: search must report the true total, not the page size."""
+    conn, path, _key = _make_cache()
+    try:
+        for i in range(55):
+            upsert_contact(
+                conn,
+                f"uid-{i:03d}",
+                f"/{i:03d}.vcf",
+                f"e{i}",
+                _vcard(f"uid-{i:03d}", f"Person {i:03d}", "ORG:Acme Inc."),
+            )
+        page1 = search_contacts(conn, "Person", page=1, per_page=50)
+        assert len(page1) == 50
+        assert count_search_contacts(conn, "Person") == 55
+        page2 = search_contacts(conn, "Person", page=2, per_page=50)
+        assert len(page2) == 5
+    finally:
+        _cleanup(conn, path)
+
+
 def test_search_contacts_api():
     conn, path, _key = _make_cache()
     try:
@@ -200,10 +273,12 @@ def test_sync_state():
         assert get_sync_state(conn, "/ab/") is None
         set_sync_state(conn, "/ab/", "token-1")
         state = get_sync_state(conn, "/ab/")
+        assert state is not None
         assert state["sync_token"] == "token-1"
         assert state["last_sync_at"] is not None
         set_sync_state(conn, "/ab/", "token-2")
         state = get_sync_state(conn, "/ab/")
+        assert state is not None
         assert state["sync_token"] == "token-2"
     finally:
         _cleanup(conn, path)

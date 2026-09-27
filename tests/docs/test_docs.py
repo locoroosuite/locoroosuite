@@ -38,6 +38,101 @@ def test_docs_index_empty(authed_client, app):
         _safe_unlink(paths["cache"])
 
 
+def _seed_docs(app, user_id, account_id, paths):
+    """Seed the docs cache directly (documents table contract:
+    id, name, doc_type, account_id, folder_path, tags, updated_at)."""
+    from app.modules.docs.services.cache_db import open_cache
+    from app.shared.keys import get_user_key
+
+    with app.app_context():
+        key = get_user_key(user_id)
+        conn = open_cache(paths["cache"], key)
+        rows = [
+            ("doc-1", "Quarterly Report", "odt", "", '["finance"]'),
+            ("doc-2", "Team Budget", "ods", "Projects", '["finance"]'),
+            ("doc-3", "Launch Deck", "odp", "", "[]"),
+        ]
+        for doc_id, name, doc_type, folder, tags in rows:
+            conn.execute(
+                "INSERT INTO documents (id, name, doc_type, account_id, folder_path, tags)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (doc_id, name, doc_type, account_id, folder, tags),
+            )
+        conn.commit()
+        conn.close()
+
+
+def test_docs_index_name_search(authed_client, app):
+    """U13.16: server-side name search filters the list in place."""
+    client, user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+    _seed_docs(app, user_id, account_id, paths)
+    try:
+        resp = client.get("/app/docs/?q=report")
+        assert resp.status_code == 200
+        assert b"Quarterly Report" in resp.data
+        assert b"Team Budget" not in resp.data
+        assert b"Launch Deck" not in resp.data
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_docs_index_type_filter(authed_client, app):
+    """U13.16: type filter (odt/ods/odp/odg)."""
+    client, user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+    _seed_docs(app, user_id, account_id, paths)
+    try:
+        resp = client.get("/app/docs/?type=ods")
+        assert resp.status_code == 200
+        assert b"Team Budget" in resp.data
+        assert b"Quarterly Report" not in resp.data
+
+        # Unknown types are ignored rather than matching nothing.
+        resp = client.get("/app/docs/?type=exe")
+        assert resp.status_code == 200
+        assert b"Quarterly Report" in resp.data
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_docs_index_search_composes_with_folder_and_tag(authed_client, app):
+    """U13.91d: name/type search composes with folder and tag (logical AND)."""
+    client, user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+    _seed_docs(app, user_id, account_id, paths)
+    try:
+        resp = client.get("/app/docs/?q=Budget&folder=Projects")
+        assert resp.status_code == 200
+        assert b"Team Budget" in resp.data
+
+        # Name matches but folder does not -> no match.
+        resp = client.get("/app/docs/?q=Budget&folder=Other")
+        assert resp.status_code == 200
+        assert b"No documents match your search." in resp.data
+
+        resp = client.get("/app/docs/?type=odt&tag=finance")
+        assert resp.status_code == 200
+        assert b"Quarterly Report" in resp.data
+    finally:
+        _safe_unlink(paths["cache"])
+
+
+def test_docs_index_search_no_results_state(authed_client, app):
+    """U13.16: fruitless search shows the no-match empty state."""
+    client, user_id, account_id = authed_client
+    paths = _setup_test_env(app, account_id)
+    _seed_docs(app, user_id, account_id, paths)
+    try:
+        resp = client.get("/app/docs/?q=zzznothing")
+        assert resp.status_code == 200
+        assert b"No documents match your search." in resp.data
+        assert b"Clear search" in resp.data
+        assert b"No documents yet" not in resp.data
+    finally:
+        _safe_unlink(paths["cache"])
+
+
 def test_docs_create(authed_client, app):
     client, _user_id, account_id = authed_client
     paths = _setup_test_env(app, account_id)

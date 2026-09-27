@@ -1,5 +1,5 @@
 import json
-from datetime import UTC
+from datetime import UTC, datetime, timedelta
 
 import sqlcipher3
 
@@ -395,19 +395,64 @@ def count_events(conn, calendar_id=None):
     return row[0] if row else 0
 
 
-def search_events(conn, query, limit=50):
-    like = f"%{query}%"
+def _valid_date_str(value):
+    """Return the string if it is a valid YYYY-MM-DD date, else None."""
+    if not value:
+        return None
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+    except (ValueError, TypeError):
+        return None
+    return value
+
+
+def _next_day_str(value):
+    """Return the day after the given YYYY-MM-DD date as a string, or None."""
+    if not value:
+        return None
+    try:
+        day = datetime.strptime(value, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return None
+    return (day + timedelta(days=1)).isoformat()
+
+
+def search_events(conn, query, limit=50, location=None, after=None, before=None):
+    """Search visible calendar events (HLD U12.46).
+
+    All filters are optional and combine with logical AND: free-text
+    ``query`` over summary/description/location, ``location`` substring,
+    and ``after``/``before`` (YYYY-MM-DD, inclusive, filtering on dtstart —
+    stored as ISO strings so lexical SQL comparison is correct).
+    """
+    conditions = ["c.is_visible = 1"]
+    params = []
+    if query:
+        like = f"%{query}%"
+        conditions.append("(e.summary LIKE ? OR e.description LIKE ? OR e.location LIKE ?)")
+        params.extend([like, like, like])
+    if location:
+        conditions.append("e.location LIKE ?")
+        params.append(f"%{location}%")
+    after_date = _valid_date_str(after)
+    if after_date:
+        conditions.append("e.dtstart >= ?")
+        params.append(after_date)
+    before_next = _next_day_str(before)
+    if before_next:
+        conditions.append("e.dtstart < ?")
+        params.append(before_next)
+    where = " AND ".join(conditions)
     rows = conn.execute(
-        """
+        f"""
         SELECT e.*, c.color as calendar_color, c.displayname as calendar_name
         FROM calendar_events e
         JOIN calendars c ON e.calendar_id = c.id
-        WHERE (e.summary LIKE ? OR e.description LIKE ? OR e.location LIKE ?)
-          AND c.is_visible = 1
+        WHERE {where}
         ORDER BY e.dtstart DESC
         LIMIT ?
         """,
-        (like, like, like, limit),
+        (*params, limit),
     ).fetchall()
     if not rows:
         return []

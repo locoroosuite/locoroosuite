@@ -11,6 +11,9 @@
     typingTimers: {},
     es: null,
     sending: false,
+    /* HLD U7.11 / U25.12: live room-list filter driven by the header
+       search box (empty string = no filtering). */
+    roomFilter: "",
     /* HLD U25.18 delivery ticks: per-room read receipts
        {roomId: {userId: {event_id, ts}}} and per-room delivered event ids
        {roomId: {eventId: true}}, updated by API loads and SSE changes. */
@@ -80,6 +83,26 @@
     return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
 
+  /* HLD U7.11: case-insensitive substring match on the room display name;
+     DMs additionally match the peer's email address. */
+  function roomMatchesFilter(room) {
+    const needle = state.roomFilter.trim().toLowerCase();
+    if (!needle) return true;
+    const label = String(room.display_name || room.name || "").toLowerCase();
+    if (label.indexOf(needle) !== -1) return true;
+    if (room.is_direct) {
+      const peer = state.dmPeers[room.room_id] || {};
+      const email = String(peer.email || "").toLowerCase();
+      if (email && email.indexOf(needle) !== -1) return true;
+    }
+    return false;
+  }
+
+  function setRoomFilter(value) {
+    state.roomFilter = String(value || "");
+    renderRoomList();
+  }
+
   function renderRoomList() {
     const roomsUl = el("chat-rooms");
     const dmsUl = el("chat-dms");
@@ -89,14 +112,15 @@
     dmsUl.textContent = "";
     invitesUl.textContent = "";
 
+    const filterActive = state.roomFilter.trim() !== "";
     const joined = state.rooms.filter(function (r) {
-      return r.membership === "join" && !r.is_direct;
+      return r.membership === "join" && !r.is_direct && roomMatchesFilter(r);
     });
     const dms = state.rooms.filter(function (r) {
-      return r.membership === "join" && r.is_direct;
+      return r.membership === "join" && r.is_direct && roomMatchesFilter(r);
     });
     const invites = state.rooms.filter(function (r) {
-      return r.membership === "invite";
+      return r.membership === "invite" && roomMatchesFilter(r);
     });
 
     function li(room, inviteMode) {
@@ -177,8 +201,16 @@
       invitesUl.appendChild(li(room, true));
     });
 
-    el("chat-rooms-empty").classList.toggle("hidden", joined.length > 0);
-    el("chat-dms-empty").classList.toggle("hidden", dms.length > 0);
+    const roomsEmpty = el("chat-rooms-empty");
+    const dmsEmpty = el("chat-dms-empty");
+    roomsEmpty.textContent = filterActive
+      ? window.LR.t("No rooms match your filter.")
+      : window.LR.t("No rooms yet. Create one with +.");
+    dmsEmpty.textContent = filterActive
+      ? window.LR.t("No conversations match your filter.")
+      : window.LR.t("No direct messages yet. Start one with the pencil icon.");
+    roomsEmpty.classList.toggle("hidden", joined.length > 0);
+    dmsEmpty.classList.toggle("hidden", dms.length > 0);
     invitesBox.classList.toggle("hidden", invites.length === 0);
   }
 
@@ -272,6 +304,7 @@
     timeLabel: timeLabel,
     renderRoomList: renderRoomList,
     applyRooms: applyRooms,
+    setRoomFilter: setRoomFilter,
     setSyncStatus: setSyncStatus,
     startStream: startStream,
     bootstrap: bootstrap,

@@ -12,7 +12,13 @@ from pathlib import Path
 
 CHAT_DIR = Path(__file__).resolve().parents[2] / "app" / "static" / "js" / "chat"
 TEMPLATE = (
-    Path(__file__).resolve().parents[2] / "app" / "modules" / "chat" / "templates" / "chat" / "index.html"
+    Path(__file__).resolve().parents[2]
+    / "app"
+    / "modules"
+    / "chat"
+    / "templates"
+    / "chat"
+    / "index.html"
 )
 
 
@@ -40,3 +46,30 @@ def test_banner_template_has_no_hardcoded_color():
     assert m, "chat-banner element missing"
     assert "amber" not in m.group(1)
     assert "emerald" not in m.group(1)
+
+
+def test_room_filter_is_wired_end_to_end():
+    """HLD U7.11/U25.12: the header search box filters rooms client-side.
+
+    The contract spans two files: search-panel.js dispatches ``lr:search-live``
+    for live-mode forms (and blocks submit), chat-ui.js listens for it and
+    chat-core.js implements the filtering + "no rooms match" empty states.
+    """
+    shell = (
+        Path(__file__).resolve().parents[2] / "app" / "static" / "js" / "mail" / "search-panel.js"
+    ).read_text()
+    assert "lr:search-live" in shell
+    assert "data-search-live" in shell
+    assert "preventDefault" in shell
+
+    ui = (CHAT_DIR / "chat-ui.js").read_text()
+    assert re.search(r'addEventListener\("lr:search-live"', ui)
+    assert "Chat.setRoomFilter" in ui
+
+    core = (CHAT_DIR / "chat-core.js").read_text()
+    assert "setRoomFilter: setRoomFilter" in core
+    # DMs match the peer's email too, not just the display name.
+    assert "peer.email" in core
+    # Filter-active empty states replace the default list-empty messages.
+    assert '"No rooms match your filter."' in core
+    assert '"No conversations match your filter."' in core

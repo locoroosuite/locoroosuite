@@ -1016,6 +1016,12 @@
     el("chat-empty-new-room").addEventListener("click", function () {
       el("chat-new-room").click();
     });
+    /* HLD U7.11: the module-contextual header search box filters the room
+       and DM lists live (no navigation). search-panel.js dispatches the
+       event; Chat.setRoomFilter re-renders the sidebar. */
+    document.addEventListener("lr:search-live", function (ev) {
+      Chat.setRoomFilter(ev.detail || "");
+    });
   });
 
   Chat.ui.openRoom = openRoom;

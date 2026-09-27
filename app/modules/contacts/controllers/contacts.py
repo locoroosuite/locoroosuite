@@ -36,6 +36,9 @@ def contact_list():
             total_pages=0,
             total=0,
             q="",
+            email="",
+            phone="",
+            org="",
             account=account,
             carddav_configured=False,
         )
@@ -50,12 +53,19 @@ def contact_list():
             _sync_contacts(conn, account, config)
 
         q = request.args.get("q", "").strip()
+        email = request.args.get("email", "").strip()
+        phone = request.args.get("phone", "").strip()
+        org = request.args.get("org", "").strip()
         page = request.args.get("page", 1, type=int)
         per_page = 50
 
-        if q:
-            contacts = cache_db.search_contacts(conn, q, page, per_page)
-            total = len(contacts)
+        if q or email or phone or org:
+            contacts = cache_db.search_contacts(
+                conn, q, page, per_page, email=email or None, phone=phone or None, org=org or None
+            )
+            total = cache_db.count_search_contacts(
+                conn, q, email=email or None, phone=phone or None, org=org or None
+            )
         else:
             contacts = cache_db.list_contacts(conn, page, per_page)
             total = cache_db.count_contacts(conn)
@@ -68,6 +78,9 @@ def contact_list():
             total_pages=total_pages,
             total=total,
             q=q,
+            email=email,
+            phone=phone,
+            org=org,
             account=account,
             carddav_configured=True,
         )

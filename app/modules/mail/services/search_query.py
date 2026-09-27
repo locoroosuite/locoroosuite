@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import TypedDict
 
 _TOKEN_RE = re.compile(
     r'(?:(?P<prefix>[A-Za-z]+):(?:"(?P<quoted>[^"]*)"|(?P<bare>\S+)))'
@@ -50,6 +51,22 @@ def quote_token(value: str) -> str:
     if re.search(r"\s", value):
         return f'"{value}"'
     return value
+
+
+class SearchFormFields(TypedDict):
+    """Advanced-search panel field values (U7.5)."""
+
+    f_from: str
+    f_to: str
+    f_subject: str
+    f_folder: str
+    f_filename: str
+    f_after: str
+    f_before: str
+    f_attachment: bool
+    f_unread: bool
+    f_starred: bool
+    q: str
 
 
 @dataclass
@@ -162,6 +179,41 @@ class SearchFilters:
             clone.after_ts = None if key == "after" else clone.after_ts
             clone.before_ts = None if key == "before" else clone.before_ts
         return clone
+
+    def to_form_fields(self) -> SearchFormFields:
+        """Map these filters to advanced-search panel field values (U7.5).
+
+        Each panel field holds the first value of its operator; extra values
+        and operators without a panel field are preserved as literal tokens
+        under ``q`` so a panel round-trip never loses criteria.
+        """
+        leftovers: list[str] = []
+        for value in self.from_terms[1:]:
+            leftovers.append(f"from:{quote_token(value)}")
+        for value in self.to_terms[1:]:
+            leftovers.append(f"to:{quote_token(value)}")
+        for value in self.subject_terms[1:]:
+            leftovers.append(f"subject:{quote_token(value)}")
+        for value in self.folders[1:]:
+            leftovers.append(f"folder:{quote_token(value)}")
+        for value in self.filenames[1:]:
+            leftovers.append(f"filename:{quote_token(value)}")
+        for flag in self.is_flags:
+            if flag not in ("unread", "starred"):
+                leftovers.append(f"is:{flag}")
+        return {
+            "f_from": self.from_terms[0] if self.from_terms else "",
+            "f_to": self.to_terms[0] if self.to_terms else "",
+            "f_subject": self.subject_terms[0] if self.subject_terms else "",
+            "f_folder": self.folders[0] if self.folders else "",
+            "f_filename": self.filenames[0] if self.filenames else "",
+            "f_after": self.after_raw or "",
+            "f_before": self.before_raw or "",
+            "f_attachment": bool(self.has_attachment),
+            "f_unread": "unread" in self.is_flags,
+            "f_starred": "starred" in self.is_flags,
+            "q": " ".join([*self.text_terms, *leftovers]),
+        }
 
     def with_api_filters(
         self,

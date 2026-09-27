@@ -12,7 +12,7 @@ from app.modules.mail.controllers.helpers import (
     _parse_flags,
     mail_bp,
 )
-from app.modules.mail.services.cache_db import open_cache, search_messages
+from app.modules.mail.services.cache_db import list_cached_folders, open_cache, search_messages
 from app.modules.mail.services.imap_client import (
     fetch_message,
     list_folders,
@@ -61,6 +61,8 @@ def _advanced_field_tokens(values):
         tokens.append("has:attachment")
     if values.get("f_unread"):
         tokens.append("is:unread")
+    if values.get("f_starred"):
+        tokens.append("is:starred")
     return tokens
 
 
@@ -85,6 +87,43 @@ def _known_cache_folders(conn):
             "SELECT DISTINCT folder FROM messages WHERE folder IS NOT NULL ORDER BY folder"
         ).fetchall()
     ]
+
+
+@mail_bp.route("/mail/search/parse")
+@require_customer
+def search_parse():
+    """Parse a raw query into advanced-search panel field values (U7.5).
+
+    Pure parsing — the single grammar source is ``parse_search_query``; the
+    panel JS fills its fields from this response so the Python grammar is
+    never duplicated client-side.
+    """
+    query = (request.args.get("q") or "").strip()
+    account_id = int(request.args.get("account_id") or 0)
+    CustomerAccount.query.filter_by(
+        id=account_id, customer_id=session.get("user_id")
+    ).first_or_404()
+    filters = parse_search_query(query)
+    return jsonify(
+        {
+            "query": filters.to_query(),
+            "fields": filters.to_form_fields(),
+            "chips": filters.chips(),
+        }
+    )
+
+
+@mail_bp.route("/mail/search/folders")
+@require_customer
+def search_folders():
+    """Folder names for the advanced-search panel's folder select (U7.5)."""
+    account_id = int(request.args.get("account_id") or 0)
+    account = CustomerAccount.query.filter_by(
+        id=account_id, customer_id=session.get("user_id")
+    ).first_or_404()
+    key = get_user_key(session.get("user_id"))
+    conn = open_cache(account.cache_db_path, key)
+    return jsonify({"folders": [row["name"] for row in list_cached_folders(conn)]})
 
 
 @mail_bp.route("/mail/search", methods=["GET", "POST"])
@@ -135,7 +174,6 @@ def search():
             total=0,
             chips=[],
             search_prefill=query,
-            free_text=" ".join(filters.text_terms),
         )
 
     app = current_app._get_current_object()  # pyright: ignore[reportAttributeAccessIssue]
@@ -195,7 +233,6 @@ def search():
         total=total,
         chips=chips,
         search_prefill=query,
-        free_text=" ".join(filters.text_terms),
     )
 
 

@@ -4389,3 +4389,21 @@ msgstr "Escribe primero una búsqueda."
 
 msgid "Free-text words are kept; the fields above add filters."
 msgstr "Las palabras de texto libre se conservan; los campos de arriba añaden filtros."
+
+msgid "Show search options"
+msgstr "Mostrar opciones de búsqueda"
+
+msgid "Search options"
+msgstr "Opciones de búsqueda"
+
+msgid "Starred only"
+msgstr "Solo destacados"
+
+msgid "Has the words"
+msgstr "Contiene las palabras"
+
+msgid "Clear fields"
+msgstr "Limpiar campos"
+
+msgid "Any folder"
+msgstr "Cualquier carpeta"

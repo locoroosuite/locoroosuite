@@ -59,6 +59,11 @@ def test_folder_view(authed_client, app):
     assert 'id="bulk-toolbar"' in html
     # U7.3: the header search box is pre-filled with the folder: tag.
     assert 'value="folder:INBOX"' in html
+    # U7.5: "Show search options" toggle + global advanced-search panel.
+    assert "data-search-options-toggle" in html
+    assert 'id="search-options-panel"' in html
+    assert "Show search options" in html
+    assert "js/mail/search-panel.js" in html
 
 
 def test_folder_messages_json(authed_client):

@@ -1,0 +1,67 @@
+{# Advanced search panel ("Show search options", HLD U7.5).
+   Included from layout.html — one instance per page, under the header.
+   search-panel.js: toggle, server-side prefill via /mail/search/parse,
+   lazy folder options via /mail/search/folders. #}
+<form id="search-options-panel" method="get" action="{{ url_for('mail.search') }}" class="hidden border-t border-slate-200/80 bg-white px-3 sm:px-6 lg:px-8 py-4" data-search-panel>
+  <div class="max-w-screen-2xl mx-auto">
+    <div class="flex items-center justify-between mb-3">
+      <div class="text-sm font-semibold text-slate-900">{{ _('Search options') }}</div>
+      <button type="button" class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100" data-search-panel-clear>{{ _('Clear fields') }}</button>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+      <label class="block">
+        <span class="text-xs text-slate-500">{{ _('From') }}</span>
+        <input name="f_from" type="text" autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+      </label>
+      <label class="block">
+        <span class="text-xs text-slate-500">{{ _('To') }}</span>
+        <input name="f_to" type="text" autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+      </label>
+      <label class="block">
+        <span class="text-xs text-slate-500">{{ _('Subject') }}</span>
+        <input name="f_subject" type="text" autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+      </label>
+      <label class="block">
+        <span class="text-xs text-slate-500">{{ _('Folder') }}</span>
+        <select name="f_folder" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none">
+          <option value="">{{ _('Any folder') }}</option>
+        </select>
+      </label>
+      <label class="block">
+        <span class="text-xs text-slate-500">{{ _('Attachment name') }}</span>
+        <input name="f_filename" type="text" autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+      </label>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block">
+          <span class="text-xs text-slate-500">{{ _('After') }}</span>
+          <input name="f_after" type="date" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none" />
+        </label>
+        <label class="block">
+          <span class="text-xs text-slate-500">{{ _('Before') }}</span>
+          <input name="f_before" type="date" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none" />
+        </label>
+      </div>
+      <label class="flex items-center gap-2 mt-5">
+        <input type="checkbox" name="f_attachment" class="h-4 w-4 rounded border-slate-300 accent-slate-900" />
+        <span class="text-sm text-slate-700">{{ _('Has attachment') }}</span>
+      </label>
+      <label class="flex items-center gap-2 mt-5">
+        <input type="checkbox" name="f_unread" class="h-4 w-4 rounded border-slate-300 accent-slate-900" />
+        <span class="text-sm text-slate-700">{{ _('Unread only') }}</span>
+      </label>
+      <label class="flex items-center gap-2 mt-5">
+        <input type="checkbox" name="f_starred" class="h-4 w-4 rounded border-slate-300 accent-slate-900" />
+        <span class="text-sm text-slate-700">{{ _('Starred only') }}</span>
+      </label>
+      <label class="block sm:col-span-2 lg:col-span-3">
+        <span class="text-xs text-slate-500">{{ _('Has the words') }}</span>
+        <input name="q" type="search" autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+      </label>
+    </div>
+    <input type="hidden" name="account_id" value="{{ session.get('active_account_id', 0) }}" />
+    <div class="flex items-center justify-end gap-2 mt-3">
+      <span class="text-xs text-slate-400 mr-auto hidden sm:inline">{{ _('Free-text words are kept; the fields above add filters.') }}</span>
+      <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800">{{ _('Search') }}</button>
+    </div>
+  </div>
+</form>

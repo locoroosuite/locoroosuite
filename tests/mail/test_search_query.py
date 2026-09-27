@@ -126,3 +126,71 @@ def test_with_api_filters_invalid_since_is_ignored():
 def test_with_api_filters_unread_false_means_read():
     f = parse_search_query("").with_api_filters(unread=False)
     assert "read" in f.is_flags
+
+
+class TestToFormFields:
+    def test_single_operators_map_to_fields(self):
+        f = parse_search_query(
+            "from:alice to:bob subject:report folder:INBOX filename:pdf "
+            "before:2025-01-31 after:2024-12-01 has:attachment is:unread is:starred hello"
+        )
+        fields = f.to_form_fields()
+        assert fields["f_from"] == "alice"
+        assert fields["f_to"] == "bob"
+        assert fields["f_subject"] == "report"
+        assert fields["f_folder"] == "INBOX"
+        assert fields["f_filename"] == "pdf"
+        assert fields["f_before"] == "2025-01-31"
+        assert fields["f_after"] == "2024-12-01"
+        assert fields["f_attachment"] is True
+        assert fields["f_unread"] is True
+        assert fields["f_starred"] is True
+        assert fields["q"] == "hello"
+
+    def test_extra_values_and_flags_preserved_in_q(self):
+        f = parse_search_query("from:alice from:zoe is:read is:draft report")
+        fields = f.to_form_fields()
+        assert fields["f_from"] == "alice"
+        assert "from:zoe" in fields["q"]
+        assert "is:read" in fields["q"]
+        assert "is:draft" in fields["q"]
+        assert "report" in fields["q"]
+
+    def test_quoted_values_map_to_single_field(self):
+        f = parse_search_query('from:"John Doe" folder:"Sent Items"')
+        fields = f.to_form_fields()
+        assert fields["f_from"] == "John Doe"
+        assert fields["f_folder"] == "Sent Items"
+
+    def test_empty_query_yields_blank_fields(self):
+        fields = parse_search_query("").to_form_fields()
+        assert fields["f_from"] == ""
+        assert fields["f_attachment"] is False
+        assert fields["q"] == ""
+
+    def test_panel_roundtrip_never_loses_criteria(self):
+        """U7.5: parse → form fields → f_* tokens + leftover q must re-parse
+        to equivalent filters (fields + checkboxes + words)."""
+        from app.modules.mail.controllers.search import _advanced_field_tokens
+
+        raw = "from:alice from:zoe is:draft is:starred has:attachment report"
+        fields = parse_search_query(raw).to_form_fields()
+        tokens = _advanced_field_tokens(
+            {
+                "f_from": fields["f_from"],
+                "f_to": fields["f_to"],
+                "f_subject": fields["f_subject"],
+                "f_folder": fields["f_folder"],
+                "f_filename": fields["f_filename"],
+                "f_after": fields["f_after"],
+                "f_before": fields["f_before"],
+                "f_attachment": fields["f_attachment"],
+                "f_unread": fields["f_unread"],
+                "f_starred": fields["f_starred"],
+            }
+        )
+        merged = parse_search_query(" ".join([fields["q"], *tokens]))
+        assert sorted(merged.from_terms) == ["alice", "zoe"]
+        assert sorted(merged.is_flags) == ["draft", "starred"]
+        assert merged.has_attachment is True
+        assert merged.text_terms == ["report"]

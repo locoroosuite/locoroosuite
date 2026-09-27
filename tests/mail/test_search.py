@@ -275,3 +275,72 @@ class TestSearchApply:
             )
         assert resp.status_code == 302
         assert "/mail/search" in resp.headers["Location"]
+
+
+class TestSearchParseEndpoint:
+    """U7.5: /mail/search/parse maps a raw query to panel field values."""
+
+    def test_parse_fills_fields_from_operators(self, authed_client):
+        client, _user_id, account_id = authed_client
+        resp = client.get(
+            f"/app/mail/search/parse?q=from%3Aalice+is%3Aunread+report&account_id={account_id}"
+        )
+        assert resp.status_code == 200
+        data = resp.json
+        assert data["fields"]["f_from"] == "alice"
+        assert data["fields"]["f_unread"] is True
+        assert data["fields"]["q"] == "report"
+        assert {"key": "from", "value": "alice"} in data["chips"]
+
+    def test_parse_empty_query(self, authed_client):
+        client, _user_id, account_id = authed_client
+        resp = client.get(f"/app/mail/search/parse?q=&account_id={account_id}")
+        assert resp.status_code == 200
+        assert resp.json["fields"]["f_from"] == ""
+        assert resp.json["chips"] == []
+
+    def test_parse_quoted_values(self, authed_client):
+        client, _user_id, account_id = authed_client
+        resp = client.get(f"/app/mail/search/parse?q=from%3A%22John+Doe%22&account_id={account_id}")
+        assert resp.status_code == 200
+        assert resp.json["fields"]["f_from"] == "John Doe"
+
+    def test_parse_rejects_foreign_account(self, authed_client):
+        client, _user_id, _account_id = authed_client
+        resp = client.get("/app/mail/search/parse?q=x&account_id=99999")
+        assert resp.status_code == 404
+
+
+class TestSearchFoldersEndpoint:
+    """U7.5: lazy folder options for the advanced-search panel."""
+
+    def test_returns_folder_names(self, authed_client):
+        client, _user_id, account_id = authed_client
+        with (
+            patch("app.modules.mail.controllers.search.open_cache", return_value=MagicMock()),
+            patch(
+                "app.modules.mail.controllers.search.list_cached_folders",
+                return_value=[{"name": "INBOX"}, {"name": "Sent"}],
+            ),
+        ):
+            resp = client.get(f"/app/mail/search/folders?account_id={account_id}")
+        assert resp.status_code == 200
+        assert resp.json == {"folders": ["INBOX", "Sent"]}
+
+    def test_rejects_foreign_account(self, authed_client):
+        client, _user_id, _account_id = authed_client
+        resp = client.get("/app/mail/search/folders?account_id=99999")
+        assert resp.status_code == 404
+
+
+def test_search_accepts_starred_field(authed_client):
+    """U7.5: the panel's Starred only checkbox builds is:starred."""
+    client, _user_id, account_id = authed_client
+    with _search_patches([]):
+        resp = client.post(
+            "/app/mail/search",
+            data={"q": "", "f_starred": "on", "account_id": str(account_id)},
+        )
+    assert resp.status_code == 200
+    html = resp.data.decode()
+    assert "is:starred" in html

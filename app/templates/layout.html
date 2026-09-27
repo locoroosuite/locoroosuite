@@ -134,9 +134,12 @@
         </a>
         <div class="flex-1">
           {% if session.get("role") == "customer" %}
-          <form method="get" action="{{ url_for('mail.search') }}" class="hidden sm:block" data-mail-search-form>
+          <form method="get" action="{{ url_for('mail.search') }}" class="hidden sm:block relative" data-mail-search-form>
             <input type="hidden" name="account_id" value="{{ session.get('active_account_id', 0) }}" />
-            <input name="q" type="search" value="{{ search_prefill or '' }}" placeholder="{{ _('Search mail — try from:, is:unread, has:attachment') }}" aria-label="{{ _('Search mail') }}" class="w-full rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-base md:text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+            <input name="q" type="search" value="{{ search_prefill or '' }}" placeholder="{{ _('Search mail — try from:, is:unread, has:attachment') }}" aria-label="{{ _('Search mail') }}" class="w-full rounded-full border border-slate-200 bg-white/80 px-4 py-2 pr-10 text-base md:text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+            <button type="button" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-700" data-search-options-toggle title="{{ _('Show search options') }}" aria-label="{{ _('Show search options') }}" aria-expanded="false" aria-controls="search-options-panel">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
           </form>
           {% endif %}
         </div>
@@ -211,11 +214,17 @@
         {% endif %}
       </div>
       <div id="mobile-search" class="sm:hidden hidden px-3 pb-3">
-        <form method="get" action="{{ url_for('mail.search') }}" data-mail-search-form>
+        <form method="get" action="{{ url_for('mail.search') }}" class="relative" data-mail-search-form>
           <input type="hidden" name="account_id" value="{{ session.get('active_account_id', 0) }}" />
-          <input name="q" type="search" value="{{ search_prefill or '' }}" placeholder="{{ _('Search mail — try from:, is:unread, has:attachment') }}" aria-label="{{ _('Search mail') }}" class="w-full rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-base md:text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+          <input name="q" type="search" value="{{ search_prefill or '' }}" placeholder="{{ _('Search mail — try from:, is:unread, has:attachment') }}" aria-label="{{ _('Search mail') }}" class="w-full rounded-full border border-slate-200 bg-white/80 px-4 py-2 pr-10 text-base md:text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+          <button type="button" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-700" data-search-options-toggle title="{{ _('Show search options') }}" aria-label="{{ _('Show search options') }}" aria-expanded="false" aria-controls="search-options-panel">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
         </form>
       </div>
+      {% if session.get("role") == "customer" %}
+      {% include "_search_panel.html" %}
+      {% endif %}
     </header>
     {% if session.get("role") == "customer" %}
     <div id="pwa-install-banner" class="hidden border-b border-slate-800 bg-slate-900 text-white" role="region" aria-label="{{ _('Install app') }}">
@@ -557,6 +566,7 @@
   <script src="{{ url_for('static', filename='js/password-toggle.js') }}?v={{ static_v('js/password-toggle.js') }}"></script>
   {% if session.get("role") == "customer" %}
   <script src="{{ url_for('static', filename='js/pwa-install.js') }}?v={{ static_v('js/pwa-install.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/mail/search-panel.js') }}?v={{ static_v('js/mail/search-panel.js') }}"></script>
   {% endif %}
 </body>
 </html>

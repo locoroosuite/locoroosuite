@@ -42,15 +42,22 @@
     return data;
   }
 
-  function banner(text, sticky) {
+  /* Literal class sets (Tailwind JIT only emits classes it sees as literals):
+     warning = amber (matches the app-wide warning tone), success = emerald
+     (matches window.LR.notifySuccess toasts). */
+  var BANNER_BASE = "px-3 md:px-4 py-2 border-b text-xs ";
+  var BANNER_WARNING = "border-amber-200 bg-amber-50 text-amber-800";
+  var BANNER_SUCCESS = "border-emerald-200 bg-emerald-50 text-emerald-800";
+
+  function banner(text, sticky, kind) {
     const b = el("chat-banner");
     if (!text) {
       b.classList.add("hidden");
       b.textContent = "";
       return;
     }
+    b.className = BANNER_BASE + (kind === "success" ? BANNER_SUCCESS : BANNER_WARNING);
     b.textContent = text;
-    b.classList.remove("hidden");
     if (!sticky) {
       window.setTimeout(function () {
         b.classList.add("hidden");

@@ -768,7 +768,9 @@
           window.LR.t("Conversation started with {peer}{matrixId}", {
             peer: peer.email || email,
             matrixId: peer.matrix_user_id ? " (" + peer.matrix_user_id + ")" : "",
-          })
+          }),
+          false,
+          "success"
         );
       });
     });
@@ -788,7 +790,7 @@
       const email = el("chat-invite-email").value.trim();
       return actions.inviteByEmail(state.activeRoomId, email).then(function (data) {
         el("chat-invite-email").value = "";
-        Chat.banner(window.LR.t("Invited {email}{userId}", {email: email, userId: data && data.user_id ? " (" + data.user_id + ")" : ""}));
+        Chat.banner(window.LR.t("Invited {email}{userId}", {email: email, userId: data && data.user_id ? " (" + data.user_id + ")" : ""}), false, "success");
         pollRoom(state.activeRoomId);
       });
     });

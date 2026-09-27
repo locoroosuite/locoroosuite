@@ -37,6 +37,7 @@
     if (root) root.classList.remove("room-open");
     el("chat-room").classList.add("hidden");
     el("chat-empty").classList.remove("hidden");
+    if (window.Chat.calls) window.Chat.calls.updateHeader();
     Chat.renderRoomList();
   }
 
@@ -62,11 +63,15 @@
       const data = await Chat.api("/app/chat/api/rooms/" + encodeURIComponent(roomId) + "/messages?limit=50");
       indexReceipts(roomId, data.receipts);
       mergeMessages(roomId, data.messages || []);
+      if (window.Chat.calls) {
+        window.Chat.calls.mergeSummaries(roomId, data.calls || []);
+      }
       renderTimeline(roomId);
       markRoomRead(roomId);
     } catch (err) {
       Chat.banner(window.LR.t("Could not load messages: {error}", {error: err.message}));
     }
+    if (window.Chat.calls) window.Chat.calls.updateHeader();
   }
 
   function mergeMessages(roomId, incoming) {
@@ -210,8 +215,21 @@
     }
     let lastSender = null;
     let lastDay = null;
+    /* HLD U25.20: call timeline entries are merged with messages by ts. */
+    const merged = [];
     messages.forEach(function (m) {
-      const day = new Date(m.origin_server_ts).toDateString();
+      merged.push({ ts: m.origin_server_ts, kind: "msg", m: m });
+    });
+    if (window.Chat.calls) {
+      window.Chat.calls.timelineEntries(roomId).forEach(function (c) {
+        merged.push({ ts: c.invite_ts, kind: "call", c: c });
+      });
+    }
+    merged.sort(function (a, b) {
+      return a.ts - b.ts;
+    });
+    merged.forEach(function (item) {
+      const day = new Date(item.ts).toDateString();
       if (day !== lastDay) {
         lastDay = day;
         lastSender = null;
@@ -220,6 +238,12 @@
         divider.innerHTML = "<span class='flex-1 h-px bg-slate-200'></span>" + escapeHtml(day) + "<span class='flex-1 h-px bg-slate-200'></span>";
         box.appendChild(divider);
       }
+      if (item.kind === "call") {
+        lastSender = null;
+        box.appendChild(window.Chat.calls.renderEntry(item.c));
+        return;
+      }
+      const m = item.m;
       const grouped = m.sender === lastSender;
       lastSender = m.sender;
       box.appendChild(renderMessage(m, grouped));
@@ -744,6 +768,13 @@
           }
         });
       }
+      /* m.call.* signaling (HLD U25.19): chat-calls.js owns WebRTC state;
+         afterwards the active timeline re-renders with updated call rows. */
+      if (changes.calls && window.Chat.calls) {
+        Object.keys(changes.calls).forEach(function (roomId) {
+          window.Chat.calls.handleEvents(roomId, changes.calls[roomId]);
+        });
+      }
       if (changes.delivered && changes.delivered.length) {
         changes.delivered.forEach(function (d) {
           if (!d || !d.room_id || !d.event_id) return;
@@ -1025,6 +1056,7 @@
   });
 
   Chat.ui.openRoom = openRoom;
+  Chat.ui.renderTimeline = renderTimeline;
   Chat.actions = actions;
   Chat.sync = sync;
   Chat.ui.pollRoom = pollRoom;

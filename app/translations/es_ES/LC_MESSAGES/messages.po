@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-27 14:21+0930\n"
+"POT-Creation-Date: 2026-09-27 14:57+0930\n"
 "PO-Revision-Date: 2026-09-26 08:30+0930\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es_ES\n"
@@ -18,27 +18,27 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: app/__init__.py:224
+#: app/__init__.py:226
 msgid "Not Found"
 msgstr "No encontrado"
 
-#: app/__init__.py:225
+#: app/__init__.py:227
 msgid "The page you requested does not exist."
 msgstr "La página que has solicitado no existe."
 
-#: app/__init__.py:236
+#: app/__init__.py:238
 msgid "Method Not Allowed"
 msgstr "Método no permitido"
 
-#: app/__init__.py:237
+#: app/__init__.py:239
 msgid "This action is not supported."
 msgstr "Esta acción no es compatible."
 
-#: app/__init__.py:255
+#: app/__init__.py:257
 msgid "Cache key mismatch"
 msgstr "Falta de coincidencia en la clave de caché"
 
-#: app/__init__.py:257
+#: app/__init__.py:259
 msgid ""
 "Your local mail cache was encrypted with a different key. This can happen"
 " if your password was changed or your API access was reconfigured. Please"
@@ -50,11 +50,11 @@ msgstr ""
 "Restablece la caché para continuar — tu correo se volverá a sincronizar "
 "desde el servidor."
 
-#: app/__init__.py:281
+#: app/__init__.py:283
 msgid "Something went wrong"
 msgstr "Algo ha ido mal"
 
-#: app/__init__.py:282
+#: app/__init__.py:284
 msgid "An unexpected error occurred. Please try again or refresh the page."
 msgstr ""
 "Se ha producido un error inesperado. Inténtalo de nuevo o actualiza la "
@@ -318,6 +318,7 @@ msgstr "En el momento del evento"
 #: app/modules/calendar/controllers/helpers.py:97
 #, python-format
 msgid "%(num)d week"
+msgstr "%(num)d semana"
 msgid_plural "%(num)d weeks"
 msgstr[0] "%(num)d semana"
 msgstr[1] "%(num)d semanas"
@@ -325,6 +326,7 @@ msgstr[1] "%(num)d semanas"
 #: app/modules/calendar/controllers/helpers.py:99
 #, python-format
 msgid "%(num)d day"
+msgstr "%(num)d día"
 msgid_plural "%(num)d days"
 msgstr[0] "%(num)d día"
 msgstr[1] "%(num)d días"
@@ -332,6 +334,7 @@ msgstr[1] "%(num)d días"
 #: app/modules/calendar/controllers/helpers.py:101
 #, python-format
 msgid "%(num)d hour"
+msgstr "%(num)d hora"
 msgid_plural "%(num)d hours"
 msgstr[0] "%(num)d hora"
 msgstr[1] "%(num)d horas"
@@ -339,6 +342,7 @@ msgstr[1] "%(num)d horas"
 #: app/modules/calendar/controllers/helpers.py:103
 #, python-format
 msgid "%(num)d minute"
+msgstr "%(num)d minuto"
 msgid_plural "%(num)d minutes"
 msgstr[0] "%(num)d minuto"
 msgstr[1] "%(num)d minutos"
@@ -412,7 +416,7 @@ msgid "New Calendar"
 msgstr "Nuevo calendario"
 
 #: app/modules/calendar/templates/calendar_form.html:24
-#: app/modules/chat/templates/chat/index.html:117
+#: app/modules/chat/templates/chat/index.html:173
 #: app/modules/contacts/templates/list.html:73
 #: app/modules/docs/templates/docs_list.html:135
 #: app/modules/docs/templates/docs_list.html:356
@@ -439,8 +443,8 @@ msgstr "Crear calendario"
 #: app/modules/calendar/templates/calendar_form.html:39
 #: app/modules/calendar/templates/index.html:269
 #: app/modules/calendar/templates/index.html:298
-#: app/modules/chat/templates/chat/index.html:129
-#: app/modules/chat/templates/chat/index.html:150
+#: app/modules/chat/templates/chat/index.html:185
+#: app/modules/chat/templates/chat/index.html:206
 #: app/modules/contacts/templates/form.html:92
 #: app/modules/docs/templates/docs_editor.html:132
 #: app/modules/mail/templates/settings.html:277
@@ -491,12 +495,14 @@ msgstr "Aceptado"
 #: app/modules/calendar/templates/event_detail.html:33
 #: app/modules/calendar/templates/event_detail.html:37
 #: app/modules/calendar/templates/event_detail.html:45
+#: app/modules/chat/templates/chat/index.html:136
 msgid "Decline"
 msgstr "Rechazar"
 
 #: app/modules/calendar/templates/event_detail.html:36
 #: app/modules/calendar/templates/event_detail.html:40
 #: app/modules/calendar/templates/event_detail.html:43
+#: app/modules/chat/templates/chat/index.html:132
 msgid "Accept"
 msgstr "Aceptar"
 
@@ -603,7 +609,7 @@ msgstr "No enviar"
 
 #: app/modules/calendar/templates/event_detail.html:180
 #: app/modules/calendar/templates/index.html:287
-#: app/modules/chat/templates/chat/index.html:99
+#: app/modules/chat/templates/chat/index.html:107
 #: app/modules/mail/templates/compose.html:89
 msgid "Send"
 msgstr "Enviar"
@@ -753,7 +759,7 @@ msgid "New Event"
 msgstr "Nuevo evento"
 
 #: app/modules/calendar/templates/index.html:168
-#: app/modules/chat/templates/chat/index.html:172
+#: app/modules/chat/templates/chat/index.html:228
 #: app/modules/mail/templates/message.html:300
 msgid "Close"
 msgstr "Cerrar"
@@ -878,8 +884,12 @@ msgid "If the problem persists, refresh the page or check your connection."
 msgstr "Si el problema persiste, actualiza la página o comprueba tu conexión."
 
 #: app/modules/calendar/templates/search_events.html:22
-msgid "Search events by summary, description, or location — or filter by date range."
-msgstr "Busca eventos por título, descripción o ubicación, o filtra por rango de fechas."
+msgid ""
+"Search events by summary, description, or location — or filter by date "
+"range."
+msgstr ""
+"Busca eventos por título, descripción o ubicación, o filtra por rango de "
+"fechas."
 
 #: app/modules/calendar/templates/search_events.html:27
 msgid "No events match your search."
@@ -896,7 +906,7 @@ msgstr "1 resultado"
 msgid "{n} results"
 msgstr "{n} resultados"
 
-#: app/modules/chat/controllers/api.py:74
+#: app/modules/chat/controllers/api.py:73
 #, python-format
 msgid ""
 "There is no account with the email address %(email)s. Check the address "
@@ -905,7 +915,7 @@ msgstr ""
 "No existe ninguna cuenta con la dirección de correo electrónico "
 "%(email)s. Comprueba la dirección o crea primero la cuenta."
 
-#: app/modules/chat/controllers/api.py:85
+#: app/modules/chat/controllers/api.py:84
 #, python-format
 msgid ""
 "Users of %(domain)s cannot start conversations with %(email)s. An "
@@ -915,7 +925,7 @@ msgstr ""
 "%(email)s. Un administrador puede permitir este par de dominios en los "
 "ajustes de visibilidad del chat."
 
-#: app/modules/chat/controllers/api.py:96
+#: app/modules/chat/controllers/api.py:95
 #, python-format
 msgid ""
 "Chat is not configured for the domain of %(email)s. An administrator must"
@@ -924,7 +934,7 @@ msgstr ""
 "El chat no está configurado para el dominio de %(email)s. Un "
 "administrador debe activar antes el chat para ese dominio."
 
-#: app/modules/chat/controllers/api.py:106
+#: app/modules/chat/controllers/api.py:105
 #, python-format
 msgid ""
 "%(email)s belongs to a domain on a different chat server. Conversations "
@@ -933,82 +943,117 @@ msgstr ""
 "%(email)s pertenece a un dominio de un servidor de chat distinto. Las "
 "conversaciones entre servidores de chat todavía no son compatibles."
 
-#: app/modules/chat/controllers/api.py:125
+#: app/modules/chat/controllers/api.py:124
 msgid "Enter the exact email address of the person"
 msgstr "Introduce la dirección de correo electrónico exacta de la persona"
 
-#: app/modules/chat/controllers/api.py:135
-#: app/modules/chat/controllers/api.py:267
+#: app/modules/chat/controllers/api.py:134
+#: app/modules/chat/controllers/api.py:269
 msgid "Chat server returned no room id"
 msgstr "El servidor de chat no ha devuelto ningún id de sala"
 
 #: app/modules/chat/controllers/api.py:211
-#: app/modules/chat/controllers/api.py:359
-#: app/modules/chat/controllers/api.py:400
-#: app/modules/chat/controllers/api.py:449
+#: app/modules/chat/controllers/api.py:361
+#: app/modules/chat/controllers/api.py:402
+#: app/modules/chat/controllers/api.py:451
+#: app/modules/chat/controllers/calls.py:48
 msgid "Room not found"
 msgstr "Sala no encontrada"
 
-#: app/modules/chat/controllers/api.py:250
+#: app/modules/chat/controllers/api.py:252
 msgid "A direct message needs at least one invitee"
 msgstr "Un mensaje directo necesita al menos un destinatario"
 
-#: app/modules/chat/controllers/api.py:252
+#: app/modules/chat/controllers/api.py:254
 msgid "Room name is required"
 msgstr "El nombre de la sala es obligatorio"
 
-#: app/modules/chat/controllers/api.py:330
+#: app/modules/chat/controllers/api.py:332
 msgid "email (or user_id) is required"
 msgstr "Se requiere un correo electrónico (o user_id)"
 
-#: app/modules/chat/controllers/api.py:354
+#: app/modules/chat/controllers/api.py:356
 msgid "Message body is required"
 msgstr "El cuerpo del mensaje es obligatorio"
 
-#: app/modules/chat/controllers/api.py:390
+#: app/modules/chat/controllers/api.py:392
 msgid "file is required"
 msgstr "Se requiere un archivo"
 
-#: app/modules/chat/controllers/api.py:393
+#: app/modules/chat/controllers/api.py:395
 msgid "Uploaded file is empty"
 msgstr "El archivo subido está vacío"
 
-#: app/modules/chat/controllers/api.py:395
+#: app/modules/chat/controllers/api.py:397
 msgid "File exceeds the 50 MB limit"
 msgstr "El archivo supera el límite de 50 MB"
 
-#: app/modules/chat/controllers/api.py:405
+#: app/modules/chat/controllers/api.py:407
 msgid "Chat server returned no content URI"
 msgstr "El servidor de chat no ha devuelto ninguna URI de contenido"
 
-#: app/modules/chat/controllers/api.py:462
+#: app/modules/chat/controllers/api.py:464
 msgid "event_id is required"
 msgstr "Se requiere event_id"
 
-#: app/modules/chat/controllers/api.py:501
+#: app/modules/chat/controllers/api.py:503
 msgid "Nothing to update"
 msgstr "Nada que actualizar"
 
-#: app/modules/chat/controllers/api.py:523
+#: app/modules/chat/controllers/api.py:525
 msgid "key (emoji) is required"
 msgstr "Se requiere key (emoji)"
 
-#: app/modules/chat/controllers/api.py:529
-#: app/modules/chat/controllers/api.py:576
-#: app/modules/chat/controllers/api.py:597
+#: app/modules/chat/controllers/api.py:531
+#: app/modules/chat/controllers/api.py:578
+#: app/modules/chat/controllers/api.py:599
 msgid "Message not found"
 msgstr "Mensaje no encontrado"
 
-#: app/modules/chat/controllers/api.py:578
+#: app/modules/chat/controllers/api.py:580
 msgid "Only your own messages can be edited"
 msgstr "Solo puedes editar tus propios mensajes"
 
-#: app/modules/chat/controllers/helpers.py:75
-#: app/modules/chat/controllers/helpers.py:78
+#: app/modules/chat/controllers/calls.py:50
+msgid "Calls are only available in direct messages"
+msgstr "Las llamadas solo están disponibles en mensajes directos"
+
+#: app/modules/chat/controllers/calls.py:56
+msgid "call_id is required"
+msgstr "call_id es obligatorio"
+
+#: app/modules/chat/controllers/calls.py:58
+msgid "Call not found"
+msgstr "Llamada no encontrada"
+
+#: app/modules/chat/controllers/calls.py:65
+msgid "Chat server returned no event id"
+msgstr "El servidor de chat no devolvió un id de evento"
+
+#: app/modules/chat/controllers/calls.py:82
+#: app/modules/chat/controllers/calls.py:85
+msgid "An SDP {field} is required"
+msgstr "Se requiere un {field} SDP"
+
+#: app/modules/chat/controllers/calls.py:87
+msgid "The call payload is too large"
+msgstr "El contenido de la llamada es demasiado grande"
+
+#: app/modules/chat/controllers/calls.py:157
+#: app/modules/chat/controllers/calls.py:163
+msgid "candidates must be a non-empty list of ICE candidates"
+msgstr "candidates debe ser una lista no vacía de candidatos ICE"
+
+#: app/modules/chat/controllers/calls.py:160
+msgid "Too many ICE candidates in one request"
+msgstr "Demasiados candidatos ICE en una sola petición"
+
+#: app/modules/chat/controllers/helpers.py:82
+#: app/modules/chat/controllers/helpers.py:85
 msgid "No active account for this session"
 msgstr "No hay ninguna cuenta activa para esta sesión"
 
-#: app/modules/chat/controllers/helpers.py:81
+#: app/modules/chat/controllers/helpers.py:88
 msgid "Account domain not found"
 msgstr "Dominio de la cuenta no encontrado"
 
@@ -1026,7 +1071,7 @@ msgstr "Salas"
 
 #: app/modules/chat/templates/chat/index.html:26
 #: app/modules/chat/templates/chat/index.html:69
-#: app/modules/chat/templates/chat/index.html:115
+#: app/modules/chat/templates/chat/index.html:171
 msgid "Create a room"
 msgstr "Crear una sala"
 
@@ -1039,7 +1084,7 @@ msgid "Direct messages"
 msgstr "Mensajes directos"
 
 #: app/modules/chat/templates/chat/index.html:37
-#: app/modules/chat/templates/chat/index.html:137
+#: app/modules/chat/templates/chat/index.html:193
 msgid "New direct message"
 msgstr "Nuevo mensaje directo"
 
@@ -1076,52 +1121,68 @@ msgid "Room"
 msgstr "Sala"
 
 #: app/modules/chat/templates/chat/index.html:86
-#: app/modules/chat/templates/chat/index.html:175
+msgid "Voice call"
+msgstr "Llamada de voz"
+
+#: app/modules/chat/templates/chat/index.html:90
+msgid "Video call"
+msgstr "Videollamada"
+
+#: app/modules/chat/templates/chat/index.html:94
+#: app/modules/chat/templates/chat/index.html:231
 msgid "Invite"
 msgstr "Invitar"
 
-#: app/modules/chat/templates/chat/index.html:87
+#: app/modules/chat/templates/chat/index.html:95
 msgid "Leave"
 msgstr "Salir"
 
-#: app/modules/chat/templates/chat/index.html:93
+#: app/modules/chat/templates/chat/index.html:101
 msgid "Attach a file"
 msgstr "Adjuntar un archivo"
 
-#: app/modules/chat/templates/chat/index.html:97
+#: app/modules/chat/templates/chat/index.html:105
 msgid "Message… (Enter to send, Shift+Enter for a new line)"
 msgstr "Mensaje… (Intro para enviar, Mayús+Intro para una línea nueva)"
 
-#: app/modules/chat/templates/chat/index.html:106
+#: app/modules/chat/templates/chat/index.html:114
 msgid "Uploading…"
 msgstr "Subiendo…"
 
-#: app/modules/chat/templates/chat/index.html:118
+#: app/modules/chat/templates/chat/index.html:127
+msgid "Incoming call"
+msgstr "Llamada entrante"
+
+#: app/modules/chat/templates/chat/index.html:161
+msgid "Leave call"
+msgstr "Colgar"
+
+#: app/modules/chat/templates/chat/index.html:174
 msgid "e.g. Team updates"
 msgstr "p. ej. Novedades del equipo"
 
-#: app/modules/chat/templates/chat/index.html:121
+#: app/modules/chat/templates/chat/index.html:177
 msgid "Topic (optional)"
 msgstr "Tema (opcional)"
 
-#: app/modules/chat/templates/chat/index.html:122
+#: app/modules/chat/templates/chat/index.html:178
 msgid "What is this room about?"
 msgstr "¿De qué trata esta sala?"
 
-#: app/modules/chat/templates/chat/index.html:126
+#: app/modules/chat/templates/chat/index.html:182
 msgid "Public (anyone on this server can join)"
 msgstr "Público (puede unirse cualquiera de este servidor)"
 
-#: app/modules/chat/templates/chat/index.html:130
+#: app/modules/chat/templates/chat/index.html:186
 msgid "Create room"
 msgstr "Crear sala"
 
-#: app/modules/chat/templates/chat/index.html:139
-#: app/modules/chat/templates/chat/index.html:163
+#: app/modules/chat/templates/chat/index.html:195
+#: app/modules/chat/templates/chat/index.html:219
 msgid "Email address"
 msgstr "Dirección de correo electrónico"
 
-#: app/modules/chat/templates/chat/index.html:145
+#: app/modules/chat/templates/chat/index.html:201
 msgid ""
 "Start typing to pick a person from your domain. Their chat identity is "
 "created automatically if missing — for example"
@@ -1129,19 +1190,19 @@ msgstr ""
 "Empieza a escribir para elegir una persona de tu dominio. Su identidad de"
 " chat se crea automáticamente si no existe — por ejemplo"
 
-#: app/modules/chat/templates/chat/index.html:146
+#: app/modules/chat/templates/chat/index.html:202
 msgid "maps to"
 msgstr "se corresponde con"
 
-#: app/modules/chat/templates/chat/index.html:153
+#: app/modules/chat/templates/chat/index.html:209
 msgid "Start conversation"
 msgstr "Iniciar conversación"
 
-#: app/modules/chat/templates/chat/index.html:161
+#: app/modules/chat/templates/chat/index.html:217
 msgid "Invite to room"
 msgstr "Invitar a la sala"
 
-#: app/modules/chat/templates/chat/index.html:169
+#: app/modules/chat/templates/chat/index.html:225
 msgid ""
 "Start typing to pick a person from your domain. Their chat identity is "
 "created automatically if missing."
@@ -3733,6 +3794,16 @@ msgstr ""
 "una carpeta."
 
 #, python-brace-format
+msgid "Call · {duration}"
+msgstr "Llamada · {duration}"
+
+msgid "Calling…"
+msgstr "Llamando…"
+
+msgid "Calls are not configured for your domain."
+msgstr "Las llamadas no están configuradas para tu dominio."
+
+#, python-brace-format
 msgid "Chat unavailable: {error} Refresh after fixing the configuration."
 msgstr ""
 "Chat no disponible: {error} Actualiza la página cuando hayas corregido la"
@@ -3744,6 +3815,10 @@ msgstr "Haz clic para copiar {email}"
 
 msgid "Collapse older messages"
 msgstr "Contraer mensajes anteriores"
+
+#, python-brace-format
+msgid "Connected · {duration}"
+msgstr "Conectado · {duration}"
 
 #, python-brace-format
 msgid "Connection issue ({code}), retrying…"
@@ -3769,8 +3844,15 @@ msgstr "{email} copiado"
 msgid "Copied!"
 msgstr "¡Copiado!"
 
+#, python-brace-format
+msgid "Could not access your microphone or camera ({error})."
+msgstr "No se pudo acceder a tu micrófono o cámara ({error})."
+
 msgid "Could not add tag."
 msgstr "No se ha podido añadir la etiqueta."
+
+msgid "Could not answer the call: {error}"
+msgstr "No se pudo responder la llamada: {error}"
 
 msgid "Could not copy email address."
 msgstr "No se ha podido copiar la dirección de correo."
@@ -3864,6 +3946,9 @@ msgstr "No se ha podido enviar la notificación de prueba. Reintenta."
 msgid "Could not send: {error} Check your connection and retry."
 msgstr "No se ha podido enviar: {error} Comprueba tu conexión y reintenta."
 
+msgid "Could not start the call: {error}"
+msgstr "No se pudo iniciar la llamada: {error}"
+
 msgid "Could not turn on notifications."
 msgstr "No se han podido activar las notificaciones."
 
@@ -3872,6 +3957,9 @@ msgstr "Personalizar…"
 
 msgid "December"
 msgstr "diciembre"
+
+msgid "Declined call"
+msgstr "Llamada rechazada"
 
 #, python-brace-format
 msgid "Delete \"{name}\"?"
@@ -3994,6 +4082,9 @@ msgstr "Ocultar el texto citado"
 msgid "Hide timezone"
 msgstr "Ocultar zona horaria"
 
+msgid "Incoming video call"
+msgstr "Videollamada entrante"
+
 msgid "Install the app: tap the Share button, then choose 'Add to Home Screen'."
 msgstr ""
 "Instala la aplicación: toca el botón Compartir y elige 'Añadir a pantalla"
@@ -4060,6 +4151,15 @@ msgstr "Mensaje enviado"
 msgid "Message unlocked"
 msgstr "Mensaje desbloqueado"
 
+msgid ""
+"Microphone/camera access was denied. Allow access in your browser's site "
+"settings, then try again."
+msgstr "Se denegó el acceso al micrófono/cámara. Permite el acceso en la"
+"configuración del sitio de tu navegador e inténtalo de nuevo."
+
+msgid "Missed call"
+msgstr "Llamada perdida"
+
 msgid "Mon"
 msgstr "lun"
 
@@ -4071,6 +4171,9 @@ msgstr "Error al mover."
 
 msgid "Move failed. Please try again."
 msgstr "Error al mover. Inténtalo de nuevo."
+
+msgid "Mute microphone"
+msgstr "Silenciar micrófono"
 
 msgid "Network error."
 msgstr "Error de red."
@@ -4110,6 +4213,9 @@ msgstr "No hay personas coincidentes"
 
 msgid "No messages."
 msgstr "No hay mensajes."
+
+msgid "No microphone was found. Connect one and try again."
+msgstr "No se encontró micrófono. Conecta uno e inténtalo de nuevo."
 
 msgid "No other folders available."
 msgstr "No hay otras carpetas disponibles."
@@ -4151,6 +4257,9 @@ msgstr ""
 "En este iPhone o iPad, las notificaciones requieren que la aplicación "
 "esté instalada en tu pantalla de inicio (iOS 16.4 o posterior). Consulta "
 "'Instalar la aplicación' más arriba."
+
+msgid "Ongoing call"
+msgstr "Llamada en curso"
 
 msgid "Open document"
 msgstr "Abrir documento"
@@ -4216,6 +4325,9 @@ msgstr "El reintento ha fallado. Actualiza la página."
 
 msgid "Revoking..."
 msgstr "Revocando..."
+
+msgid "Ringing…"
+msgstr "Sonando…"
 
 msgid "Sat"
 msgstr "sáb"
@@ -4306,6 +4418,12 @@ msgstr ""
 " asegúrate de que las notificaciones estén permitidas para esta "
 "aplicación en los ajustes del sistema operativo o del navegador."
 
+msgid "The call ended."
+msgstr "La llamada finalizó."
+
+msgid "The call failed: {error}"
+msgstr "La llamada falló: {error}"
+
 msgid "This browser does not support push notifications."
 msgstr "Este navegador no admite notificaciones push."
 
@@ -4330,6 +4448,12 @@ msgstr "jue"
 
 msgid "Tue"
 msgstr "mar"
+
+msgid "Turn camera off"
+msgstr "Apagar cámara"
+
+msgid "Turn camera on"
+msgstr "Encender cámara"
 
 msgid "Unable to load preview."
 msgstr "No se ha podido cargar la vista previa."
@@ -4369,6 +4493,9 @@ msgstr "Dispositivo desconocido"
 
 msgid "Unknown error"
 msgstr "Error desconocido"
+
+msgid "Unmute microphone"
+msgstr "Activar micrófono"
 
 msgid "Unnamed room"
 msgstr "Sala sin nombre"

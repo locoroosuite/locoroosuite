@@ -164,6 +164,51 @@ suite's chat discovery.
 Send a message between two provisioned users; both sides should see it live
 (SSE stream) and unread badges should reset on room open.
 
+## TURN server for voice/video calls (HLD U25.21)
+
+1:1 calls are peer-to-peer WebRTC; the TURN relay is what makes them work
+across NAT. Without a TURN server configured on the domain, the app hides the
+call buttons entirely (fail-early) — chat itself is unaffected.
+
+The app never talks to the TURN server: it mints time-limited REST
+credentials (`<unix_expiry>:<user>` / HMAC-SHA1 of the username keyed with the
+domain's `turn_shared_secret` — coturn's `static-auth-secret` mechanism) and
+serves them to the browser via `GET /app/chat/api/turn`.
+
+### Deploy coturn on the host
+
+Run coturn as a host service (or container with `--network=host`), reachable
+from users' browsers on the public interface:
+
+```text
+listening-port=3478            # tcp + udp
+tls-listening-port=5349        # turns over tcp; mount real certificates
+lt-cred-mech
+static-auth-secret=<strong random secret>
+realm=turn.<your-domain>
+min-port=49160
+max-port=49200
+no-cli
+# Production hardening (the dev config relaxes these for localhost peers):
+#   do NOT set allow-loopback-peers; consider denied-peer-ip rules for
+#   RFC1918 ranges you do not serve.
+```
+
+Open the firewall: `3478/tcp`, `3478/udp`, `5349/tcp`, and `49160-49200/udp`.
+
+### Wire the domain
+
+Admin → Domains → contacts, calendar & chat settings → TURN section: host
+(public DNS name or IP as browsers resolve it), port `3478`, TLS port `5349`
+(optional — hidden from the ICE list when empty), and the same shared secret
+as `static-auth-secret`. Calls enable immediately; no app restart needed.
+
+### Verify
+
+With two browsers on different networks (or with the dev stack), start a call
+from a DM; both sides should see "Connected · 0:00" counting up. On the coturn
+host, `journalctl -u coturn` shows `allocate` requests during the call.
+
 ## Caveats & recommendations
 
 1. **MAS down ≠ homeserver down.** When MAS is unavailable, Synapse answers

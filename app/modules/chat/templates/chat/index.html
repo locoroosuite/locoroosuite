@@ -50,7 +50,7 @@
     <div class="px-3 py-2 border-t border-slate-100 text-[12px] md:text-[11px] text-slate-500" id="chat-sync-status">{{ _('Connecting…') }}</div>
   </aside>
 
-  <main class="flex-1 min-w-0 flex flex-col bg-white border-t border-b border-slate-200/80 md:rounded-2xl md:border md:border-slate-200 md:shadow-sm overflow-hidden" id="chat-main">
+  <main class="relative flex-1 min-w-0 flex flex-col bg-white border-t border-b border-slate-200/80 md:rounded-2xl md:border md:border-slate-200 md:shadow-sm overflow-hidden" id="chat-main">
     <div id="chat-banner" class="hidden px-3 md:px-4 py-2 border-b text-xs"></div>
 
     <div id="chat-empty" class="flex-1 flex flex-col items-center justify-center text-slate-400 px-6 text-center">
@@ -83,6 +83,14 @@
         </div>
         <span class="flex-1"></span>
         <span class="text-xs text-slate-400 shrink-0" id="chat-room-members"></span>
+        <button type="button" id="chat-call-audio" title="{{ _('Voice call') }}"
+                class="hidden h-9 w-9 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-500 lr-hit">
+          <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 3.5A1.5 1.5 0 013.5 2h1.148a1.5 1.5 0 011.465 1.175l.716 3.223a1.5 1.5 0 01-1.052 1.767l-.933.267c-.41.117-.643.555-.48.95a11.542 11.542 0 006.254 6.254c.395.163.833-.07.95-.48l.267-.933a1.5 1.5 0 011.767-1.052l3.223.716A1.5 1.5 0 0118 15.352V16.5a1.5 1.5 0 01-1.5 1.5H15c-7.18 0-13-5.82-13-13V3.5z" clip-rule="evenodd"/></svg>
+        </button>
+        <button type="button" id="chat-call-video" title="{{ _('Video call') }}"
+                class="hidden h-9 w-9 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-500 lr-hit">
+          <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3.25 4A2.25 2.25 0 001 6.25v7.5A2.25 2.25 0 003.25 16h7.5A2.25 2.25 0 0013 13.75v-7.5A2.25 2.25 0 0010.75 4h-7.5z"/><path d="M14 8.123v3.754a.25.25 0 00.382.214l3.202-1.877a.25.25 0 000-.428l-3.202-1.877a.25.25 0 00-.382.214z"/></svg>
+        </button>
         <button type="button" id="chat-room-invite" class="px-2 py-1.5 text-xs text-slate-400 hover:text-slate-700 shrink-0 hidden">{{ _('Invite') }}</button>
         <button type="button" id="chat-room-leave" class="px-2 py-1.5 text-xs text-slate-400 hover:text-red-500 shrink-0">{{ _('Leave') }}</button>
       </header>
@@ -104,6 +112,54 @@
         <div id="chat-upload-progress" class="hidden mt-2 text-xs text-slate-500 flex items-center gap-2">
           <svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
           <span id="chat-upload-label">{{ _('Uploading…') }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="chat-call-overlay" class="hidden absolute inset-0 z-20 bg-slate-900/95 backdrop-blur-sm flex flex-col">
+      <div class="flex items-center gap-3 px-4 py-3 border-b border-white/10">
+        <div class="font-semibold text-white truncate" id="chat-call-peer"></div>
+        <span class="text-sm text-white/70 truncate" id="chat-call-status"></span>
+      </div>
+
+      <div id="chat-call-incoming" class="hidden flex-1 flex flex-col items-center justify-center gap-5 px-6 text-center">
+        <div id="chat-call-incoming-avatar" class="h-20 w-20 rounded-full bg-white/10 text-white text-2xl font-semibold flex items-center justify-center"></div>
+        <p class="text-lg font-semibold text-white" id="chat-call-incoming-label">{{ _('Incoming call') }}</p>
+        <div class="flex items-center gap-3">
+          <button type="button" id="chat-call-accept"
+                  class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-400 transition-colors disabled:opacity-50">
+            <svg class="hidden h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            {{ _('Accept') }}
+          </button>
+          <button type="button" id="chat-call-decline"
+                  class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full border border-white/30 text-white text-sm font-semibold hover:bg-white/10 transition-colors">
+            {{ _('Decline') }}
+          </button>
+        </div>
+      </div>
+
+      <div id="chat-call-active" class="hidden flex-1 min-h-0 flex flex-col">
+        <div class="relative flex-1 min-h-0 p-3 md:p-4">
+          <video id="chat-call-remote-video" class="h-full w-full bg-slate-800 object-cover rounded-xl" autoplay playsinline></video>
+          <div id="chat-call-no-video" class="hidden absolute inset-0 flex flex-col items-center justify-center gap-4 pointer-events-none">
+            <div id="chat-call-remote-avatar" class="h-24 w-24 rounded-full bg-white/10 text-white text-3xl font-semibold flex items-center justify-center"></div>
+          </div>
+          <video id="chat-call-local-video" class="hidden absolute bottom-7 right-7 h-28 w-40 bg-slate-800 object-cover rounded-lg border-2 border-white/30" autoplay playsinline muted></video>
+        </div>
+        <div class="flex items-center justify-center gap-3 px-4 pb-6 pt-2">
+          <button type="button" id="chat-call-mute"
+                  class="h-11 w-11 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center transition-colors">
+            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 01-6 0V4zm4-.75a1 1 0 10-2 0v4.5a1 1 0 102 0v-4.5z" clip-rule="evenodd"/><path d="M5.5 8a.75.75 0 00-1.5 0 4 4 0 003.25 3.933V14h-1.5a.75.75 0 000 1.5h4.5a.75.75 0 000-1.5h-1.5v-2.067A4 4 0 0012.5 8a.75.75 0 00-1.5 0 2.5 2.5 0 01-5 0z"/></svg>
+          </button>
+          <button type="button" id="chat-call-camera"
+                  class="hidden h-11 w-11 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center transition-colors">
+            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3.25 4A2.25 2.25 0 001 6.25v7.5A2.25 2.25 0 003.25 16h7.5A2.25 2.25 0 0013 13.75v-7.5A2.25 2.25 0 0010.75 4h-7.5z"/><path d="M14 8.123v3.754a.25.25 0 00.382.214l3.202-1.877a.25.25 0 000-.428l-3.202-1.877a.25.25 0 00-.382.214z"/></svg>
+          </button>
+          <button type="button" id="chat-call-hangup"
+                  class="inline-flex items-center justify-center gap-2 h-11 px-6 rounded-full bg-red-500 text-white text-sm font-semibold hover:bg-red-400 transition-colors">
+            <svg class="h-5 w-5" style="transform: rotate(135deg)" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 3.5A1.5 1.5 0 013.5 2h1.148a1.5 1.5 0 011.465 1.175l.716 3.223a1.5 1.5 0 01-1.052 1.767l-.933.267c-.41.117-.643.555-.48.95a11.542 11.542 0 006.254 6.254c.395.163.833-.07.95-.48l.267-.933a1.5 1.5 0 011.767-1.052l3.223.716A1.5 1.5 0 0118 15.352V16.5a1.5 1.5 0 01-1.5 1.5H15c-7.18 0-13-5.82-13-13V3.5z" clip-rule="evenodd"/></svg>
+            {{ _('Leave call') }}
+          </button>
         </div>
       </div>
     </div>
@@ -182,4 +238,5 @@
 
 <script src="{{ url_for('static', filename='js/chat/chat-core.js') }}?v={{ static_v("js/chat/chat-core.js") }}"></script>
 <script src="{{ url_for('static', filename='js/chat/chat-ui.js') }}?v={{ static_v("js/chat/chat-ui.js") }}"></script>
+<script src="{{ url_for('static', filename='js/chat/chat-calls.js') }}?v={{ static_v("js/chat/chat-calls.js") }}"></script>
 {% endblock %}

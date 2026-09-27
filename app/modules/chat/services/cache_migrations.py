@@ -97,7 +97,28 @@ def _receipts_table(conn) -> None:
     )
 
 
+def _call_events_table(conn) -> None:
+    """chat_0003: raw m.call.* signaling events for 1:1 calls (HLD U25.19/U25.20)."""
+    if has_table(conn, "chat_call_events"):
+        return
+    conn.executescript(
+        """
+        CREATE TABLE chat_call_events (
+            event_id TEXT NOT NULL PRIMARY KEY,
+            room_id TEXT NOT NULL,
+            sender TEXT NOT NULL,
+            call_id TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            content_json TEXT NOT NULL,
+            origin_server_ts INTEGER NOT NULL
+        );
+        CREATE INDEX idx_chat_call_events_room ON chat_call_events(room_id, call_id, origin_server_ts);
+        """
+    )
+
+
 CHAT_CACHE_MIGRATIONS: tuple[Migration, ...] = (
     Migration("chat_0001_baseline_schema", _baseline_schema),
     Migration("chat_0002_receipts", _receipts_table),
+    Migration("chat_0003_call_events", _call_events_table),
 )

@@ -39,6 +39,7 @@ def process_sync(conn, own_user_id: str, response: dict) -> dict:
         "messages": {},
         "typing": {},
         "receipts": {},
+        "calls": {},
     }
     rooms = response.get("rooms", {})
 
@@ -84,7 +85,14 @@ def _process_joined(conn, own_user_id: str, room_id: str, data: dict, changes: d
         _apply_state_event(conn, room_id, event, own_user_id, changes)
 
     new_message_rows: list[dict] = []
+    call_events: list[dict] = []
     for event in timeline.get("events", []):
+        event_type = event.get("type", "")
+        if isinstance(event_type, str) and event_type.startswith("m.call."):
+            # VoIP signaling (HLD U25.19/U25.20): persisted raw + relayed via
+            # SSE so the browser's WebRTC layer can act on it.
+            call_events.append(_apply_call_event(conn, room_id, event))
+            continue
         row = _apply_timeline_event(conn, own_user_id, room_id, event)
         if row:
             new_message_rows.append(row)
@@ -146,6 +154,8 @@ def _process_joined(conn, own_user_id: str, room_id: str, data: dict, changes: d
             cache_db.message_to_api(row, reactions=None, own_user_id=own_user_id)
             for row in new_message_rows
         ]
+    if call_events:
+        changes["calls"][room_id] = call_events
     changes["rooms_upserted"].append(room_id)
 
 
@@ -239,6 +249,31 @@ def _apply_timeline_event(conn, own_user_id: str, room_id: str, event: dict) -> 
     return None
 
 
+def _apply_call_event(conn, room_id: str, event: dict) -> dict:
+    """Persist one m.call.* timeline event and return its SSE payload."""
+    content = event.get("content", {})
+    event_id = event.get("event_id", "")
+    row = {
+        "event_id": event_id,
+        "room_id": room_id,
+        "sender": event.get("sender", ""),
+        "call_id": str(content.get("call_id", "")),
+        "event_type": event.get("type", ""),
+        "content_json": json.dumps(content),
+        "origin_server_ts": int(event.get("origin_server_ts", 0) or 0),
+    }
+    cache_db.insert_call_event(conn, **row)
+    return {
+        "event_id": row["event_id"],
+        "room_id": room_id,
+        "sender": row["sender"],
+        "type": row["event_type"],
+        "call_id": row["call_id"],
+        "content": content,
+        "origin_server_ts": row["origin_server_ts"],
+    }
+
+
 def _latest_preview(conn, room_id: str) -> str | None:
     rows = conn.execute(
         """
@@ -261,11 +296,16 @@ def process_backfill(conn, own_user_id: str, room_id: str, response: dict) -> li
     """Apply a /rooms/<id>/messages (dir=b) response to the cache."""
     rows: list[dict] = []
     for event in response.get("chunk", []):
-        if event.get("type") in ("m.room.message", "m.reaction"):
+        event_type = event.get("type", "")
+        if isinstance(event_type, str) and event_type.startswith("m.call."):
+            # History: persist signaling so call timeline entries survive a
+            # room reload, but do not return rows (callers expect messages).
+            _apply_call_event(conn, room_id, event)
+        elif event_type in ("m.room.message", "m.reaction"):
             row = _apply_timeline_event(conn, own_user_id, room_id, event)
             if row:
                 rows.append(row)
-        elif event.get("type") == "m.room.member":
+        elif event_type == "m.room.member":
             _apply_timeline_event(conn, own_user_id, room_id, event)
     end = response.get("end")
     if end:

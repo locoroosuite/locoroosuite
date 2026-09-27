@@ -14,6 +14,7 @@ from app.modules.chat.controllers.helpers import (
     chat_bp,
     chat_context,
     current_account,
+    matrix_to_chat_error,
     own_matrix_id,
     require_customer,
     same_homeserver,
@@ -33,9 +34,7 @@ _MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 
 def _matrix_to_chat_error(exc: MatrixError, account_id: int) -> ChatApiError:
-    logger.warning("chat matrix error account_id=%s code=%s", account_id, exc.code)
-    status = 404 if getattr(exc, "status", None) == 404 else 502
-    return ChatApiError(exc.code, exc.message, status)
+    return matrix_to_chat_error(exc, account_id)
 
 
 def _room_dict(room: dict) -> dict:
@@ -192,6 +191,7 @@ def sync_now():
                 "identity": {"matrix_user_id": own_id},
                 "rooms": rooms,
                 "messages": changes.get("messages", {}),
+                "calls": changes.get("calls", {}),
             }
         )
     except MatrixError as exc:
@@ -229,6 +229,8 @@ def room_messages(room_id: str):
                 "messages": messages,
                 "has_more": len(rows) >= limit,
                 "receipts": receipts.receipts_payload(conn, room_id),
+                # Call timeline entries (HLD U25.20) merged client-side.
+                "calls": cache_db.call_summaries(conn, room_id),
             }
         )
     except MatrixError as exc:

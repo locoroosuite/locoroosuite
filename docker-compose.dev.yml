@@ -229,6 +229,27 @@ services:
     networks:
       - locoroomail-dev
 
+  # TURN server for 1:1 WebRTC calls (HLD U25.21). Browsers reach it directly
+  # via the published ports (NOT via the compose network DNS name), so the
+  # dev domain TURN config must use host `localhost`, port 3478, TLS port
+  # 5349, shared secret `dev-turn-secret`. The app never talks to coturn —
+  # it only mints ephemeral credentials from the shared secret.
+  coturn:
+    build:
+      context: ./dev-infra/coturn
+      dockerfile: Dockerfile
+    container_name: locoroomail-coturn
+    restart: unless-stopped
+    ports:
+      - "3478:3478"
+      - "3478:3478/udp"
+      - "5349:5349"
+      - "49160-49200:49160-49200/udp"
+    volumes:
+      - coturn-tls:/data/tls
+    networks:
+      - locoroomail-dev
+
 volumes:
   dovecot-users:
   dovecot-sieve:
@@ -239,6 +260,7 @@ volumes:
   opendkim-config:
   synapse-data:
   mas-db-data:
+  coturn-tls:
   rspamd-data:
   redis-data:
 

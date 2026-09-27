@@ -288,6 +288,12 @@
           window.Chat.sync.mergeMessages(roomId, data.messages[roomId]);
         });
       }
+      /* m.call.* signaling events from the initial sync (HLD U25.20). */
+      if (data.calls && window.Chat.calls) {
+        Object.keys(data.calls).forEach(function (roomId) {
+          window.Chat.calls.handleEvents(roomId, data.calls[roomId]);
+        });
+      }
       startStream();
     } catch (err) {
       banner(window.LR.t("Could not load chat: {error}", {error: err.message}), true);

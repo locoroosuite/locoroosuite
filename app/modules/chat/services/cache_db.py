@@ -197,6 +197,7 @@ def delete_room(conn, room_id: str) -> None:
     conn.execute("DELETE FROM chat_messages WHERE room_id = ?", (room_id,))
     conn.execute("DELETE FROM chat_room_members WHERE room_id = ?", (room_id,))
     conn.execute("DELETE FROM chat_read_state WHERE room_id = ?", (room_id,))
+    conn.execute("DELETE FROM chat_call_events WHERE room_id = ?", (room_id,))
     conn.execute("DELETE FROM chat_rooms WHERE room_id = ?", (room_id,))
     conn.commit()
 
@@ -406,6 +407,107 @@ def latest_event_ts(conn, room_id: str) -> int | None:
         (room_id,),
     ).fetchone()
     return int(row["m"]) if row and row["m"] is not None else None
+
+
+# --- call events (HLD U25.19/U25.20) -------------------------------------
+
+
+def insert_call_event(
+    conn,
+    *,
+    event_id: str,
+    room_id: str,
+    sender: str,
+    call_id: str,
+    event_type: str,
+    content_json: str,
+    origin_server_ts: int,
+) -> None:
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO chat_call_events
+            (event_id, room_id, sender, call_id, event_type, content_json, origin_server_ts)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (event_id, room_id, sender, call_id, event_type, content_json, origin_server_ts),
+    )
+    conn.commit()
+
+
+def call_exists(conn, room_id: str, call_id: str) -> bool:
+    """True if any signaling event for this call id is cached in this room."""
+    row = conn.execute(
+        "SELECT 1 FROM chat_call_events WHERE room_id = ? AND call_id = ? LIMIT 1",
+        (room_id, call_id),
+    ).fetchone()
+    return row is not None
+
+
+def call_summaries(conn, room_id: str) -> list[dict]:
+    """Derive one timeline entry per call from the raw signaling events.
+
+    Expected row order from the SQL: ascending (origin_server_ts, event_id).
+
+    Returned summary keys (mock data must match):
+    call_id, sender (inviter), invite_ts, answer_ts, hangup_ts, hangup_sender,
+    hangup_reason, video (bool, from the invite's SDP), status
+    (ringing|active|ended|missed|declined), duration_s (int|None).
+    """
+    rows = conn.execute(
+        """
+        SELECT call_id, sender, event_type, content_json, origin_server_ts
+        FROM chat_call_events WHERE room_id = ? ORDER BY origin_server_ts, event_id
+        """,
+        (room_id,),
+    ).fetchall()
+    by_call: dict[str, dict] = {}
+    for row in rows:
+        try:
+            content = json.loads(row["content_json"])
+        except (ValueError, TypeError):
+            content = {}
+        entry = by_call.setdefault(
+            row["call_id"],
+            {
+                "call_id": row["call_id"],
+                "sender": None,
+                "invite_ts": None,
+                "answer_ts": None,
+                "hangup_ts": None,
+                "hangup_sender": None,
+                "hangup_reason": None,
+                "video": False,
+            },
+        )
+        if row["event_type"] == "m.call.invite":
+            entry["sender"] = row["sender"]
+            entry["invite_ts"] = row["origin_server_ts"]
+            sdp = (content.get("offer") or {}).get("sdp") or ""
+            entry["video"] = "m=video" in sdp
+        elif row["event_type"] == "m.call.answer":
+            entry["answer_ts"] = row["origin_server_ts"]
+        elif row["event_type"] == "m.call.hangup":
+            entry["hangup_ts"] = row["origin_server_ts"]
+            entry["hangup_sender"] = row["sender"]
+            entry["hangup_reason"] = content.get("reason")
+
+    summaries: list[dict] = []
+    for entry in by_call.values():
+        if entry["invite_ts"] is None:
+            # Orphan answer/hangup without its invite (limited sync window).
+            continue
+        duration_s: int | None = None
+        if entry["answer_ts"] is not None:
+            status = "ended" if entry["hangup_ts"] is not None else "active"
+            if entry["hangup_ts"] is not None:
+                duration_s = max(0, (entry["hangup_ts"] - entry["answer_ts"]) // 1000)
+        elif entry["hangup_ts"] is not None:
+            status = "declined" if entry["hangup_sender"] != entry["sender"] else "missed"
+        else:
+            status = "ringing"
+        summaries.append({**entry, "status": status, "duration_s": duration_s})
+    summaries.sort(key=lambda s: s["invite_ts"] or 0)
+    return summaries
 
 
 # --- read state --------------------------------------------------------

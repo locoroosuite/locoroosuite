@@ -53,6 +53,13 @@ class Domain(db.Model):
     matrix_mas_client_secret = db.Column(db.String(255), nullable=True)
     chat_visible_domain_ids = db.Column(db.JSON, nullable=True)
 
+    # TURN server for 1:1 chat calls (HLD U25.21). Nullable: when unset,
+    # calls are disabled for this domain (call buttons hidden).
+    turn_host = db.Column(db.String(255), nullable=True)
+    turn_port = db.Column(db.Integer, default=3478, nullable=True)
+    turn_tls_port = db.Column(db.Integer, default=5349, nullable=True)
+    turn_shared_secret = db.Column(db.String(255), nullable=True)
+
     mail_api_url = db.Column(db.String(512), nullable=True)
     mail_api_key = db.Column(db.String(255), nullable=True)
 

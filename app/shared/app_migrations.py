@@ -303,6 +303,21 @@ def _domain_matrix_mas(conn) -> None:
         conn.execute("ALTER TABLE domains DROP COLUMN matrix_shared_secret")
 
 
+def _domain_turn(conn) -> None:
+    """0019: per-domain TURN server for 1:1 chat calls (HLD U25.21)."""
+    if not has_table(conn, "domains"):
+        return
+    cols = table_columns(conn, "domains")
+    if "turn_host" not in cols:
+        conn.execute("ALTER TABLE domains ADD COLUMN turn_host VARCHAR(255)")
+    if "turn_port" not in cols:
+        conn.execute("ALTER TABLE domains ADD COLUMN turn_port INTEGER DEFAULT 3478")
+    if "turn_tls_port" not in cols:
+        conn.execute("ALTER TABLE domains ADD COLUMN turn_tls_port INTEGER DEFAULT 5349")
+    if "turn_shared_secret" not in cols:
+        conn.execute("ALTER TABLE domains ADD COLUMN turn_shared_secret VARCHAR(255)")
+
+
 APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_domain_status", _domain_status),
     Migration("0002_customer_settings_spam_action", _customer_settings_spam_action),
@@ -322,4 +337,5 @@ APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0016_customer_settings_language", _customer_settings_language),
     Migration("0017_customer_settings_browser_locale", _customer_settings_browser_locale),
     Migration("0018_domain_matrix_mas", _domain_matrix_mas),
+    Migration("0019_domain_turn", _domain_turn),
 )

@@ -43,6 +43,13 @@ def _status_for_matrix(exc) -> int:
     return 502
 
 
+def matrix_to_chat_error(exc, account_id: int) -> ChatApiError:
+    """Map a MatrixError to a ChatApiError, logging account context."""
+    logger.warning("chat matrix error account_id=%s code=%s", account_id, getattr(exc, "code", ""))
+    status = 404 if getattr(exc, "status", None) == 404 else 502
+    return ChatApiError(exc.code, exc.message, status)
+
+
 def chat_context():
     """Return (account, user_id, conn, client, creds) for the active session.
 
@@ -117,6 +124,7 @@ __all__ = [
     "chat_bp",
     "chat_context",
     "current_account",
+    "matrix_to_chat_error",
     "own_matrix_id",
     "require_customer",
     "same_homeserver",

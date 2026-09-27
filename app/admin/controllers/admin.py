@@ -1022,6 +1022,11 @@ def save_dav_config(domain_id):
         row_id for (row_id,) in db.session.query(Domain.id).filter(Domain.id != domain.id).all()
     }
     domain.chat_visible_domain_ids = sorted(set(visible_ids) & valid_ids) or None
+    # TURN server for 1:1 chat calls (HLD U25.21); empty host/secret disables calls.
+    domain.turn_host = request.form.get("turn_host", "").strip() or None
+    domain.turn_port = _parse_int(request.form.get("turn_port"), domain.turn_port)
+    domain.turn_tls_port = _parse_int(request.form.get("turn_tls_port"), domain.turn_tls_port)
+    domain.turn_shared_secret = request.form.get("turn_shared_secret", "").strip() or None
     db.session.commit()
     log_audit(
         session.get("user_id"),

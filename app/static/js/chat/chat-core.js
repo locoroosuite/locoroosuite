@@ -57,7 +57,7 @@
   var BANNER_WARNING = "border-amber-200 bg-amber-50 text-amber-800";
   var BANNER_SUCCESS = "border-emerald-200 bg-emerald-50 text-emerald-800";
 
-  function banner(text, sticky, kind) {
+  function banner(text, sticky, kind, action) {
     const b = el("chat-banner");
     if (!text) {
       b.classList.add("hidden");
@@ -66,6 +66,15 @@
     }
     b.className = BANNER_BASE + (kind === "success" ? BANNER_SUCCESS : BANNER_WARNING);
     b.textContent = text;
+    /* Optional inline action (e.g. "Test your devices" on media errors). */
+    if (action && action.label && typeof action.fn === "function") {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ml-2 underline font-semibold whitespace-nowrap";
+      btn.textContent = action.label;
+      btn.addEventListener("click", action.fn);
+      b.appendChild(btn);
+    }
     if (!sticky) {
       window.setTimeout(function () {
         b.classList.add("hidden");

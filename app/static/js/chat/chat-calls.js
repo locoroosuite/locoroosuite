@@ -42,6 +42,16 @@
     return url;
   }
 
+  /* Inline banner action opening the device-test dialog (HLD U25.59). */
+  function testDevicesAction() {
+    return {
+      label: window.LR.t("Test your devices"),
+      fn: function () {
+        if (window.Chat.deviceTest) window.Chat.deviceTest.open();
+      },
+    };
+  }
+
   function fmtDuration(totalSeconds) {
     const s = Math.max(0, Math.floor(totalSeconds));
     const h = Math.floor(s / 3600);
@@ -314,7 +324,7 @@
     try {
       stream = await getUserMediaSafe(video);
     } catch (err) {
-      Chat.banner(err.message, true);
+      Chat.banner(err.message, true, undefined, testDevicesAction());
       return;
     }
     const pc = createPeer();
@@ -421,7 +431,7 @@
     } catch (err) {
       btn.disabled = false;
       if (spinner) spinner.classList.add("hidden");
-      Chat.banner(err.message, true);
+      Chat.banner(err.message, true, undefined, testDevicesAction());
       decline("user_media_error");
       return;
     }
@@ -656,5 +666,10 @@
     timelineEntries: timelineEntries,
     renderEntry: renderEntry,
     updateHeader: updateHeader,
+    mediaErrorMessage: mediaErrorMessage,
+    fmtDuration: fmtDuration,
+    config: function () {
+      return { enabled: calls.enabled, iceServers: calls.iceServers };
+    },
   };
 })();

@@ -111,3 +111,59 @@ def test_calls_overlay_elements_exist():
         "chat-call-local-video",
     ):
         assert f'id="{element_id}"' in html, f"missing call overlay element: {element_id}"
+
+
+def test_device_test_dialog_and_script_are_wired():
+    """HLD U25.59: the test-call dialog skeleton is template-authored (Tailwind
+    literals), the script is cache-busted, the mic meter width uses an inline
+    style (never runtime-built Tailwind classes), and user-facing strings go
+    through window.LR.t."""
+    html = TEMPLATE.read_text()
+    assert 'static_v("js/chat/chat-device-test.js")' in html
+    for element_id in (
+        "chat-test-call",
+        "chat-test-call-dialog",
+        "chat-test-preview",
+        "chat-test-mic-bar",
+        "chat-test-sound",
+        "chat-test-loop",
+        "chat-test-remote",
+        "chat-test-unmute",
+        "chat-test-close",
+    ):
+        assert f'id="{element_id}"' in html, f"missing device-test element: {element_id}"
+
+    # The meter bar's dynamic width must be an inline style, not a class.
+    m = re.search(r'id="chat-test-mic-bar"[^>]*style="([^"]*)"', html)
+    assert m and "width" in m.group(1), "mic bar must size via inline style"
+
+    js = (CHAT_DIR / "chat-device-test.js").read_text()
+    assert "style.width" in js
+    assert ".className" not in js, "runtime className writes bypass the Tailwind JIT"
+    for key in (
+        "Direct connection: working",
+        "Direct connection: failed",
+        "TURN relay: working",
+        "TURN relay: unreachable",
+        "Voice/video calls are disabled for your domain (no TURN server configured).",
+        "Could not start the test call: {error}",
+    ):
+        # Prefix match: calls may pass interpolation args after the key.
+        assert f'window.LR.t("{key}"' in js, f"missing LR.t for: {key}"
+
+    # Loopback never uses Matrix signaling (U25.23/U25.59): no call endpoints.
+    assert "/app/chat/api/rooms/" not in js
+
+
+def test_media_error_banner_links_to_device_test():
+    """HLD U25.59: chat-core banner supports an inline action and both real
+    call getUserMedia failures open the device-test dialog from it."""
+    core = (CHAT_DIR / "chat-core.js").read_text()
+    assert "action.label" in core
+    assert "action.fn" in core
+    # Literal classes for the inline link (Tailwind JIT scans static JS).
+    assert "ml-2 underline font-semibold" in core
+
+    calls = (CHAT_DIR / "chat-calls.js").read_text()
+    assert calls.count("testDevicesAction()") >= 2
+    assert 'window.LR.t("Test your devices")' in calls

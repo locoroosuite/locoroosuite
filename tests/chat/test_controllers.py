@@ -22,6 +22,46 @@ def test_index_renders(seeded_client):
     assert b"chat-root" in resp.data
 
 
+def test_index_renders_device_test_dialog(seeded_client):
+    """HLD U25.59: the device-test dialog, sidebar entry point, and the
+    cache-busted device-test script all ship on the chat page."""
+    client, _mock, _path, _user_id = seeded_client
+    resp = client.get("/app/chat/")
+    assert resp.status_code == 200
+    html = resp.get_data(as_text=True)
+    assert 'id="chat-test-call"' in html
+    assert 'id="chat-test-call-dialog"' in html
+    # Rendered URLs carry the resolved cache-bust value, not the Jinja call.
+    assert "/static/js/chat/chat-device-test.js?v=" in html
+
+
+def test_index_identity_error_attribute_is_parseable_json(app, authed_client):
+    """Regression: with an unconfigured domain the page renders identity_error
+    via tojson inside a double-quoted attribute; tojson does not escape `"`
+    (it targets <script> contexts), so the attribute broke at the first quote
+    and JSON.parse in chat-core bootstrap threw. The attribute must carry
+    valid JSON (single-quoted attribute; tojson escapes ' as \\u0027)."""
+    import json
+    import re
+
+    client, _user_id, _account_id = authed_client
+    with app.app_context():
+        from app.shared.db import db
+        from app.shared.models.core import Domain
+
+        domain = Domain.query.first()
+        assert domain is not None
+        domain.matrix_host = None  # force the identity_error path
+        db.session.commit()
+    resp = client.get("/app/chat/")
+    assert resp.status_code == 200
+    html = resp.get_data(as_text=True)
+    m = re.search(r"data-identity-error='([^']*)'", html)
+    assert m, "identity-error attribute must be single-quoted to survive tojson"
+    payload = json.loads(m.group(1))
+    assert payload and "message" in payload and "code" in payload
+
+
 def test_state_returns_rooms(seeded_client):
     client, _mock, _path, _user_id = seeded_client
     resp = client.get("/app/chat/api/state")

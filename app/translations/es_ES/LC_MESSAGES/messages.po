@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-27 14:57+0930\n"
+"POT-Creation-Date: 2026-09-27 17:53+0930\n"
 "PO-Revision-Date: 2026-09-26 08:30+0930\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es_ES\n"
@@ -318,7 +318,6 @@ msgstr "En el momento del evento"
 #: app/modules/calendar/controllers/helpers.py:97
 #, python-format
 msgid "%(num)d week"
-msgstr "%(num)d semana"
 msgid_plural "%(num)d weeks"
 msgstr[0] "%(num)d semana"
 msgstr[1] "%(num)d semanas"
@@ -326,7 +325,6 @@ msgstr[1] "%(num)d semanas"
 #: app/modules/calendar/controllers/helpers.py:99
 #, python-format
 msgid "%(num)d day"
-msgstr "%(num)d día"
 msgid_plural "%(num)d days"
 msgstr[0] "%(num)d día"
 msgstr[1] "%(num)d días"
@@ -334,7 +332,6 @@ msgstr[1] "%(num)d días"
 #: app/modules/calendar/controllers/helpers.py:101
 #, python-format
 msgid "%(num)d hour"
-msgstr "%(num)d hora"
 msgid_plural "%(num)d hours"
 msgstr[0] "%(num)d hora"
 msgstr[1] "%(num)d horas"
@@ -342,7 +339,6 @@ msgstr[1] "%(num)d horas"
 #: app/modules/calendar/controllers/helpers.py:103
 #, python-format
 msgid "%(num)d minute"
-msgstr "%(num)d minuto"
 msgid_plural "%(num)d minutes"
 msgstr[0] "%(num)d minuto"
 msgstr[1] "%(num)d minutos"
@@ -416,7 +412,7 @@ msgid "New Calendar"
 msgstr "Nuevo calendario"
 
 #: app/modules/calendar/templates/calendar_form.html:24
-#: app/modules/chat/templates/chat/index.html:173
+#: app/modules/chat/templates/chat/index.html:179
 #: app/modules/contacts/templates/list.html:73
 #: app/modules/docs/templates/docs_list.html:135
 #: app/modules/docs/templates/docs_list.html:356
@@ -443,8 +439,8 @@ msgstr "Crear calendario"
 #: app/modules/calendar/templates/calendar_form.html:39
 #: app/modules/calendar/templates/index.html:269
 #: app/modules/calendar/templates/index.html:298
-#: app/modules/chat/templates/chat/index.html:185
-#: app/modules/chat/templates/chat/index.html:206
+#: app/modules/chat/templates/chat/index.html:191
+#: app/modules/chat/templates/chat/index.html:212
 #: app/modules/contacts/templates/form.html:92
 #: app/modules/docs/templates/docs_editor.html:132
 #: app/modules/mail/templates/settings.html:277
@@ -495,14 +491,14 @@ msgstr "Aceptado"
 #: app/modules/calendar/templates/event_detail.html:33
 #: app/modules/calendar/templates/event_detail.html:37
 #: app/modules/calendar/templates/event_detail.html:45
-#: app/modules/chat/templates/chat/index.html:136
+#: app/modules/chat/templates/chat/index.html:142
 msgid "Decline"
 msgstr "Rechazar"
 
 #: app/modules/calendar/templates/event_detail.html:36
 #: app/modules/calendar/templates/event_detail.html:40
 #: app/modules/calendar/templates/event_detail.html:43
-#: app/modules/chat/templates/chat/index.html:132
+#: app/modules/chat/templates/chat/index.html:138
 msgid "Accept"
 msgstr "Aceptar"
 
@@ -609,7 +605,7 @@ msgstr "No enviar"
 
 #: app/modules/calendar/templates/event_detail.html:180
 #: app/modules/calendar/templates/index.html:287
-#: app/modules/chat/templates/chat/index.html:107
+#: app/modules/chat/templates/chat/index.html:113
 #: app/modules/mail/templates/compose.html:89
 msgid "Send"
 msgstr "Enviar"
@@ -759,7 +755,8 @@ msgid "New Event"
 msgstr "Nuevo evento"
 
 #: app/modules/calendar/templates/index.html:168
-#: app/modules/chat/templates/chat/index.html:228
+#: app/modules/chat/templates/chat/index.html:234
+#: app/modules/chat/templates/chat/index.html:283
 #: app/modules/mail/templates/message.html:300
 msgid "Close"
 msgstr "Cerrar"
@@ -1032,6 +1029,7 @@ msgstr "El servidor de chat no devolvió un id de evento"
 
 #: app/modules/chat/controllers/calls.py:82
 #: app/modules/chat/controllers/calls.py:85
+#, python-brace-format
 msgid "An SDP {field} is required"
 msgstr "Se requiere un {field} SDP"
 
@@ -1070,8 +1068,8 @@ msgid "Rooms"
 msgstr "Salas"
 
 #: app/modules/chat/templates/chat/index.html:26
-#: app/modules/chat/templates/chat/index.html:69
-#: app/modules/chat/templates/chat/index.html:171
+#: app/modules/chat/templates/chat/index.html:75
+#: app/modules/chat/templates/chat/index.html:177
 msgid "Create a room"
 msgstr "Crear una sala"
 
@@ -1084,7 +1082,7 @@ msgid "Direct messages"
 msgstr "Mensajes directos"
 
 #: app/modules/chat/templates/chat/index.html:37
-#: app/modules/chat/templates/chat/index.html:193
+#: app/modules/chat/templates/chat/index.html:199
 msgid "New direct message"
 msgstr "Nuevo mensaje directo"
 
@@ -1096,93 +1094,99 @@ msgstr "Aún no hay mensajes directos. Inicia uno con el icono del lápiz."
 msgid "Invitations"
 msgstr "Invitaciones"
 
-#: app/modules/chat/templates/chat/index.html:50
+#: app/modules/chat/templates/chat/index.html:51
 msgid "Connecting…"
 msgstr "Conectando…"
 
-#: app/modules/chat/templates/chat/index.html:58
+#: app/modules/chat/templates/chat/index.html:52
+#: app/modules/chat/templates/chat/index.html:245
+msgid "Test devices & connection"
+msgstr "Probar dispositivos y conexión"
+
+
+#: app/modules/chat/templates/chat/index.html:64
 msgid "Welcome to chat"
 msgstr "Te damos la bienvenida al chat"
 
-#: app/modules/chat/templates/chat/index.html:59
+#: app/modules/chat/templates/chat/index.html:65
 msgid "Pick a conversation on the left, or start a new one."
 msgstr "Elige una conversación a la izquierda o inicia una nueva."
 
-#: app/modules/chat/templates/chat/index.html:64
+#: app/modules/chat/templates/chat/index.html:70
 msgid "New conversation"
 msgstr "Nueva conversación"
 
-#: app/modules/chat/templates/chat/index.html:76
+#: app/modules/chat/templates/chat/index.html:82
 msgid "Back to conversations"
 msgstr "Volver a las conversaciones"
 
-#: app/modules/chat/templates/chat/index.html:81
+#: app/modules/chat/templates/chat/index.html:87
 msgid "Room"
 msgstr "Sala"
 
-#: app/modules/chat/templates/chat/index.html:86
+#: app/modules/chat/templates/chat/index.html:92
 msgid "Voice call"
 msgstr "Llamada de voz"
 
-#: app/modules/chat/templates/chat/index.html:90
+#: app/modules/chat/templates/chat/index.html:96
 msgid "Video call"
 msgstr "Videollamada"
 
-#: app/modules/chat/templates/chat/index.html:94
-#: app/modules/chat/templates/chat/index.html:231
+#: app/modules/chat/templates/chat/index.html:100
+#: app/modules/chat/templates/chat/index.html:237
 msgid "Invite"
 msgstr "Invitar"
 
-#: app/modules/chat/templates/chat/index.html:95
+#: app/modules/chat/templates/chat/index.html:101
 msgid "Leave"
 msgstr "Salir"
 
-#: app/modules/chat/templates/chat/index.html:101
+#: app/modules/chat/templates/chat/index.html:107
 msgid "Attach a file"
 msgstr "Adjuntar un archivo"
 
-#: app/modules/chat/templates/chat/index.html:105
+#: app/modules/chat/templates/chat/index.html:111
 msgid "Message… (Enter to send, Shift+Enter for a new line)"
 msgstr "Mensaje… (Intro para enviar, Mayús+Intro para una línea nueva)"
 
-#: app/modules/chat/templates/chat/index.html:114
+#: app/modules/chat/templates/chat/index.html:120
 msgid "Uploading…"
 msgstr "Subiendo…"
 
-#: app/modules/chat/templates/chat/index.html:127
+#: app/modules/chat/templates/chat/index.html:133
 msgid "Incoming call"
 msgstr "Llamada entrante"
 
-#: app/modules/chat/templates/chat/index.html:161
+#: app/modules/chat/templates/chat/index.html:167
 msgid "Leave call"
 msgstr "Colgar"
 
-#: app/modules/chat/templates/chat/index.html:174
+#: app/modules/chat/templates/chat/index.html:180
 msgid "e.g. Team updates"
 msgstr "p. ej. Novedades del equipo"
 
-#: app/modules/chat/templates/chat/index.html:177
+#: app/modules/chat/templates/chat/index.html:183
 msgid "Topic (optional)"
 msgstr "Tema (opcional)"
 
-#: app/modules/chat/templates/chat/index.html:178
+#: app/modules/chat/templates/chat/index.html:184
 msgid "What is this room about?"
 msgstr "¿De qué trata esta sala?"
 
-#: app/modules/chat/templates/chat/index.html:182
+#: app/modules/chat/templates/chat/index.html:188
 msgid "Public (anyone on this server can join)"
 msgstr "Público (puede unirse cualquiera de este servidor)"
 
-#: app/modules/chat/templates/chat/index.html:186
+#: app/modules/chat/templates/chat/index.html:192
 msgid "Create room"
 msgstr "Crear sala"
 
-#: app/modules/chat/templates/chat/index.html:195
-#: app/modules/chat/templates/chat/index.html:219
+#: app/modules/chat/templates/chat/index.html:201
+#: app/modules/chat/templates/chat/index.html:225
 msgid "Email address"
 msgstr "Dirección de correo electrónico"
 
-#: app/modules/chat/templates/chat/index.html:201
+#: app/modules/chat/templates/chat/index.html:207
 msgid ""
 "Start typing to pick a person from your domain. Their chat identity is "
 "created automatically if missing — for example"
@@ -1190,25 +1194,60 @@ msgstr ""
 "Empieza a escribir para elegir una persona de tu dominio. Su identidad de"
 " chat se crea automáticamente si no existe — por ejemplo"
 
-#: app/modules/chat/templates/chat/index.html:202
+#: app/modules/chat/templates/chat/index.html:208
 msgid "maps to"
 msgstr "se corresponde con"
 
-#: app/modules/chat/templates/chat/index.html:209
+#: app/modules/chat/templates/chat/index.html:215
 msgid "Start conversation"
 msgstr "Iniciar conversación"
 
-#: app/modules/chat/templates/chat/index.html:217
+#: app/modules/chat/templates/chat/index.html:223
 msgid "Invite to room"
 msgstr "Invitar a la sala"
 
-#: app/modules/chat/templates/chat/index.html:225
+#: app/modules/chat/templates/chat/index.html:231
 msgid ""
 "Start typing to pick a person from your domain. Their chat identity is "
 "created automatically if missing."
 msgstr ""
 "Empieza a escribir para elegir una persona de tu dominio. Su identidad de"
 " chat se crea automáticamente si no existe."
+
+#: app/modules/chat/templates/chat/index.html:250
+msgid "Camera &amp; microphone"
+msgstr "Cámara y micrófono"
+
+
+#: app/modules/chat/templates/chat/index.html:253
+msgid "Microphone"
+msgstr "Micrófono"
+
+
+#: app/modules/chat/templates/chat/index.html:259
+msgid "Speakers"
+msgstr "Altavoces"
+
+
+#: app/modules/chat/templates/chat/index.html:261
+msgid "Play test sound"
+msgstr "Reproducir sonido de prueba"
+
+
+#: app/modules/chat/templates/chat/index.html:266
+msgid "Test call (plays your audio &amp; video back to you)"
+msgstr "Llamada de prueba (te reproduce tu audio y vídeo)"
+
+
+#: app/modules/chat/templates/chat/index.html:272
+msgid "Run test call"
+msgstr "Iniciar llamada de prueba"
+
+
+#: app/modules/chat/templates/chat/index.html:274
+msgid "Unmute"
+msgstr "Activar sonido"
+
 
 #: app/modules/contacts/controllers/contacts.py:187
 #: app/modules/contacts/controllers/contacts.py:255
@@ -3851,6 +3890,7 @@ msgstr "No se pudo acceder a tu micrófono o cámara ({error})."
 msgid "Could not add tag."
 msgstr "No se ha podido añadir la etiqueta."
 
+#, python-brace-format
 msgid "Could not answer the call: {error}"
 msgstr "No se pudo responder la llamada: {error}"
 
@@ -3920,6 +3960,11 @@ msgid "Could not parse invite"
 msgstr "No se ha podido analizar la invitación"
 
 #, python-brace-format
+msgid "Could not play the test sound ({error})."
+msgstr "No se pudo reproducir el sonido de prueba ({error})."
+
+
+#, python-brace-format
 msgid "Could not proceed: {error} Check the address and retry."
 msgstr "No se ha podido continuar: {error} Comprueba la dirección y reintenta."
 
@@ -3946,8 +3991,14 @@ msgstr "No se ha podido enviar la notificación de prueba. Reintenta."
 msgid "Could not send: {error} Check your connection and retry."
 msgstr "No se ha podido enviar: {error} Comprueba tu conexión y reintenta."
 
+#, python-brace-format
 msgid "Could not start the call: {error}"
 msgstr "No se pudo iniciar la llamada: {error}"
+
+#, python-brace-format
+msgid "Could not start the test call: {error}"
+msgstr "No se pudo iniciar la llamada de prueba: {error}"
+
 
 msgid "Could not turn on notifications."
 msgstr "No se han podido activar las notificaciones."
@@ -3980,6 +4031,14 @@ msgstr "¿Eliminar {name}?"
 
 msgid "Deleting..."
 msgstr "Eliminando..."
+
+msgid "Direct connection: failed"
+msgstr "Conexión directa: fallida"
+
+
+msgid "Direct connection: working"
+msgstr "Conexión directa: funciona"
+
 
 msgid "Direct message"
 msgstr "Mensaje directo"
@@ -4154,8 +4213,9 @@ msgstr "Mensaje desbloqueado"
 msgid ""
 "Microphone/camera access was denied. Allow access in your browser's site "
 "settings, then try again."
-msgstr "Se denegó el acceso al micrófono/cámara. Permite el acceso en la"
-"configuración del sitio de tu navegador e inténtalo de nuevo."
+msgstr ""
+"Se denegó el acceso al micrófono/cámara. Permite el acceso en "
+"laconfiguración del sitio de tu navegador e inténtalo de nuevo."
 
 msgid "Missed call"
 msgstr "Llamada perdida"
@@ -4171,6 +4231,10 @@ msgstr "Error al mover."
 
 msgid "Move failed. Please try again."
 msgstr "Error al mover. Inténtalo de nuevo."
+
+msgid "Mute"
+msgstr "Silenciar"
+
 
 msgid "Mute microphone"
 msgstr "Silenciar micrófono"
@@ -4407,6 +4471,14 @@ msgstr "Sincronizando {folder}…"
 msgid "Syncing..."
 msgstr "Sincronizando..."
 
+msgid "TURN relay: unreachable"
+msgstr "Retransmisión TURN: inaccesible"
+
+
+msgid "TURN relay: working"
+msgstr "Retransmisión TURN: funciona"
+
+
 msgid "Test failed"
 msgstr "Error en la prueba"
 
@@ -4418,9 +4490,14 @@ msgstr ""
 " asegúrate de que las notificaciones estén permitidas para esta "
 "aplicación en los ajustes del sistema operativo o del navegador."
 
+msgid "Test your devices"
+msgstr "Prueba tus dispositivos"
+
+
 msgid "The call ended."
 msgstr "La llamada finalizó."
 
+#, python-brace-format
 msgid "The call failed: {error}"
 msgstr "La llamada falló: {error}"
 
@@ -4540,6 +4617,13 @@ msgstr "Subiendo..."
 
 msgid "View in calendar"
 msgstr "Ver en el calendario"
+
+msgid ""
+"Voice/video calls are disabled for your domain (no TURN server "
+"configured)."
+msgstr ""
+"Las llamadas de voz/vídeo están desactivadas para tu dominio (no hay "
+"ningún servidor TURN configurado)."
 
 msgid "Wed"
 msgstr "mié"

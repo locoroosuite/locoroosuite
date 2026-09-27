@@ -17,6 +17,7 @@ SERVICE_LABELS: dict[str, str] = {
     "carddav": "Contacts (CardDAV)",
     "caldav": "Calendar (CalDAV)",
     "matrix": "Chat (Matrix)",
+    "turn": "Calls (TURN)",
     "collabora": "Docs (Collabora)",
     "mail_api": "Mail API",
 }
@@ -108,6 +109,27 @@ def _check_matrix(domain) -> str:
     return "connected"
 
 
+def _check_turn(domain) -> str:
+    if not domain.turn_host or not domain.turn_shared_secret:
+        return "not_configured"
+    # Full verify (U1b.11): the authenticated Allocate distinguishes a wrong
+    # shared secret from an unreachable server.
+    from app.admin.services.turn_verify import verify_turn_server
+
+    result = verify_turn_server(
+        domain.turn_host,
+        domain.turn_port or 3478,
+        domain.turn_tls_port,
+        domain.turn_shared_secret,
+        timeout=TIMEOUT,
+    )
+    if result["ok"]:
+        return "connected"
+    if result["status"] == "auth_failed":
+        return "auth_failed"
+    return "misconfigured"
+
+
 def _check_collabora(domain) -> str:
     url = current_app.config.get("COLLABORA_INTERNAL_URL", "")
     if not url:
@@ -134,6 +156,7 @@ _CHECKS: list[tuple[str, Any]] = [
     ("carddav", _check_carddav),
     ("caldav", _check_caldav),
     ("matrix", _check_matrix),
+    ("turn", _check_turn),
     ("collabora", _check_collabora),
     ("mail_api", _check_mail_api),
 ]

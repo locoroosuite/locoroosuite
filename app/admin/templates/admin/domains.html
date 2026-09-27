@@ -65,10 +65,11 @@
     carddav: "Contacts (CardDAV)",
     caldav: "Calendar (CalDAV)",
     matrix: "Chat (Matrix)",
+    turn: "Calls (TURN)",
     collabora: "Docs (Collabora)",
     mail_api: "Mail API"
   };
-  var SERVICE_ORDER = ["imap", "smtp", "mail_api", "carddav", "caldav", "matrix", "collabora"];
+  var SERVICE_ORDER = ["imap", "smtp", "mail_api", "carddav", "caldav", "matrix", "turn", "collabora"];
 
   function renderHealth(container, statuses) {
     var html = "";
@@ -92,6 +93,10 @@
         dotClass = "bg-red-500";
         labelClass = "text-red-600";
         label = SERVICE_LABELS[key] + " (MAS unreachable)";
+      } else if (st === "auth_failed") {
+        dotClass = "bg-red-500";
+        labelClass = "text-red-600";
+        label = SERVICE_LABELS[key] + " (credentials rejected)";
       } else if (st === "misconfigured") {
         dotClass = "bg-amber-500";
         labelClass = "text-amber-600";

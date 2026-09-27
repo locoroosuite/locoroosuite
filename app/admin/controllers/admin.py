@@ -1022,11 +1022,40 @@ def save_dav_config(domain_id):
         row_id for (row_id,) in db.session.query(Domain.id).filter(Domain.id != domain.id).all()
     }
     domain.chat_visible_domain_ids = sorted(set(visible_ids) & valid_ids) or None
-    # TURN server for 1:1 chat calls (HLD U25.21); empty host/secret disables calls.
-    domain.turn_host = request.form.get("turn_host", "").strip() or None
-    domain.turn_port = _parse_int(request.form.get("turn_port"), domain.turn_port)
-    domain.turn_tls_port = _parse_int(request.form.get("turn_tls_port"), domain.turn_tls_port)
-    domain.turn_shared_secret = request.form.get("turn_shared_secret", "").strip() or None
+    # TURN server for 1:1 chat calls (HLD U25.21). Verify-before-commit
+    # pattern (U1b.11): strict validation + a live probe of the submitted
+    # values, so a bad secret or unreachable server is an early save error
+    # instead of silently failing calls.
+    from app.admin.services.turn_verify import (
+        parse_port,
+        validate_turn_fields,
+        verify_turn_server,
+    )
+
+    turn_host = request.form.get("turn_host", "").strip() or None
+    turn_secret = request.form.get("turn_shared_secret", "").strip() or None
+    turn_port, port_error = parse_port(request.form.get("turn_port"))
+    if port_error:
+        return jsonify({"ok": False, "error": f"Invalid TURN port: {port_error}."}), 400
+    turn_tls_port, tls_error = parse_port(request.form.get("turn_tls_port"))
+    if tls_error:
+        return jsonify({"ok": False, "error": f"Invalid TURN TLS port: {tls_error}."}), 400
+
+    errors = validate_turn_fields(turn_host, turn_port, turn_tls_port, turn_secret)
+    if errors:
+        return jsonify({"ok": False, "error": " ".join(errors)}), 400
+
+    if turn_host and turn_secret:
+        result = verify_turn_server(
+            turn_host, turn_port or 3478, turn_tls_port, turn_secret
+        )
+        if not result["ok"]:
+            return jsonify({"ok": False, "error": result["message"]}), 400
+
+    domain.turn_host = turn_host
+    domain.turn_port = turn_port
+    domain.turn_tls_port = turn_tls_port
+    domain.turn_shared_secret = turn_secret
     db.session.commit()
     log_audit(
         session.get("user_id"),

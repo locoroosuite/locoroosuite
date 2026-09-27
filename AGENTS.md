@@ -160,6 +160,15 @@ Browsers cache JS/CSS heuristically; without versioning, users run **stale JS ag
 - After changing Tailwind classes, rebuild with `make css`; JS/CSS changes ship with the next `make restart` (image rebuild).
 
 
+### Admin Settings (verify before commit)
+
+Applies to **every** admin configuration surface, existing and future (HLD U1b.11):
+
+- Saves validate server-side (types, ranges, cross-field dependencies) and reject with `{"ok": false, "error": "<actionable message>"}` + 400 — never silently keep a stale value (no `_parse_int` silent fallbacks for new settings) and never persist a half-configured pair.
+- When the target can be probed (TCP/DNS/protocol-level, including credentials where the protocol allows), the save probes with the **submitted** values before committing and reports the precise failure mode (unreachable vs. credentials rejected vs. TLS problem).
+- The same check gets a row in the domain health panel (`app/admin/services/health_checks.py` + the `SERVICE_LABELS`/status branches in `app/admin/templates/admin/domains.html`), with distinct states for distinct causes.
+- Reference implementation: TURN (`app/admin/services/turn_verify.py` — validation + authenticated TURN Allocate probe wired into `save_dav_config`).
+
 ### Error Handling
 
 These rules apply to **all layers** (MCP tools, REST API controllers, Flask handlers).

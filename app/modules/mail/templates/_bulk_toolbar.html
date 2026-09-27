@@ -1,0 +1,25 @@
+{% set bulk_has_match = bulk_total_matches is defined and bulk_total_matches and bulk_total_matches > 0 %}
+<div id="bulk-toolbar" class="hidden flex-wrap items-center gap-1.5 px-3 md:px-5 py-2 border-b border-slate-200/80 bg-slate-50" data-account-id="{{ account_id }}" data-bulk-url="{{ url_for('mail.bulk_action') }}">
+  <span class="text-xs font-medium text-slate-700 whitespace-nowrap mr-1" data-bulk-count>0</span>
+  <button type="button" class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit" data-bulk-action="mark_read">{{ _('Mark as read') }}</button>
+  <button type="button" class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit" data-bulk-action="mark_unread">{{ _('Mark as unread') }}</button>
+  <button type="button" class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit" data-bulk-action="flag">{{ _('Star') }}</button>
+  <div class="flex items-center gap-1.5">
+    <select data-bulk-destination aria-label="{{ _('Move to folder') }}" class="text-[12px] md:text-[11px] px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm focus:border-slate-300 focus:outline-none max-w-[9rem]">
+      <option value="">{{ _('Move to folder') }}</option>
+      {% for f in bulk_folders or [] %}
+      <option value="{{ f }}">{{ f }}</option>
+      {% endfor %}
+    </select>
+    <button type="button" class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit" data-bulk-action="move">{{ _('Move') }}</button>
+  </div>
+  <button type="button" class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg border border-rose-200 bg-white text-rose-600 hover:bg-rose-50 lr-hit" data-bulk-action="delete">{{ _('Delete') }}</button>
+  <button type="button" class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 ml-auto lr-hit" data-bulk-clear>{{ _('Clear selection') }}</button>
+</div>
+{% if bulk_has_match %}
+<div id="bulk-select-all-match" class="hidden px-3 md:px-5 py-2 border-b border-slate-200/80 bg-white" data-bulk-total="{{ bulk_total_matches }}" data-bulk-query="{{ bulk_query or '' }}">
+  <button type="button" class="text-[12px] md:text-[11px] font-medium text-indigo-600 hover:text-indigo-800 underline underline-offset-2" data-bulk-select-all-match>
+    {{ _('Select all {n} conversations that match this search').format(n=bulk_total_matches) }}
+  </button>
+</div>
+{% endif %}

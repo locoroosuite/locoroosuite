@@ -15,6 +15,7 @@ from app.modules.mail.services.cache_db import (
     list_with_attachments,
     open_cache,
     search_local,
+    search_messages,
     tag_message,
     upsert_message,
 )
@@ -104,7 +105,9 @@ def test_open_cache_reinitializes_after_external_deletion(tmp_path):
     assert "messages" in tables
     assert "folders" in tables
     # And the previously-inserted row is gone (fresh file).
-    assert conn.execute("SELECT COUNT(*) FROM folders").fetchone()[0] == 0
+    count_row = conn.execute("SELECT COUNT(*) FROM folders").fetchone()
+    assert count_row is not None
+    assert count_row[0] == 0
     conn.close()
 
 
@@ -299,3 +302,193 @@ def test_decorate_message_row_shape(tmp_path):
     assert decorated["bounce_reason"] == "550 denied"
     assert decorated["has_attachments"] is True
     assert decorated["subject"] == "Hello"
+
+
+class TestSearchMessagesOperators:
+    """U7.4: operator filtering against the encrypted cache DB."""
+
+    def _seed(self, tmp_path):
+        conn, _ = _make_cache(tmp_path)
+        upsert_message(
+            conn,
+            "1",
+            "INBOX",
+            "Quarterly Report",
+            "alice@corp.com",
+            "bob@me.com",
+            "Mon, 3 Feb 2025 10:00:00 +0000",
+            ["\\Seen"],
+            "s",
+            "quarterly numbers",
+            False,
+            "<m1@x>",
+        )
+        upsert_message(
+            conn,
+            "2",
+            "INBOX",
+            "Party invite",
+            "zoe@party.com",
+            "bob@me.com",
+            "Mon, 5 Feb 2025 10:00:00 +0000",
+            [],
+            "s",
+            "party body",
+            True,
+            "<m2@x>",
+            attachment_list=[{"filename": "map.pdf"}],
+        )
+        upsert_message(
+            conn,
+            "3",
+            "Sent",
+            "Hello team",
+            "bob@me.com",
+            "team@corp.com",
+            "Mon, 1 Jan 2024 10:00:00 +0000",
+            ["\\Seen"],
+            "s",
+            "hello team",
+            False,
+            "<m3@x>",
+        )
+        upsert_message(
+            conn,
+            "4",
+            "Drafts",
+            "Unfinished",
+            "bob@me.com",
+            "team@corp.com",
+            "Mon, 2 Feb 2025 10:00:00 +0000",
+            ["\\Draft"],
+            "s",
+            "draft body",
+            False,
+            "<m4@x>",
+        )
+        return conn
+
+    def _subjects(self, conn, query):
+        rows, total = search_messages(conn, query)
+        return [r["subject"] for r in rows], total
+
+    def test_plain_text_still_works(self, tmp_path):
+        conn = self._seed(tmp_path)
+        subjects, total = self._subjects(conn, "quarterly")
+        assert subjects == ["Quarterly Report"]
+        assert total == 1
+
+    def test_from_operator(self, tmp_path):
+        conn = self._seed(tmp_path)
+        subjects, total = self._subjects(conn, "from:alice")
+        assert subjects == ["Quarterly Report"]
+        assert total == 1
+
+    def test_to_operator(self, tmp_path):
+        conn = self._seed(tmp_path)
+        assert self._subjects(conn, "to:team")[0] == ["Unfinished", "Hello team"]
+
+    def test_subject_operator(self, tmp_path):
+        conn = self._seed(tmp_path)
+        assert self._subjects(conn, "subject:invite")[0] == ["Party invite"]
+
+    def test_folder_operator_case_insensitive(self, tmp_path):
+        conn = self._seed(tmp_path)
+        assert self._subjects(conn, "folder:sent")[0] == ["Hello team"]
+
+    def test_is_unread(self, tmp_path):
+        conn = self._seed(tmp_path)
+        # Gmail parity: is:unread matches anything without \Seen, drafts included.
+        assert self._subjects(conn, "is:unread")[0] == ["Party invite", "Unfinished"]
+
+    def test_is_read(self, tmp_path):
+        conn = self._seed(tmp_path)
+        assert self._subjects(conn, "is:read")[0] == ["Quarterly Report", "Hello team"]
+
+    def test_is_starred(self, tmp_path):
+        conn = self._seed(tmp_path)
+        upsert_message(
+            conn,
+            "5",
+            "INBOX",
+            "Starred one",
+            "a@b.com",
+            "bob@me.com",
+            "Mon, 6 Feb 2025 10:00:00 +0000",
+            ["\\Flagged"],
+            "s",
+            "body",
+            False,
+            "<m5@x>",
+        )
+        assert self._subjects(conn, "is:starred")[0] == ["Starred one"]
+
+    def test_is_draft_matches_flag_and_folder(self, tmp_path):
+        conn = self._seed(tmp_path)
+        subjects, total = self._subjects(conn, "is:draft")
+        assert subjects == ["Unfinished"]
+        assert total == 1
+
+    def test_has_attachment(self, tmp_path):
+        conn = self._seed(tmp_path)
+        assert self._subjects(conn, "has:attachment")[0] == ["Party invite"]
+
+    def test_filename_matches_attachment_list(self, tmp_path):
+        conn = self._seed(tmp_path)
+        assert self._subjects(conn, "filename:pdf")[0] == ["Party invite"]
+
+    def test_filename_no_match(self, tmp_path):
+        conn = self._seed(tmp_path)
+        assert self._subjects(conn, "filename:xlsx")[0] == []
+
+    def test_date_range(self, tmp_path):
+        conn = self._seed(tmp_path)
+        subjects, total = self._subjects(conn, "after:2025-01-01 before:2025-12-31")
+        assert subjects == ["Party invite", "Quarterly Report", "Unfinished"]
+        assert total == 3
+
+    def test_combined_operators_and_text(self, tmp_path):
+        conn = self._seed(tmp_path)
+        assert self._subjects(conn, "from:zoe is:unread party")[0] == ["Party invite"]
+
+    def test_filter_only_query_without_fts_terms(self, tmp_path):
+        conn = self._seed(tmp_path)
+        subjects, total = self._subjects(conn, "is:unread has:attachment")
+        assert subjects == ["Party invite"]
+        assert total == 1
+
+    def test_empty_query_returns_no_rows(self, tmp_path):
+        conn = self._seed(tmp_path)
+        rows, total = search_messages(conn, "")
+        assert rows == []
+        assert total == 0
+
+    def test_limit_and_offset_paging_with_total(self, tmp_path):
+        conn = self._seed(tmp_path)
+        rows, total = search_messages(conn, "is:read", limit=1)
+        assert len(rows) == 1
+        assert total == 2
+        page2, total2 = search_messages(conn, "is:read", limit=1, offset=1)
+        assert len(page2) == 1
+        assert total2 == 2
+        assert page2[0]["id"] != rows[0]["id"]
+
+    def test_limit_none_returns_all(self, tmp_path):
+        conn = self._seed(tmp_path)
+        rows, total = search_messages(conn, "is:unread", limit=None)
+        assert len(rows) == 2
+        assert total == 2
+
+    def test_search_local_backcompat_returns_rows_only(self, tmp_path):
+        conn = self._seed(tmp_path)
+        rows = search_local(conn, "quarterly")
+        assert [r["subject"] for r in rows] == ["Quarterly Report"]
+
+    def test_search_messages_accepts_prefiltered_searchfilters(self, tmp_path):
+        from app.modules.mail.services.search_query import parse_search_query
+
+        conn = self._seed(tmp_path)
+        filters = parse_search_query("hello").with_api_filters(unread=True)
+        rows, total = search_messages(conn, filters)
+        assert rows == []
+        assert total == 0

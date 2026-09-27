@@ -53,6 +53,12 @@ def test_folder_view(authed_client, app):
     html = resp.data.decode()
     # U24.38: folder header meta truncates instead of wrapping vertically
     assert 'id="thread-count" class="text-xs text-slate-500 truncate"' in html
+    # U5.6/U5.7: the exposed header "Mark all read" button is gone; bulk
+    # actions are selection-based via the toolbar.
+    assert 'id="select-all-messages"' in html
+    assert 'id="bulk-toolbar"' in html
+    # U7.3: the header search box is pre-filled with the folder: tag.
+    assert 'value="folder:INBOX"' in html
 
 
 def test_folder_messages_json(authed_client):

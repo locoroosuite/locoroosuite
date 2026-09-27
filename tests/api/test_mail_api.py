@@ -63,6 +63,7 @@ def _set_account_secret(app, account_id, dek="a" * 64):
 
     with app.app_context():
         account = _db.session.get(CustomerAccount, account_id)
+        assert account is not None
         account.encrypted_secret = encrypt_with_key("testpass", dek)
         _db.session.commit()
 
@@ -109,18 +110,65 @@ class TestListFolders:
 
 
 class TestSearchMessages:
-    def test_missing_query_returns_422(self, app, mail_api):
+    def test_no_criteria_returns_400(self, app, mail_api):
+        """U15.34: q is optional when filters are used, but a request with no
+        criteria at all is a validation error."""
         client, token, _account_id, _ = mail_api
         resp = client.get("/api/v1/mail/search", headers=auth_header(token))
-        assert resp.status_code == 422
+        assert resp.status_code == 400
         data = json.loads(resp.data)
-        assert isinstance(data, list)
-        assert data[0]["type"] == "missing"
+        assert data["error"]["code"] == "VALIDATION_ERROR"
 
     def test_empty_query_returns_400(self, app, mail_api):
         client, token, _account_id, _ = mail_api
         resp = client.get("/api/v1/mail/search?q=", headers=auth_header(token))
         assert resp.status_code == 400
+
+    def test_search_response_includes_total_count(self, app, mail_api):
+        client, token, _account_id, cache_path = mail_api
+        _seed_mail_cache(cache_path)
+        resp = client.get("/api/v1/mail/search?q=standup", headers=auth_header(token))
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data["total_count"] == 1
+
+    def test_search_operator_from(self, app, mail_api):
+        """U15.34/U7.4: operators inside q work end-to-end."""
+        client, token, _account_id, cache_path = mail_api
+        _seed_mail_cache(cache_path)
+        resp = client.get("/api/v1/mail/search?q=from%3Aalice", headers=auth_header(token))
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data["total_count"] == 1
+        assert data["data"][0]["subject"] == "Chief Effectiveness Officer - Offer"
+
+    def test_search_filter_unread_only(self, app, mail_api):
+        """U15.34: the `unread` filter is now honored (was silently ignored)."""
+        client, token, _account_id, cache_path = mail_api
+        _seed_mail_cache(cache_path)
+        resp = client.get("/api/v1/mail/search?q=standup&unread=true", headers=auth_header(token))
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data["total_count"] == 1
+        assert data["data"][0]["unread"] is True
+
+    def test_search_filter_folder_id(self, app, mail_api):
+        client, token, _account_id, cache_path = mail_api
+        _seed_mail_cache(cache_path)
+        resp = client.get("/api/v1/mail/search?q=offer&folder_id=Sent", headers=auth_header(token))
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data["total_count"] == 0
+
+    def test_search_filters_only_without_q(self, app, mail_api):
+        """Filters alone (no free-text q) are a valid query."""
+        client, token, _account_id, cache_path = mail_api
+        _seed_mail_cache(cache_path)
+        resp = client.get("/api/v1/mail/search?unread=true", headers=auth_header(token))
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data["total_count"] == 1
+        assert data["data"][0]["subject"] == "Weekly standup notes"
 
     def test_search_returns_matching_messages(self, app, mail_api):
         client, token, _account_id, cache_path = mail_api
@@ -1112,13 +1160,13 @@ class TestSendWithDraftCleanup:
         mock_imap_sent = MagicMock()
         mock_imap_sent.append.return_value = ("OK", [b""])
 
+        imap_calls = [0]
+
         def _imap_connect_side_effect(*args, **kwargs):
-            if _imap_connect_side_effect.call_count == 0:
-                _imap_connect_side_effect.call_count += 1
+            if imap_calls[0] == 0:
+                imap_calls[0] += 1
                 return mock_imap_sent
             raise Exception("IMAP down for draft cleanup")
-
-        _imap_connect_side_effect.call_count = 0
 
         with (
             patch("app.modules.mail.services.smtp_client.smtp_connect", return_value=mock_smtp),

@@ -115,6 +115,26 @@ describe.skipIf(!(await isServerAvailable()))("MCP Client → API: Mail", () => 
       const r = assertSuccess<Array<Record<string, unknown>>>(res, "search");
       expect(Array.isArray(r.data)).toBe(true);
     });
+
+    it("supports operators in q and returns total_count", async () => {
+      const res = await client.get("/api/v1/mail/search", { q: "is:unread", max_results: "5" });
+      const r = assertSuccess<Array<Record<string, unknown>>>(res, "search_operators");
+      expect(Array.isArray(r.data)).toBe(true);
+      expect(r).toHaveProperty("total_count");
+      expect(typeof r.total_count).toBe("number");
+      for (const m of r.data ?? []) {
+        expect(m["unread"]).toBe(true);
+      }
+    });
+
+    it("honors the unread filter alongside q", async () => {
+      const res = await client.get("/api/v1/mail/search", { q: "e", unread: "true", max_results: "10" });
+      const r = assertSuccess<Array<Record<string, unknown>>>(res, "search_unread_filter");
+      expect(r).toHaveProperty("total_count");
+      for (const m of r.data ?? []) {
+        expect(m["unread"]).toBe(true);
+      }
+    });
   });
 
   describe("mail_get_thread", () => {

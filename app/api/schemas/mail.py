@@ -132,11 +132,24 @@ class AttachmentPath(BaseModel):
 
 
 class SearchQuery(BaseModel):
-    q: str = Field(..., description="Search query string")
+    q: str = Field(
+        default="",
+        description="Search query string; supports operators from:, to:, subject:, folder:, "
+        "is:unread, is:starred, is:draft, has:attachment, filename:, before:, after:",
+    )
     account_id: int | None = Field(
         default=None, description="Mail account ID (defaults to primary account)"
     )
     max_results: int = Field(default=50, ge=1, le=200, description="Maximum results (1-200)")
+    folder_id: str | None = Field(default=None, description="Restrict search to this folder")
+    unread: bool | None = Field(default=None, description="Filter: unread messages only")
+    flagged: bool | None = Field(default=None, description="Filter: flagged messages only")
+    since: str | None = Field(
+        default=None, description="ISO 8601 datetime — only messages after this time"
+    )
+    until: str | None = Field(
+        default=None, description="ISO 8601 datetime — only messages before this time"
+    )
 
 
 class ListMessagesQuery(BaseModel):

@@ -57,7 +57,7 @@ export function registerMailTools(server, client) {
     });
     server.tool("mail_search", "Search messages with query string and optional filters", {
         account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
-        q: z.string().describe("Search query string"),
+        q: z.string().describe("Search query string; supports operators: from:, to:, subject:, folder:, is:unread, is:starred, is:draft, has:attachment, filename:, before:YYYY-MM-DD, after:YYYY-MM-DD"),
         folder_id: z.string().optional().describe("Restrict search to a specific folder"),
         unread: z.boolean().optional().describe("Filter to unread messages"),
         flagged: z.boolean().optional().describe("Filter to flagged messages"),

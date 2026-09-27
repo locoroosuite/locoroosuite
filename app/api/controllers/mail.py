@@ -55,7 +55,7 @@ from app.modules.mail.services.cache_db import (
     list_thread_messages,
     open_cache,
     rename_folder_in_cache,
-    search_local,
+    search_messages,
     update_flags,
     upsert_folder,
     upsert_message,
@@ -68,6 +68,7 @@ from app.modules.mail.services.protection import (
     protected_delete_message,
     protection_reason,
 )
+from app.modules.mail.services.search_query import parse_search_query
 from app.modules.mail.services.secrets import decrypt_with_key
 from app.modules.mail.services.spam import (
     SpamFlagUnsupportedError,
@@ -528,23 +529,37 @@ def api_get_thread(path: ThreadPath):
 @bp.get(
     "/mail/search",
     summary="Search messages",
-    description="Full-text search across all folders in the account cache. Returns matching messages sorted by relevance. Requires `mail:read` scope.",
+    description=(
+        "Search messages in the account cache. The `q` string supports operators: "
+        "`from:`, `to:`, `subject:`, `folder:`, `is:unread`, `is:starred`, `is:draft`, "
+        "`has:attachment`, `filename:`, `before:`, `after:` (HLD U7.4). The optional "
+        "filters (`folder_id`, `unread`, `flagged`, `since`, `until`) are AND-ed with `q`. "
+        "Returns matching messages sorted by date plus a `total_count` of all matches. "
+        "Requires `mail:read` scope."
+    ),
     responses={"200": MessageListResponse, "401": ErrorResponse, "400": ErrorResponse},
 )
 @require_api_token(scopes=["mail:read"])
 def api_search_messages(query: SearchQuery):
     account_id = get_api_account_id()
     dek = g.api_context["dek"]
-    q = request.args.get("q", "")
-    if not q:
-        return api_error("VALIDATION_ERROR", "Query parameter 'q' is required", 400)
-    limit = min(int(request.args.get("max_results", 50)), 200)
+    filters = parse_search_query(query.q).with_api_filters(
+        folder=query.folder_id,
+        unread=query.unread,
+        flagged=query.flagged,
+        since=query.since,
+        until=query.until,
+    )
+    if filters.is_empty:
+        return api_error("VALIDATION_ERROR", "Provide a query (q) or at least one filter", 400)
     conn = _get_cache_conn(account_id, dek)
     try:
-        rows = search_local(conn, q, limit=limit)
+        rows, total = search_messages(conn, filters, limit=query.max_results)
         settings = _get_settings()
         items = [_message_to_dict(r, settings) for r in rows]
-        return api_paginated(items)
+        response = api_paginated(items)
+        response["total_count"] = total
+        return response
     finally:
         conn.close()
 

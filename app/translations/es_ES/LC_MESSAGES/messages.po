@@ -4305,3 +4305,87 @@ msgid "%(num)d minute"
 msgid_plural "%(num)d minutes"
 msgstr[0] "%(num)d minuto"
 msgstr[1] "%(num)d minutos"
+
+#: app/templates/layout.html
+msgid "Search mail — try from:, is:unread, has:attachment"
+msgstr "Buscar correo — prueba from:, is:unread, has:attachment"
+
+#: app/modules/mail/templates/search.html
+msgid "Advanced search"
+msgstr "Búsqueda avanzada"
+
+msgid "Attachment name"
+msgstr "Nombre del adjunto"
+
+msgid "After"
+msgstr "Después de"
+
+msgid "Before"
+msgstr "Antes de"
+
+msgid "Has attachment"
+msgstr "Tiene adjunto"
+
+msgid "Unread only"
+msgstr "Solo no leídos"
+
+msgid "1 result"
+msgstr "1 resultado"
+
+#, python-brace-format
+msgid "{n} results"
+msgstr "{n} resultados"
+
+msgid "Remove this filter"
+msgstr "Quitar este filtro"
+
+#: app/modules/mail/templates/_bulk_toolbar.html
+#: app/modules/mail/templates/message_list.html
+#: app/modules/mail/templates/search.html
+msgid "Select message"
+msgstr "Seleccionar mensaje"
+
+#: app/modules/mail/templates/folder.html
+msgid "Select all messages on this page"
+msgstr "Seleccionar todos los mensajes de esta página"
+
+msgid "Select"
+msgstr "Seleccionar"
+
+#, python-brace-format
+msgid "{n} selected"
+msgstr "{n} seleccionados"
+
+msgid "Move"
+msgstr "Mover"
+
+msgid "Clear selection"
+msgstr "Borrar selección"
+
+#, python-brace-format
+msgid "Select all {n} conversations that match this search"
+msgstr "Seleccionar las {n} conversaciones que coinciden con esta búsqueda"
+
+msgid "Choose a destination folder first."
+msgstr "Elige primero una carpeta de destino."
+
+#, python-brace-format
+msgid "{n} conversations were skipped (protected)."
+msgstr "Se omitieron {n} conversaciones (protegidas)."
+
+#, python-brace-format
+msgid "Apply this action to all {n} matching conversations?"
+msgstr "¿Aplicar esta acción a las {n} conversaciones que coinciden?"
+
+#: app/modules/mail/controllers/search.py
+msgid "Invalid action."
+msgstr "Acción no válida."
+
+msgid "Choose a destination folder."
+msgstr "Elige una carpeta de destino."
+
+msgid "Enter a search query first."
+msgstr "Escribe primero una búsqueda."
+
+msgid "Free-text words are kept; the fields above add filters."
+msgstr "Las palabras de texto libre se conservan; los campos de arriba añaden filtros."

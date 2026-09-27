@@ -317,9 +317,20 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         with flask_app.app_context():
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
-                from app.modules.mail.services.cache_db import search_local
+                from app.modules.mail.services.cache_db import search_messages
+                from app.modules.mail.services.search_query import parse_search_query
 
-                rows = search_local(conn, q, limit=limit)
+                filters = parse_search_query(q).with_api_filters(
+                    folder=folder_id,
+                    unread=unread,
+                    flagged=flagged,
+                    since=since,
+                    until=until,
+                )
+                if filters.is_empty:
+                    rows = []
+                else:
+                    rows, _total = search_messages(conn, filters, limit=limit)
             finally:
                 conn.close()
             settings = _settings_for(ctx["customer_id"])

@@ -10,6 +10,7 @@ import sqlcipher3
 
 from app.modules.mail.services.cache_migrations import MAIL_CACHE_MIGRATIONS
 from app.modules.mail.services.folder_sort import UNREAD_EXCLUDED_FOLDERS
+from app.modules.mail.services.search_query import SearchFilters, parse_search_query
 from app.shared.cache_errors import CacheKeyMismatchError
 from app.shared.migrations import run_migrations
 
@@ -358,37 +359,131 @@ def update_flags_bulk(conn, folder, uid_flags):
     conn.commit()
 
 
-def _normalize_fts_query(query):
-    if not query:
-        return ""
+def _fts_quote(token):
+    return '"' + token.replace('"', '""') + '"'
+
+
+def _is_searchable(token):
+    return bool(re.search(r"[A-Za-z0-9]", token))
+
+
+def _fts_match_string(filters):
+    """Build the FTS5 MATCH expression for the text parts of a query (U7.4).
+
+    Column-scoped filters for from/to/subject, plain tokens for everything else.
+    Punctuation-only tokens are dropped (they cannot match the tokenizer).
+    Returns "" when the query is filter-only (no FTS terms).
+    """
     terms = []
-    for token in re.findall(r"\S+", query):
-        if not re.search(r"[A-Za-z0-9]", token):
-            continue
-        safe = token.replace('"', '""')
-        terms.append(f'"{safe}"')
+    for value in filters.from_terms:
+        if _is_searchable(value):
+            terms.append(f"sender:{_fts_quote(value)}")
+    for value in filters.to_terms:
+        if _is_searchable(value):
+            terms.append(f"recipients:{_fts_quote(value)}")
+    for value in filters.subject_terms:
+        if _is_searchable(value):
+            terms.append(f"subject:{_fts_quote(value)}")
+    for value in filters.text_terms:
+        if _is_searchable(value):
+            terms.append(_fts_quote(value))
     return " AND ".join(terms)
 
 
-def search_local(conn, query, limit=50):
-    normalized = _normalize_fts_query(query or "")
-    if not normalized:
-        return []
+def _like_pattern(value):
+    escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
+def _search_conditions(filters):
+    """SQL predicates for the non-FTS parts of a search query (U7.4)."""
+    conditions = []
+    params = []
+    for name in filters.folders:
+        conditions.append("UPPER(messages.folder) = UPPER(?)")
+        params.append(name)
+    for flag in filters.is_flags:
+        if flag == "unread":
+            conditions.append(
+                "(messages.flags IS NULL OR messages.flags = '' "
+                "OR messages.flags NOT LIKE '%\\Seen%')"
+            )
+        elif flag == "read":
+            conditions.append("messages.flags LIKE '%\\Seen%'")
+        elif flag == "starred":
+            conditions.append("messages.flags LIKE '%\\Flagged%'")
+        elif flag == "draft":
+            conditions.append(
+                "(messages.flags LIKE '%\\Draft%' OR UPPER(messages.folder) = 'DRAFTS')"
+            )
+    if filters.has_attachment:
+        conditions.append("messages.has_attachments = 1")
+    for name in filters.filenames:
+        conditions.append("messages.attachment_list LIKE ? ESCAPE '\\'")
+        params.append(_like_pattern(name))
+    if filters.after_ts is not None:
+        conditions.append("COALESCE(messages.internal_date_ts, messages.date_ts, 0) >= ?")
+        params.append(filters.after_ts)
+    if filters.before_ts is not None:
+        conditions.append("COALESCE(messages.internal_date_ts, messages.date_ts, 0) <= ?")
+        params.append(filters.before_ts)
+    return conditions, params
+
+
+_SEARCH_COLUMNS = """
+       messages.id, messages.uid, messages.folder, messages.subject,
+       messages.sender, messages.recipients, messages.date, messages.flags,
+       messages.body, messages.has_attachments, messages.message_id,
+       messages.thread_id, messages.snippet
+"""
+
+
+def search_messages(conn, query, limit: int | None = 50, offset: int = 0):
+    """Search the local cache with operator support (U7.4).
+
+    ``query`` is a raw query string or a pre-built ``SearchFilters`` (the
+    caller may have merged API filter parameters into it). Returns
+    ``(rows, total)`` where ``total`` counts all matches before paging.
+    """
+    filters = query if isinstance(query, SearchFilters) else parse_search_query(query)
+    if filters.is_empty:
+        return [], 0
+    conditions, params = _search_conditions(filters)
+    match = _fts_match_string(filters)
+    if match:
+        from_sql = "FROM message_fts JOIN messages ON messages.id = message_fts.rowid"
+        where = ["message_fts MATCH ?"]
+        where_params = [match]
+    else:
+        from_sql = "FROM messages"
+        where = []
+        where_params = []
+    where.extend(conditions)
+    where_params.extend(params)
+    where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+    total = conn.execute(
+        f"SELECT COUNT(*) {from_sql} {where_sql}",
+        where_params,
+    ).fetchone()[0]
+    limit_sql = "" if limit is None else "LIMIT ? OFFSET ?"
+    limit_params = [] if limit is None else [limit, offset]
     cursor = conn.execute(
-        """
-        SELECT messages.id, messages.uid, messages.folder, messages.subject,
-               messages.sender, messages.recipients, messages.date, messages.flags,
-               messages.body, messages.has_attachments, messages.message_id,
-               messages.thread_id, messages.snippet
-        FROM message_fts
-        JOIN messages ON messages.id = message_fts.rowid
-        WHERE message_fts MATCH ?
+        f"""
+        SELECT {_SEARCH_COLUMNS}
+        {from_sql}
+        {where_sql}
         ORDER BY COALESCE(messages.internal_date_ts, messages.date_ts, 0) DESC, messages.id DESC
-        LIMIT ?
+        {limit_sql}
         """,
-        (normalized, limit),
+        (*where_params, *limit_params),
     )
-    return cursor.fetchall()
+    return cursor.fetchall(), total
+
+
+def search_local(conn, query, limit=50):
+    """Backwards-compatible search returning only the result rows."""
+    rows, _total = search_messages(conn, query, limit=limit)
+    return rows
 
 
 def list_messages(conn, folder, limit=100):

@@ -30,6 +30,7 @@ from app.modules.mail.services.imap_client import (
 )
 from app.modules.mail.services.imap_client import delete_folder as imap_delete_folder
 from app.modules.mail.services.imap_client import rename_folder as imap_rename_folder
+from app.modules.mail.services.search_query import quote_token
 from app.modules.mail.services.secrets import decrypt_with_key
 from app.modules.mail.services.spam import is_junk_folder
 from app.modules.mail.services.spam import spam_action_enabled as _spam_action_enabled
@@ -136,6 +137,7 @@ def folder_view(account_id, folder):
         pagination=pagination,
         thread_counts=pagination.get("thread_counts", {}),
         thread_omitted=pagination.get("thread_omitted", {}),
+        search_prefill=f"folder:{quote_token(folder)}",
     )
 
 
@@ -517,4 +519,5 @@ def smart_folder(account_id, view):
         send_failure=send_failure,
         spam_action_enabled=_spam_action_enabled(settings, account.id),
         in_junk_folder=False,
+        search_prefill=f"is:{'unread' if view == 'unread' else 'starred'}",
     )

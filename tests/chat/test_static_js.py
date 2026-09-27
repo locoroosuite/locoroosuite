@@ -113,6 +113,58 @@ def test_calls_overlay_elements_exist():
         assert f'id="{element_id}"' in html, f"missing call overlay element: {element_id}"
 
 
+def _function_body(source, signature):
+    m = re.search(re.escape(signature) + r" \{(.*?)\n  \}\n", source, re.DOTALL)
+    assert m, f"function not found: {signature}"
+    return m.group(1)
+
+
+def test_render_timeline_shows_calls_without_messages():
+    """HLD U25.20: call entries must render even when the room has no
+    messages. Regression: renderTimeline early-returned on the empty state
+    before merging call entries, hiding call history in message-less DMs."""
+    ui = (CHAT_DIR / "chat-ui.js").read_text()
+    body = _function_body(ui, "function renderTimeline(roomId)")
+    assert "timelineEntries(roomId)" in body
+    # The empty state is gated on the merged list (messages + calls), never
+    # on messages alone, and the call merge happens before the gate.
+    assert re.search(r"if \(!merged\.length\) \{", body)
+    assert "if (!messages.length)" not in body
+    assert body.index("timelineEntries(roomId)") < body.index(
+        "This is the beginning of your conversation"
+    )
+
+
+def test_own_call_events_update_summaries():
+    """HLD U25.20: own signaling echoes must not trigger the ring/WebRTC
+    handlers (you cannot ring yourself) but must still update the summary.
+    Regression: own events were dropped entirely, so a caller hanging up
+    left the entry on "Ongoing call" and the callee's own answer was never
+    recorded (an answered call later rendered as "Missed call")."""
+    calls = (CHAT_DIR / "chat-calls.js").read_text()
+    assert "if (ev.sender === state.identity) return;" not in calls
+    body = _function_body(calls, "function handleEvents(roomId, events)")
+    assert "ev.sender !== state.identity" in body
+    assert "touchSummary(roomId, ev);" in body
+    # touchSummary runs after the guarded handler dispatch, for every event.
+    assert body.index("touchSummary(roomId, ev);") > body.index("onHangup(roomId, ev)")
+
+
+def test_local_call_actions_record_summary_transitions():
+    """accept/decline/hangUp must update the timeline entry immediately
+    instead of waiting for the SSE echo (mirrors startCall and the busy
+    auto-decline path in onInvite)."""
+    calls = (CHAT_DIR / "chat-calls.js").read_text()
+    for signature in (
+        "async function accept()",
+        "function decline(reason)",
+        "function hangUp(reason, silent)",
+    ):
+        assert "touchSummary(" in _function_body(calls, signature), (
+            f"{signature} must touch the call summary"
+        )
+
+
 def test_device_test_dialog_and_script_are_wired():
     """HLD U25.59: the test-call dialog skeleton is template-authored (Tailwind
     literals), the script is cache-busted, the mic meter width uses an inline

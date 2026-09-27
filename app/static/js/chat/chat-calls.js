@@ -468,6 +468,15 @@
         method: "POST",
         json: { answer: { type: answer.type, sdp: answer.sdp } },
       });
+      /* Record the answer locally so the entry flips to "active" without
+         waiting for the SSE echo (U25.20). */
+      touchSummary(pending.roomId, {
+        call_id: pending.callId,
+        type: "m.call.answer",
+        sender: state.identity,
+        content: {},
+        origin_server_ts: Date.now(),
+      });
       await flushOwnCandidates();
     } catch (err) {
       teardown(false);
@@ -489,6 +498,14 @@
     }).catch(function () {
       /* non-fatal: the invite expires server-side via lifetime */
     });
+    touchSummary(pending.roomId, {
+      call_id: pending.callId,
+      type: "m.call.hangup",
+      sender: state.identity,
+      content: { reason: reason || "user_hangup" },
+      origin_server_ts: Date.now(),
+    });
+    rerenderTimeline(pending.roomId);
   }
 
   /* ---------------- signaling events ---------------- */
@@ -539,11 +556,15 @@
   function handleEvents(roomId, events) {
     (events || []).forEach(function (ev) {
       if (!ev || !ev.call_id || !ev.type) return;
-      if (ev.sender === state.identity) return; /* own events echo back via sync */
-      if (ev.type === "m.call.invite") onInvite(roomId, ev);
-      else if (ev.type === "m.call.answer") onAnswer(roomId, ev);
-      else if (ev.type === "m.call.candidates") onRemoteCandidates(roomId, ev);
-      else if (ev.type === "m.call.hangup") onHangup(roomId, ev);
+      /* Own events echo back via sync: never run the ring/WebRTC handlers
+         (you cannot ring yourself), but still track the summary (U25.20:
+         own answers/hangups must update the timeline entry live). */
+      if (ev.sender !== state.identity) {
+        if (ev.type === "m.call.invite") onInvite(roomId, ev);
+        else if (ev.type === "m.call.answer") onAnswer(roomId, ev);
+        else if (ev.type === "m.call.candidates") onRemoteCandidates(roomId, ev);
+        else if (ev.type === "m.call.hangup") onHangup(roomId, ev);
+      }
       touchSummary(roomId, ev);
     });
     rerenderTimeline(roomId);
@@ -572,6 +593,18 @@
     if (!active) return;
     const pending = active;
     teardown(silent !== true);
+    if (pending.callId) {
+      /* Record the hangup locally so the entry shows the final status and
+         duration without waiting for the SSE echo (U25.20). */
+      touchSummary(pending.roomId, {
+        call_id: pending.callId,
+        type: "m.call.hangup",
+        sender: state.identity,
+        content: { reason: reason || "user_hangup" },
+        origin_server_ts: Date.now(),
+      });
+      rerenderTimeline(pending.roomId);
+    }
     Chat.api(callUrl(pending.roomId, pending.callId, "hangup"), {
       method: "POST",
       json: { reason: reason || "user_hangup" },

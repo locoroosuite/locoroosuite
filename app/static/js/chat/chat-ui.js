@@ -194,7 +194,21 @@
     const messages = state.messages[roomId] || [];
     const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
     box.textContent = "";
-    if (!messages.length) {
+    /* HLD U25.20: call timeline entries are merged with messages by ts and
+       must render even when the room has no messages yet. */
+    const merged = [];
+    messages.forEach(function (m) {
+      merged.push({ ts: m.origin_server_ts, kind: "msg", m: m });
+    });
+    if (window.Chat.calls) {
+      window.Chat.calls.timelineEntries(roomId).forEach(function (c) {
+        merged.push({ ts: c.invite_ts, kind: "call", c: c });
+      });
+    }
+    merged.sort(function (a, b) {
+      return a.ts - b.ts;
+    });
+    if (!merged.length) {
       const room = findRoom(roomId) || {};
       const peer = state.dmPeers[roomId];
       const who = room.is_direct
@@ -215,19 +229,6 @@
     }
     let lastSender = null;
     let lastDay = null;
-    /* HLD U25.20: call timeline entries are merged with messages by ts. */
-    const merged = [];
-    messages.forEach(function (m) {
-      merged.push({ ts: m.origin_server_ts, kind: "msg", m: m });
-    });
-    if (window.Chat.calls) {
-      window.Chat.calls.timelineEntries(roomId).forEach(function (c) {
-        merged.push({ ts: c.invite_ts, kind: "call", c: c });
-      });
-    }
-    merged.sort(function (a, b) {
-      return a.ts - b.ts;
-    });
     merged.forEach(function (item) {
       const day = new Date(item.ts).toDateString();
       if (day !== lastDay) {

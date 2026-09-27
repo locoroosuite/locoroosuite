@@ -22,7 +22,7 @@
       </a>
       <a href="{{ url_for('admin.review_domain_dav', domain_id=domain.id) }}"
          class="whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium {{ 'border-slate-900 text-slate-900' if active_tab == 'dav' else 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300' }}">
-        Contacts &amp; Calendar
+        Contacts, Calendar &amp; Chat
       </a>
       <a href="{{ url_for('admin.review_domain_selfhosted', domain_id=domain.id) }}"
          class="whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium {{ 'border-slate-900 text-slate-900' if active_tab == 'selfhosted' else 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300' }}">

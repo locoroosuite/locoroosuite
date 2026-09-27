@@ -12,6 +12,7 @@ from flask import Response, current_app
 from app.modules.chat.controllers.helpers import chat_bp, chat_context, require_customer
 from app.modules.chat.services import cache_db, receipts
 from app.modules.chat.services.matrix import MatrixError
+from app.modules.chat.services.streams import register_stream, unregister_stream
 from app.modules.chat.services.sync import process_sync, sync_lock
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,9 @@ def stream():
 
     def event_stream():
         logger.info("chat sse stream opened user_id=%s account_id=%s", user_id, account.id)
+        # Headless push worker handoff (U25.61): while a tab drives sync the
+        # worker stays away from the shared sync token.
+        register_stream(user_id)
         lock = sync_lock(user_id)
         consecutive_errors = 0
         # Delivery relay marker (HLD U25.18): rows newer than this are pushed
@@ -112,6 +116,7 @@ def stream():
                         return
                     time.sleep(_ERROR_BACKOFF_S)
         finally:
+            unregister_stream(user_id)
             conn.close()
             logger.info("chat sse stream closed user_id=%s", user_id)
 

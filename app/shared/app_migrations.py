@@ -318,6 +318,17 @@ def _domain_turn(conn) -> None:
         conn.execute("ALTER TABLE domains ADD COLUMN turn_shared_secret VARCHAR(255)")
 
 
+def _notify_chat_enabled(conn) -> None:
+    """0020: chat push category toggle (HLD U25.61/U24.27); default on."""
+    if not has_table(conn, "customer_settings"):
+        return
+    if "notify_chat_enabled" in table_columns(conn, "customer_settings"):
+        return
+    conn.execute(
+        "ALTER TABLE customer_settings ADD COLUMN notify_chat_enabled BOOLEAN NOT NULL DEFAULT 1"
+    )
+
+
 APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_domain_status", _domain_status),
     Migration("0002_customer_settings_spam_action", _customer_settings_spam_action),
@@ -338,4 +349,5 @@ APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0017_customer_settings_browser_locale", _customer_settings_browser_locale),
     Migration("0018_domain_matrix_mas", _domain_matrix_mas),
     Migration("0019_domain_turn", _domain_turn),
+    Migration("0020_notify_chat_enabled", _notify_chat_enabled),
 )

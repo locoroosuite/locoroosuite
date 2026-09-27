@@ -242,6 +242,26 @@ def _localpart(user_id: str) -> str:
     return user_id[1:].split(":", 1)[0] if user_id.startswith("@") else user_id
 
 
+def room_display_name(conn, room_id: str, own_user_id: str) -> str:
+    """Display name of a cached room, with the DM peer fallback (U25.61 push payloads)."""
+    room = get_room(conn, room_id)
+    if not room:
+        return ""
+    _decorate_room_display_name(conn, room, own_user_id)
+    return room.get("display_name") or ""
+
+
+def member_display_name(conn, room_id: str, matrix_user_id: str) -> str:
+    """Cached display name of one member, falling back to the localpart."""
+    row = conn.execute(
+        "SELECT displayname FROM chat_room_members WHERE room_id = ? AND user_id = ?",
+        (room_id, matrix_user_id),
+    ).fetchone()
+    if row and row["displayname"]:
+        return row["displayname"]
+    return _localpart(matrix_user_id)
+
+
 # --- members -----------------------------------------------------------
 
 

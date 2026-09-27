@@ -42,6 +42,9 @@ def test_settings_page_renders(authed_client):
         f'data-pref="spam_action_{account_id}"',
         f'data-pref="locked_keyword_{account_id}"',
         'data-pref="push_detailed"',
+        'data-pref="notify_mail_enabled"',
+        'data-pref="notify_calendar_enabled"',
+        'data-pref="notify_chat_enabled"',
     ):
         assert marker in body, marker
 
@@ -65,6 +68,10 @@ def test_settings_page_requires_login(client):
         ("preview_pane_default", True, "preview_pane_default", True),
         ("protect_starred", False, "protect_starred", False),
         ("push_detailed", True, "push_detailed", True),
+        ("notify_chat_enabled", True, "notify_chat_enabled", True),
+        ("notify_chat_enabled", False, "notify_chat_enabled", False),
+        ("notify_calendar_enabled", True, "notify_calendar_enabled", True),
+        ("notify_calendar_enabled", False, "notify_calendar_enabled", False),
     ],
 )
 def test_pref_saves_fields(authed_client, app, key, value, attr, expected):

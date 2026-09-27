@@ -112,3 +112,40 @@ class TestDomainMatrixMasMigration:
             assert run_migrations(conn, [self._migration_0018()]) == 0
         finally:
             conn.close()
+
+
+class TestNotifyChatEnabledMigration:
+    """0020_notify_chat_enabled: chat push category toggle (HLD U25.61/U24.27)."""
+
+    def _pre_migration_conn(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE customer_settings (customer_id INTEGER PRIMARY KEY, timezone VARCHAR(64))"
+        )
+        conn.commit()
+        return conn
+
+    def _migration_0020(self):
+        return next(m for m in APP_DB_MIGRATIONS if m.name == "0020_notify_chat_enabled")
+
+    def test_migration_adds_column_default_on(self):
+        conn = self._pre_migration_conn()
+        try:
+            assert run_migrations(conn, [self._migration_0020()]) == 1
+            cols = table_columns(conn, "customer_settings")
+            assert "notify_chat_enabled" in cols
+            conn.execute("INSERT INTO customer_settings (customer_id) VALUES (1)")
+            value = conn.execute(
+                "SELECT notify_chat_enabled FROM customer_settings WHERE customer_id = 1"
+            ).fetchone()[0]
+            assert value == 1  # default on: push-armed users get chat notifications
+        finally:
+            conn.close()
+
+    def test_migration_is_idempotent(self):
+        conn = self._pre_migration_conn()
+        try:
+            run_migrations(conn, [self._migration_0020()])
+            assert run_migrations(conn, [self._migration_0020()]) == 0
+        finally:
+            conn.close()

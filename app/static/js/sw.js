@@ -107,6 +107,8 @@ self.addEventListener('push', (event) => {
     tag: payload.tag || 'lr-new-mail',
     icon: '/static/img/icons/icon-192.png',
     badge: '/static/img/icons/icon-192.png',
+    // Incoming-call pushes (HLD U25.61) ask to stay visible until dismissed.
+    requireInteraction: !!payload.require_interaction,
     data: { url: payload.url || '/app/mail/' },
   };
   event.waitUntil(self.registration.showNotification(title, options));

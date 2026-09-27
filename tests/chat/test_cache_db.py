@@ -1,4 +1,4 @@
-from app.modules.chat.services import cache_db
+from app.modules.chat.services import cache_db, push_log
 
 
 def test_open_cache_creates_schema(chat_cache):
@@ -16,6 +16,7 @@ def test_open_cache_creates_schema(chat_cache):
         "chat_read_state",
         "chat_receipts",
         "chat_sync_state",
+        "chat_push_log",
     } <= tables
 
 
@@ -174,3 +175,32 @@ def test_receipt_upsert_keeps_latest_per_user_and_type(chat_cache):
         ("@peer:server", "$b", 200),
         ("@other:server", "$c", 150),
     }
+
+
+def test_push_log_migration_from_pre_schema(tmp_path):
+    """chat_0004: a pre-migration cache gains chat_push_log, data preserved."""
+    import sqlcipher3
+
+    from app.modules.chat.services.cache_migrations import CHAT_CACHE_MIGRATIONS
+    from app.shared.migrations import run_migrations
+
+    path = str(tmp_path / "chat.db")
+    conn = sqlcipher3.connect(path)
+    conn.row_factory = sqlcipher3.Row
+    try:
+        run_migrations(conn, CHAT_CACHE_MIGRATIONS[:3])  # pre-chat_0004 schema
+        conn.execute(
+            "INSERT INTO chat_rooms (room_id, is_direct, is_public, membership, updated_at)"
+            " VALUES ('!r:s', 1, 0, 'join', '2026-01-01T00:00:00+00:00')"
+        )
+        conn.commit()
+        assert run_migrations(conn, CHAT_CACHE_MIGRATIONS) == 1  # only chat_0004 applied
+        assert run_migrations(conn, CHAT_CACHE_MIGRATIONS) == 0  # idempotent
+        assert not push_log.was_pushed(conn, "$e1")
+        push_log.mark_pushed(conn, "$e1", "message")
+        assert push_log.was_pushed(conn, "$e1")
+        # Pre-existing room data survived.
+        room = cache_db.get_room(conn, "!r:s")
+        assert room is not None and room["membership"] == "join"
+    finally:
+        conn.close()

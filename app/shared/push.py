@@ -59,8 +59,9 @@ def _normalize_vapid_subject(subject: str) -> str:
 CATEGORY_SETTINGS = {
     "mail": "notify_mail_enabled",
     "calendar": "notify_calendar_enabled",
+    "chat": "notify_chat_enabled",
 }
-CATEGORY_DEFAULTS = {"mail": True, "calendar": False}
+CATEGORY_DEFAULTS = {"mail": True, "calendar": False, "chat": True}
 
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="webpush")
 
@@ -284,6 +285,81 @@ def send_test_push(app: Flask | None, user_id: int) -> bool:
         "url": "/app/mail/",
     }
     return send_notification(app, user_id, "test", payload)
+
+
+def _chat_detailed(user_id: int) -> bool:
+    settings = db.session.get(CustomerSettings, user_id)
+    return bool(settings and settings.push_detailed)
+
+
+def send_chat_message_push(
+    app: Flask, user_id: int, room_id: str, count: int, sender_name: str, room_name: str
+) -> bool:
+    """One push for new chat messages in a room (HLD U25.61; privacy per U24.18)."""
+    with app.app_context():
+        detailed = _chat_detailed(user_id)
+        with forced_user_locale(user_id):
+            if detailed and (sender_name or room_name):
+                title = sender_name or room_name
+                if count > 1 and room_name:
+                    body = _("%(room)s (+%(n)d more)", room=room_name, n=count - 1)
+                else:
+                    body = room_name or _("You have a new chat message")
+            else:
+                title = _("New chat message")
+                body = (
+                    _("You have a new chat message")
+                    if count == 1
+                    else _("%(count)d new chat messages", count=count)
+                )
+        payload = {
+            "title": title,
+            "body": body,
+            "tag": f"lr-chat-msg-{room_id}",
+            "url": "/app/chat/",
+        }
+        return _send_notification(user_id, "chat", payload)
+
+
+def send_chat_call_push(
+    app: Flask, user_id: int, call_id: str, caller_name: str, video: bool
+) -> bool:
+    """Incoming-call push (HLD U25.61); require_interaction keeps it visible."""
+    with app.app_context():
+        detailed = _chat_detailed(user_id)
+        with forced_user_locale(user_id):
+            title = _("Incoming video call") if video else _("Incoming call")
+            if detailed and caller_name:
+                body = _("%(caller)s is calling you", caller=caller_name)
+            else:
+                body = _("Tap to open chat and answer.")
+        payload = {
+            "title": title,
+            "body": body,
+            "tag": f"lr-chat-call-{call_id}",
+            "url": "/app/chat/",
+            "require_interaction": True,
+        }
+        return _send_notification(user_id, "chat", payload)
+
+
+def send_chat_invite_push(app: Flask, user_id: int, room_id: str, inviter_name: str) -> bool:
+    """Room-invite push (HLD U25.61)."""
+    with app.app_context():
+        detailed = _chat_detailed(user_id)
+        with forced_user_locale(user_id):
+            title = _("New conversation")
+            if detailed and inviter_name:
+                body = _("%(inviter)s invited you to a conversation", inviter=inviter_name)
+            else:
+                body = _("Someone invited you to a conversation.")
+        payload = {
+            "title": title,
+            "body": body,
+            "tag": f"lr-chat-invite-{room_id}",
+            "url": "/app/chat/",
+        }
+        return _send_notification(user_id, "chat", payload)
 
 
 def _on_event(user_id: int, event_type: str, data) -> None:

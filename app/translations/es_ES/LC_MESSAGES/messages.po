@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-27 17:53+0930\n"
+"POT-Creation-Date: 2026-09-27 19:45+0930\n"
 "PO-Revision-Date: 2026-09-26 08:30+0930\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es_ES\n"
@@ -266,7 +266,7 @@ msgstr "Notificación duplicada."
 #: app/modules/calendar/controllers/events_api.py:434
 #: app/modules/calendar/controllers/imip_api.py:35
 #: app/modules/calendar/controllers/views.py:482
-#: app/modules/mail/controllers/settings.py:165
+#: app/modules/mail/controllers/settings.py:166
 msgid "No active account."
 msgstr "No hay ninguna cuenta activa."
 
@@ -443,14 +443,14 @@ msgstr "Crear calendario"
 #: app/modules/chat/templates/chat/index.html:212
 #: app/modules/contacts/templates/form.html:92
 #: app/modules/docs/templates/docs_editor.html:132
-#: app/modules/mail/templates/settings.html:277
+#: app/modules/mail/templates/settings.html:288
 #: app/modules/mail/templates/twofa_confirm.html:31
 msgid "Cancel"
 msgstr "Cancelar"
 
 #: app/modules/calendar/templates/calendar_form.html:46
 #: app/modules/mail/templates/settings.html:12
-#: app/modules/mail/templates/settings.html:263
+#: app/modules/mail/templates/settings.html:274
 msgid "Danger zone"
 msgstr "Zona de peligro"
 
@@ -1055,7 +1055,7 @@ msgstr "No hay ninguna cuenta activa para esta sesión"
 msgid "Account domain not found"
 msgstr "Dominio de la cuenta no encontrado"
 
-#: app/modules/chat/controllers/stream.py:36
+#: app/modules/chat/controllers/stream.py:37
 msgid "Chat sync failed; retrying."
 msgstr "Error de sincronización del chat; reintentando."
 
@@ -1103,7 +1103,6 @@ msgstr "Conectando…"
 msgid "Test devices & connection"
 msgstr "Probar dispositivos y conexión"
 
-
 #: app/modules/chat/templates/chat/index.html:64
 msgid "Welcome to chat"
 msgstr "Te damos la bienvenida al chat"
@@ -1112,7 +1111,7 @@ msgstr "Te damos la bienvenida al chat"
 msgid "Pick a conversation on the left, or start a new one."
 msgstr "Elige una conversación a la izquierda o inicia una nueva."
 
-#: app/modules/chat/templates/chat/index.html:70
+#: app/modules/chat/templates/chat/index.html:70 app/shared/push.py:346
 msgid "New conversation"
 msgstr "Nueva conversación"
 
@@ -1153,7 +1152,7 @@ msgstr "Mensaje… (Intro para enviar, Mayús+Intro para una línea nueva)"
 msgid "Uploading…"
 msgstr "Subiendo…"
 
-#: app/modules/chat/templates/chat/index.html:133
+#: app/modules/chat/templates/chat/index.html:133 app/shared/push.py:326
 msgid "Incoming call"
 msgstr "Llamada entrante"
 
@@ -1218,36 +1217,29 @@ msgstr ""
 msgid "Camera &amp; microphone"
 msgstr "Cámara y micrófono"
 
-
 #: app/modules/chat/templates/chat/index.html:253
 msgid "Microphone"
 msgstr "Micrófono"
-
 
 #: app/modules/chat/templates/chat/index.html:259
 msgid "Speakers"
 msgstr "Altavoces"
 
-
 #: app/modules/chat/templates/chat/index.html:261
 msgid "Play test sound"
 msgstr "Reproducir sonido de prueba"
-
 
 #: app/modules/chat/templates/chat/index.html:266
 msgid "Test call (plays your audio &amp; video back to you)"
 msgstr "Llamada de prueba (te reproduce tu audio y vídeo)"
 
-
 #: app/modules/chat/templates/chat/index.html:272
 msgid "Run test call"
 msgstr "Iniciar llamada de prueba"
 
-
 #: app/modules/chat/templates/chat/index.html:274
 msgid "Unmute"
 msgstr "Activar sonido"
-
 
 #: app/modules/contacts/controllers/contacts.py:187
 #: app/modules/contacts/controllers/contacts.py:255
@@ -1959,7 +1951,7 @@ msgstr ""
 #: app/modules/mail/controllers/helpers.py:1361
 #: app/modules/mail/controllers/search.py:73
 #: app/modules/mail/controllers/search.py:207
-#: app/modules/mail/controllers/search.py:362 app/shared/push.py:168
+#: app/modules/mail/controllers/search.py:362 app/shared/push.py:169
 msgid "(no subject)"
 msgstr "(sin asunto)"
 
@@ -2289,43 +2281,43 @@ msgstr "Cada 10 minutos"
 msgid "Every 30 minutes"
 msgstr "Cada 30 minutos"
 
-#: app/modules/mail/controllers/settings.py:98
+#: app/modules/mail/controllers/settings.py:99
 msgid "A setting key is required."
 msgstr "Se requiere una clave de ajuste."
 
-#: app/modules/mail/controllers/settings.py:105
-#: app/modules/mail/controllers/settings.py:111
-#: app/modules/mail/controllers/settings.py:115
+#: app/modules/mail/controllers/settings.py:106
+#: app/modules/mail/controllers/settings.py:112
+#: app/modules/mail/controllers/settings.py:116
 msgid "Sync frequency must be one of the preset values."
 msgstr "La frecuencia de sincronización debe ser uno de los valores predefinidos."
 
-#: app/modules/mail/controllers/settings.py:121
+#: app/modules/mail/controllers/settings.py:122
 msgid "Sort order must be newest-first or oldest-first."
 msgstr ""
 "El criterio de ordenación debe ser los más recientes primero o los más "
 "antiguos primero."
 
-#: app/modules/mail/controllers/settings.py:127
+#: app/modules/mail/controllers/settings.py:128
 msgid "Unknown timezone."
 msgstr "Zona horaria desconocida."
 
-#: app/modules/mail/controllers/settings.py:132
+#: app/modules/mail/controllers/settings.py:133
 msgid "Language must be auto, English, or Spanish."
 msgstr "El idioma debe ser auto, inglés o español."
 
-#: app/modules/mail/controllers/settings.py:136
+#: app/modules/mail/controllers/settings.py:137
 msgid "Theme must be light or dark."
 msgstr "El tema debe ser claro u oscuro."
 
-#: app/modules/mail/controllers/settings.py:143
+#: app/modules/mail/controllers/settings.py:144
 msgid "No such active account."
 msgstr "No existe esa cuenta activa."
 
-#: app/modules/mail/controllers/settings.py:147
+#: app/modules/mail/controllers/settings.py:148
 msgid "Unknown setting."
 msgstr "Ajuste desconocido."
 
-#: app/modules/mail/controllers/settings.py:179
+#: app/modules/mail/controllers/settings.py:180
 msgid ""
 "Cache cleared, but background sync is unavailable. Re-open a folder to "
 "re-sync."
@@ -3047,13 +3039,13 @@ msgid "Protection"
 msgstr "Protección"
 
 #: app/modules/mail/templates/settings.html:11
-#: app/modules/mail/templates/settings.html:241
+#: app/modules/mail/templates/settings.html:252
 #: app/modules/mail/templates/twofa_settings.html:4
 msgid "Security"
 msgstr "Seguridad"
 
 #: app/modules/mail/templates/settings.html:11
-#: app/modules/mail/templates/settings.html:241
+#: app/modules/mail/templates/settings.html:252
 msgid "API"
 msgstr "API"
 
@@ -3267,10 +3259,23 @@ msgstr ""
 "registrado."
 
 #: app/modules/mail/templates/settings.html:226
+msgid "Chat messages and calls"
+msgstr "Mensajes y llamadas de chat"
+
+#: app/modules/mail/templates/settings.html:227
+msgid ""
+"Get a device notification for new chat messages, conversation invites, "
+"and incoming calls, even when the app is closed."
+msgstr ""
+"Recibe notificaciones en el dispositivo por mensajes de chat nuevos, "
+"invitaciones a conversaciones y llamadas entrantes, incluso con la "
+"aplicación cerrada."
+
+#: app/modules/mail/templates/settings.html:237
 msgid "Show sender and subject"
 msgstr "Mostrar remitente y asunto"
 
-#: app/modules/mail/templates/settings.html:227
+#: app/modules/mail/templates/settings.html:238
 msgid ""
 "Off by default: notifications only say “New email” so your mail stays "
 "private on the lock screen. Message bodies are never included."
@@ -3279,27 +3284,27 @@ msgstr ""
 " correo” para que tu correo siga siendo privado en la pantalla de "
 "bloqueo. Los cuerpos de los mensajes nunca se incluyen."
 
-#: app/modules/mail/templates/settings.html:246
+#: app/modules/mail/templates/settings.html:257
 msgid "Two-factor authentication"
 msgstr "Autenticación de dos factores"
 
-#: app/modules/mail/templates/settings.html:247
+#: app/modules/mail/templates/settings.html:258
 msgid "Enable 2FA and manage trusted devices."
 msgstr "Activa la 2FA y gestiona los dispositivos de confianza."
 
-#: app/modules/mail/templates/settings.html:253
+#: app/modules/mail/templates/settings.html:264
 msgid "API access"
 msgstr "Acceso a la API"
 
-#: app/modules/mail/templates/settings.html:254
+#: app/modules/mail/templates/settings.html:265
 msgid "Manage API tokens for AI agents and external tools."
 msgstr "Gestiona tokens de API para agentes de IA y herramientas externas."
 
-#: app/modules/mail/templates/settings.html:268
+#: app/modules/mail/templates/settings.html:279
 msgid "Reset mail cache"
 msgstr "Restablecer la caché de correo"
 
-#: app/modules/mail/templates/settings.html:269
+#: app/modules/mail/templates/settings.html:280
 msgid ""
 "Clears the locally cached mail for your active account and re-syncs from "
 "the server. Nothing is deleted from your mailbox."
@@ -3307,15 +3312,15 @@ msgstr ""
 "Borra el correo almacenado en caché de tu cuenta activa y vuelve a "
 "sincronizarlo desde el servidor. No se elimina nada de tu buzón."
 
-#: app/modules/mail/templates/settings.html:271 app/templates/error.html:8
+#: app/modules/mail/templates/settings.html:282 app/templates/error.html:8
 msgid "Reset cache"
 msgstr "Restablecer la caché"
 
-#: app/modules/mail/templates/settings.html:274
+#: app/modules/mail/templates/settings.html:285
 msgid "Clear the cached mail and re-sync from the server?"
 msgstr "¿Borrar el correo de la caché y volver a sincronizar desde el servidor?"
 
-#: app/modules/mail/templates/settings.html:276
+#: app/modules/mail/templates/settings.html:287
 msgid "Yes, reset cache"
 msgstr "Sí, restablecer la caché"
 
@@ -3474,35 +3479,76 @@ msgstr ""
 "necesitarás un código de verificación de tu aplicación de autenticación "
 "además de tu contraseña."
 
-#: app/shared/push.py:169 app/shared/push.py:174
+#: app/shared/push.py:170 app/shared/push.py:175
 msgid "You have new mail"
 msgstr "Tienes correo nuevo"
 
-#: app/shared/push.py:171
+#: app/shared/push.py:172
 #, python-format
 msgid "%(subject)s (+%(n)d more)"
 msgstr "%(subject)s (+%(n)d más)"
 
-#: app/shared/push.py:176
+#: app/shared/push.py:177
 msgid "You have a new message in your inbox"
 msgstr "Tienes un mensaje nuevo en Recibidos"
 
-#: app/shared/push.py:178
+#: app/shared/push.py:179
 #, python-format
 msgid "%(count)d new messages in your inbox"
 msgstr "Tienes %(count)d mensajes nuevos en Recibidos"
 
-#: app/shared/push.py:255
+#: app/shared/push.py:256
 msgid "Event reminder"
 msgstr "Recordatorio de evento"
 
-#: app/shared/push.py:281
+#: app/shared/push.py:282
 msgid "Test notification"
 msgstr "Notificación de prueba"
 
-#: app/shared/push.py:282
+#: app/shared/push.py:283
 msgid "Notifications are working on this device."
 msgstr "Las notificaciones funcionan en este dispositivo."
+
+#: app/shared/push.py:305
+#, python-format
+msgid "%(room)s (+%(n)d more)"
+msgstr "%(room)s (+%(n)d más)"
+
+#: app/shared/push.py:307 app/shared/push.py:311
+msgid "You have a new chat message"
+msgstr "Tienes un mensaje nuevo de chat"
+
+#: app/shared/push.py:309
+msgid "New chat message"
+msgstr "Nuevo mensaje de chat"
+
+#: app/shared/push.py:313
+#, python-format
+msgid "%(count)d new chat messages"
+msgstr "Tienes %(count)d mensajes nuevos de chat"
+
+#: app/shared/push.py:326
+msgid "Incoming video call"
+msgstr "Videollamada entrante"
+
+#: app/shared/push.py:328
+#, python-format
+msgid "%(caller)s is calling you"
+msgstr "%(caller)s te está llamando"
+
+#: app/shared/push.py:330
+msgid "Tap to open chat and answer."
+msgstr "Toca para abrir el chat y responder."
+
+#: app/shared/push.py:348
+#, python-format
+#, python-format
+msgid "%(inviter)s invited you to a conversation"
+msgstr "%(inviter)s te invitó a una conversación"
+
+#: app/shared/push.py:350
+msgid "Someone invited you to a conversation."
+msgstr "Alguien te invitó a una conversación."
 
 #: app/templates/_search_panel.html:10
 #: app/templates/_search_panel_calendar.html:9
@@ -3963,7 +4009,6 @@ msgstr "No se ha podido analizar la invitación"
 msgid "Could not play the test sound ({error})."
 msgstr "No se pudo reproducir el sonido de prueba ({error})."
 
-
 #, python-brace-format
 msgid "Could not proceed: {error} Check the address and retry."
 msgstr "No se ha podido continuar: {error} Comprueba la dirección y reintenta."
@@ -3998,7 +4043,6 @@ msgstr "No se pudo iniciar la llamada: {error}"
 #, python-brace-format
 msgid "Could not start the test call: {error}"
 msgstr "No se pudo iniciar la llamada de prueba: {error}"
-
 
 msgid "Could not turn on notifications."
 msgstr "No se han podido activar las notificaciones."
@@ -4035,10 +4079,8 @@ msgstr "Eliminando..."
 msgid "Direct connection: failed"
 msgstr "Conexión directa: fallida"
 
-
 msgid "Direct connection: working"
 msgstr "Conexión directa: funciona"
-
 
 msgid "Direct message"
 msgstr "Mensaje directo"
@@ -4141,9 +4183,6 @@ msgstr "Ocultar el texto citado"
 msgid "Hide timezone"
 msgstr "Ocultar zona horaria"
 
-msgid "Incoming video call"
-msgstr "Videollamada entrante"
-
 msgid "Install the app: tap the Share button, then choose 'Add to Home Screen'."
 msgstr ""
 "Instala la aplicación: toca el botón Compartir y elige 'Añadir a pantalla"
@@ -4234,7 +4273,6 @@ msgstr "Error al mover. Inténtalo de nuevo."
 
 msgid "Mute"
 msgstr "Silenciar"
-
 
 msgid "Mute microphone"
 msgstr "Silenciar micrófono"
@@ -4474,10 +4512,8 @@ msgstr "Sincronizando..."
 msgid "TURN relay: unreachable"
 msgstr "Retransmisión TURN: inaccesible"
 
-
 msgid "TURN relay: working"
 msgstr "Retransmisión TURN: funciona"
-
 
 msgid "Test failed"
 msgstr "Error en la prueba"
@@ -4492,7 +4528,6 @@ msgstr ""
 
 msgid "Test your devices"
 msgstr "Prueba tus dispositivos"
-
 
 msgid "The call ended."
 msgstr "La llamada finalizó."

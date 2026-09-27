@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-27 17:53+0930\n"
+"POT-Creation-Date: 2026-09-27 19:45+0930\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -233,7 +233,7 @@ msgstr ""
 #: app/modules/calendar/controllers/events_api.py:434
 #: app/modules/calendar/controllers/imip_api.py:35
 #: app/modules/calendar/controllers/views.py:482
-#: app/modules/mail/controllers/settings.py:165
+#: app/modules/mail/controllers/settings.py:166
 msgid "No active account."
 msgstr ""
 
@@ -409,14 +409,14 @@ msgstr ""
 #: app/modules/chat/templates/chat/index.html:212
 #: app/modules/contacts/templates/form.html:92
 #: app/modules/docs/templates/docs_editor.html:132
-#: app/modules/mail/templates/settings.html:277
+#: app/modules/mail/templates/settings.html:288
 #: app/modules/mail/templates/twofa_confirm.html:31
 msgid "Cancel"
 msgstr ""
 
 #: app/modules/calendar/templates/calendar_form.html:46
 #: app/modules/mail/templates/settings.html:12
-#: app/modules/mail/templates/settings.html:263
+#: app/modules/mail/templates/settings.html:274
 msgid "Danger zone"
 msgstr ""
 
@@ -1000,7 +1000,7 @@ msgstr ""
 msgid "Account domain not found"
 msgstr ""
 
-#: app/modules/chat/controllers/stream.py:36
+#: app/modules/chat/controllers/stream.py:37
 msgid "Chat sync failed; retrying."
 msgstr ""
 
@@ -1056,7 +1056,7 @@ msgstr ""
 msgid "Pick a conversation on the left, or start a new one."
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:70
+#: app/modules/chat/templates/chat/index.html:70 app/shared/push.py:346
 msgid "New conversation"
 msgstr ""
 
@@ -1097,7 +1097,7 @@ msgstr ""
 msgid "Uploading…"
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:133
+#: app/modules/chat/templates/chat/index.html:133 app/shared/push.py:326
 msgid "Incoming call"
 msgstr ""
 
@@ -1882,7 +1882,7 @@ msgstr ""
 #: app/modules/mail/controllers/helpers.py:1361
 #: app/modules/mail/controllers/search.py:73
 #: app/modules/mail/controllers/search.py:207
-#: app/modules/mail/controllers/search.py:362 app/shared/push.py:168
+#: app/modules/mail/controllers/search.py:362 app/shared/push.py:169
 msgid "(no subject)"
 msgstr ""
 
@@ -2184,41 +2184,41 @@ msgstr ""
 msgid "Every 30 minutes"
 msgstr ""
 
-#: app/modules/mail/controllers/settings.py:98
+#: app/modules/mail/controllers/settings.py:99
 msgid "A setting key is required."
 msgstr ""
 
-#: app/modules/mail/controllers/settings.py:105
-#: app/modules/mail/controllers/settings.py:111
-#: app/modules/mail/controllers/settings.py:115
+#: app/modules/mail/controllers/settings.py:106
+#: app/modules/mail/controllers/settings.py:112
+#: app/modules/mail/controllers/settings.py:116
 msgid "Sync frequency must be one of the preset values."
 msgstr ""
 
-#: app/modules/mail/controllers/settings.py:121
+#: app/modules/mail/controllers/settings.py:122
 msgid "Sort order must be newest-first or oldest-first."
 msgstr ""
 
-#: app/modules/mail/controllers/settings.py:127
+#: app/modules/mail/controllers/settings.py:128
 msgid "Unknown timezone."
 msgstr ""
 
-#: app/modules/mail/controllers/settings.py:132
+#: app/modules/mail/controllers/settings.py:133
 msgid "Language must be auto, English, or Spanish."
 msgstr ""
 
-#: app/modules/mail/controllers/settings.py:136
+#: app/modules/mail/controllers/settings.py:137
 msgid "Theme must be light or dark."
 msgstr ""
 
-#: app/modules/mail/controllers/settings.py:143
+#: app/modules/mail/controllers/settings.py:144
 msgid "No such active account."
 msgstr ""
 
-#: app/modules/mail/controllers/settings.py:147
+#: app/modules/mail/controllers/settings.py:148
 msgid "Unknown setting."
 msgstr ""
 
-#: app/modules/mail/controllers/settings.py:179
+#: app/modules/mail/controllers/settings.py:180
 msgid ""
 "Cache cleared, but background sync is unavailable. Re-open a folder to "
 "re-sync."
@@ -2928,13 +2928,13 @@ msgid "Protection"
 msgstr ""
 
 #: app/modules/mail/templates/settings.html:11
-#: app/modules/mail/templates/settings.html:241
+#: app/modules/mail/templates/settings.html:252
 #: app/modules/mail/templates/twofa_settings.html:4
 msgid "Security"
 msgstr ""
 
 #: app/modules/mail/templates/settings.html:11
-#: app/modules/mail/templates/settings.html:241
+#: app/modules/mail/templates/settings.html:252
 msgid "API"
 msgstr ""
 
@@ -3131,50 +3131,60 @@ msgid ""
 msgstr ""
 
 #: app/modules/mail/templates/settings.html:226
-msgid "Show sender and subject"
+msgid "Chat messages and calls"
 msgstr ""
 
 #: app/modules/mail/templates/settings.html:227
+msgid ""
+"Get a device notification for new chat messages, conversation invites, "
+"and incoming calls, even when the app is closed."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:237
+msgid "Show sender and subject"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:238
 msgid ""
 "Off by default: notifications only say “New email” so your mail stays "
 "private on the lock screen. Message bodies are never included."
 msgstr ""
 
-#: app/modules/mail/templates/settings.html:246
+#: app/modules/mail/templates/settings.html:257
 msgid "Two-factor authentication"
 msgstr ""
 
-#: app/modules/mail/templates/settings.html:247
+#: app/modules/mail/templates/settings.html:258
 msgid "Enable 2FA and manage trusted devices."
 msgstr ""
 
-#: app/modules/mail/templates/settings.html:253
+#: app/modules/mail/templates/settings.html:264
 msgid "API access"
 msgstr ""
 
-#: app/modules/mail/templates/settings.html:254
+#: app/modules/mail/templates/settings.html:265
 msgid "Manage API tokens for AI agents and external tools."
 msgstr ""
 
-#: app/modules/mail/templates/settings.html:268
+#: app/modules/mail/templates/settings.html:279
 msgid "Reset mail cache"
 msgstr ""
 
-#: app/modules/mail/templates/settings.html:269
+#: app/modules/mail/templates/settings.html:280
 msgid ""
 "Clears the locally cached mail for your active account and re-syncs from "
 "the server. Nothing is deleted from your mailbox."
 msgstr ""
 
-#: app/modules/mail/templates/settings.html:271 app/templates/error.html:8
+#: app/modules/mail/templates/settings.html:282 app/templates/error.html:8
 msgid "Reset cache"
 msgstr ""
 
-#: app/modules/mail/templates/settings.html:274
+#: app/modules/mail/templates/settings.html:285
 msgid "Clear the cached mail and re-sync from the server?"
 msgstr ""
 
-#: app/modules/mail/templates/settings.html:276
+#: app/modules/mail/templates/settings.html:287
 msgid "Yes, reset cache"
 msgstr ""
 
@@ -3324,34 +3334,74 @@ msgid ""
 "password."
 msgstr ""
 
-#: app/shared/push.py:169 app/shared/push.py:174
+#: app/shared/push.py:170 app/shared/push.py:175
 msgid "You have new mail"
 msgstr ""
 
-#: app/shared/push.py:171
+#: app/shared/push.py:172
 #, python-format
 msgid "%(subject)s (+%(n)d more)"
 msgstr ""
 
-#: app/shared/push.py:176
+#: app/shared/push.py:177
 msgid "You have a new message in your inbox"
 msgstr ""
 
-#: app/shared/push.py:178
+#: app/shared/push.py:179
 #, python-format
 msgid "%(count)d new messages in your inbox"
 msgstr ""
 
-#: app/shared/push.py:255
+#: app/shared/push.py:256
 msgid "Event reminder"
 msgstr ""
 
-#: app/shared/push.py:281
+#: app/shared/push.py:282
 msgid "Test notification"
 msgstr ""
 
-#: app/shared/push.py:282
+#: app/shared/push.py:283
 msgid "Notifications are working on this device."
+msgstr ""
+
+#: app/shared/push.py:305
+#, python-format
+msgid "%(room)s (+%(n)d more)"
+msgstr ""
+
+#: app/shared/push.py:307 app/shared/push.py:311
+msgid "You have a new chat message"
+msgstr ""
+
+#: app/shared/push.py:309
+msgid "New chat message"
+msgstr ""
+
+#: app/shared/push.py:313
+#, python-format
+msgid "%(count)d new chat messages"
+msgstr ""
+
+#: app/shared/push.py:326
+msgid "Incoming video call"
+msgstr ""
+
+#: app/shared/push.py:328
+#, python-format
+msgid "%(caller)s is calling you"
+msgstr ""
+
+#: app/shared/push.py:330
+msgid "Tap to open chat and answer."
+msgstr ""
+
+#: app/shared/push.py:348
+#, python-format
+msgid "%(inviter)s invited you to a conversation"
+msgstr ""
+
+#: app/shared/push.py:350
+msgid "Someone invited you to a conversation."
 msgstr ""
 
 #: app/templates/_search_panel.html:10
@@ -3928,9 +3978,6 @@ msgid "Hide quoted text"
 msgstr ""
 
 msgid "Hide timezone"
-msgstr ""
-
-msgid "Incoming video call"
 msgstr ""
 
 msgid "Install the app: tap the Share button, then choose 'Add to Home Screen'."

@@ -128,6 +128,7 @@ class CustomerSettings(db.Model):
     push_detailed = db.Column(db.Boolean, default=False, nullable=False)
     notify_mail_enabled = db.Column(db.Boolean, default=True, nullable=False)
     notify_calendar_enabled = db.Column(db.Boolean, default=False, nullable=False)
+    notify_chat_enabled = db.Column(db.Boolean, default=True, nullable=False)
 
 
 class AuditLog(db.Model):

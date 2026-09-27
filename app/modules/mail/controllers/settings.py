@@ -34,12 +34,15 @@ def _polling_choices():
         (600, _("Every 10 minutes")),
         (1800, _("Every 30 minutes")),
     ]
+
+
 _BOOL_FIELDS = (
     "preview_pane_default",
     "protect_starred",
     "push_detailed",
     "notify_mail_enabled",
     "notify_calendar_enabled",
+    "notify_chat_enabled",
 )
 _ACCOUNT_PREFIXES = {
     "spam_action_": _set_spam_action_enabled,

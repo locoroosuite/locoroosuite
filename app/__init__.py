@@ -304,13 +304,17 @@ def create_app():
 
     worker = WorkerManager(app)
     from app.workers.calendar_reminders import CalendarReminderWorker
+    from app.workers.chat_push import ChatPushWorker
 
     calendar_worker = CalendarReminderWorker(app)
+    chat_push_worker = ChatPushWorker(app)
     if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         worker.start()
         calendar_worker.start()
+        chat_push_worker.start()
     setattr(app, "sync_manager", worker)  # noqa: B010
     setattr(app, "calendar_reminders", calendar_worker)  # noqa: B010
+    setattr(app, "chat_push_worker", chat_push_worker)  # noqa: B010
 
     # API requests are dispatched straight to the shared api_app (WSGI
     # middleware) and never run this app's before_request hooks, so seed

@@ -117,8 +117,24 @@ def _call_events_table(conn) -> None:
     )
 
 
+def _push_log_table(conn) -> None:
+    """chat_0004: per-event push dedup for headless chat notifications (HLD U25.61)."""
+    if has_table(conn, "chat_push_log"):
+        return
+    conn.executescript(
+        """
+        CREATE TABLE chat_push_log (
+            event_id TEXT NOT NULL PRIMARY KEY,
+            kind TEXT NOT NULL,
+            pushed_at TEXT NOT NULL
+        );
+        """
+    )
+
+
 CHAT_CACHE_MIGRATIONS: tuple[Migration, ...] = (
     Migration("chat_0001_baseline_schema", _baseline_schema),
     Migration("chat_0002_receipts", _receipts_table),
     Migration("chat_0003_call_events", _call_events_table),
+    Migration("chat_0004_push_log", _push_log_table),
 )

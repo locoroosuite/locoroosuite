@@ -48,7 +48,10 @@ class Domain(db.Model):
     matrix_host = db.Column(db.String(255), nullable=True)
     matrix_port = db.Column(db.Integer, default=8008, nullable=True)
     matrix_use_tls = db.Column(db.Boolean, default=False, nullable=True)
-    matrix_shared_secret = db.Column(db.String(255), nullable=True)
+    matrix_mas_url = db.Column(db.String(512), nullable=True)
+    matrix_mas_client_id = db.Column(db.String(64), nullable=True)
+    matrix_mas_client_secret = db.Column(db.String(255), nullable=True)
+    chat_visible_domain_ids = db.Column(db.JSON, nullable=True)
 
     mail_api_url = db.Column(db.String(512), nullable=True)
     mail_api_key = db.Column(db.String(255), nullable=True)

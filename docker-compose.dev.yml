@@ -190,6 +190,45 @@ services:
     networks:
       - locoroomail-dev
 
+  # Matrix Authentication Service: the chat module provisions and logs in
+  # users through its admin API and compat layer (HLD U25.4/U25.6). Synapse
+  # delegates authentication to it. Config is host-mounted (read-only), the
+  # same pattern as the production deployment; mas-cli server applies DB
+  # migrations and syncs the config into the database on startup.
+  mas:
+    image: ghcr.io/element-hq/matrix-authentication-service:1.24.0
+    container_name: locoroomail-mas
+    restart: unless-stopped
+    command: ["server", "-c", "/config/config.yaml"]
+    ports:
+      - "8088:8080"
+    volumes:
+      - ./dev-infra/mas:/config:ro
+    depends_on:
+      mas-db:
+        condition: service_healthy
+    networks:
+      - locoroomail-dev
+
+  mas-db:
+    image: postgres:16-alpine
+    container_name: locoroomail-mas-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=mas
+      - POSTGRES_PASSWORD=devmas
+      - POSTGRES_DB=mas
+    volumes:
+      - mas-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mas -d mas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - locoroomail-dev
+
 volumes:
   dovecot-users:
   dovecot-sieve:
@@ -199,6 +238,7 @@ volumes:
   opendkim-keys:
   opendkim-config:
   synapse-data:
+  mas-db-data:
   rspamd-data:
   redis-data:
 

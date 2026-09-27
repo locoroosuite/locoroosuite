@@ -12,8 +12,11 @@ from app.modules.chat.controllers.helpers import (
     ChatApiError,
     chat_bp,
     chat_context,
+    current_account,
     own_matrix_id,
     require_customer,
+    same_homeserver,
+    visible_domain_ids,
 )
 from app.modules.chat.services import cache_db
 from app.modules.chat.services.cache_db import _decorate_room_display_name
@@ -60,7 +63,7 @@ def _resolve_peer_by_email(account, domain, email: str, server_name: str):
     """Map an exact suite email to its Matrix identity, provisioning if missing.
 
     Returns (peer_account, matrix_user_id). Raises ChatApiError for unknown
-    accounts or homeserver mismatches.
+    accounts, invisible domains (HLD U25.17), or homeserver mismatches.
     """
     peer = CustomerAccount.query.filter_by(email_address=email, is_active=True).first()
     if not peer:
@@ -74,7 +77,18 @@ def _resolve_peer_by_email(account, domain, email: str, server_name: str):
             404,
         )
     peer_domain = db.session.get(Domain, peer.domain_id)
-    if not peer_domain or not peer_domain.matrix_host:
+    if not peer_domain or peer_domain.id not in visible_domain_ids(domain):
+        raise ChatApiError(
+            "CHAT_NOT_VISIBLE",
+            _(
+                "Users of %(domain)s cannot start conversations with %(email)s. "
+                "An administrator can allow this domain pair under chat visibility settings.",
+                domain=domain.name,
+                email=email,
+            ),
+            403,
+        )
+    if not peer_domain.matrix_host:
         raise ChatApiError(
             "CHAT_PEER_NOT_CONFIGURED",
             _(
@@ -84,10 +98,7 @@ def _resolve_peer_by_email(account, domain, email: str, server_name: str):
             ),
             400,
         )
-    if (peer_domain.matrix_host, peer_domain.matrix_port) != (
-        domain.matrix_host,
-        domain.matrix_port,
-    ):
+    if not same_homeserver(domain, peer_domain):
         raise ChatApiError(
             "CHAT_CROSS_SERVER",
             _(
@@ -101,7 +112,7 @@ def _resolve_peer_by_email(account, domain, email: str, server_name: str):
         result = ensure_matrix_user(peer, peer_domain, server_name=server_name)
     except MatrixError as exc:
         raise ChatApiError(exc.code, exc.message, 502) from exc
-    return peer, result["matrix_user_id"]
+    return peer, result["matrix_user_id"] or ""
 
 
 @chat_bp.route("/chat/api/dm", methods=["POST"])
@@ -573,30 +584,53 @@ def redact_message(event_id: str):
         conn.close()
 
 
-@chat_bp.route("/chat/api/users", methods=["GET"])
+@chat_bp.route("/chat/api/peers", methods=["GET"])
 @require_customer
-def search_users():
-    term = (request.args.get("q") or "").strip()
+def search_peers():
+    """Autocomplete over suite accounts visible to the caller's domain (U25.17).
+
+    Backed by the app database — never the homeserver user directory — so
+    bots and homeserver-only identities are excluded and domain visibility
+    rules are enforced. Works before the caller's chat identity is provisioned.
+    """
+    term = (request.args.get("q") or "").strip().lower()
     if len(term) < 2:
-        return jsonify({"users": []})
-    account, _user_id, conn, client, creds = chat_context()
-    try:
-        own_id = creds.get("matrix_user_id")
-        resp = client.user_directory_search(term, limit=10)
-        users = [
-            {
-                "user_id": u.get("user_id"),
-                "display_name": u.get("display_name"),
-                "avatar_url": u.get("avatar_url"),
-            }
-            for u in resp.get("results", [])
-            if u.get("user_id") != own_id
-        ]
-        return jsonify({"users": users})
-    except MatrixError as exc:
-        raise _matrix_to_chat_error(exc, account.id) from exc
-    finally:
-        conn.close()
+        return jsonify({"peers": []})
+    account, _user_id, domain = current_account()
+
+    # Visible domains: own domain plus allowlisted domains on the same homeserver.
+    allowed: set[int] = set()
+    for domain_id in visible_domain_ids(domain):
+        if domain_id == domain.id:
+            allowed.add(domain_id)
+            continue
+        other = db.session.get(Domain, domain_id)
+        if other is not None and other.matrix_host and same_homeserver(domain, other):
+            allowed.add(domain_id)
+
+    # LIKE pattern with escaped wildcards; SQLite LIKE is ASCII case-insensitive.
+    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    rows = (
+        CustomerAccount.query.filter(
+            CustomerAccount.is_active.is_(True),
+            CustomerAccount.domain_id.in_(allowed),
+            CustomerAccount.id != account.id,
+            CustomerAccount.email_address.like(f"%{escaped}%", escape="\\"),
+        )
+        .order_by(CustomerAccount.email_address)
+        .limit(10)
+        .all()
+    )
+    peers = [
+        # Expected keys: email (full address), username (localpart), domain_id.
+        {
+            "email": row.email_address,
+            "username": row.email_address.split("@", 1)[0],
+            "domain_id": row.domain_id,
+        }
+        for row in rows
+    ]
+    return jsonify({"peers": peers})
 
 
 @chat_bp.route("/chat/api/media/<server_name>/<media_id>", methods=["GET"])

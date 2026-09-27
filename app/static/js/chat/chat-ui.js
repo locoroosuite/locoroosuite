@@ -590,6 +590,116 @@
 
   /* ---------------- dialogs & wiring ---------------- */
 
+  function wirePeerAutocomplete(inputId, listId) {
+    const input = el(inputId);
+    const list = el(listId);
+    if (!input || !list) return;
+    let timer = null;
+    let items = [];
+    let selected = -1;
+
+    function hide() {
+      list.classList.add("hidden");
+      list.textContent = "";
+      items = [];
+      selected = -1;
+    }
+
+    function highlight() {
+      Array.prototype.forEach.call(list.children, function (child, idx) {
+        const on = idx === selected;
+        child.className =
+          "flex items-center gap-2 px-2.5 py-1.5 text-sm cursor-pointer " +
+          (on ? "bg-slate-100 text-slate-900" : "text-slate-700");
+      });
+    }
+
+    function pick(idx) {
+      const peer = items[idx];
+      if (!peer) return;
+      input.value = peer.email;
+      hide();
+      input.focus();
+    }
+
+    function render(peers) {
+      list.textContent = "";
+      items = peers || [];
+      selected = -1;
+      if (!items.length) {
+        const empty = document.createElement("div");
+        empty.className = "px-2.5 py-1.5 text-sm text-slate-400";
+        empty.textContent = window.LR.t("No matching people");
+        list.appendChild(empty);
+      } else {
+        items.forEach(function (peer, idx) {
+          const item = document.createElement("div");
+          item.setAttribute("role", "option");
+          const avatar = document.createElement("span");
+          avatar.className =
+            "shrink-0 h-6 w-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[11px] font-semibold";
+          avatar.textContent = window.Chat.initialsFor(peer.email);
+          const name = document.createElement("span");
+          name.className = "truncate";
+          name.textContent = peer.email;
+          item.appendChild(avatar);
+          item.appendChild(name);
+          item.addEventListener("mousedown", function (ev) {
+            ev.preventDefault();
+          });
+          item.addEventListener("click", function () {
+            pick(idx);
+          });
+          list.appendChild(item);
+        });
+      }
+      list.classList.remove("hidden");
+      highlight();
+    }
+
+    function refresh() {
+      const term = input.value.trim();
+      if (term.length < 2) {
+        hide();
+        return;
+      }
+      window.Chat
+        .api("/app/chat/api/peers?q=" + encodeURIComponent(term))
+        .then(function (data) {
+          if (input.value.trim() === term) render((data && data.peers) || []);
+        })
+        .catch(function () {
+          hide();
+        });
+    }
+
+    input.addEventListener("input", function () {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(refresh, 150);
+    });
+    input.addEventListener("keydown", function (ev) {
+      if (list.classList.contains("hidden")) return;
+      if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+        ev.preventDefault();
+        if (!items.length) return;
+        selected = ev.key === "ArrowDown" ? (selected + 1) % items.length : (selected - 1 + items.length) % items.length;
+        highlight();
+      } else if (ev.key === "Enter" && selected >= 0) {
+        ev.preventDefault();
+        pick(selected);
+      } else if (ev.key === "Escape") {
+        hide();
+      }
+    });
+    input.addEventListener("blur", function () {
+      window.setTimeout(hide, 150);
+    });
+    const dialog = input.closest("dialog");
+    if (dialog) {
+      dialog.addEventListener("close", hide);
+    }
+  }
+
   function wireDialogs() {
     const roomDialog = el("chat-new-room-dialog");
     el("chat-new-room").addEventListener("click", function () {
@@ -648,6 +758,7 @@
     el("chat-new-dm-cancel").addEventListener("click", function () {
       dmDialog.close();
     });
+    wirePeerAutocomplete("chat-dm-email", "chat-dm-peer-list");
     dialogSubmit("chat-dm-form", "chat-dm-start", function () {
       const email = el("chat-dm-email").value.trim();
       return actions.createDmByEmail(email).then(function (data) {
@@ -672,6 +783,7 @@
     el("chat-invite-cancel").addEventListener("click", function () {
       inviteDialog.close();
     });
+    wirePeerAutocomplete("chat-invite-email", "chat-invite-peer-list");
     dialogSubmit("chat-invite-form", "chat-invite-start", function () {
       const email = el("chat-invite-email").value.trim();
       return actions.inviteByEmail(state.activeRoomId, email).then(function (data) {

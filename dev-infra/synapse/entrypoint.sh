@@ -1,7 +1,10 @@
 #!/bin/sh
 set -e
 
-if [ ! -f /data/homeserver.yaml ]; then
+# Re-seed when the config predates MAS delegation: Synapse must delegate
+# authentication to MAS (the app cannot provision without it), and stale
+# volumes keep their originally-seeded homeserver.yaml.
+if [ ! -f /data/homeserver.yaml ] || ! grep -q "matrix_authentication_service" /data/homeserver.yaml; then
   echo "[synapse-dev] seeding homeserver.yaml"
   cp /config/homeserver.yaml /data/homeserver.yaml
 fi

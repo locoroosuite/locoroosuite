@@ -1,0 +1,133 @@
+# Dev-only MAS (Matrix Authentication Service) configuration.
+# Dev secrets are intentionally fixed; production must generate its own.
+#
+# Requires a PostgreSQL database (mas-db service in docker-compose.dev.yml);
+# `mas-cli server` applies database migrations and syncs clients/policy into
+# the database automatically on startup.
+#
+# The locoroomail app provisions and logs in chat users through this service:
+#  - admin API on /api/admin/v1 (OAuth client below, client-credentials grant,
+#    scope urn:mas:admin) — matches the dev domain defaults in
+#    app/admin/controllers/auth.py
+#  - Matrix compat login on /_matrix/client/v3/login (m.login.password)
+http:
+  public_base: "http://mas:8080/"
+  listeners:
+    - name: web
+      resources:
+        - name: discovery
+        - name: human
+        - name: oauth
+        - name: compat
+        - name: graphql
+        - name: assets
+        - name: adminapi
+      binds:
+        - host: 0.0.0.0
+          port: 8080
+      proxy_protocol: false
+    - name: internal
+      resources:
+        - name: health
+      binds:
+        - host: localhost
+          port: 8081
+      proxy_protocol: false
+  trusted_proxies:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+    - 127.0.0.0/8
+    - fd00::/8
+    - ::1/128
+
+database:
+  uri: postgresql://mas:devmas@mas-db:5432/mas
+  max_connections: 10
+  min_connections: 0
+  connect_timeout: 30
+  idle_timeout: 600
+  max_lifetime: 1800
+
+matrix:
+  kind: synapse
+  homeserver: locoroo.test
+  endpoint: "http://synapse:8008/"
+  secret: "dev-mas-synapse-secret"
+
+# The locoroomail app's provisioning client. Listed in policy.data.admin_clients
+# so the client-credentials grant can request the urn:mas:admin scope.
+clients:
+  - client_id: 01MAS00000000000000000000A
+    client_auth_method: client_secret_basic
+    client_secret: dev-mas-client-secret
+
+policy:
+  data:
+    admin_clients:
+      - 01MAS00000000000000000000A
+
+secrets:
+  encryption: 7bc26ffbde3317cc4961d23782ecf76e571c2610091d99c2f5d96dd7d6686b14
+  # Dev signing key inlined (matches the mas-cli `config generate` layout):
+  # the config loader misbehaves when extra files sit next to config.yaml.
+  keys:
+    - key: |
+        -----BEGIN RSA PRIVATE KEY-----
+        MIIEowIBAAKCAQEAqk1HDorPyGdJb+h5V5hEJc3TRtVU+zA5aW690Z94Xk64H6xI
+        ESEXWcMy0eC8r8f2SXt1hN1kmCXjgbiVCkYnzirK+8eIVkQp1icnS9SNNeOurtXe
+        /OrJ4p+bNLkmz2ZurNCQV4bNMfZ/4axN8TN7sXud6iFuLvVzjn1nNGlBIZbg9WIr
+        B3NmfyJTfrqm/sVnTK/eNxSyR9raL/SNPGWnBSSny2y2n0xcQLv0M+TcouPeuepF
+        GRxRrrZZl3AZsZaF768uavRmoSMROKBqtQcnItbG2nvd7ezXthHZxXM/5LNYr4La
+        gvX0JWVI1IX68TY97zVxxCqyMDLJbcCzSGpl2wIDAQABAoIBAAToEWYwW/iB9/eC
+        7aK3RC4Ipjp8tqQ+s/C/MYstZS+RD19OPIyjH5lE9Ue0X2Clygk88YUAnJTWRp3m
+        qQNGQ9WonaIvvKmrm2mhmtFlpXnffkQS7QfsEHajMuVhI5FHJLooOiMOGFxaUJM6
+        aSEhYsIZddJt4HmhixDtuQBQEKx8hcw6WzV1Lw6+L8nBqL+9+KxmgODpeJQ2JV5/
+        tduaWtDQdO9hYUyBurq1lIjvDbNULRtGgW3xxgUUuRl0aU2nsIv83qlWDRIeJKsw
+        m6D5XajGpVlo8r1gbrIEkFTscpLjWaK/s6gjqazC+goyQlQ5mm0jO9SkemMTO+pR
+        WS8IdHUCgYEA2teGSBupg0K9pjnn5Avcp41zExfk8Xr8GDaruJgskTc7BmW1R+pk
+        CGJmO9CPwIUQxfFzUosd0GGVqBbIBNVft9h605ZEt7AZeDAocCXlbnsOsW95SNhJ
+        oS+9uYUBKueg3AJwkH9VwCEMiYmr2jxZ8Nt25rPEHvKsNRay5DqAFqUCgYEAxzfY
+        2Crkxp2YMYk7LlHr+B76ox09slYMQcMWHr1G1cl97Ct8ojhlGR/7Y9noq/vyLSB2
+        2hbKbJO7jELroj1neVQL7m2jZz3K65/rrT579ISUV6oa/UHb4E1CS3s0cCTgKRly
+        C3zQkCeZjzSTglO/lSDlhvIUOmehPrxu1u8kYn8CgYB0sFFAp8dWX0MCnIPCfHS2
+        vtyqRKZmAJ7lRlmAP1wcPmfxvE/SPfAC7Hz4zfeovws3kMxeKiHGmBIVo7gZo7C7
+        NeogYlLX40VhacRWME7K/0DRadAxAGsaUHuIrZv2xbVnOsHMuqj9nmGyAL+qyV1n
+        6Y3X6+jaW6lpUWYn/e2IpQKBgQDD0EfrChY+hy7OGeY6vDkldEXFSHuZK+z2Qqwe
+        YMscXeXQ2lmyFZ6BmKb/WXPSgF1lL9DCwr4LBRbGYgy8NoDbh9oGbGu9kcY/3bvI
+        WG98Q0iP9lp67l4R1b7A9IPxar2OiD1Jv1A9MT9FvFb1Nh5Mlb4l6xIo6i1avdpw
+        lzR7PwKBgGLiuawLs+Kg9FsPgycAtniMYdcTOztrMcYHILxAr1RiOQ96Pk6JG66m
+        L0xXehp7HtZ7sLzVMAcqKOGeXBKwrLxM3h9DEor72UZEojkhI8ySgXWv9+KpiZVs
+        21cIaYEuXse5rStA+3NJETMzoV2bIzpiCIxOVy1yua4GEtw5RmNn
+        -----END RSA PRIVATE KEY-----
+
+
+passwords:
+  enabled: true
+  minimum_complexity: 3
+  schemes:
+    - version: 1
+      algorithm: bcrypt
+      unicode_normalization: true
+    - version: 2
+      algorithm: argon2id
+
+account:
+  # No open signup in dev either: accounts are provisioned by the app through
+  # the admin API.
+  password_registration_enabled: false
+  registration_token_required: false
+
+email:
+  from: '"Matrix Dev" <matrix@locoroo.test>'
+  reply_to: '"Matrix Dev" <matrix@locoroo.test>'
+  transport: blackhole
+
+branding:
+  service_name: LocoRoo Dev Chat
+
+telemetry:
+  tracing:
+    exporter: none
+  metrics:
+    exporter: none

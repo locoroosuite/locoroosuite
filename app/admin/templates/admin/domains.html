@@ -84,6 +84,14 @@
         dotClass = "bg-red-500";
         labelClass = "text-red-600";
         label = SERVICE_LABELS[key] + " (auth backend down)";
+      } else if (st === "mas_not_configured") {
+        dotClass = "bg-amber-500";
+        labelClass = "text-amber-600";
+        label = SERVICE_LABELS[key] + " (MAS not set)";
+      } else if (st === "mas_unreachable") {
+        dotClass = "bg-red-500";
+        labelClass = "text-red-600";
+        label = SERVICE_LABELS[key] + " (MAS unreachable)";
       } else if (st === "misconfigured") {
         dotClass = "bg-amber-500";
         labelClass = "text-amber-600";

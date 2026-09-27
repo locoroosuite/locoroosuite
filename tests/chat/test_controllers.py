@@ -25,7 +25,9 @@ def seeded_client(app, authed_client):
         assert domain is not None
         domain.matrix_host = "synapse"
         domain.matrix_port = 8008
-        domain.matrix_shared_secret = "dev-matrix-shared-secret"
+        domain.matrix_mas_url = "http://mas:8080"
+        domain.matrix_mas_client_id = "01MAS00000000000000000000A"
+        domain.matrix_mas_client_secret = "dev-mas-client-secret"
         db.session.commit()
         path = get_cache_path(account)
         conn = cache_db.open_cache(path, get_user_key(user_id))
@@ -204,18 +206,146 @@ def test_invite_requires_user_id(seeded_client):
     mock.invite.assert_not_called()
 
 
-def test_user_search(seeded_client):
-    client, mock, _path, _user_id = seeded_client
-    mock.user_directory_search.return_value = {
-        "results": [{"user_id": "@peer:server", "display_name": "Peer"}]
-    }
-    resp = client.get("/app/chat/api/users?q=peer")
+def test_peers_search_own_domain(app, seeded_client):
+    client, _mock, _path, _user_id = seeded_client
+    domain_id = _add_peer_account(app, "test4@test.localhost")
+    resp = client.get("/app/chat/api/peers?q=test4")
     assert resp.status_code == 200
-    assert resp.get_json()["users"][0]["user_id"] == "@peer:server"
+    peers = resp.get_json()["peers"]
+    # Expected keys: email, username, domain_id.
+    assert peers == [
+        {
+            "email": "test4@test.localhost",
+            "username": "test4",
+            "domain_id": domain_id,
+        }
+    ]
 
-    resp = client.get("/app/chat/api/users?q=p")
+    resp = client.get("/app/chat/api/peers?q=t")
     assert resp.status_code == 200
-    assert resp.get_json()["users"] == []
+    assert resp.get_json()["peers"] == []
+
+
+def test_peers_search_excludes_self_and_matches_substring(app, seeded_client):
+    client, _mock, _path, _user_id = seeded_client
+    _add_peer_account(app, "matilda@test.localhost")
+    resp = client.get("/app/chat/api/peers?q=til")
+    assert resp.status_code == 200
+    assert [p["email"] for p in resp.get_json()["peers"]] == ["matilda@test.localhost"]
+
+
+def test_peers_search_hides_unlisted_domains(app, seeded_client):
+    """Default visibility: only own-domain accounts are discoverable (U25.17)."""
+    client, _mock, _path, _user_id = seeded_client
+    with app.app_context():
+        from app.shared.db import db
+
+        other = Domain()
+        other.name = "other.test"
+        other.is_active = True
+        other.status = "complete"
+        other.imap_host = "imap.other.test"
+        other.imap_port = 993
+        other.smtp_host = "smtp.other.test"
+        other.smtp_port = 587
+        other.smtp_tls_mode = "starttls"
+        other.matrix_host = "synapse"
+        other.matrix_port = 8008
+        db.session.add(other)
+        db.session.commit()
+        other_id = other.id
+    with app.app_context():
+        from app.shared.db import db
+
+        _add_peer_account(app, "stranger@other.test", domain=db.session.get(Domain, other_id))
+
+    resp = client.get("/app/chat/api/peers?q=stranger")
+    assert resp.status_code == 200
+    assert resp.get_json()["peers"] == []
+
+    resp = client.post("/app/chat/api/dm", json={"email": "stranger@other.test"})
+    assert resp.status_code == 403
+    assert resp.get_json()["error"]["code"] == "CHAT_NOT_VISIBLE"
+
+
+def test_peers_search_lists_allowlisted_domains(app, seeded_client):
+    client, mock, _path, _user_id = seeded_client
+    with app.app_context():
+        from app.shared.db import db
+
+        other = Domain()
+        other.name = "other.test"
+        other.is_active = True
+        other.status = "complete"
+        other.imap_host = "imap.other.test"
+        other.imap_port = 993
+        other.smtp_host = "smtp.other.test"
+        other.smtp_port = 587
+        other.smtp_tls_mode = "starttls"
+        other.matrix_host = "synapse"
+        other.matrix_port = 8008
+        db.session.add(other)
+        db.session.flush()
+        main = Domain.query.first()
+        assert main is not None
+        main.chat_visible_domain_ids = [other.id]
+        db.session.commit()
+        other_id = other.id
+    with app.app_context():
+        from app.shared.db import db
+
+        _add_peer_account(app, "partner@other.test", domain=db.session.get(Domain, other_id))
+
+    resp = client.get("/app/chat/api/peers?q=partner")
+    assert resp.status_code == 200
+    assert [p["email"] for p in resp.get_json()["peers"]] == ["partner@other.test"]
+
+    mock.get_displayname.return_value = "partner"
+    with patch(
+        "app.modules.chat.controllers.api.ensure_matrix_user",
+        return_value={"matrix_user_id": "@partner:locoroo.test", "created": False},
+    ):
+        resp = client.post("/app/chat/api/dm", json={"email": "partner@other.test"})
+    assert resp.status_code == 201
+    assert resp.get_json()["peer"]["matrix_user_id"] == "@partner:locoroo.test"
+
+
+def test_dm_blocked_for_allowlisted_domain_on_other_homeserver(app, seeded_client):
+    client, mock, _path, _user_id = seeded_client
+    with app.app_context():
+        from app.shared.db import db
+
+        other = Domain()
+        other.name = "other.test"
+        other.is_active = True
+        other.status = "complete"
+        other.imap_host = "imap.other.test"
+        other.imap_port = 993
+        other.smtp_host = "smtp.other.test"
+        other.smtp_port = 587
+        other.smtp_tls_mode = "starttls"
+        other.matrix_host = "elsewhere"
+        other.matrix_port = 8008
+        db.session.add(other)
+        db.session.flush()
+        main = Domain.query.first()
+        assert main is not None
+        main.chat_visible_domain_ids = [other.id]
+        db.session.commit()
+        other_id = other.id
+    with app.app_context():
+        from app.shared.db import db
+
+        _add_peer_account(app, "far@other.test", domain=db.session.get(Domain, other_id))
+
+    resp = client.get("/app/chat/api/peers?q=far")
+    assert resp.status_code == 200
+    assert resp.get_json()["peers"] == []
+
+    resp = client.post("/app/chat/api/dm", json={"email": "far@other.test"})
+    assert resp.status_code == 400
+    assert resp.get_json()["error"]["code"] == "CHAT_CROSS_SERVER"
+    mock.create_room.assert_not_called()
 
 
 def test_state_unconfigured_domain_returns_503(app, authed_client):
@@ -226,27 +356,28 @@ def test_state_unconfigured_domain_returns_503(app, authed_client):
     assert "Admin" in resp.get_json()["error"]["message"]
 
 
-def _add_peer_account(app, email):
+def _add_peer_account(app, email, domain=None):
     from sqlalchemy import insert
 
     from app.shared.db import db
     from app.shared.models.core import CustomerAccount, Domain, User
 
     with app.app_context():
-        main_domain = Domain.query.first()
-        assert main_domain is not None
+        target_domain = domain or Domain.query.first()
+        assert target_domain is not None
         db.session.execute(insert(User).values(role="customer", email=email))
         peer = User.query.filter_by(email=email).first()
         assert peer is not None
         db.session.execute(
             insert(CustomerAccount).values(
                 customer_id=peer.id,
-                domain_id=main_domain.id,
+                domain_id=target_domain.id,
                 email_address=email,
                 username=email.split("@", 1)[0],
             )
         )
         db.session.commit()
+        return target_domain.id
 
 
 def test_dm_by_email(app, seeded_client):

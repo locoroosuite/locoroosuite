@@ -73,9 +73,23 @@ def _check_caldav(domain) -> str:
 def _check_matrix(domain) -> str:
     if not domain.matrix_host:
         return "not_configured"
+    if not (
+        domain.matrix_mas_url and domain.matrix_mas_client_id and domain.matrix_mas_client_secret
+    ):
+        # Homeserver set but the authentication service config is incomplete:
+        # provisioning and login cannot work without MAS (HLD U25.4/U25.6).
+        return "mas_not_configured"
     if not _tcp_check(domain.matrix_host, domain.matrix_port or 8008):
         return "misconfigured"
+    from urllib.parse import urlparse
+
     from app.modules.chat.services.matrix import MatrixClient, MatrixError, homeserver_url
+
+    mas = urlparse(domain.matrix_mas_url)
+    if not mas.hostname or not _tcp_check(
+        mas.hostname, mas.port or (443 if mas.scheme == "https" else 80)
+    ):
+        return "mas_unreachable"
 
     # Probe an authenticated endpoint with a throwaway token. A healthy
     # homeserver answers 401 M_UNKNOWN_TOKEN; if token introspection is

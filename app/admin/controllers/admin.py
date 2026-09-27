@@ -301,9 +301,11 @@ def review_domain_mail(domain_id):
 @require_role("admin")
 def review_domain_dav(domain_id):
     domain = db.get_or_404(Domain, domain_id)
+    other_domains = Domain.query.filter(Domain.id != domain.id).order_by(Domain.name).all()
     return render_template(
         "admin/domain_review_dav.html",
         domain=domain,
+        other_domains=other_domains,
         active_page="domains",
         active_tab="dav",
         title=f"Review {domain.name}",
@@ -1005,7 +1007,21 @@ def save_dav_config(domain_id):
     domain.matrix_host = request.form.get("matrix_host", "").strip() or None
     domain.matrix_port = _parse_int(request.form.get("matrix_port"), domain.matrix_port)
     domain.matrix_use_tls = request.form.get("matrix_use_tls") == "1"
-    domain.matrix_shared_secret = request.form.get("matrix_shared_secret", "").strip() or None
+    domain.matrix_mas_url = request.form.get("matrix_mas_url", "").strip().rstrip("/") or None
+    domain.matrix_mas_client_id = request.form.get("matrix_mas_client_id", "").strip() or None
+    domain.matrix_mas_client_secret = (
+        request.form.get("matrix_mas_client_secret", "").strip() or None
+    )
+    visible_ids = []
+    for raw in request.form.getlist("chat_visible_domain_ids"):
+        try:
+            visible_ids.append(int(raw))
+        except (TypeError, ValueError):
+            continue
+    valid_ids = {
+        row_id for (row_id,) in db.session.query(Domain.id).filter(Domain.id != domain.id).all()
+    }
+    domain.chat_visible_domain_ids = sorted(set(visible_ids) & valid_ids) or None
     db.session.commit()
     log_audit(
         session.get("user_id"),

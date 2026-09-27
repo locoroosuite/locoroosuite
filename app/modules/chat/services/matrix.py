@@ -2,12 +2,14 @@
 
 Follows the hand-rolled client pattern of calendar/services/caldav.py:
 sync ``requests`` calls, structured errors, no async.
+
+Account lifecycle (creation, password, login) lives in mas.py: with delegated
+authentication Synapse disables its shared-secret registration and password
+login endpoints, so those flows go through the Matrix Authentication Service.
 """
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 import logging
 import re
 import secrets
@@ -20,7 +22,6 @@ logger = logging.getLogger(__name__)
 CLIENT_API = "/_matrix/client/v3"
 MEDIA_API = "/_matrix/media/v3"
 MEDIA_DOWNLOAD_API = "/_matrix/client/v1/media"
-SYNAPSE_ADMIN_API = "/_synapse/admin/v1"
 
 DEFAULT_TIMEOUT = 30
 MEDIA_TIMEOUT = 120
@@ -43,7 +44,7 @@ def homeserver_url(domain) -> str:
         raise MatrixError(
             "MATRIX_NOT_CONFIGURED",
             "Chat is not configured for this domain yet. An administrator must set the "
-            "Matrix host, port and registration shared secret under Admin → Domains → "
+            "Matrix homeserver and authentication service (MAS) under Admin → Domains → "
             "contacts, calendar & chat settings.",
         )
     scheme = "https" if domain.matrix_use_tls else "http"
@@ -148,48 +149,6 @@ class MatrixClient:
 
     # --- account -------------------------------------------------------
 
-    def admin_register(self, username: str, password: str, shared_secret: str) -> dict:
-        if not shared_secret:
-            raise MatrixError(
-                "MATRIX_NOT_CONFIGURED",
-                "No Matrix registration shared secret configured for this domain",
-            )
-        nonce_resp = self._request("GET", "/register", api=SYNAPSE_ADMIN_API)
-        nonce = nonce_resp.get("nonce")
-        if not nonce:
-            raise MatrixError(
-                "MATRIX_BAD_RESPONSE", "Chat server register endpoint returned no nonce"
-            )
-        mac = hmac.new(
-            shared_secret.encode(),
-            f"{nonce}\0{username}\0{password}\0notadmin".encode(),
-            hashlib.sha1,
-        ).hexdigest()
-        return self._request(
-            "POST",
-            "/register",
-            api=SYNAPSE_ADMIN_API,
-            json_body={
-                "nonce": nonce,
-                "username": username,
-                "password": password,
-                "admin": False,
-                "mac": mac,
-            },
-        )
-
-    def login(self, username: str, password: str, device_name: str = "LocoRooSuite") -> dict:
-        return self._request(
-            "POST",
-            "/login",
-            json_body={
-                "type": "m.login.password",
-                "identifier": {"type": "m.id.user", "user": username},
-                "password": password,
-                "initial_device_display_name": device_name,
-            },
-        )
-
     def whoami(self, timeout: float = DEFAULT_TIMEOUT) -> dict:
         return self._request("GET", "/account/whoami", timeout=timeout)
 
@@ -271,11 +230,6 @@ class MatrixClient:
     def set_room_topic(self, room_id: str, topic: str) -> dict:
         return self._request(
             "PUT", f"/rooms/{room_id}/state/m.room.topic", json_body={"topic": topic}
-        )
-
-    def user_directory_search(self, term: str, limit: int = 10) -> dict:
-        return self._request(
-            "POST", "/user_directory/search", json_body={"search_term": term, "limit": limit}
         )
 
     # --- events --------------------------------------------------------

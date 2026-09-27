@@ -13,6 +13,9 @@ def _matrix_domain(**overrides):
         "matrix_host": "synapse",
         "matrix_port": 8008,
         "matrix_use_tls": False,
+        "matrix_mas_url": "http://mas:8080",
+        "matrix_mas_client_id": "01MAS00000000000000000000A",
+        "matrix_mas_client_secret": "dev-mas-client-secret",
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -22,10 +25,30 @@ def test_matrix_not_configured():
     assert _check_matrix(_matrix_domain(matrix_host=None)) == "not_configured"
 
 
+def test_matrix_mas_config_missing():
+    assert _check_matrix(_matrix_domain(matrix_mas_url=None)) == "mas_not_configured"
+    assert _check_matrix(_matrix_domain(matrix_mas_client_secret=None)) == "mas_not_configured"
+
+
 @patch("app.admin.services.health_checks._tcp_check", return_value=False)
 def test_matrix_tcp_unreachable_is_misconfigured(mock_tcp):
     assert _check_matrix(_matrix_domain()) == "misconfigured"
     mock_tcp.assert_called_once_with("synapse", 8008)
+
+
+@patch("app.admin.services.health_checks._tcp_check", side_effect=[True, False])
+def test_matrix_mas_unreachable(mock_tcp):
+    assert _check_matrix(_matrix_domain()) == "mas_unreachable"
+    mock_tcp.assert_called_with("mas", 8080)
+
+
+@patch("app.admin.services.health_checks._tcp_check", side_effect=[True, False])
+def test_matrix_mas_unreachable_https_default_port(mock_tcp):
+    assert (
+        _check_matrix(_matrix_domain(matrix_mas_url="https://auth.example.com"))
+        == "mas_unreachable"
+    )
+    mock_tcp.assert_called_with("auth.example.com", 443)
 
 
 @patch("app.modules.chat.services.matrix.MatrixClient")
@@ -88,5 +111,8 @@ def test_check_domain_services_reports_auth_backend_down(
     domain.status = "complete"
     domain.matrix_host = "synapse"
     domain.matrix_port = 8008
+    domain.matrix_mas_url = "http://mas:8080"
+    domain.matrix_mas_client_id = "01MAS00000000000000000000A"
+    domain.matrix_mas_client_secret = "dev-mas-client-secret"
     result = check_domain_services(domain)
     assert result["matrix"] == "auth_backend_down"

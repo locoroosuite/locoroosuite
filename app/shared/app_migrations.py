@@ -285,6 +285,24 @@ def _customer_settings_browser_locale(conn) -> None:
     conn.execute("ALTER TABLE customer_settings ADD COLUMN browser_locale VARCHAR(8)")
 
 
+def _domain_matrix_mas(conn) -> None:
+    if not has_table(conn, "domains"):
+        return
+    cols = table_columns(conn, "domains")
+    if "matrix_mas_url" not in cols:
+        conn.execute("ALTER TABLE domains ADD COLUMN matrix_mas_url VARCHAR(512)")
+    if "matrix_mas_client_id" not in cols:
+        conn.execute("ALTER TABLE domains ADD COLUMN matrix_mas_client_id VARCHAR(64)")
+    if "matrix_mas_client_secret" not in cols:
+        conn.execute("ALTER TABLE domains ADD COLUMN matrix_mas_client_secret VARCHAR(255)")
+    if "chat_visible_domain_ids" not in cols:
+        conn.execute("ALTER TABLE domains ADD COLUMN chat_visible_domain_ids TEXT")
+    # Shared-secret provisioning was replaced by MAS provisioning (HLD U25.4/U25.6):
+    # Synapse disables shared-secret registration under delegated authentication.
+    if "matrix_shared_secret" in cols:
+        conn.execute("ALTER TABLE domains DROP COLUMN matrix_shared_secret")
+
+
 APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_domain_status", _domain_status),
     Migration("0002_customer_settings_spam_action", _customer_settings_spam_action),
@@ -303,4 +321,5 @@ APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0015_notification_prefs", _notification_prefs),
     Migration("0016_customer_settings_language", _customer_settings_language),
     Migration("0017_customer_settings_browser_locale", _customer_settings_browser_locale),
+    Migration("0018_domain_matrix_mas", _domain_matrix_mas),
 )

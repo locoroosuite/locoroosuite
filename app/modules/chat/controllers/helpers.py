@@ -50,17 +50,7 @@ def chat_context():
     """
     from app.modules.chat.services.provisioning import ensure_chat_client
 
-    account_id = session.get("active_account_id")
-    user_id = session.get("user_id")
-    if not account_id or not user_id:
-        raise ChatApiError("NO_ACCOUNT", _("No active account for this session"), 404)
-    account = db.session.get(CustomerAccount, account_id)
-    if not account or account.customer_id != user_id or not account.is_active:
-        raise ChatApiError("NO_ACCOUNT", _("No active account for this session"), 404)
-    domain = db.session.get(Domain, account.domain_id)
-    if not domain:
-        raise ChatApiError("DOMAIN_NOT_FOUND", _("Account domain not found"), 404)
-
+    account, user_id, domain = current_account()
     from app.modules.chat.services.matrix import MatrixError
 
     try:
@@ -73,6 +63,48 @@ def chat_context():
     return account, user_id, conn, client, creds
 
 
+def current_account():
+    """Return (account, user_id, domain) for the active session, no chat client.
+
+    Used by endpoints that must work before the user's chat identity exists
+    (e.g. the peer autocomplete when starting a first conversation).
+    """
+    account_id = session.get("active_account_id")
+    user_id = session.get("user_id")
+    if not account_id or not user_id:
+        raise ChatApiError("NO_ACCOUNT", _("No active account for this session"), 404)
+    account = db.session.get(CustomerAccount, account_id)
+    if not account or account.customer_id != user_id or not account.is_active:
+        raise ChatApiError("NO_ACCOUNT", _("No active account for this session"), 404)
+    domain = db.session.get(Domain, account.domain_id)
+    if not domain:
+        raise ChatApiError("DOMAIN_NOT_FOUND", _("Account domain not found"), 404)
+    return account, user_id, domain
+
+
+def visible_domain_ids(domain) -> set[int]:
+    """Domain ids whose accounts this domain's users may discover and message.
+
+    Own domain plus the admin-configured allowlist (HLD U25.17); entries that
+    are not integers are ignored. Same-homeserver enforcement is separate
+    (see same_homeserver) and applied at query/DM-creation time.
+    """
+    ids = {domain.id}
+    for value in getattr(domain, "chat_visible_domain_ids", None) or []:
+        try:
+            ids.add(int(value))
+        except (TypeError, ValueError):
+            continue
+    return ids
+
+
+def same_homeserver(domain, peer_domain) -> bool:
+    return (peer_domain.matrix_host, peer_domain.matrix_port) == (
+        domain.matrix_host,
+        domain.matrix_port,
+    )
+
+
 def own_matrix_id(conn) -> str:
     from app.modules.chat.services.cache_db import get_credentials
 
@@ -80,4 +112,13 @@ def own_matrix_id(conn) -> str:
     return creds["matrix_user_id"] if creds else ""
 
 
-__all__ = ["ChatApiError", "chat_bp", "chat_context", "own_matrix_id", "require_customer"]
+__all__ = [
+    "ChatApiError",
+    "chat_bp",
+    "chat_context",
+    "current_account",
+    "own_matrix_id",
+    "require_customer",
+    "same_homeserver",
+    "visible_domain_ids",
+]

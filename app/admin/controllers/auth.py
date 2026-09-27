@@ -40,7 +40,9 @@ def _dev_defaults():
             "matrix_host": "synapse",
             "matrix_port": 8008,
             "matrix_use_tls": False,
-            "matrix_shared_secret": "dev-matrix-shared-secret",
+            "matrix_mas_url": "http://mas:8080",
+            "matrix_mas_client_id": "01MAS00000000000000000000A",
+            "matrix_mas_client_secret": "dev-mas-client-secret",
             "mail_api_url": current_app.config.get("MAIL_API_URL", "") or None,
             "mail_api_key": current_app.config.get("MAIL_API_KEY", "") or None,
         }
@@ -60,7 +62,9 @@ def _dev_defaults():
         "matrix_host": "localhost",
         "matrix_port": 8008,
         "matrix_use_tls": False,
-        "matrix_shared_secret": None,
+        "matrix_mas_url": None,
+        "matrix_mas_client_id": None,
+        "matrix_mas_client_secret": None,
         "mail_api_url": current_app.config.get("MAIL_API_URL", "") or None,
         "mail_api_key": current_app.config.get("MAIL_API_KEY", "") or None,
     }
@@ -291,29 +295,37 @@ def setup():
             domain=domain_name,
         )
 
-    admin = User(role="admin", email=email, password_hash=generate_password_hash(password))
+    admin = User()
+    admin.role = "admin"
+    admin.email = email
+    admin.password_hash = generate_password_hash(password)
     db.session.add(admin)
     db.session.flush()
 
     defaults = _dev_defaults()
-    domain = Domain(
-        name=domain_name,
-        imap_host=defaults["imap_host"],
-        imap_port=defaults["imap_port"],
-        imap_tls=defaults["imap_tls"],
-        smtp_host=defaults["smtp_host"],
-        smtp_port=defaults["smtp_port"],
-        smtp_tls_mode=defaults["smtp_tls_mode"],
-        carddav_host=defaults["carddav_host"],
-        carddav_port=defaults["carddav_port"],
-        carddav_use_tls=defaults["carddav_use_tls"],
-        caldav_host=defaults["caldav_host"],
-        caldav_port=defaults["caldav_port"],
-        caldav_use_tls=defaults["caldav_use_tls"],
-        mail_api_url=defaults.get("mail_api_url"),
-        mail_api_key=defaults.get("mail_api_key"),
-        status="complete",
-    )
+    domain = Domain()
+    domain.name = domain_name
+    domain.imap_host = defaults["imap_host"]
+    domain.imap_port = defaults["imap_port"]
+    domain.imap_tls = defaults["imap_tls"]
+    domain.smtp_host = defaults["smtp_host"]
+    domain.smtp_port = defaults["smtp_port"]
+    domain.smtp_tls_mode = defaults["smtp_tls_mode"]
+    domain.carddav_host = defaults["carddav_host"]
+    domain.carddav_port = defaults["carddav_port"]
+    domain.carddav_use_tls = defaults["carddav_use_tls"]
+    domain.caldav_host = defaults["caldav_host"]
+    domain.caldav_port = defaults["caldav_port"]
+    domain.caldav_use_tls = defaults["caldav_use_tls"]
+    domain.matrix_host = defaults["matrix_host"]
+    domain.matrix_port = defaults["matrix_port"]
+    domain.matrix_use_tls = defaults["matrix_use_tls"]
+    domain.matrix_mas_url = defaults["matrix_mas_url"]
+    domain.matrix_mas_client_id = defaults["matrix_mas_client_id"]
+    domain.matrix_mas_client_secret = defaults["matrix_mas_client_secret"]
+    domain.mail_api_url = defaults.get("mail_api_url")
+    domain.mail_api_key = defaults.get("mail_api_key")
+    domain.status = "complete"
     db.session.add(domain)
     db.session.commit()
 

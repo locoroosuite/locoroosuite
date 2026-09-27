@@ -19,7 +19,15 @@ database:
   args:
     database: /data/homeserver.db
 
-registration_shared_secret: "dev-matrix-shared-secret"
+# Delegated authentication: Synapse disables its own shared-secret
+# registration and password login; the locoroomail app provisions and logs in
+# users through MAS (dev-infra/mas). The secret must match matrix.secret in
+# the MAS config.
+matrix_authentication_service:
+  enabled: true
+  endpoint: "http://mas:8080/"
+  secret: "dev-mas-synapse-secret"
+
 enable_registration: false
 enable_registration_without_verification: false
 
@@ -36,7 +44,5 @@ report_stats: false
 trusted_key_servers: []
 enable_room_list_search: true
 
-# Required by the chat module: user discovery (direct messages, invites) must
-# find any local user, not only users sharing a room with the searcher.
-user_directory:
-  search_all_users: true
+# Chat user discovery is database-backed in the app (HLD U25.8); the Synapse
+# user directory is not used for it.

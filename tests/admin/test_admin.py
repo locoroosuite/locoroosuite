@@ -8,12 +8,11 @@ from app.shared.models.core import CustomerAccount, Domain, DomainDnsConfig, Use
 
 def test_admin_login_page(client, app, _clean_db):
     with app.app_context():
-        user = User(
-            email="admin@example.com",
-            role="admin",
-            is_active=True,
-            password_hash=generate_password_hash("admin123"),
-        )
+        user = User()
+        user.email = "admin@example.com"
+        user.role = "admin"
+        user.is_active = True
+        user.password_hash = generate_password_hash("admin123")
         db.session.add(user)
         db.session.commit()
     resp = client.get("/admin/login")
@@ -25,12 +24,11 @@ def test_admin_login_page(client, app, _clean_db):
 @patch("app.admin.controllers.auth.is_locked", return_value=False)
 def test_admin_login_post_success(mock_locked, mock_clear, mock_audit, app, client, _clean_db):
     with app.app_context():
-        user = User(
-            email="admin@example.com",
-            role="admin",
-            is_active=True,
-            password_hash=generate_password_hash("admin123"),
-        )
+        user = User()
+        user.email = "admin@example.com"
+        user.role = "admin"
+        user.is_active = True
+        user.password_hash = generate_password_hash("admin123")
         db.session.add(user)
         db.session.commit()
 
@@ -56,16 +54,15 @@ def test_admin_domains_page(admin_client):
 def test_admin_domains_page_with_domains(mock_collabora, mock_tcp, admin_client, app):
     client, _ = admin_client
     with app.app_context():
-        domain = Domain(
-            name="example.com",
-            is_active=True,
-            status="complete",
-            imap_host="imap.example.com",
-            imap_port=993,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "example.com"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "imap.example.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.example.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.flush()
 
@@ -90,20 +87,19 @@ def test_admin_domains_page_with_domains(mock_collabora, mock_tcp, admin_client,
 def test_admin_domains_page_with_connected_services(mock_collabora, mock_tcp, admin_client, app):
     client, _ = admin_client
     with app.app_context():
-        domain = Domain(
-            name="connected.example.com",
-            is_active=True,
-            status="complete",
-            imap_host="imap.example.com",
-            imap_port=993,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            carddav_host="carddav.example.com",
-            carddav_port=5232,
-            caldav_host="caldav.example.com",
-            caldav_port=5232,
-        )
+        domain = Domain()
+        domain.name = "connected.example.com"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "imap.example.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.example.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.carddav_host = "carddav.example.com"
+        domain.carddav_port = 5232
+        domain.caldav_host = "caldav.example.com"
+        domain.caldav_port = 5232
         db.session.add(domain)
         db.session.commit()
 
@@ -115,16 +111,15 @@ def test_admin_domains_page_with_connected_services(mock_collabora, mock_tcp, ad
 def test_admin_domains_page_with_inactive_domain(admin_client, app):
     client, _ = admin_client
     with app.app_context():
-        domain = Domain(
-            name="inactive.example.com",
-            is_active=False,
-            status="draft",
-            imap_host="imap.example.com",
-            imap_port=993,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "inactive.example.com"
+        domain.is_active = False
+        domain.status = "draft"
+        domain.imap_host = "imap.example.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.example.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.commit()
 
@@ -189,15 +184,14 @@ def test_admin_create_customer(mock_audit, admin_client, app):
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="example.com",
-            imap_host="imap.example.com",
-            imap_port=993,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            status="complete",
-        )
+        domain = Domain()
+        domain.name = "example.com"
+        domain.imap_host = "imap.example.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.example.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.status = "complete"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -214,15 +208,14 @@ def test_admin_create_customer_password_includes_login_link(mock_audit, admin_cl
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="example.com",
-            imap_host="imap.example.com",
-            imap_port=993,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            status="complete",
-        )
+        domain = Domain()
+        domain.name = "example.com"
+        domain.imap_host = "imap.example.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.example.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.status = "complete"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -251,15 +244,14 @@ def test_admin_create_customer_invite_rejects_existing_mailbox(mock_audit, admin
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="example.com",
-            imap_host="imap.example.com",
-            imap_port=993,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            status="complete",
-        )
+        domain = Domain()
+        domain.name = "example.com"
+        domain.imap_host = "imap.example.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.example.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.status = "complete"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -289,15 +281,14 @@ def test_admin_create_customer_invite_no_mail_api_proceeds(mock_audit, admin_cli
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="example.com",
-            imap_host="imap.example.com",
-            imap_port=993,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            status="complete",
-        )
+        domain = Domain()
+        domain.name = "example.com"
+        domain.imap_host = "imap.example.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.example.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.status = "complete"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -316,15 +307,14 @@ def test_admin_create_customer_existing_user_with_sync_link(mock_audit, admin_cl
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="example.com",
-            imap_host="imap.example.com",
-            imap_port=993,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            status="complete",
-        )
+        domain = Domain()
+        domain.name = "example.com"
+        domain.imap_host = "imap.example.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.example.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.status = "complete"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -352,15 +342,14 @@ def test_admin_create_customer_existing_user_no_mail_api(mock_audit, admin_clien
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="example.com",
-            imap_host="imap.example.com",
-            imap_port=993,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            status="complete",
-        )
+        domain = Domain()
+        domain.name = "example.com"
+        domain.imap_host = "imap.example.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.example.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.status = "complete"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -385,15 +374,14 @@ def test_admin_create_customer_password_rollback_on_mail_api_failure(mock_audit,
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="example.com",
-            imap_host="imap.example.com",
-            imap_port=993,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            status="complete",
-        )
+        domain = Domain()
+        domain.name = "example.com"
+        domain.imap_host = "imap.example.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.example.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.status = "complete"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -428,16 +416,15 @@ def test_admin_toggle_domain(mock_audit, admin_client, app):
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="toggle.com",
-            is_active=True,
-            status="complete",
-            imap_host="imap.toggle.com",
-            imap_port=993,
-            smtp_host="smtp.toggle.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "toggle.com"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "imap.toggle.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.toggle.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -467,16 +454,15 @@ def test_admin_update_domain(mock_audit, admin_client, app):
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="update.com",
-            is_active=True,
-            status="complete",
-            imap_host="old.imap.com",
-            imap_port=993,
-            smtp_host="old.smtp.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "update.com"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "old.imap.com"
+        domain.imap_port = 993
+        domain.smtp_host = "old.smtp.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -514,16 +500,15 @@ def test_admin_review_domain_page(mock_discover, admin_client, app):
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="review.com",
-            is_active=True,
-            status="review",
-            imap_host="",
-            imap_port=993,
-            smtp_host="",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "review.com"
+        domain.is_active = True
+        domain.status = "review"
+        domain.imap_host = ""
+        domain.imap_port = 993
+        domain.smtp_host = ""
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -542,16 +527,15 @@ def test_admin_update_domain_carddav(mock_audit, admin_client, app):
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="carddav-update.com",
-            is_active=True,
-            status="complete",
-            imap_host="imap.test.com",
-            imap_port=993,
-            smtp_host="smtp.test.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "carddav-update.com"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "imap.test.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.test.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -584,19 +568,18 @@ def test_admin_update_domain_carddav_clear(mock_audit, admin_client, app):
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="carddav-clear.com",
-            is_active=True,
-            status="complete",
-            imap_host="imap.test.com",
-            imap_port=993,
-            smtp_host="smtp.test.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            carddav_host="dav.test.com",
-            carddav_port=5232,
-            carddav_use_tls=True,
-        )
+        domain = Domain()
+        domain.name = "carddav-clear.com"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "imap.test.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.test.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.carddav_host = "dav.test.com"
+        domain.carddav_port = 5232
+        domain.carddav_use_tls = True
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -636,16 +619,15 @@ def test_admin_review_domain_saves_carddav(mock_discover, mock_audit, admin_clie
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="carddav-review.com",
-            is_active=True,
-            status="review",
-            imap_host="imap.test.com",
-            imap_port=993,
-            smtp_host="smtp.test.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "carddav-review.com"
+        domain.is_active = True
+        domain.status = "review"
+        domain.imap_host = "imap.test.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.test.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -686,18 +668,17 @@ def test_admin_review_domain_page_shows_carddav_fields(mock_discover, admin_clie
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="carddav-ui.com",
-            is_active=True,
-            status="review",
-            imap_host="",
-            imap_port=993,
-            smtp_host="",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            carddav_host="existing-dav.com",
-            carddav_port=5232,
-        )
+        domain = Domain()
+        domain.name = "carddav-ui.com"
+        domain.is_active = True
+        domain.status = "review"
+        domain.imap_host = ""
+        domain.imap_port = 993
+        domain.smtp_host = ""
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.carddav_host = "existing-dav.com"
+        domain.carddav_port = 5232
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -720,16 +701,15 @@ def test_admin_domains_health_json(mock_mail_api, mock_collabora, mock_tcp, admi
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="health.example.com",
-            is_active=True,
-            status="complete",
-            imap_host="imap.example.com",
-            imap_port=993,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "health.example.com"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "imap.example.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.example.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -749,16 +729,15 @@ def test_admin_save_mail_config(mock_sync, mock_audit, admin_client, app):
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="mail-save.com",
-            is_active=True,
-            status="review",
-            imap_host="old-imap.com",
-            imap_port=993,
-            smtp_host="old-smtp.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "mail-save.com"
+        domain.is_active = True
+        domain.status = "review"
+        domain.imap_host = "old-imap.com"
+        domain.imap_port = 993
+        domain.smtp_host = "old-smtp.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -789,16 +768,15 @@ def test_admin_save_dav_config(mock_audit, admin_client, app):
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="dav-save.com",
-            is_active=True,
-            status="complete",
-            imap_host="imap.test.com",
-            imap_port=993,
-            smtp_host="smtp.test.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "dav-save.com"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "imap.test.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.test.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -830,29 +808,27 @@ def test_admin_domain_accounts_json(admin_client, app):
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="accounts-test.com",
-            is_active=True,
-            status="complete",
-            imap_host="imap.test.com",
-            imap_port=993,
-            smtp_host="smtp.test.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "accounts-test.com"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "imap.test.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.test.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
         cust = User(email="user@accounts-test.com", role="customer", is_active=True)
         db.session.add(cust)
         db.session.flush()
-        account = CustomerAccount(
-            customer_id=cust.id,
-            domain_id=domain_id,
-            email_address="user@accounts-test.com",
-            auth_type="password",
-            username="user@accounts-test.com",
-        )
+        account = CustomerAccount()
+        account.customer_id = cust.id
+        account.domain_id = domain_id
+        account.email_address = "user@accounts-test.com"
+        account.auth_type = "password"
+        account.username = "user@accounts-test.com"
         db.session.add(account)
         db.session.commit()
 
@@ -868,16 +844,15 @@ def test_admin_domain_accounts_empty(admin_client, app):
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="empty-accounts.com",
-            is_active=True,
-            status="complete",
-            imap_host="imap.test.com",
-            imap_port=993,
-            smtp_host="smtp.test.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "empty-accounts.com"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "imap.test.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.test.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -895,16 +870,15 @@ def test_admin_save_mail_api_config(mock_sync, mock_audit, admin_client, app):
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="mailapi-save.com",
-            is_active=True,
-            status="complete",
-            imap_host="imap.test.com",
-            imap_port=993,
-            smtp_host="smtp.test.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "mailapi-save.com"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "imap.test.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.test.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -931,13 +905,12 @@ def _create_customer_with_account(app, domain_id, email, auth_type="password"):
         cust = User(email=email, role="customer", is_active=True)
         db.session.add(cust)
         db.session.flush()
-        account = CustomerAccount(
-            customer_id=cust.id,
-            domain_id=domain_id,
-            email_address=email,
-            auth_type=auth_type,
-            username=email,
-        )
+        account = CustomerAccount()
+        account.customer_id = cust.id
+        account.domain_id = domain_id
+        account.email_address = email
+        account.auth_type = auth_type
+        account.username = email
         db.session.add(account)
         db.session.commit()
         return cust.id
@@ -949,15 +922,14 @@ def test_admin_create_customer_external(mock_mail_api, mock_audit, admin_client,
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="ext.com",
-            imap_host="imap.ext.com",
-            imap_port=993,
-            smtp_host="smtp.ext.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            status="complete",
-        )
+        domain = Domain()
+        domain.name = "ext.com"
+        domain.imap_host = "imap.ext.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.ext.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.status = "complete"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -981,15 +953,14 @@ def test_admin_reset_customer_password(mock_audit, admin_client, app):
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="reset.com",
-            imap_host="imap.reset.com",
-            imap_port=993,
-            smtp_host="smtp.reset.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            status="complete",
-        )
+        domain = Domain()
+        domain.name = "reset.com"
+        domain.imap_host = "imap.reset.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.reset.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.status = "complete"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -1029,15 +1000,14 @@ def test_admin_set_customer_password(mock_mail_api, mock_audit, admin_client, ap
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="setpw.com",
-            imap_host="imap.setpw.com",
-            imap_port=993,
-            smtp_host="smtp.setpw.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            status="complete",
-        )
+        domain = Domain()
+        domain.name = "setpw.com"
+        domain.imap_host = "imap.setpw.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.setpw.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.status = "complete"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -1062,15 +1032,14 @@ def test_admin_set_customer_password_empty(mock_audit, admin_client, app):
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="emptypw.com",
-            imap_host="imap.emptypw.com",
-            imap_port=993,
-            smtp_host="smtp.emptypw.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            status="complete",
-        )
+        domain = Domain()
+        domain.name = "emptypw.com"
+        domain.imap_host = "imap.emptypw.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.emptypw.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.status = "complete"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -1085,15 +1054,14 @@ def test_admin_customers_page_shows_external_badge(admin_client, app):
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="badge.com",
-            imap_host="imap.badge.com",
-            imap_port=993,
-            smtp_host="smtp.badge.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            status="complete",
-        )
+        domain = Domain()
+        domain.name = "badge.com"
+        domain.imap_host = "imap.badge.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.badge.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.status = "complete"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -1111,15 +1079,14 @@ def test_admin_toggle_customer_external_from_hosted(mock_audit, admin_client, ap
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="toext.com",
-            imap_host="imap.toext.com",
-            imap_port=993,
-            smtp_host="smtp.toext.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            status="complete",
-        )
+        domain = Domain()
+        domain.name = "toext.com"
+        domain.imap_host = "imap.toext.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.toext.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.status = "complete"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -1142,15 +1109,14 @@ def test_admin_toggle_customer_external_to_hosted(mock_audit, admin_client, app)
     client, _ = admin_client
     domain_id = None
     with app.app_context():
-        domain = Domain(
-            name="tohosted.com",
-            imap_host="imap.tohosted.com",
-            imap_port=993,
-            smtp_host="smtp.tohosted.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            status="complete",
-        )
+        domain = Domain()
+        domain.name = "tohosted.com"
+        domain.imap_host = "imap.tohosted.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.tohosted.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.status = "complete"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -1171,15 +1137,14 @@ def test_admin_toggle_customer_external_to_hosted(mock_audit, admin_client, app)
 def test_admin_toggle_customer_external_no_account(mock_audit, admin_client, app):
     client, _ = admin_client
     with app.app_context():
-        domain = Domain(
-            name="noacc.com",
-            imap_host="imap.noacc.com",
-            imap_port=993,
-            smtp_host="smtp.noacc.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            status="complete",
-        )
+        domain = Domain()
+        domain.name = "noacc.com"
+        domain.imap_host = "imap.noacc.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.noacc.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.status = "complete"
         db.session.add(domain)
         db.session.commit()
 
@@ -1217,14 +1182,13 @@ def test_admin_customers_page_shows_no_account_badge(admin_client, app):
 def test_admin_customers_page_shows_admin_row(admin_client, app):
     client, _admin_id = admin_client
     with app.app_context():
-        domain = Domain(
-            name="example.com",
-            is_active=True,
-            status="complete",
-            imap_host="imap.example.com",
-            smtp_host="smtp.example.com",
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "example.com"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "imap.example.com"
+        domain.smtp_host = "smtp.example.com"
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.commit()
 
@@ -1238,14 +1202,13 @@ def test_admin_customers_page_shows_admin_row(admin_client, app):
 def test_admin_customers_page_auto_creates_account(admin_client, app):
     client, admin_id = admin_client
     with app.app_context():
-        domain = Domain(
-            name="example.com",
-            is_active=True,
-            status="complete",
-            imap_host="imap.example.com",
-            smtp_host="smtp.example.com",
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "example.com"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "imap.example.com"
+        domain.smtp_host = "smtp.example.com"
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.commit()
 
@@ -1274,16 +1237,15 @@ def test_admin_customers_page_no_account_without_matching_domain(admin_client, a
 def test_admin_customers_page_shows_sync_button_with_mail_api(admin_client, app):
     client, _ = admin_client
     with app.app_context():
-        domain = Domain(
-            name="sync-test.com",
-            is_active=True,
-            status="complete",
-            imap_host="imap.sync-test.com",
-            smtp_host="smtp.sync-test.com",
-            smtp_tls_mode="starttls",
-            mail_api_url="http://mail-api:8800",
-            mail_api_key="test-key",
-        )
+        domain = Domain()
+        domain.name = "sync-test.com"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "imap.sync-test.com"
+        domain.smtp_host = "smtp.sync-test.com"
+        domain.smtp_tls_mode = "starttls"
+        domain.mail_api_url = "http://mail-api:8800"
+        domain.mail_api_key = "test-key"
         db.session.add(domain)
         db.session.commit()
 
@@ -1303,18 +1265,17 @@ def test_admin_customers_page_no_sync_button_without_mail_api(admin_client, app)
 
 def _setup_self_hosted_domain(app):
     with app.app_context():
-        domain = Domain(
-            name="selfhosted.com",
-            is_active=True,
-            status="complete",
-            imap_host="imap.selfhosted.com",
-            imap_port=993,
-            smtp_host="smtp.selfhosted.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            mail_api_url="http://mail-api:8800",
-            mail_api_key="test-key",
-        )
+        domain = Domain()
+        domain.name = "selfhosted.com"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "imap.selfhosted.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.selfhosted.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        domain.mail_api_url = "http://mail-api:8800"
+        domain.mail_api_key = "test-key"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -1323,13 +1284,12 @@ def _setup_self_hosted_domain(app):
         cust = User(email="user@selfhosted.com", role="customer", is_active=True)
         db.session.add(cust)
         db.session.flush()
-        account = CustomerAccount(
-            customer_id=cust.id,
-            domain_id=domain_id,
-            email_address="user@selfhosted.com",
-            auth_type="password",
-            username="user@selfhosted.com",
-        )
+        account = CustomerAccount()
+        account.customer_id = cust.id
+        account.domain_id = domain_id
+        account.email_address = "user@selfhosted.com"
+        account.auth_type = "password"
+        account.username = "user@selfhosted.com"
         db.session.add(account)
         db.session.flush()
         account_id = account.id
@@ -1361,29 +1321,27 @@ def test_account_reset_password(mock_mail_api, admin_client, app):
 def test_account_reset_password_not_self_hosted(admin_client, app):
     client, _ = admin_client
     with app.app_context():
-        domain = Domain(
-            name="notself.com",
-            is_active=True,
-            status="complete",
-            imap_host="imap.notself.com",
-            imap_port=993,
-            smtp_host="smtp.notself.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "notself.com"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "imap.notself.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.notself.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
         cust = User(email="user@notself.com", role="customer", is_active=True)
         db.session.add(cust)
         db.session.flush()
-        account = CustomerAccount(
-            customer_id=cust.id,
-            domain_id=domain_id,
-            email_address="user@notself.com",
-            auth_type="password",
-            username="user@notself.com",
-        )
+        account = CustomerAccount()
+        account.customer_id = cust.id
+        account.domain_id = domain_id
+        account.email_address = "user@notself.com"
+        account.auth_type = "password"
+        account.username = "user@notself.com"
         db.session.add(account)
         db.session.flush()
         account_id = account.id
@@ -1452,16 +1410,15 @@ def test_account_delete_wrong_domain(admin_client, app):
     client, _ = admin_client
     _domain_id, account_id, _ = _setup_self_hosted_domain(app)
     with app.app_context():
-        domain2 = Domain(
-            name="other.com",
-            is_active=True,
-            status="complete",
-            imap_host="imap.other.com",
-            imap_port=993,
-            smtp_host="smtp.other.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain2 = Domain()
+        domain2.name = "other.com"
+        domain2.is_active = True
+        domain2.status = "complete"
+        domain2.imap_host = "imap.other.com"
+        domain2.imap_port = 993
+        domain2.smtp_host = "smtp.other.com"
+        domain2.smtp_port = 587
+        domain2.smtp_tls_mode = "starttls"
         db.session.add(domain2)
         db.session.flush()
         domain2_id = domain2.id
@@ -1487,16 +1444,15 @@ def test_domain_sync_page(admin_client, app):
 def test_domain_sync_redirects_non_self_hosted(admin_client, app):
     client, _ = admin_client
     with app.app_context():
-        domain = Domain(
-            name="notself2.com",
-            is_active=True,
-            status="complete",
-            imap_host="imap.notself2.com",
-            imap_port=993,
-            smtp_host="smtp.notself2.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-        )
+        domain = Domain()
+        domain.name = "notself2.com"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "imap.notself2.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.notself2.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
         db.session.add(domain)
         db.session.flush()
         domain_id = domain.id
@@ -1517,3 +1473,58 @@ def test_review_accounts_page(admin_client, app):
     assert "Login link" in html
     assert "Delete" in html
     assert "Sync accounts" in html
+
+
+@patch("app.admin.controllers.admin.log_audit")
+def test_admin_save_dav_config_matrix_mas_and_visibility(mock_audit, admin_client, app):
+    """dav-config saves MAS fields and the chat visibility allowlist (U25.17)."""
+    client, _ = admin_client
+    domain_id = None
+    other_id = None
+    with app.app_context():
+        domain = Domain()
+        domain.name = "mas-config.test"
+        domain.is_active = True
+        domain.status = "complete"
+        domain.imap_host = "imap.test.com"
+        domain.imap_port = 993
+        domain.smtp_host = "smtp.test.com"
+        domain.smtp_port = 587
+        domain.smtp_tls_mode = "starttls"
+        other = Domain()
+        other.name = "other-mas.test"
+        other.is_active = True
+        other.status = "complete"
+        other.imap_host = "imap.other.test"
+        other.imap_port = 993
+        other.smtp_host = "smtp.other.test"
+        other.smtp_port = 587
+        other.smtp_tls_mode = "starttls"
+        db.session.add(domain)
+        db.session.add(other)
+        db.session.flush()
+        domain_id, other_id = domain.id, other.id
+        db.session.commit()
+
+    resp = client.post(
+        f"/admin/domains/{domain_id}/dav-config",
+        data={
+            "matrix_host": "synapse",
+            "matrix_port": "8008",
+            "matrix_mas_url": "http://mas:8080/",
+            "matrix_mas_client_id": "01MAS00000000000000000000A",
+            "matrix_mas_client_secret": "secret",
+            # Valid id + junk entries: only valid ids are kept.
+            "chat_visible_domain_ids": [str(other_id), "9999", "not-a-number"],
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.get_json()["ok"] is True
+
+    with app.app_context():
+        saved = db.session.get(Domain, domain_id)
+        assert saved is not None
+        assert saved.matrix_mas_url == "http://mas:8080"
+        assert saved.matrix_mas_client_id == "01MAS00000000000000000000A"
+        assert saved.chat_visible_domain_ids == [other_id]
+    mock_audit.assert_called_once()

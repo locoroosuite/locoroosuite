@@ -80,6 +80,51 @@ def test_dm_display_name(chat_cache):
     assert cache_db.count_joined_members(chat_cache, "!dm1:server") == 2
 
 
+def test_dm_display_name_prefers_joined_peer_over_invited(chat_cache):
+    cache_db.upsert_room(chat_cache, "!dm1:server", is_direct=True)
+    cache_db.upsert_member(chat_cache, "!dm1:server", "@me:server", displayname="Me")
+    cache_db.upsert_member(chat_cache, "!dm1:server", "@alice:server", membership="invite")
+    cache_db.upsert_member(chat_cache, "!dm1:server", "@zoe:server", displayname="Zoe Joined")
+    chat_cache.commit()
+
+    rooms = cache_db.list_rooms(chat_cache, "@me:server")
+    assert rooms[0]["display_name"] == "Zoe Joined"
+
+
+def test_dm_display_name_from_invited_peer_not_yet_accepted(chat_cache):
+    cache_db.upsert_room(chat_cache, "!dm2:server", is_direct=True)
+    cache_db.upsert_member(chat_cache, "!dm2:server", "@me:server", displayname="Me")
+    cache_db.upsert_member(
+        chat_cache, "!dm2:server", "@peer:server", displayname="Peer Name", membership="invite"
+    )
+    chat_cache.commit()
+
+    rooms = cache_db.list_rooms(chat_cache, "@me:server")
+    assert rooms[0]["display_name"] == "Peer Name"
+
+
+def test_dm_display_name_invited_peer_without_displayname_uses_localpart(chat_cache):
+    cache_db.upsert_room(chat_cache, "!dm3:server", is_direct=True)
+    cache_db.upsert_member(chat_cache, "!dm3:server", "@me:server", displayname="Me")
+    cache_db.upsert_member(chat_cache, "!dm3:server", "@alice:server", membership="invite")
+    chat_cache.commit()
+
+    rooms = cache_db.list_rooms(chat_cache, "@me:server")
+    assert rooms[0]["display_name"] == "alice"
+
+
+def test_dm_display_name_ignores_left_peer(chat_cache):
+    cache_db.upsert_room(chat_cache, "!dm4:server", is_direct=True)
+    cache_db.upsert_member(chat_cache, "!dm4:server", "@me:server", displayname="Me")
+    cache_db.upsert_member(
+        chat_cache, "!dm4:server", "@gone:server", displayname="Gone", membership="leave"
+    )
+    chat_cache.commit()
+
+    rooms = cache_db.list_rooms(chat_cache, "@me:server")
+    assert rooms[0]["display_name"] == "Direct message"
+
+
 def test_redact_and_edit(chat_cache):
     cache_db.upsert_room(chat_cache, "!r1:server", name="R")
     cache_db.insert_message(

@@ -220,11 +220,13 @@ def _decorate_room_display_name(conn, room: dict, own_user_id: str) -> None:
     if room.get("name"):
         room["display_name"] = room["name"]
     elif room.get("is_direct"):
+        # For DMs, name the room after the peer. Prefer a joined peer, but an
+        # invited peer (DM created, not yet accepted) is still who you chat with.
         row = conn.execute(
             """
             SELECT displayname, user_id FROM chat_room_members
-            WHERE room_id = ? AND membership = 'join' AND user_id != ?
-            ORDER BY displayname LIMIT 1
+            WHERE room_id = ? AND membership IN ('join', 'invite') AND user_id != ?
+            ORDER BY CASE membership WHEN 'join' THEN 0 ELSE 1 END, displayname LIMIT 1
             """,
             (room["room_id"], own_user_id),
         ).fetchone()

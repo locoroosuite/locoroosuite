@@ -291,7 +291,10 @@ def test_peers_search_lists_allowlisted_domains(app, seeded_client):
     ):
         resp = client.post("/app/chat/api/dm", json={"email": "partner@other.test"})
     assert resp.status_code == 201
-    assert resp.get_json()["peer"]["matrix_user_id"] == "@partner:locoroo.test"
+    body = resp.get_json()
+    assert body["peer"]["matrix_user_id"] == "@partner:locoroo.test"
+    # Peer is cached as 'invite' (not joined yet) but must still be named.
+    assert body["room"]["display_name"] == "partner"
 
 
 def test_dm_blocked_for_allowlisted_domain_on_other_homeserver(app, seeded_client):

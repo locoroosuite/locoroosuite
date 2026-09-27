@@ -110,6 +110,22 @@ def test_build_allocate_unauthenticated_shape():
     assert attrs[ATTR_REQUESTED_TRANSPORT][0] == 17  # UDP
 
 
+def test_fingerprint_attribute_type_matches_rfc5389():
+    """Regression: ATTR_FINGERPRINT was 0x0002 (unregistered), so every
+    authenticated Allocate against real coturn failed with 420 Unknown
+    Attribute — the unit-test fake server reused the same constant and hid
+    it. RFC 5389 §18.2 assigns FINGERPRINT 0x8028."""
+    import zlib
+
+    assert ATTR_FINGERPRINT == 0x8028
+    msg = _build_allocate(b"\x01" * 12)
+    _msg_type, attrs = _parse_response(msg)
+    assert ATTR_FINGERPRINT in attrs
+    head = msg[:-8]  # everything before the FINGERPRINT attribute
+    (crc,) = struct.unpack("!I", attrs[ATTR_FINGERPRINT])
+    assert crc == (zlib.crc32(head) ^ 0x5354554E) & 0xFFFFFFFF
+
+
 def test_build_allocate_authenticated_and_integrity():
     txid = b"\x02" * 12
     realm, nonce = "turn.example.com", b"nonce-value"

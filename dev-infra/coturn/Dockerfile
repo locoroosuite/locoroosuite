@@ -7,8 +7,9 @@
 FROM coturn/coturn:4.6
 
 COPY turnserver.conf /etc/coturn/turnserver.conf
-COPY entrypoint.sh /usr/local/bin/turn-dev-entrypoint.sh
-RUN chmod +x /usr/local/bin/turn-dev-entrypoint.sh
+# The coturn base image runs as a non-root user, so RUN chmod fails with
+# EPERM; --chmod (BuildKit) sets the mode at copy time instead.
+COPY --chmod=755 entrypoint.sh /usr/local/bin/turn-dev-entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/turn-dev-entrypoint.sh"]
 CMD ["-c", "/etc/coturn/turnserver.conf"]

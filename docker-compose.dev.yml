@@ -231,7 +231,7 @@ services:
 
   # TURN server for 1:1 WebRTC calls (HLD U25.21). Dev domain config
   # (Admin → Domains → chat settings): host `coturn`, port 3478, shared
-  # secret `dev-turn-secret-locoroo` (>= 16 chars: shorter secrets fail the
+  # secret `dev-turn-secretsdfopk234098324kojwsderfjkfsjkldf` (>= 16 chars: shorter secrets fail the
   # admin save validation). The host must be the compose DNS name because the
   # admin save's authenticated Allocate probe runs from the app container
   # (the published ports are NOT reachable as `localhost` from inside it);

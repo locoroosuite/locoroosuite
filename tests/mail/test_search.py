@@ -98,15 +98,21 @@ def test_search_renders_clickable_rows(authed_client):
     assert 'data-action="delete"' in html
 
 
-def test_search_rows_have_touch_toggle_and_inert_overlay(authed_client):
-    """UX3b: search rows must have the mobile '...' toggle, and the action
-    overlay must be non-interactive while hidden (no accidental taps)."""
+def test_search_rows_have_swipe_panels_and_inert_overlay(authed_client):
+    """UX3g: search rows carry the swipe gesture panels and foreground
+    (no '...' toggle anymore), and the action overlay must be
+    non-interactive while hidden (no accidental taps)."""
     client, _user_id, account_id = authed_client
     with _search_patches([_fake_row()]):
         resp = client.post("/app/mail/search", data={"q": "hello", "account_id": str(account_id)})
     assert resp.status_code == 200
     html = resp.data.decode()
-    assert "data-message-actions-toggle" in html, "mobile '...' toggle missing from search rows"
+    assert "data-message-actions-toggle" not in html, "the '...' toggle was removed (UX3g)"
+    assert 'data-swipe-panel="left"' in html, "swipe archive panel missing from search rows"
+    assert 'data-swipe-panel="right"' in html, "swipe actions panel missing from search rows"
+    assert "data-row-foreground" in html, "swipe foreground wrapper missing"
+    assert "data-select-circle" in html, "long-press selection circle missing (UX3h)"
+    assert "bulk-select.js" in html, "bulk-select script not loaded on search results"
     assert "message-list.js" in html, "shared message-list script not loaded"
     # The hidden overlay must never intercept taps on any device (UX3d).
     assert "opacity-0 pointer-events-none" in html

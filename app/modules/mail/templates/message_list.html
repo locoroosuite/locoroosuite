@@ -1,7 +1,24 @@
+{% from "_row_common.html" import select_controls, star_form, swipe_panels %}
+
 {% macro _protected_pill(reason) %}
 <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" role="img" aria-label="{{ _('Protected') }}" title="{{ _('Protected from deletion ({reason}). Use the ⋯ menu to {action} it.').format(reason=_(reason), action=_('unlock') if reason == 'locked' else (_('unstar') if reason == 'starred' else _('unstar and unlock'))) }}" data-protected-badge><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V8H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
 {% endmacro %}
 
+{% macro _thread_badges(msg, row_protected, row_protected_reason, loop, total) %}
+{% if row_protected %}{{ _protected_pill(row_protected_reason) }}{% endif %}
+{% if loop.first and total > 1 %}
+<span class="thread-count text-[11px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500 flex-shrink-0">{{ total }}</span>
+{% endif %}
+{% if msg.has_attachments %}
+<svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+{% endif %}
+{% endmacro %}
+
+{# Desktop: single-line row (UX3a) — checkbox, star, fixed-width sender
+   column, subject, date right. Mobile: three stacked lines (UX3e) —
+   sender + date, subject, snippet — with the star under the date. The
+   sender/date/subject triplet reflows between the two layouts via
+   flex-wrap + order instead of duplicated markup. #}
 {% macro message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred=False, thread_total=0, in_junk_folder=False) %}
 {% set total = thread_total or msgs|length %}
 {% set row_locked = '$Locked' in (msg.flags or []) %}
@@ -13,160 +30,102 @@
 {% set preview_url = url_for('mail.message_preview', account_id=account.id, message_id=msg.id) %}
 {% endif %}
 {% if msg.is_bounce %}
-<div class="message-row group relative px-3 md:px-4 py-2.5 text-sm cursor-pointer bg-red-50/50 hover:bg-red-50/80 border-l-2 border-l-red-400 transition-all duration-200" draggable="false" data-message-id="{{ msg.id }}" data-account-id="{{ account.id }}" data-message-url="{{ url_for('mail.message_view', account_id=account.id, message_id=msg.id) }}" data-preview-url="{{ preview_url }}" data-is-unread="{{ '1' if msg.is_unread else '0' }}" data-is-flagged="{{ '1' if msg.is_flagged else '0' }}" data-is-bounce="1">
-  <div class="flex items-start gap-2">
-    <div class="flex-shrink-0 pt-1 pl-1" data-no-row-nav>
-      <input type="checkbox" data-select-message="{{ msg.id }}" class="h-4 w-4 rounded border-slate-300 accent-slate-900 cursor-pointer" aria-label="{{ _('Select message') }}" data-no-row-nav />
-    </div>
-    <div class="flex-shrink-0 pt-0.5">
-      <div class="flex h-[18px] w-[18px] items-center justify-center">
+<div class="message-row group relative text-sm cursor-pointer transition-all duration-200" draggable="false" data-message-id="{{ msg.id }}" data-account-id="{{ account.id }}" data-message-url="{{ url_for('mail.message_view', account_id=account.id, message_id=msg.id) }}" data-preview-url="{{ preview_url }}" data-is-unread="{{ '1' if msg.is_unread else '0' }}" data-is-flagged="{{ '1' if msg.is_flagged else '0' }}" data-is-bounce="1">
+  <div class="relative z-10 overflow-hidden">
+    <div class="flex items-start md:items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5 md:py-2 bg-red-50/60 hover:bg-red-50/90 border-l-2 border-l-red-400 transition-all duration-200" data-row-foreground>
+      {{ select_controls(msg.id, _('Select message')) }}
+      <div class="hidden md:flex flex-shrink-0 h-[18px] w-[18px] items-center justify-center">
         <svg class="w-4 h-4 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
       </div>
-    </div>
-    <div class="flex-1 min-w-0">
-      <div class="flex items-center justify-between gap-3 text-[15px] md:text-[13px]">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="inline-flex items-center gap-1 text-[11px] md:text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">{{ _('Delivery failed') }}</span>
-          <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
-          {% if row_protected %}{{ _protected_pill(row_protected_reason) }}{% endif %}
-          {% if loop.first and total > 1 %}
-          <span class="thread-count text-[11px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ total }}</span>
-          {% endif %}
-          {% if msg.has_attachments %}
-          <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          {% endif %}
+      <div class="flex-1 min-w-0">
+        <div class="flex flex-wrap md:flex-nowrap items-baseline md:items-center gap-x-3 gap-y-0.5">
+          <span class="min-w-0 flex-1 md:flex-none md:w-36 lg:w-44 xl:w-52 truncate text-[15px] md:text-[13px] {{ 'font-semibold text-slate-900' if msg.is_unread else 'text-slate-600' }}" title="{{ msg.sender_tooltip }}" tabindex="0" aria-label="{{ msg.sender_tooltip }}" data-sender="true">{{ msg.sender_display }}</span>
+          <div class="flex flex-col items-end flex-shrink-0 md:order-3">
+            <span class="whitespace-nowrap text-[12px] md:text-[11px] text-slate-500" data-date="true">{{ msg.date_display }}</span>
+          </div>
+          <div class="basis-full md:basis-auto md:flex-1 md:order-2 min-w-0 flex items-center gap-2">
+            <span class="inline-flex items-center gap-1 text-[11px] md:text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 flex-shrink-0">{{ _('Delivery failed') }}</span>
+            <span class="truncate text-[15px] md:text-[13px] {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
+            {{ _thread_badges(msg, row_protected, row_protected_reason, loop, total) }}
+          </div>
         </div>
-        <div class="flex items-center gap-2 text-[12px] md:text-[11px] text-slate-500 min-w-0 max-w-[55%] justify-end">
-          <span class="truncate" title="{{ msg.sender_tooltip }}">{{ msg.sender_display }}</span>
-          <span class="text-slate-300">&middot;</span>
-          <span class="whitespace-nowrap text-slate-500">{{ msg.date_display }}</span>
-        </div>
+        <div class="md:hidden mt-1 text-[13px] truncate {{ 'text-red-600/80' if msg.bounce_reason else 'text-slate-500' }}" data-snippet="true">{% if msg.bounce_reason %}{{ msg.bounce_reason }}{% else %}{{ msg.snippet|striptags }}{% endif %}</div>
       </div>
-      {% if msg.bounce_reason %}
-      <div class="mt-1 text-[13px] md:text-[12px] text-red-600/80 line-clamp-1">{{ msg.bounce_reason }}</div>
-      {% else %}
-      <div class="mt-1 text-[13px] md:text-[12px] text-slate-500 line-clamp-1">{{ msg.snippet|striptags }}</div>
-      {% endif %}
     </div>
   </div>
 </div>
 {% elif msg.is_draft %}
-<div class="message-row group relative px-3 md:px-4 py-2.5 text-sm cursor-pointer bg-amber-50/50 hover:bg-amber-50/80 border-l-2 border-l-amber-400 transition-all duration-200" draggable="false" data-message-id="{{ msg.id }}" data-account-id="{{ account.id }}" data-message-url="{{ url_for('mail.message_view', account_id=account.id, message_id=msg.id) }}" data-preview-url="{{ preview_url }}" data-is-unread="{{ '1' if msg.is_unread else '0' }}" data-is-flagged="{{ '1' if msg.is_flagged else '0' }}" data-is-draft="1">
-  <div class="flex items-start gap-2">
-    <div class="flex-shrink-0 pt-1 pl-1" data-no-row-nav>
-      <input type="checkbox" data-select-message="{{ msg.id }}" class="h-4 w-4 rounded border-slate-300 accent-slate-900 cursor-pointer" aria-label="{{ _('Select message') }}" data-no-row-nav />
-    </div>
-    <div class="flex-shrink-0 pt-0.5">
-      <div class="flex h-[18px] w-[18px] items-center justify-center">
+<div class="message-row group relative text-sm cursor-pointer transition-all duration-200" draggable="false" data-message-id="{{ msg.id }}" data-account-id="{{ account.id }}" data-message-url="{{ url_for('mail.message_view', account_id=account.id, message_id=msg.id) }}" data-preview-url="{{ preview_url }}" data-is-unread="{{ '1' if msg.is_unread else '0' }}" data-is-flagged="{{ '1' if msg.is_flagged else '0' }}" data-is-draft="1">
+  <div class="relative z-10 overflow-hidden">
+    <div class="flex items-start md:items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5 md:py-2 bg-amber-50/50 hover:bg-amber-50/80 border-l-2 border-l-amber-400 transition-all duration-200" data-row-foreground>
+      {{ select_controls(msg.id, _('Select message')) }}
+      <div class="hidden md:flex flex-shrink-0 h-[18px] w-[18px] items-center justify-center">
         <svg class="w-3.5 h-3.5 text-amber-500" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"/></svg>
       </div>
-    </div>
-    <div class="flex-1 min-w-0">
-      <div class="flex items-center justify-between gap-3 text-[15px] md:text-[13px]">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="inline-flex items-center gap-1 text-[11px] md:text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">{{ _('Draft') }}</span>
-          <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
-          {% if row_protected %}{{ _protected_pill(row_protected_reason) }}{% endif %}
-          {% if loop.first and total > 1 %}
-          <span class="thread-count text-[11px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ total }}</span>
-          {% endif %}
-          {% if msg.has_attachments %}
-          <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          {% endif %}
+      <div class="flex-1 min-w-0">
+        <div class="flex flex-wrap md:flex-nowrap items-baseline md:items-center gap-x-3 gap-y-0.5">
+          <span class="min-w-0 flex-1 md:flex-none md:w-36 lg:w-44 xl:w-52 truncate text-[15px] md:text-[13px] {{ 'font-semibold text-slate-900' if msg.is_unread else 'text-slate-600' }}" title="{{ msg.recipients_display or msg.sender_tooltip }}" tabindex="0" aria-label="{{ msg.recipients_display or msg.sender_tooltip }}" data-sender="true">{% if msg.recipients_display %}<span class="text-amber-600 font-medium">{{ _('To') }}</span> <span class="truncate">{{ msg.recipients_display }}</span>{% else %}{{ msg.sender_display }}{% endif %}</span>
+          <div class="flex flex-col items-end flex-shrink-0 md:order-3">
+            <span class="whitespace-nowrap text-[12px] md:text-[11px] text-slate-500" data-date="true">{{ msg.date_display }}</span>
+          </div>
+          <div class="basis-full md:basis-auto md:flex-1 md:order-2 min-w-0 flex items-center gap-2">
+            <span class="inline-flex items-center gap-1 text-[11px] md:text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 flex-shrink-0">{{ _('Draft') }}</span>
+            <span class="truncate text-[15px] md:text-[13px] {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
+            {{ _thread_badges(msg, row_protected, row_protected_reason, loop, total) }}
+          </div>
         </div>
-        <div class="flex items-center gap-2 text-[12px] md:text-[11px] text-slate-500 min-w-0 max-w-[55%] justify-end">
-          {% if msg.recipients_display %}
-          <span class="inline-flex items-center gap-1 text-amber-600 font-medium">
-            <span>{{ _('To') }}</span>
-            <svg class="w-3 h-3 text-amber-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
-            <span class="truncate font-normal text-slate-500" title="{{ msg.recipients_display }}">{{ msg.recipients_display }}</span>
-          </span>
-          {% else %}
-          <span class="truncate text-slate-500" title="{{ msg.sender_tooltip }}">{{ msg.sender_display }}</span>
-          {% endif %}
-          <span class="text-slate-300">&middot;</span>
-          <span class="whitespace-nowrap text-slate-500">{{ msg.date_display }}</span>
-        </div>
+        <div class="md:hidden mt-1 text-[13px] text-slate-500 truncate" data-snippet="true">{{ msg.snippet|striptags }}</div>
       </div>
-      <div class="mt-1 text-[13px] md:text-[12px] text-slate-500 line-clamp-1">{{ msg.snippet|striptags }}</div>
     </div>
   </div>
 </div>
 {% elif msg.is_sent %}
-<div class="message-row group relative px-3 md:px-4 py-2.5 text-sm cursor-pointer bg-indigo-50/40 hover:bg-indigo-50/70 transition-all duration-200" draggable="false" data-message-id="{{ msg.id }}" data-account-id="{{ account.id }}" data-message-url="{{ url_for('mail.message_view', account_id=account.id, message_id=msg.id) }}" data-preview-url="{{ preview_url }}" data-is-unread="{{ '1' if msg.is_unread else '0' }}" data-is-flagged="{{ '1' if msg.is_flagged else '0' }}" data-is-sent="1">
-  <div class="flex items-start gap-2">
-    <div class="flex-shrink-0 pt-1 pl-1" data-no-row-nav>
-      <input type="checkbox" data-select-message="{{ msg.id }}" class="h-4 w-4 rounded border-slate-300 accent-slate-900 cursor-pointer" aria-label="{{ _('Select message') }}" data-no-row-nav />
-    </div>
-    <div class="flex-shrink-0 pt-0.5">
-      <div class="flex h-[18px] w-[18px] items-center justify-center">
+<div class="message-row group relative text-sm cursor-pointer transition-all duration-200" draggable="false" data-message-id="{{ msg.id }}" data-account-id="{{ account.id }}" data-message-url="{{ url_for('mail.message_view', account_id=account.id, message_id=msg.id) }}" data-preview-url="{{ preview_url }}" data-is-unread="{{ '1' if msg.is_unread else '0' }}" data-is-flagged="{{ '1' if msg.is_flagged else '0' }}" data-is-sent="1">
+  <div class="relative z-10 overflow-hidden">
+    <div class="flex items-start md:items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5 md:py-2 bg-indigo-50/40 hover:bg-indigo-50/70 transition-all duration-200" data-row-foreground>
+      {{ select_controls(msg.id, _('Select message')) }}
+      <div class="hidden md:flex flex-shrink-0 h-[18px] w-[18px] items-center justify-center">
         <svg class="w-3.5 h-3.5 text-indigo-500" viewBox="0 0 20 20" fill="currentColor"><path d="M3.105 2.289a.75.75 0 00-.826.95l1.414 4.925A1.5 1.5 0 005.135 9.25h6.115a.75.75 0 010 1.5H5.135a1.5 1.5 0 00-1.442 1.086l-1.414 4.926a.75.75 0 00.826.95 28.896 28.896 0 0015.293-7.154.75.75 0 000-1.115A28.897 28.897 0 003.105 2.289z"/></svg>
       </div>
-    </div>
-    <div class="flex-1 min-w-0">
-      <div class="flex items-center justify-between gap-3 text-[15px] md:text-[13px]">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
-          {% if row_protected %}{{ _protected_pill(row_protected_reason) }}{% endif %}
-          {% if loop.first and total > 1 %}
-          <span class="thread-count text-[11px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ total }}</span>
-          {% endif %}
-          {% if msg.has_attachments %}
-          <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          {% endif %}
+      <div class="flex-1 min-w-0">
+        <div class="flex flex-wrap md:flex-nowrap items-baseline md:items-center gap-x-3 gap-y-0.5">
+          <span class="min-w-0 flex-1 md:flex-none md:w-36 lg:w-44 xl:w-52 truncate text-[15px] md:text-[13px] {{ 'font-semibold text-slate-900' if msg.is_unread else 'text-slate-600' }}" title="{{ msg.recipients_display or msg.sender_tooltip }}" tabindex="0" aria-label="{{ msg.recipients_display or msg.sender_tooltip }}" data-sender="true"><span class="text-indigo-600 font-medium">{{ _('You') }}</span>{% if msg.recipients_display %} <svg class="w-3 h-3 inline-block text-indigo-400 align-baseline" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg> <span class="truncate">{{ msg.recipients_display }}</span>{% endif %}</span>
+          <div class="flex flex-col items-end flex-shrink-0 md:order-3">
+            <span class="whitespace-nowrap text-[12px] md:text-[11px] text-slate-500" data-date="true">{{ msg.date_display }}</span>
+          </div>
+          <div class="basis-full md:basis-auto md:flex-1 md:order-2 min-w-0 flex items-center gap-2">
+            <span class="truncate text-[15px] md:text-[13px] {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
+            {{ _thread_badges(msg, row_protected, row_protected_reason, loop, total) }}
+          </div>
         </div>
-        <div class="flex items-center gap-2 text-[12px] md:text-[11px] text-slate-500 min-w-0 max-w-[55%] justify-end">
-          <span class="inline-flex items-center gap-1 text-indigo-600 font-medium">
-            <span>{{ _('You') }}</span>
-            {% if msg.recipients_display %}
-            <svg class="w-3 h-3 text-indigo-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
-            <span class="truncate font-normal text-slate-500" title="{{ msg.recipients_display }}">{{ msg.recipients_display }}</span>
-            {% endif %}
-          </span>
-          <span class="text-slate-300">&middot;</span>
-          <span class="whitespace-nowrap text-slate-500">{{ msg.date_display }}</span>
-        </div>
+        <div class="md:hidden mt-1 text-[13px] text-slate-500 truncate" data-snippet="true">{{ msg.snippet|striptags }}</div>
       </div>
-      <div class="mt-1 text-[13px] md:text-[12px] text-slate-500 line-clamp-1">{{ msg.snippet|striptags }}</div>
     </div>
   </div>
 </div>
 {% else %}
-<div class="message-row group relative px-3 md:px-4 py-2.5 text-sm cursor-pointer {{ 'bg-amber-100/70 hover:bg-amber-100' if msg.is_unread else 'hover:bg-slate-50/80' }} transition-all duration-200" draggable="true" data-message-id="{{ msg.id }}" data-account-id="{{ account.id }}" data-message-url="{{ url_for('mail.message_view', account_id=account.id, message_id=msg.id) }}" data-preview-url="{{ preview_url }}" data-is-unread="{{ '1' if msg.is_unread else '0' }}" data-is-flagged="{{ '1' if msg.is_flagged else '0' }}">
-  <div class="flex items-start gap-2">
-    <div class="flex-shrink-0 pt-1 pl-1" data-no-row-nav>
-      <input type="checkbox" data-select-message="{{ msg.id }}" class="h-4 w-4 rounded border-slate-300 accent-slate-900 cursor-pointer" aria-label="{{ _('Select message') }}" data-no-row-nav />
-    </div>
-    <form method="post" action="{{ url_for('mail.flag_message', account_id=account.id, message_id=msg.id) }}" class="message-action flex-shrink-0 pt-0.5" data-action="flag" data-no-row-nav>
-      <input type="hidden" name="action" value="{{ 'remove' if msg.is_flagged else 'add' }}" />
-      <button type="submit" class="p-1.5 -m-1 rounded lr-hit lr-hit-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400" data-star-toggle aria-label="{{ _('Unstar') if msg.is_flagged else _('Star') }}">
-        <svg class="w-[18px] h-[18px] transition-colors {{ 'text-amber-400' if msg.is_flagged else 'text-slate-300 hover:text-amber-400' }}" data-star-icon viewBox="0 0 24 24" fill="{{ 'currentColor' if msg.is_flagged else 'none' }}" stroke="currentColor" stroke-width="{{ '1' if msg.is_flagged else '1.5' }}">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
-      </button>
-    </form>
-    <div class="flex-1 min-w-0">
-      <div class="flex items-center justify-between gap-3 text-[15px] md:text-[13px]">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="truncate {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
-          {% if row_protected %}{{ _protected_pill(row_protected_reason) }}{% endif %}
-          {% if loop.first and total > 1 %}
-          <span class="thread-count text-[11px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">{{ total }}</span>
-          {% endif %}
-          {% if msg.has_attachments %}
-          <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          {% endif %}
+<div class="message-row group relative text-sm cursor-pointer transition-all duration-200" draggable="true" data-message-id="{{ msg.id }}" data-account-id="{{ account.id }}" data-message-url="{{ url_for('mail.message_view', account_id=account.id, message_id=msg.id) }}" data-preview-url="{{ preview_url }}" data-is-unread="{{ '1' if msg.is_unread else '0' }}" data-is-flagged="{{ '1' if msg.is_flagged else '0' }}">
+  {{ swipe_panels(account.id, msg.id, msg.is_unread) }}
+  <div class="relative z-10 overflow-hidden">
+    <div class="flex items-start md:items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5 md:py-2 {{ 'bg-[#fef7d8] hover:bg-amber-100' if msg.is_unread else 'bg-white hover:bg-slate-50/80' }} transition-all duration-200" data-row-foreground>
+      {{ select_controls(msg.id, _('Select message')) }}
+      {{ star_form(account.id, msg.id, msg.is_flagged, 'hidden md:block flex-shrink-0') }}
+      <div class="flex-1 min-w-0">
+        <div class="flex flex-wrap md:flex-nowrap items-baseline md:items-center gap-x-3 gap-y-0.5">
+          <span class="min-w-0 flex-1 md:flex-none md:w-36 lg:w-44 xl:w-52 truncate text-[15px] md:text-[13px] {{ 'font-semibold text-slate-900' if msg.is_unread else 'text-slate-600' }}" title="{{ msg.sender_tooltip }}" tabindex="0" aria-label="{{ msg.sender_tooltip }}" data-sender="true">{{ msg.sender_display }}</span>
+          <div class="flex flex-col items-end flex-shrink-0 md:order-3">
+            <span class="whitespace-nowrap text-[12px] md:text-[11px] text-slate-500" data-date="true">{{ msg.date_display }}</span>
+            {{ star_form(account.id, msg.id, msg.is_flagged, 'message-action md:hidden mt-0.5 -mr-1') }}
+          </div>
+          <div class="basis-full md:basis-auto md:flex-1 md:order-2 min-w-0 flex items-center gap-2">
+            <span class="truncate text-[15px] md:text-[13px] {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
+            {{ _thread_badges(msg, row_protected, row_protected_reason, loop, total) }}
+          </div>
         </div>
-        <div class="flex items-center gap-2 text-[12px] md:text-[11px] text-slate-500 min-w-0 max-w-[45%] justify-end">
-          <span class="truncate" title="{{ msg.sender_tooltip }}" tabindex="0" aria-label="{{ msg.sender_tooltip }}">{{ msg.sender_display }}</span>
-          <span class="text-slate-300">&middot;</span>
-          <span class="whitespace-nowrap text-slate-500">{{ msg.date_display }}</span>
-        </div>
+        <div class="md:hidden mt-1 text-[13px] text-slate-600 truncate" data-snippet="true">{{ msg.snippet|striptags }}</div>
       </div>
-      <div class="mt-1 text-[13px] md:text-[12px] text-slate-600 line-clamp-1">{{ msg.snippet|striptags }}</div>
     </div>
   </div>
-  <button type="button" class="lg:hidden absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full border border-slate-200 bg-white/95 text-[13px] lg:text-[12px] text-slate-600 shadow-sm z-30 lr-hit" data-message-actions-toggle="true" data-no-row-nav aria-expanded="false" aria-label="{{ _('Show actions') }}">...</button>
   <div class="absolute inset-y-0 right-0 flex items-center justify-end gap-1 pl-12 pr-3 bg-gradient-to-l from-white/90 via-white/70 to-transparent opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition z-20 message-actions-overlay" data-message-actions="true">
     <form method="post" action="{{ url_for('mail.archive_message', account_id=account.id, message_id=msg.id) }}" class="message-action" data-action="archive" data-no-row-nav>
       <button class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit">{{ _('Archive') }}</button>
@@ -213,7 +172,7 @@
 {% set thread_key = msgs[0].id|string if msgs|length > 0 else '' %}
 {% set has_bounce = msgs | selectattr('is_bounce') | list | length > 0 %}
 {% set has_draft = msgs | selectattr('is_draft') | list | length > 0 %}
-<div class="thread-card border-l-2 {{ 'border-l-red-400' if has_bounce else ('border-l-amber-400' if has_draft else 'border-l-indigo-400') }} bg-white md:rounded-xl md:border md:border-slate-200/80 md:border-l-2 {{ 'md:border-l-red-400' if has_bounce else ('md:border-l-amber-400' if has_draft else 'md:border-l-indigo-400') }}" data-thread-card="true" {% if thread_key %}data-thread-key="{{ thread_key }}"{% endif %}>
+<div class="thread-card border-l-2 {{ 'border-l-red-400' if has_bounce else ('border-l-amber-400' if has_draft else 'border-l-indigo-400') }}" data-thread-card="true" {% if thread_key %}data-thread-key="{{ thread_key }}"{% endif %}>
   <div class="divide-y divide-slate-200/70">
     {% if full_count > collapsed_threshold %}
       {% set visible_count = 2 %}

@@ -138,7 +138,7 @@
   </aside>
   <div id="sidebar-backdrop" class="hidden lg:hidden fixed inset-0 z-40 bg-slate-900/40" aria-hidden="true"></div>
 
-  <section id="message-area" class="col-span-12 lg:col-span-9 bg-white border-t border-b border-slate-200/80 md:bg-white/90 md:border md:rounded-2xl md:shadow-sm overflow-hidden">
+  <section id="message-area" class="col-span-12 lg:col-span-9 bg-white overflow-hidden">
     <div class="border-b border-slate-200/80 px-3 md:px-5 py-3 md:py-4">
       <div class="flex items-center justify-between gap-3">
         <div class="flex items-center gap-1.5 min-w-0">
@@ -208,23 +208,30 @@
     {% endif %}
 
     <div id="message-content" class="grid grid-cols-12">
-      <div id="message-list" class="col-span-12 px-0 md:px-3 py-1 md:py-2 space-y-1.5 md:space-y-4">
+      <div id="message-list" class="col-span-12 divide-y divide-slate-200">
         {% if threads|length == 0 and initial_syncing %}
-        <div id="message-skeleton">
+        <div id="message-skeleton" class="divide-y divide-slate-200">
           {% for _ in range(5) %}
-          <div class="border-l-2 border-slate-200 bg-white mb-1.5 md:mb-4 md:rounded-xl md:border md:border-slate-200/80 md:border-l-2">
-            <div class="px-3 md:px-4 py-2.5 md:py-3 flex items-start gap-2">
-              <div class="skeleton-shimmer h-[18px] w-[18px] rounded-sm flex-shrink-0 mt-0.5"></div>
-              <div class="flex-1 min-w-0 space-y-2.5">
-                <div class="flex items-center justify-between gap-3">
-                  <div class="skeleton-shimmer h-4 rounded" style="width:{{ [55, 65, 45, 70, 50]|random }}%"></div>
-                  <div class="flex items-center gap-2">
-                    <div class="skeleton-shimmer h-3 w-16 rounded"></div>
-                    <div class="skeleton-shimmer h-3 w-10 rounded"></div>
-                  </div>
-                </div>
-                <div class="skeleton-shimmer h-3 rounded" style="width:{{ [80, 70, 90, 60, 75]|random }}%"></div>
+          {# UX7a: skeleton mimics the row layout per breakpoint — desktop a
+             single line (UX3a: checkbox, star, sender column, subject, date),
+             mobile three stacked lines (UX3e: sender/date, subject, snippet). #}
+          <div class="border-l-2 border-slate-200">
+            <div class="hidden md:flex items-center gap-2 md:gap-3 px-3 md:px-4 py-3">
+              <div class="skeleton-shimmer h-4 w-4 rounded-sm flex-shrink-0"></div>
+              <div class="skeleton-shimmer h-[18px] w-[18px] rounded-sm flex-shrink-0"></div>
+              <div class="skeleton-shimmer h-4 w-36 lg:w-44 rounded flex-shrink-0"></div>
+              <div class="flex-1 flex items-center justify-between gap-3 min-w-0">
+                <div class="skeleton-shimmer h-4 rounded" style="width:{{ [55, 65, 45, 70, 50]|random }}%"></div>
+                <div class="skeleton-shimmer h-3 w-12 rounded flex-shrink-0"></div>
               </div>
+            </div>
+            <div class="md:hidden px-3 py-2.5 space-y-2">
+              <div class="flex items-center justify-between gap-3">
+                <div class="skeleton-shimmer h-4 rounded flex-1" style="max-width:{{ [45, 55, 40, 60, 50]|random }}%"></div>
+                <div class="skeleton-shimmer h-3 w-12 rounded flex-shrink-0"></div>
+              </div>
+              <div class="skeleton-shimmer h-4 rounded" style="width:{{ [75, 65, 85, 55, 70]|random }}%"></div>
+              <div class="skeleton-shimmer h-3 rounded" style="width:{{ [90, 80, 95, 70, 85]|random }}%"></div>
             </div>
           </div>
           {% endfor %}
@@ -276,6 +283,7 @@
 {% endif %}
 
 <script src="{{ url_for('static', filename='js/mail/message-list.js') }}?v={{ static_v('js/mail/message-list.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mail/swipe.js') }}?v={{ static_v('js/mail/swipe.js') }}"></script>
 <script src="{{ url_for('static', filename='js/mail/bulk-select.js') }}?v={{ static_v('js/mail/bulk-select.js') }}"></script>
 <script>
   const UNREAD_EXCLUDED_FOLDERS = new Set({{ unread_excluded_folders | tojson }});
@@ -1179,7 +1187,7 @@
   };
 
   // Shared message-list behavior (js/mail/message-list.js): row action
-  // overlay ("..." touch toggle), overflow menu, inline action submits,
+  // overlay, swipe gestures (UX3g), overflow menu, inline action submits,
   // thread collapse, row navigation.
   const listApi = window.LRMessageList.init({
     container: messageList,
@@ -1210,7 +1218,8 @@
 
   const source = new EventSource('/events/stream');
 
-  // Multi-select bulk actions (HLD U5.6): row checkboxes + action bar.
+  // Multi-select bulk actions (HLD U5.6/UX3h): desktop checkboxes +
+  // mobile long-press selection mode + action bar.
   window.LRBulkSelect.init({
     container: messageList,
     accountId: currentAccountId

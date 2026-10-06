@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% from "_row_common.html" import select_controls, star_form, swipe_panels %}
 {% block content %}
 <div class="px-3 md:px-0">
   <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
@@ -22,41 +23,34 @@
   </div>
   {% endif %}
 
-  <div class="bg-white border-t border-b border-slate-200/80 md:bg-white/90 md:border md:rounded-2xl md:shadow-sm overflow-hidden">
+  <div class="bg-white overflow-hidden">
     {% set bulk_folders = folders %}
     {% set bulk_total_matches = total if total else none %}
     {% set bulk_query = query %}
     {% include "_bulk_toolbar.html" %}
     <div id="search-results" class="divide-y divide-slate-200/70">
       {% for row in results %}
-      <div class="message-row group relative px-3 md:px-4 py-2.5 text-sm cursor-pointer {{ 'bg-amber-100/70 hover:bg-amber-100' if row.is_unread else 'hover:bg-slate-50/80' }} transition-all duration-200" data-message-id="{{ row.id }}" data-account-id="{{ account_id }}" data-message-url="{{ url_for('mail.message_view', account_id=account_id, message_id=row.id) }}" data-is-unread="{{ '1' if row.is_unread else '0' }}" data-is-flagged="{{ '1' if row.is_flagged else '0' }}">
-        <div class="flex items-start gap-2">
-          <div class="flex-shrink-0 pt-1 pl-1" data-no-row-nav>
-            <input type="checkbox" data-select-message="{{ row.id }}" class="h-4 w-4 rounded border-slate-300 accent-slate-900 cursor-pointer" aria-label="{{ _('Select message') }}" data-no-row-nav />
-          </div>
-          <form method="post" action="{{ url_for('mail.flag_message', account_id=account_id, message_id=row.id) }}" class="message-action flex-shrink-0 pt-0.5" data-action="flag" data-no-row-nav>
-            <input type="hidden" name="action" value="{{ 'remove' if row.is_flagged else 'add' }}" />
-            <button type="submit" class="p-1.5 -m-1 rounded lr-hit lr-hit-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400" data-star-toggle aria-label="{{ _('Unstar') if row.is_flagged else _('Star') }}">
-              <svg class="w-[18px] h-[18px] transition-colors {{ 'text-amber-400' if row.is_flagged else 'text-slate-300 hover:text-amber-400' }}" data-star-icon viewBox="0 0 24 24" fill="{{ 'currentColor' if row.is_flagged else 'none' }}" stroke="currentColor" stroke-width="{{ '1' if row.is_flagged else '1.5' }}">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-              </svg>
-            </button>
-          </form>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between gap-3 text-[15px] md:text-[13px]">
-              <div class="flex items-center gap-2 min-w-0">
-                <span class="truncate {{ 'font-bold text-slate-950' if row.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ row.subject }}">{{ row.subject }}</span>
+      <div class="message-row group relative text-sm cursor-pointer transition-all duration-200" data-message-id="{{ row.id }}" data-account-id="{{ account_id }}" data-message-url="{{ url_for('mail.message_view', account_id=account_id, message_id=row.id) }}" data-is-unread="{{ '1' if row.is_unread else '0' }}" data-is-flagged="{{ '1' if row.is_flagged else '0' }}">
+        {{ swipe_panels(account_id, row.id, row.is_unread) }}
+        <div class="relative z-10 overflow-hidden">
+          <div class="flex items-start md:items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5 md:py-2 {{ 'bg-[#fef7d8] hover:bg-amber-100' if row.is_unread else 'bg-white hover:bg-slate-50/80' }} transition-all duration-200" data-row-foreground>
+            {{ select_controls(row.id, _('Select message')) }}
+            {{ star_form(account_id, row.id, row.is_flagged, 'hidden md:block flex-shrink-0') }}
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-wrap md:flex-nowrap items-baseline md:items-center gap-x-3 gap-y-0.5">
+                <span class="min-w-0 flex-1 md:flex-none md:w-36 lg:w-44 xl:w-52 truncate text-[15px] md:text-[13px] {{ 'font-semibold text-slate-900' if row.is_unread else 'text-slate-600' }}" title="{{ row.sender }}" data-sender="true">{{ row.sender }}</span>
+                <div class="flex flex-col items-end flex-shrink-0 md:order-3">
+                  <span class="whitespace-nowrap text-[12px] md:text-[11px] text-slate-500" data-date="true">{{ row.date_display }}</span>
+                  {{ star_form(account_id, row.id, row.is_flagged, 'message-action md:hidden mt-0.5 -mr-1') }}
+                </div>
+                <div class="basis-full md:basis-auto md:flex-1 md:order-2 min-w-0 flex items-center gap-2">
+                  <span class="truncate text-[15px] md:text-[13px] {{ 'font-bold text-slate-950' if row.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ row.subject }}">{{ row.subject }}</span>
+                </div>
               </div>
-              <div class="flex items-center gap-2 text-[12px] md:text-[11px] text-slate-500 min-w-0 max-w-[45%] justify-end">
-                <span class="truncate" title="{{ row.sender }}">{{ row.sender }}</span>
-                <span class="text-slate-300">&middot;</span>
-                <span class="whitespace-nowrap text-slate-500">{{ row.date_display }}</span>
-              </div>
+              <div class="md:hidden mt-1 text-[13px] text-slate-600 truncate" data-snippet="true">{{ row.snippet|striptags }}</div>
             </div>
-            <div class="mt-1 text-[13px] md:text-[12px] text-slate-600 line-clamp-1">{{ row.snippet|striptags }}</div>
           </div>
         </div>
-        <button type="button" class="lg:hidden absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full border border-slate-200 bg-white/95 text-[13px] lg:text-[12px] text-slate-600 shadow-sm z-30 lr-hit" data-message-actions-toggle="true" data-no-row-nav aria-expanded="false" aria-label="{{ _('Show actions') }}">...</button>
         <div class="absolute inset-y-0 right-0 flex items-center justify-end gap-1 pl-12 pr-3 bg-gradient-to-l from-white/90 via-white/70 to-transparent opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition z-20" data-message-actions="true">
           <form method="post" action="{{ url_for('mail.archive_message', account_id=account_id, message_id=row.id) }}" class="message-action" data-action="archive" data-no-row-nav>
             <button class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit">{{ _('Archive') }}</button>
@@ -87,6 +81,7 @@
 </div>
 
 <script src="{{ url_for('static', filename='js/mail/message-list.js') }}?v={{ static_v('js/mail/message-list.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mail/swipe.js') }}?v={{ static_v('js/mail/swipe.js') }}"></script>
 <script src="{{ url_for('static', filename='js/mail/bulk-select.js') }}?v={{ static_v('js/mail/bulk-select.js') }}"></script>
 <script>
 (function () {
@@ -102,8 +97,8 @@
     }
   }
 
-  // Shared message-list behavior (js/mail/message-list.js): "..." touch
-  // toggle, overflow menu, move-to-folder, inline action submits, row nav.
+  // Shared message-list behavior (js/mail/message-list.js): swipe
+  // gestures, overflow menu, move-to-folder, inline action submits, row nav.
   window.LRMessageList.init({
     container: container,
     folders: {{ folders | tojson }},

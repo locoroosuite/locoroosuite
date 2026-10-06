@@ -178,7 +178,7 @@ U4.10a - Message row click behavior:
   - Left click opens the full message page when preview is disabled.
   - Ctrl/Cmd+Click and middle-click open the full message page in a new browser tab/window.
 U4.11 - No keyboard shortcuts in MVP.
-U4.12 - Message list shows a short body preview snippet.
+U4.12 - Message list shows a short body preview snippet on mobile rows (UX3e); desktop rows are single-line without a snippet (UX3a).
 U4.16 - Folder view is paginated at the conversation level: 50 conversations per page. The folder header displays the total number of conversations and emails (e.g. "11 conversations (228 emails)"). Pagination controls (Previous/Next) appear at the bottom when the folder has more than 50 conversations. Messages without a valid date are sorted first in the list so they are never hidden. The listing query excludes the body column for performance; body is fetched on demand when viewing a single message. Client-side list refreshes are coalesced: a burst of SSE sync/UI events triggers a single debounced refresh (not one per event), and the FLIP enter/exit animation is skipped when the rendered row count is large so a single synchronous layout pass cannot freeze the tab.
 U4.13 - Support folder favorites/pinning.
 U4.14 - Smart folders (local-only views): Unread and Starred only. Show these links under the INBOX section.
@@ -217,7 +217,7 @@ U5.4 - Can create folders (IMAP server-side).
 U5.4a - Folder management is exposed beyond the web UI: customers can create, rename, and delete mail folders. Create maps to IMAP CREATE, rename to IMAP RENAME, delete to IMAP DELETE. Creation is idempotent (creating an existing mailbox returns success without error). When `parent` is supplied, the new mailbox is nested using the server hierarchy delimiter from IMAP LIST (e.g. `parent<delim>name`). Non-ASCII mailbox names are encoded with modified UTF-7 (RFC 3501 §5.1.3). `list_folders` reflects create/rename/delete immediately via the per-user cache.
 U5.4b - System folders are protected from destructive management: `INBOX`, `Sent`, `Drafts`, `Trash`, `Junk` (alias `Spam`), and `Bookings` can never be renamed or deleted through the application (REST API, MCP, or web UI); these are refused with a structured error. Folder management is exposed via the REST API (`/api/v1/mail/folders`) and MCP, alongside the existing web UI.
 U5.5 - Can move emails to folders.
-U5.6 - Bulk actions on message listings (Gmail parity): every listing (folder view and search results) supports multi-select. A select-all control per page selects the visible rows; on search result views a second deliberate step ("Select all N conversations that match this search") applies the action to the entire result set. Search-scoped bulk actions re-execute the query server-side (the client never sends an ID list for "all results"). Applying to the entire result set shows a count confirmation when N > 200. Available actions: mark read, mark unread, star, move to folder, delete (subject to U5.9 protection rules). The listing action bar replaces per-listing header buttons for these actions.
+U5.6 - Bulk actions on message listings (Gmail parity): every listing (folder view and search results) supports multi-select — via always-visible checkboxes on desktop (`md:` and up) and via press-and-hold selection mode on touch below `md` (UX3h). A select-all control per page selects the visible rows; on search result views a second deliberate step ("Select all N conversations that match this search") applies the action to the entire result set. Search-scoped bulk actions re-execute the query server-side (the client never sends an ID list for "all results"). Applying to the entire result set shows a count confirmation when N > 200. Available actions: mark read, mark unread, star, move to folder, delete (subject to U5.9 protection rules). The listing action bar replaces per-listing header buttons for these actions.
 U5.7 - Support "mark all as read" per folder. Exposed only via the folder "⋯" context menu (count-guarded, hidden when the folder has 0 unread); no "mark all read" button in the listing header (accidental-tap risk on mobile).
 U5.8 - Support drag-and-drop of messages into folders.
 U5.8a - During drag-and-drop, the UI provides clear visual feedback: valid drop-target folders highlight with a colored background and left-border accent on hover; the folder the message is currently in is dimmed as an invalid target; the dragged row shows reduced opacity. If the move fails, a toast notification informs the user with a retry suggestion.
@@ -1364,24 +1364,44 @@ M13d - Dev-only snippet diagnostics may log privacy-safe metadata (content-type 
 # UI/UX Guidelines (MVP)
 UX1 - List density settings are out of scope for MVP; use the default list density.
 UX2 - Message list rows are fully clickable; subtle hover actions are available (archive/delete/mark read) without overwhelming the layout.
-UX3 - Message list visual hierarchy: subject is primary; sender and snippet are secondary; date/time is tertiary and right-aligned.
-UX3b - Message list row actions are hidden by default and appear on hover/focus. No reserved action column; actions overlay the right side of the row. The hover/focus reveal applies only on hover-capable devices: all Tailwind `hover:`/`group-hover:` variants are emitted inside `@media (hover: hover) and (pointer: fine)` (`future.hoverOnlyWhenSupported`), and the hidden overlay carries `pointer-events-none` so it can never intercept taps on touch devices (browsers emulate `:hover` during a tap, which otherwise makes an invisible overlay briefly interactive). Keyboard `focus-within` reveal is unaffected. On touch/mobile, show a “…” toggle on the right to reveal/hide actions.
+UX3 - Message list visual hierarchy: subject and sender are primary; snippet is secondary (mobile rows only); date/time is tertiary and right-aligned.
+UX3b - Message list row actions are hidden by default and appear on hover/focus. No reserved action column; actions overlay the right side of the row. The hover/focus reveal applies only on hover-capable devices: all Tailwind `hover:`/`group-hover:` variants are emitted inside `@media (hover: hover) and (pointer: fine)` (`future.hoverOnlyWhenSupported`), and the hidden overlay carries `pointer-events-none` so it can never intercept taps on touch devices (browsers emulate `:hover` during a tap, which otherwise makes an invisible overlay briefly interactive). Keyboard `focus-within` reveal is unaffected. On touch/mobile below `lg`, mail message rows reveal actions via horizontal swipe gestures (UX3g) instead of a “…” toggle.
 UX3c - Message list row action hierarchy (Gmail-style):
   - Star toggle: always visible as a star icon in a narrow column to the left of the subject. Filled amber when starred, muted outline when not. Clicking toggles the IMAP flag.
   - Primary hover actions (desktop): Archive and Delete buttons appear on row hover/focus, overlaid on the right side of the row.
   - Secondary actions: a “⋯” button appears alongside the primary actions on hover; clicking it reveals a small dropdown with Mark as Read/Unread and Report Spam.
-  - On touch/mobile, the “…” toggle reveals all actions in the overlay (primary and secondary via the dropdown).
+  - On touch/mobile, swipe gestures (UX3g) reveal all row actions (primary and secondary via the revealed menu).
 UX3d - Hover-revealed actions on every list (mail folder sidebar rows, docs document rows and folder tree, chat message actions, calendar sidebar rows) must be touch-safe and touch-reachable:
   - Hidden elements must carry `pointer-events-none` until revealed, so an invisible overlay can never intercept taps on any device.
-  - On devices without hover (CSS `@media (hover: none)`), hover-hidden actions are always visible — never hidden behind a hover-only affordance. An explicit touch toggle (UX3b style) is the accepted alternative where visual density requires it.
-UX3a - Message list row layout:
-  - Line 1: Subject on the left; Sender and Date on the right. Subject truncates with ellipsis; full subject is available via tooltip (hover/focus).
-  - Sender block shows up to two words from the display name; if only an email address is available, use the local-part (before "@"). Sender truncates with ellipsis; full name + email available via tooltip (hover/focus).
+  - On devices without hover (CSS `@media (hover: none)`), hover-hidden actions are always visible — never hidden behind a hover-only affordance. An explicit touch toggle (UX3b style) or swipe gestures (UX3g, mail rows) are the accepted alternatives where visual density requires it.
+UX3a - Message list row layout (desktop, `md:` and up) — compact single-line row:
+  - Left to right: select checkbox, star toggle, fixed-width sender column, subject (flexible), date/time right-aligned. Subject truncates with ellipsis; full subject is available via tooltip (hover/focus).
+  - The sender column uses a fixed width so senders align vertically down the page for scannability. Sender block shows up to two words from the display name; if only an email address is available, use the local-part (before "@"). Sender truncates with ellipsis; full name + email available via tooltip (hover/focus).
+  - No snippet line on desktop; the snippet is mobile-only (UX3e).
   - Date/time display uses the user's configured timezone.
   - If a message is within the last 24 hours, display time in 24-hour format: "HH:mm".
   - Otherwise, display "12 Jan" for messages in the current year and "12 Jan 24" for messages in other years.
-  - Unread messages are indicated with bold subject and a subtle background tint.
+  - Unread messages are indicated with bold sender and bold subject plus a subtle background tint.
   - Optional subtle thread count chip appears to the right of the subject.
+UX3e - Message list row layout (mobile, below `md`) — stacked three-line row:
+  - Line 1: Sender on the left; date/time right-aligned on the same line.
+  - Line 2: Subject.
+  - Line 3: First line of the body snippet (single line, ellipsized; sanitized per UX4).
+  - The star toggle sits on the right edge below the date.
+  - No select checkbox is rendered outside selection mode (UX3h).
+  - Sender display follows the same two-words/local-part rule as UX3a; date formats follow UX3a.
+UX3f - Full-width list surface (all breakpoints): the mail message list (folder view and search results) renders without outer card chrome — no left/right/top borders, no rounded corners, no outer padding — on desktop as well as mobile, maximizing usable row width. Rows are separated by hairline dividers; hover tint distinguishes rows instead of card boundaries. This is a deliberate exception to U24.33's "card design unchanged at `md:` and up" and applies to the mail message list only.
+UX3g - Mail row swipe gestures (touch only, below `lg`): mail message rows support horizontal drag-to-reveal actions, replacing the former “…” toggle:
+  - Swipe right: quick Archive — dragging the row right reveals an archive affordance; completing the swipe archives immediately with the standard undo banner (U5.11).
+  - Swipe left: reveals the full action menu (Archive, Delete, Mark as read/unread, Report Spam, Move to…); release on an action triggers it, release elsewhere snaps the row back.
+  - Gesture disambiguation: a drag counts as a swipe only when horizontal movement dominates (|dx| >= 60px and |dx| >= |dy| * 1.5, matching the calendar swipe threshold pattern of U12.56d); otherwise the touch is normal scrolling/navigation. A tap (no significant movement) never triggers a swipe; inline controls (e.g. the star) win over gesture start within their hit areas.
+  - The row follows the finger during the drag and snaps (back or forward) with a spring-like transition; `prefers-reduced-motion` disables the follow animation.
+  - Fine-pointer devices (desktop) never get swipe behavior; hover overlay actions (UX3b/UX3c) remain the desktop path.
+UX3h - Mobile multi-select via long-press (touch only, below `md`): instead of always-visible checkboxes, message rows enter a selection mode via press-and-hold:
+  - Press-and-hold (~500ms, haptic feedback via `navigator.vibrate` where supported) on a row enters selection mode and selects that row. The press is cancelled if the pointer moves beyond the tap slop or scrolling starts.
+  - In selection mode each row shows an animated selection control at the left edge — a circular outline that fills with a checkmark when selected, with a transition animation on both select and unselect. Tapping rows toggles their selection.
+  - A "Done" control exits selection mode; deselecting the last selected row also exits. Select-all remains available from the bulk toolbar (U5.6).
+  - Desktop (`md:` and up) keeps always-visible checkboxes, which are the keyboard/screen-reader accessible path; long-press is a touch-only accelerator.
 UX4 - Snippets are sanitized and normalized (no raw HTML fragments); clamp to 1–2 lines with ellipsis.
 UX4a - Snippet extraction rules:
   - Prefer the plain-text body part; if missing, derive from HTML via HTML-to-text conversion.
@@ -1393,7 +1413,7 @@ UX4a - Snippet extraction rules:
   - Maintain a small, editable pattern list for boilerplate/greeting detection (defaults stored in data/snippet_patterns.json).
 UX4b - Dev-only snippet debug view may be enabled via a query param to show rule decisions and the chosen candidate in the UI; must be disabled in production.
 UX7 - Empty state behavior: show an in-list syncing status (e.g., "Syncing 2 of 10..." or "Syncing...") while a folder is actively syncing and until we have completed at least one check against IMAP for that folder. Once a completed check confirms the folder has zero messages (cache + IMAP), show a "No messages" (or similar) empty state. Even when "No messages" is shown, continue background syncing for the active folder and surface new messages if they arrive.
-UX7a - Loading skeleton: when the message list is empty and a sync is in progress (no cached messages yet, or first-time folder open), show a skeleton loader instead of plain "Syncing..." text. The skeleton displays 5–6 placeholder rows that mimic the exact layout of real message rows (star column, subject bar, sender/date bar, snippet bar) using animated shimmer/gray bars. This ensures the page layout looks complete and professional from the moment it renders. The skeleton is replaced with real content once the first batch of messages arrives via refreshMessages(). The skeleton is not shown when cached messages are already displayed — only for genuinely empty lists during active sync.
+UX7a - Loading skeleton: when the message list is empty and a sync is in progress (no cached messages yet, or first-time folder open), show a skeleton loader instead of plain "Syncing..." text. The skeleton displays 5–6 placeholder rows that mimic the exact layout of real message rows for the current breakpoint (desktop: checkbox, star, sender column bar, subject bar, date bar; mobile: sender/date bar, subject bar, snippet bar — per UX3a/UX3e) using animated shimmer/gray bars. This ensures the page layout looks complete and professional from the moment it renders. The skeleton is replaced with real content once the first batch of messages arrives via refreshMessages(). The skeleton is not shown when cached messages are already displayed — only for genuinely empty lists during active sync.
 UX7b - FLIP animations for message list updates: when refreshMessages() receives new HTML from the server, instead of bluntly replacing innerHTML, use the FLIP technique (First, Last, Invert, Play) to animate message row transitions smoothly:
   - Before applying new HTML, record the bounding rect of each existing message row (keyed by data-message-id).
   - After applying the new HTML, for rows that still exist: calculate the position delta and animate from old position to new position using CSS transforms (translateY) with a ~250ms ease-out transition.
@@ -1840,7 +1860,7 @@ The application is fully usable on mobile browsers and can be installed as a Pro
 
 ## Responsive Layout
 
-U24.1 - All customer-facing pages are usable at a 360px viewport width: no horizontal overflow, tap targets >= 40px in the dominant dimension (44px preferred; the hit area may exceed the visual size via padding/pseudo-element), and hover-revealed actions always have a touch fallback (always visible on touch per UX3d, or an explicit toggle per UX3b).
+U24.1 - All customer-facing pages are usable at a 360px viewport width: no horizontal overflow, tap targets >= 40px in the dominant dimension (44px preferred; the hit area may exceed the visual size via padding/pseudo-element — but hit-area expansion is scoped to coarse-pointer/touch contexts and must never overlap an adjacent control's visual bounds on fine-pointer/desktop devices), and hover-revealed actions always have a touch fallback (always visible on touch per UX3d, an explicit toggle per UX3b, or swipe gestures per UX3g).
 U24.2 - Off-canvas drawer pattern: on viewports below the `lg` breakpoint (1024px), the mail folder sidebar, calendar sidebar, and docs sidebar render as an off-canvas drawer with a dimmed backdrop. The drawer opens via a hamburger button in the content header, and closes on backdrop tap, Escape, folder/section navigation, or window resize to desktop. On desktop (`lg:` and up) the sidebars remain inline and existing collapse behavior is unchanged.
 U24.3 - Preview pane (U4.10) is desktop-only: below `lg` the preview pane is disabled and message row taps open the full message page (U4.10a semantics). If the user enables preview while on a desktop and then resizes below `lg`, the pane is hidden until the viewport is desktop-sized again.
 U24.4 - Header global search (U7.2): on phones the search input collapses into an icon in the header; tapping it expands a full-width search row under the header.
@@ -1852,7 +1872,7 @@ U24.32 - Docs list mobile layout: below the `lg` breakpoint the document table r
 
 ## Mobile Density (edge-to-edge)
 
-U24.33 - Compact mobile density: on viewports below the `md` breakpoint (768px), customer-facing screens use compact spacing to maximize content area; at `md:` and up all existing spacing, borders, and card design are unchanged. The shared page container (`<main>`) drops its horizontal padding and reduces vertical padding on mobile (`px-0 md:px-6 lg:px-8`, `py-3 md:py-6`); each screen then manages its own mobile gutters.
+U24.33 - Compact mobile density: on viewports below the `md` breakpoint (768px), customer-facing screens use compact spacing to maximize content area; at `md:` and up all existing spacing, borders, and card design are unchanged (exception: the mail message list, which drops its card chrome at every breakpoint per UX3f). The shared page container (`<main>`) drops its horizontal padding and reduces vertical padding on mobile (`px-0 md:px-6 lg:px-8`, `py-3 md:py-6`); each screen then manages its own mobile gutters.
 
 U24.34 - Edge-to-edge list surfaces: primary list surfaces render full-bleed on mobile (`< md`) — the mail message list, contacts list, docs list, calendar agenda list, and chat room list. The outer card chrome (border, rounded corners, outer padding, page-level margin) is removed below `md`; rows span the full viewport width with compact row padding (`px-3`) and hairline dividers. Section headers/toolbars above these lists are also full-width with `px-3` on mobile.
 

@@ -55,25 +55,42 @@ class TestMobileMailUi:
         with contextlib.suppress(Exception):
             page.wait_for_url("**/mail/message/**", timeout=8000)
 
-    def test_row_actions_toggle_renders_on_right_side(
+    def test_mobile_row_renders_three_line_layout(
         self, seeded_inbox_message, mobile_logged_in_page
     ):
-        """UX3b regression guard: the '...' toggle must sit in the right half
-        of the row. It breaks when the toggle's `absolute` utility is
-        defeated (e.g. by an unlayered `position:relative` rule like the
-        old .lr-hit) — the button then falls back to its static position on
-        the left, under the star: the reported mobile bug."""
+        """UX3e: below md each row stacks three lines — sender + date,
+        subject, snippet — with the star under the date on the right, and
+        no select checkbox outside selection mode."""
         page = mobile_logged_in_page
         row = page.wait_for_selector(".message-row", timeout=15000)
         assert row is not None
-        toggle = row.query_selector("[data-message-actions-toggle]")
-        assert toggle is not None, "mobile '...' toggle missing"
-        assert toggle.is_visible()
+        assert row.query_selector("[data-message-actions-toggle]") is None, (
+            "the '...' toggle was removed (UX3g)"
+        )
+        sender = row.query_selector("[data-sender]")
+        subject = row.query_selector("[data-subject]")
+        snippet = row.query_selector("[data-snippet]")
+        assert sender is not None and sender.is_visible()
+        assert subject is not None and subject.is_visible()
+        assert snippet is not None and snippet.is_visible()
+        # Stacked: subject renders strictly below the sender line.
+        sender_box = sender.bounding_box()
+        subject_box = subject.bounding_box()
+        assert sender_box is not None and subject_box is not None
+        assert subject_box["y"] > sender_box["y"]
+        # No checkbox visible outside selection mode (UX3h).
+        checkbox = row.query_selector("input[data-select-message]")
+        assert checkbox is None or not checkbox.is_visible()
+        # Star sits below the date on the right edge.
+        date = row.query_selector("[data-date]")
+        star = row.query_selector("[data-star-toggle]")
+        assert date is not None and star is not None
+        date_box = date.bounding_box()
+        star_box = star.bounding_box()
         row_box = row.bounding_box()
-        toggle_box = toggle.bounding_box()
-        assert row_box is not None and toggle_box is not None
-        toggle_center = toggle_box["x"] + toggle_box["width"] / 2
-        assert toggle_center > row_box["x"] + row_box["width"] / 2
+        assert date_box is not None and star_box is not None and row_box is not None
+        assert star_box["y"] > date_box["y"]
+        assert star_box["x"] + star_box["width"] / 2 > row_box["x"] + row_box["width"] / 2
 
 
 @skip_if_no_services
@@ -344,8 +361,9 @@ class TestMobileDensityUi:
         page = mobile_logged_in_page
         row = page.wait_for_selector(".message-row", timeout=15000)
         assert row is not None
+        # Padding lives on the swipe foreground (UX3g), not the row.
         metrics = page.eval_on_selector(
-            ".message-row",
+            ".message-row [data-row-foreground]",
             "el => ({ pl: getComputedStyle(el).paddingLeft, h: Math.round(el.getBoundingClientRect().height) })",
         )
         # px-3 compact gutter (was px-4) per U24.34; 12.75px with the U24.35
@@ -360,10 +378,17 @@ class TestMobileDensityUi:
         padding = page.eval_on_selector("main", "el => getComputedStyle(el).paddingLeft")
         # Desktop keeps the px-6/lg:px-8 rhythm (24px or 32px), never 0
         assert padding in ("24px", "32px")
-        radius = page.eval_on_selector(
-            "#message-area", "el => getComputedStyle(el).borderTopLeftRadius"
+        # UX3f: the message list is a full-width borderless surface at
+        # every breakpoint (no card chrome on desktop anymore).
+        chrome = page.eval_on_selector(
+            "#message-area",
+            "el => ({ radius: getComputedStyle(el).borderTopLeftRadius,"
+            " bl: getComputedStyle(el).borderLeftWidth,"
+            " bt: getComputedStyle(el).borderTopWidth })",
         )
-        assert radius != "0px"
+        assert chrome["radius"] == "0px", chrome
+        assert chrome["bl"] == "0px", chrome
+        assert chrome["bt"] == "0px", chrome
 
 
 @skip_if_no_services

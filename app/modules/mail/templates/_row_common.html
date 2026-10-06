@@ -1,0 +1,57 @@
+{# Shared message-row building blocks (HLD UX3a/UX3e/UX3g/UX3h) used by
+   the folder message list, search results, and full-search results. #}
+
+{% macro select_controls(message_id, label) %}
+<label class="hidden md:flex flex-shrink-0 items-center" data-no-row-nav>
+  <input type="checkbox" data-select-message="{{ message_id }}" class="h-4 w-4 rounded border-slate-300 accent-slate-900 cursor-pointer" aria-label="{{ label }}" data-no-row-nav />
+</label>
+<button type="button" class="row-select-circle flex-shrink-0 md:hidden mt-1" data-select-circle data-no-row-nav aria-pressed="false" aria-label="{{ label }}">
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M4.5 10.5l3.5 3.5 7.5-8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+{% endmacro %}
+
+{% macro star_form(account_id, message_id, is_flagged, class) %}
+<form method="post" action="{{ url_for('mail.flag_message', account_id=account_id, message_id=message_id) }}" class="message-action {{ class }}" data-action="flag" data-no-row-nav>
+  <input type="hidden" name="action" value="{{ 'remove' if is_flagged else 'add' }}" />
+  <button type="submit" class="p-1.5 -m-1 rounded lr-hit focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400" data-star-toggle aria-label="{{ _('Unstar') if is_flagged else _('Star') }}">
+    <svg class="w-[18px] h-[18px] transition-colors {{ 'text-amber-400' if is_flagged else 'text-slate-300 hover:text-amber-400' }}" data-star-icon viewBox="0 0 24 24" fill="{{ 'currentColor' if is_flagged else 'none' }}" stroke="currentColor" stroke-width="{{ '1' if is_flagged else '1.5' }}">
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+    </svg>
+  </button>
+</form>
+{% endmacro %}
+
+{% macro swipe_panels(account_id, message_id, is_unread) %}
+{# UX3g: swipe-back panels, only for normal (actionable) rows. They sit
+   behind the opaque row foreground inside the row's clip wrapper and are
+   display:none until the swipe engages (JS). #}
+<div class="absolute inset-y-0 left-0 z-0 hidden flex items-center bg-emerald-600 text-white pl-5" data-swipe-panel="left" data-no-row-nav>
+  <form method="post" action="{{ url_for('mail.archive_message', account_id=account_id, message_id=message_id) }}" class="message-action" data-action="archive" data-no-row-nav data-swipe-archive-form>
+    <button type="submit" class="flex items-center gap-2 py-2 text-[13px] font-medium text-white" aria-label="{{ _('Archive') }}">
+      <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3.105 2.289a.75.75 0 00-.826.95l1.414 4.925A1.5 1.5 0 005.135 9.25h6.115a.75.75 0 010 1.5H5.135a1.5 1.5 0 00-1.442 1.086l-1.414 4.926a.75.75 0 00.826.95 28.896 28.896 0 0015.293-7.154.75.75 0 000-1.115A28.897 28.897 0 003.105 2.289z"/></svg>
+      <span>{{ _('Archive') }}</span>
+    </button>
+  </form>
+</div>
+<div class="absolute inset-y-0 right-0 z-0 hidden flex items-center justify-end gap-1 pr-2 bg-slate-100" data-swipe-panel="right" data-no-row-nav>
+  <form method="post" action="{{ url_for('mail.archive_message', account_id=account_id, message_id=message_id) }}" class="message-action" data-action="archive" data-no-row-nav>
+    <button type="submit" class="flex h-10 w-10 items-center justify-center rounded-full bg-white border border-slate-200 text-emerald-600 hover:bg-emerald-50" aria-label="{{ _('Archive') }}">
+      <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3.105 2.289a.75.75 0 00-.826.95l1.414 4.925A1.5 1.5 0 005.135 9.25h6.115a.75.75 0 010 1.5H5.135a1.5 1.5 0 00-1.442 1.086l-1.414 4.926a.75.75 0 00.826.95 28.896 28.896 0 0015.293-7.154.75.75 0 000-1.115A28.897 28.897 0 003.105 2.289z"/></svg>
+    </button>
+  </form>
+  <form method="post" action="{{ url_for('mail.delete_message', account_id=account_id, message_id=message_id) }}" class="message-action" data-action="delete" data-no-row-nav>
+    <button type="submit" class="flex h-10 w-10 items-center justify-center rounded-full bg-white border border-slate-200 text-rose-600 hover:bg-rose-50" aria-label="{{ _('Delete') }}">
+      <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.75 1A2.25 2.25 0 006.5 3.25v2.5H2.75a.75.75 0 000 1.5h.3l.815 8.15A1.5 1.5 0 005.357 17h9.285a1.5 1.5 0 001.493-1.35l.815-8.15h.3a.75.75 0 000-1.5H13.5v-2.5A2.25 2.25 0 0011.25 1h-2.5zM10 9c.414 0 .75.336.75.75v3.5a.75.75 0 01-1.5 0v-3.5c0-.414.336-.75.75-.75zM8.75 4.5h2.5V3.25a.75.75 0 00-.75-.75h-1a.75.75 0 00-.75.75V4.5z" clip-rule="evenodd"/></svg>
+    </button>
+  </form>
+  <form method="post" action="{{ url_for('mail.mark_message', account_id=account_id, message_id=message_id) }}" class="message-action" data-action="mark" data-no-row-nav>
+    <input type="hidden" name="action" value="{{ 'read' if is_unread else 'unread' }}" />
+    <button type="submit" class="flex h-10 w-10 items-center justify-center rounded-full bg-white border border-slate-200 text-sky-600 hover:bg-sky-50" aria-label="{{ _('Mark as read') if is_unread else _('Mark as unread') }}">
+      <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M2.22 4.47c-.27.11-.44.38-.44.67A11.5 11.5 0 0013.17 16.5c.29 0 .56-.17.67-.44l.86-2.15a.75.75 0 00-.42-.97l-2.4-.96a.75.75 0 00-.8.17l-.72.72a9 9 0 01-3.06-3.06l.72-.72a.75.75 0 00.17-.8l-.96-2.4a.75.75 0 00-.97-.42l-2.15.86z" clip-rule="evenodd"/><path d="M4.5 7.5a8 8 0 0011 7.75l-.44 1.1A11.5 11.5 0 013.28 6.05l1.1-.44A8 8 0 004.5 7.5z"/></svg>
+    </button>
+  </form>
+  <div class="relative flex items-center">
+    <button type="button" class="flex h-10 w-10 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-slate-50" data-overflow-toggle data-no-row-nav aria-label="{{ _('More actions') }}">&#8943;</button>
+  </div>
+</div>
+{% endmacro %}

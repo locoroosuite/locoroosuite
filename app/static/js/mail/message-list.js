@@ -1,14 +1,21 @@
 /**
- * Shared message-list behavior (HLD UX2/UX3b/UX3d) for the folder view,
- * search results, and full-search results: the row action overlay with its
- * "..." touch toggle (data-overlay-locked), the overflow menu and
- * move-to-folder picker, inline form.message-action submits, thread
- * collapse, and row navigation.
+ * Shared message-list behavior (HLD UX2/UX3b/UX3d/UX3g/UX3h) for the
+ * folder view, search results, and full-search results: the row action
+ * overlay, the overflow menu and move-to-folder picker, inline
+ * form.message-action submits, thread collapse, row navigation, and the
+ * touch swipe gestures (UX3g).
  *
  * UX3b: the overlay is pointer-events-none by default; on hover-capable
  * devices group-hover reveals it (gated by @media (hover:hover) and
- * (pointer:fine) via Tailwind hoverOnlyWhenSupported). On touch devices the
- * "..." toggle locks it open via [data-overlay-locked].
+ * (pointer:fine) via Tailwind hoverOnlyWhenSupported).
+ *
+ * UX3g: on touch below lg, swiping a row right archives it (with the
+ * standard undo banner) and swiping left reveals the row action buttons
+ * behind the row's opaque foreground. Desktop never gets swipe behavior.
+ *
+ * UX3h: while the container is in long-press selection mode
+ * ([data-selection-mode]), row taps toggle selection instead of
+ * navigating (handled by LRBulkSelect via the lr:toggle-select event).
  */
 (function () {
   'use strict';
@@ -34,10 +41,6 @@
         }
         row.classList.remove('is-actions-open');
         row.removeAttribute('data-overlay-locked');
-        var toggle = row.querySelector('[data-message-actions-toggle]');
-        if (toggle) {
-          toggle.setAttribute('aria-expanded', 'false');
-        }
         var overflowMenu = row.querySelector('[data-overflow-menu]');
         if (overflowMenu) {
           overflowMenu.classList.add('hidden');
@@ -105,31 +108,18 @@
       if (row) positionOverflowMenu(menu, row);
     };
 
-    container.addEventListener('click', function (e) {
-      // UX3b touch toggle: lock/unlock the row's action overlay.
-      var toggle = e.target.closest('[data-message-actions-toggle]');
-      if (toggle) {
-        e.preventDefault();
-        e.stopPropagation();
-        var row = toggle.closest('.message-row');
-        if (!row) return;
-        var isOpen = row.classList.contains('is-actions-open');
-        if (!isOpen) {
-          closeMessageActions(row);
-        }
-        row.classList.toggle('is-actions-open', !isOpen);
-        if (!isOpen) {
-          row.setAttribute('data-overlay-locked', '');
-        } else {
-          if (openOverflowMenu && row.contains(openOverflowMenu)) {
-            closeOverflowMenu();
-          }
-          row.removeAttribute('data-overlay-locked');
-        }
-        toggle.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
-        return;
-      }
+    // ---- UX3g: touch swipe gestures live in js/mail/swipe.js ----
+    var swipeApi = window.LRSwipe ? window.LRSwipe.init(container) : null;
+    var resetSwipeRow = function (row) {
+      if (!swipeApi) return;
+      swipeApi.resetRow(row);
+    };
+    var closeAllSwipeRows = function () {
+      if (!swipeApi) return;
+      swipeApi.closeAll();
+    };
 
+    container.addEventListener('click', function (e) {
       var overflowToggle = e.target.closest('[data-overflow-toggle]');
       if (overflowToggle) {
         e.preventDefault();
@@ -264,6 +254,23 @@
       var row = e.target.closest('.message-row');
       if (!row) return;
       if (e.target.closest('[data-no-row-nav]')) return;
+      // UX3h: in long-press selection mode taps toggle selection
+      // (handled by LRBulkSelect), never navigate.
+      if (container.hasAttribute('data-selection-mode')) {
+        e.preventDefault();
+        e.stopPropagation();
+        row.dispatchEvent(new CustomEvent('lr:toggle-select', { bubbles: true }));
+        return;
+      }
+      // UX3g: a tap on a row whose swipe panel is open snaps it closed
+      // instead of navigating; taps on the revealed buttons themselves
+      // carry data-no-row-nav and never reach this branch.
+      if (row.classList.contains('is-swipe-open')) {
+        e.preventDefault();
+        e.stopPropagation();
+        resetSwipeRow(row);
+        return;
+      }
       var messageUrl = row.dataset.messageUrl;
       if (!messageUrl) return;
       if (e.metaKey || e.ctrlKey) {
@@ -271,10 +278,12 @@
         return;
       }
       if (previewPane && !previewPane.classList.contains('hidden') && typeof opts.onLoadPreview === 'function') {
-        document.querySelectorAll('.message-row').forEach(function (el) {
-          el.classList.remove('bg-slate-50');
+        container.querySelectorAll('.message-row').forEach(function (el) {
+          var fg = el.querySelector('[data-row-foreground]');
+          if (fg) fg.classList.remove('bg-slate-50');
         });
-        row.classList.add('bg-slate-50');
+        var fg = row.querySelector('[data-row-foreground]');
+        if (fg) fg.classList.add('bg-slate-50');
         opts.onLoadPreview(row);
         return;
       }
@@ -306,26 +315,36 @@
     });
 
     document.addEventListener('click', function (e) {
-      if (e.target.closest('[data-message-actions]') || e.target.closest('[data-message-actions-toggle]')) {
+      if (e.target.closest('[data-message-actions]') || e.target.closest('[data-swipe-panel]')) {
         return;
       }
       closeOverflowMenu();
       closeMessageActions();
+      closeAllSwipeRows();
     });
 
     var updateRowUnreadUI = function (row, isUnread) {
       row.dataset.isUnread = isUnread ? '1' : '0';
-      row.classList.toggle('bg-amber-100/70', isUnread);
-      row.classList.toggle('hover:bg-amber-100', isUnread);
-      row.classList.toggle('hover:bg-slate-50/80', !isUnread);
+      var fg = row.querySelector('[data-row-foreground]');
+      if (fg) {
+        fg.classList.toggle('bg-[#fef7d8]', isUnread);
+        fg.classList.toggle('hover:bg-amber-100', isUnread);
+        fg.classList.toggle('bg-white', !isUnread);
+        fg.classList.toggle('hover:bg-slate-50/80', !isUnread);
+      }
       var subject = row.querySelector('[data-subject="true"]') || row.querySelector('[data-subject]');
       if (subject) {
         subject.classList.toggle('font-bold', isUnread);
         subject.classList.toggle('text-slate-950', isUnread);
         subject.classList.toggle('text-slate-700', !isUnread);
       }
-      var markForm = row.querySelector('form[data-action="mark"]');
-      if (markForm) {
+      var sender = row.querySelector('[data-sender="true"]');
+      if (sender) {
+        sender.classList.toggle('font-semibold', isUnread);
+        sender.classList.toggle('text-slate-900', isUnread);
+        sender.classList.toggle('text-slate-600', !isUnread);
+      }
+      row.querySelectorAll('form[data-action="mark"]').forEach(function (markForm) {
         var input = markForm.querySelector('input[name="action"]');
         var button = markForm.querySelector('button');
         if (input) {
@@ -334,30 +353,27 @@
         if (button) {
           button.textContent = isUnread ? window.LR.t('Mark as read') : window.LR.t('Mark as unread');
         }
-      }
+      });
     };
 
     var updateRowFlagUI = function (row, isFlagged) {
       row.dataset.isFlagged = isFlagged ? '1' : '0';
-      var starIcon = row.querySelector('[data-star-icon]');
-      if (starIcon) {
+      row.querySelectorAll('[data-star-icon]').forEach(function (starIcon) {
         starIcon.setAttribute('fill', isFlagged ? 'currentColor' : 'none');
         starIcon.setAttribute('stroke-width', isFlagged ? '1' : '1.5');
         starIcon.classList.toggle('text-amber-400', isFlagged);
         starIcon.classList.toggle('text-slate-300', !isFlagged);
         starIcon.classList.toggle('hover:text-amber-400', !isFlagged);
-      }
-      var starToggle = row.querySelector('[data-star-toggle]');
-      if (starToggle) {
+      });
+      row.querySelectorAll('[data-star-toggle]').forEach(function (starToggle) {
         starToggle.setAttribute('aria-label', isFlagged ? window.LR.t('Unstar') : window.LR.t('Star'));
-      }
-      var form = row.querySelector('form[data-action="flag"]');
-      if (form) {
+      });
+      row.querySelectorAll('form[data-action="flag"]').forEach(function (form) {
         var input = form.querySelector('input[name="action"]');
         if (input) {
           input.value = isFlagged ? 'remove' : 'add';
         }
-      }
+      });
     };
 
     var updateThreadCountsAfterRemoval = function (threadCard) {
@@ -472,6 +488,7 @@
                 openOverflowMenu = null;
               }
             }
+            resetSwipeRow(row);
             if (typeof opts.onListChanged === 'function') opts.onListChanged();
             return;
           }
@@ -496,6 +513,7 @@
                 openOverflowMenu = null;
               }
             }
+            resetSwipeRow(row);
             if (window.LR) {
               window.LR.notifySuccess(data.is_locked ? window.LR.t('Message locked') : window.LR.t('Message unlocked'));
             }

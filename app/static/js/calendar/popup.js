@@ -16,6 +16,39 @@
     return window.matchMedia('(max-width: 767px)').matches;
   }
 
+  /*
+   * Tap-to-open race (U12.56c): after the pointerup that opened the sheet,
+   * the browser still fires the tap's synthesized `click` (canceling
+   * pointerdown suppresses compatibility mouse events but NOT click). By
+   * then the full-screen backdrop/sheet is in the DOM, so that ghost
+   * click's target is the backdrop and its `click -> hide` listener closed
+   * the sheet the instant it opened — on phones tapping an event appeared
+   * to do nothing. Swallow the first click right after open.
+   */
+  var GHOST_CLICK_MS = 400;
+  var ghostGuard = null;
+
+  function armGhostGuard() {
+    disarmGhostGuard();
+    var openedAt = Date.now();
+    ghostGuard = function (e) {
+      var stale = Date.now() - openedAt > GHOST_CLICK_MS;
+      disarmGhostGuard();
+      if (!stale) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    };
+    document.addEventListener('click', ghostGuard, true);
+  }
+
+  function disarmGhostGuard() {
+    if (ghostGuard) {
+      document.removeEventListener('click', ghostGuard, true);
+      ghostGuard = null;
+    }
+  }
+
   function formatWhen(ev) {
     var span = LRCal.eventSpan(ev);
     if (!span) return '';
@@ -40,6 +73,7 @@
 
   function show(ev, anchorEl) {
     hide();
+    armGhostGuard();
     var color = ev.calendar_color || '#4285f4';
     var attendees = Array.isArray(ev.attendees) ? ev.attendees : [];
     var cancelled = ev.status === 'CANCELLED';
@@ -173,6 +207,7 @@
     var backdrop = document.getElementById('cal-popup-backdrop');
     if (backdrop) backdrop.remove();
     document.removeEventListener('mousedown', outsideClose);
+    disarmGhostGuard();
   }
 
   LRCal.popup = { show: show, hide: hide };

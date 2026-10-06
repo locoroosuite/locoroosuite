@@ -202,6 +202,59 @@ class TestMobileCalendarUi:
         editor = page.wait_for_selector("#cal-editor:not(.hidden)", timeout=5000)
         assert editor is not None
 
+    def _open_event_sheet(self, page, title):
+        """Tap the event row in the Schedule view and wait for the U12.56c
+        bottom sheet. Waits out the ghost-click guard window afterwards so
+        the test's next tap can never be swallowed by it."""
+        page.goto("http://localhost:8001/app/calendar/")
+        page.wait_for_selector("#calendar-grid", timeout=10000)
+        row = page.wait_for_selector(f".cal-event:has-text('{title}')", timeout=15000)
+        assert row is not None, f"event row not rendered: {title}"
+        box = row.bounding_box()
+        assert box is not None
+        page.touchscreen.tap(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+        sheet = page.wait_for_selector("#cal-event-popup", timeout=5000)
+        assert sheet is not None and sheet.is_visible(), "tap did not open the bottom sheet"
+        page.wait_for_timeout(500)
+        return sheet
+
+    def test_tap_event_opens_bottom_sheet(self, mobile_logged_in_page, calendar_event_factory):
+        """U12.56c regression: on phones, tapping an event must open the
+        detail bottom sheet. The tap's trailing synthesized click used to
+        land on the freshly-added backdrop and close the sheet the instant
+        it opened — the tap looked completely dead."""
+        page = mobile_logged_in_page
+        event = calendar_event_factory()
+        self._open_event_sheet(page, event["title"])
+        # The sheet must survive its own opening tap's ghost click.
+        page.wait_for_timeout(600)
+        sheet = page.query_selector("#cal-event-popup")
+        assert sheet is not None, "bottom sheet closed immediately after opening (ghost click)"
+        assert page.query_selector("#cal-popup-backdrop") is not None
+
+    def test_tap_backdrop_closes_sheet(self, mobile_logged_in_page, calendar_event_factory):
+        """U12.56c: a second tap on the dimmed backdrop closes the sheet."""
+        page = mobile_logged_in_page
+        event = calendar_event_factory()
+        self._open_event_sheet(page, event["title"])
+        backdrop = page.query_selector("#cal-popup-backdrop")
+        assert backdrop is not None
+        box = backdrop.bounding_box()
+        assert box is not None
+        page.touchscreen.tap(box["x"] + box["width"] / 2, box["y"] + 60)
+        page.wait_for_selector("#cal-event-popup", state="detached", timeout=5000)
+
+    def test_sheet_edit_button_opens_editor(self, mobile_logged_in_page, calendar_event_factory):
+        """U12.56c: the sheet's Edit action opens the event editor sheet."""
+        page = mobile_logged_in_page
+        event = calendar_event_factory()
+        self._open_event_sheet(page, event["title"])
+        page.tap("#cep-edit")
+        editor = page.wait_for_selector("#cal-editor:not(.hidden)", timeout=5000)
+        assert editor is not None
+        title_value = page.eval_on_selector("#ce-title", "el => el.value")
+        assert title_value == event["title"]
+
 
 @skip_if_no_services
 class TestMobileContactsUi:

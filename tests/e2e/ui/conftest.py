@@ -1,3 +1,7 @@
+import re
+from datetime import datetime, timedelta
+from uuid import uuid4
+
 import pytest
 
 from tests.e2e.services import E2E_DEFAULT_PASSWORD
@@ -219,6 +223,51 @@ def seeded_contact(app_url, user_session):
 
     wait_for(list_shows_contact, timeout=30)
     return name
+
+
+@pytest.fixture(scope="function")
+def calendar_event_factory(app_url, user_session):
+    """Seed calendar events via the app API for e2e-test@test.localhost and
+    delete every created event on teardown (CalDAV + cache included).
+
+    Returns a factory: _create(summary=None, day_offset=1, start="10:00",
+    end="11:00") -> {"title", "event_id", "day"}.
+    """
+    created: list[int] = []
+
+    def _calendar_ids() -> list[str]:
+        r = user_session.get(f"{app_url}/app/calendar/")
+        return re.findall(r"/calendar/calendars/(\d+)/toggle", r.text)
+
+    def _create(summary=None, day_offset=1, start="10:00", end="11:00"):
+        ids = _calendar_ids()
+        if not ids:
+            user_session.post(f"{app_url}/app/calendar/sync", allow_redirects=True)
+            ids = _calendar_ids()
+        assert ids, "no calendars available for e2e user"
+        day = (datetime.now() + timedelta(days=day_offset)).date().isoformat()
+        title = summary or f"E2E UI Event {uuid4().hex[:8]}"
+        r = user_session.post(
+            f"{app_url}/app/calendar/api/events",
+            json={
+                "calendar_id": int(ids[0]),
+                "summary": title,
+                "dtstart": f"{day}T{start}",
+                "dtend": f"{day}T{end}",
+            },
+        )
+        assert r.status_code == 200, f"event create failed: {r.status_code} {r.text[:200]}"
+        event_id = r.json().get("event_id")
+        created.append(event_id)
+        return {"title": title, "event_id": event_id, "day": day}
+
+    yield _create
+
+    for event_id in created:
+        if event_id:
+            user_session.post(
+                f"{app_url}/app/calendar/events/{event_id}/delete", allow_redirects=True
+            )
 
 
 @pytest.fixture(scope="function")

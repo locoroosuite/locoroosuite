@@ -139,3 +139,31 @@ class TestCalendarUI:
         mini = logged_in_page.evaluate("() => window.LRCal.DAYS_MINI()")
         assert len(mini) == 7
         assert all(isinstance(name, str) and name for name in mini)
+
+    def test_month_more_popover_event_click_opens_popup(
+        self, logged_in_page, calendar_event_factory
+    ):
+        """U12.56c/U12.56g: clicking an event inside the '+N more' day
+        popover must open the event detail popup.
+
+        Regression: the popover's event rows rendered as .cal-event but
+        carried no handlers (the dnd pointer wiring only covers
+        #calendar-grid), so tapping them did nothing.
+        """
+        page = logged_in_page
+        events = [calendar_event_factory() for _ in range(4)]
+        page.goto("http://localhost:8001/app/calendar/?view=month")
+        page.wait_for_selector(".month-day-cell", timeout=15000)
+        more = page.wait_for_selector(".month-more-link", timeout=10000)
+        assert more is not None, "seeded 4 events on one day but no '+N more' rendered"
+        more.click()
+        popover = page.wait_for_selector("#cal-day-popover", timeout=5000)
+        assert popover is not None
+        row = page.wait_for_selector(
+            f"#cal-day-popover .cal-event:has-text('{events[0]['title']}')", timeout=5000
+        )
+        assert row is not None
+        row.click()
+        popup = page.wait_for_selector("#cal-event-popup", timeout=5000)
+        assert popup is not None and popup.is_visible()
+        assert page.query_selector("#cep-edit") is not None

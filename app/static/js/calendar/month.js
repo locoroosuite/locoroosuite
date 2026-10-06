@@ -160,6 +160,17 @@
     pop.style.left = Math.max(8, left) + 'px';
     pop.style.top = Math.min(rect.bottom + 4, window.innerHeight - pop.offsetHeight - 8) + 'px';
 
+    /* U12.56c: tapping an event row opens the detail card/sheet. */
+    pop.querySelectorAll('.cal-event').forEach(function (rowEl, i) {
+      var item = evts[i];
+      if (!item) return;
+      rowEl.addEventListener('click', function () {
+        pop.remove();
+        document.removeEventListener('mousedown', close);
+        LRCal.popup.show(item.ev, rowEl);
+      });
+    });
+
     function close(e) {
       if (!pop.contains(e.target)) {
         pop.remove();

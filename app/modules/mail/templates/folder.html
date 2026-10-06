@@ -411,6 +411,7 @@
          createFolderError.textContent = window.LR.t('Unable to create folder. Retry or refresh.');
          createFolderError.classList.add('hidden');
       }
+      const formData = new FormData(createFolderForm);
       createFolderSubmit.disabled = true;
       if (createFolderSpinner) {
         createFolderSpinner.classList.remove('hidden');
@@ -419,7 +420,6 @@
         createFolderInput.setAttribute('disabled', 'disabled');
       }
 
-      const formData = new FormData(createFolderForm);
       fetch(createFolderForm.action, {
         method: 'POST',
         headers: { 'X-Requested-With': 'XMLHttpRequest' },

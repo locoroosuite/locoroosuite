@@ -175,7 +175,7 @@ def test_long_press_constants_and_haptics_present():
 
 def test_selection_mode_enter_exit_wiring():
     source = BULK_SELECT_JS.read_text()
-    assert 'container.setAttribute(\'data-selection-mode\', \'1\')' in source
+    assert "container.setAttribute('data-selection-mode', '1')" in source
     assert "container.removeAttribute('data-selection-mode')" in source
     # Deselecting the last row exits selection mode.
     assert "selection.size === 0" in source
@@ -189,6 +189,32 @@ def test_selection_circle_css_present():
         assert ".row-select-circle{" in normalized, css.name
         assert '[data-selection-mode="1"].row-select-circle' in normalized, css.name
         assert ".row-select-circle.is-selected{" in normalized, css.name
+
+
+# --- Create-folder submit handler (U5.4a regression) ---
+
+
+def test_create_folder_form_serializes_before_disabling_input():
+    """The submit handler disabled the name input before building
+    ``FormData``; disabled controls are excluded from FormData per the
+    HTML spec, so ``name`` never reached the server and every create
+    failed with "Folder name is required." The form data must be
+    captured before any input is disabled."""
+    source = (MAIL_TEMPLATES / "folder.html").read_text()
+    start = source.find("createFolderForm.addEventListener('submit'")
+    assert start != -1, "create-folder submit handler missing from folder.html"
+    end = source.find("fetch(createFolderForm.action", start)
+    assert end != -1, "create-folder fetch call missing from folder.html"
+    handler = source[start:end]
+    assert "new FormData(createFolderForm)" in handler
+    disable_at = handler.find("createFolderInput.setAttribute('disabled'")
+    formdata_at = handler.find("new FormData(createFolderForm)")
+    if disable_at != -1:
+        assert formdata_at < disable_at, (
+            "FormData must be built before the name input is disabled; "
+            "disabled controls are excluded from FormData and the server "
+            "rejects the empty name."
+        )
 
 
 # --- Template plumbing ---
@@ -221,6 +247,8 @@ def test_message_rows_use_responsive_single_copy_layout():
     # Fixed-width sender column on desktop (UX3a).
     assert "md:w-36 lg:w-44 xl:w-52" in content
     # Mobile-only snippet line (UX3e) — desktop rows are single-line.
-    assert 'class="md:hidden mt-1 text-[13px] text-slate-600 truncate" data-snippet="true"' in content
+    assert (
+        'class="md:hidden mt-1 text-[13px] text-slate-600 truncate" data-snippet="true"' in content
+    )
     # Two star positions: desktop column + mobile under the date.
     assert content.count("{{ star_form(") == 2

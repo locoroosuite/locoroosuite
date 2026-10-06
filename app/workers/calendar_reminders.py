@@ -111,15 +111,23 @@ def _event_start_utc(event: dict, user_tz_name: str) -> datetime | None:
 def _format_when_local(start_utc: datetime, user_tz_name: str, all_day: bool) -> str:
     """Format the reminder time. Must run inside ``forced_user_locale`` so the
     month/day names (and the "at" separator) follow the user's locale."""
-    from flask_babel import _, format_datetime
+    from babel.dates import format_datetime
+    from flask_babel import _, get_locale
 
     try:
         local = start_utc.astimezone(ZoneInfo(user_tz_name))
     except Exception:
         local = start_utc.astimezone(UTC)
+    # Raw babel formatting with an explicit locale: flask-babel's
+    # format_datetime rebases aware datetimes to get_timezone() (UTC in
+    # worker contexts), which would silently undo the conversion above.
+    locale = str(get_locale() or "en")
     if all_day:
-        return format_datetime(local, "EEE, MMM dd, y")
-    return f"{format_datetime(local, 'EEE, MMM dd, y')} {_('at')} {format_datetime(local, 'HH:mm')}"
+        return format_datetime(local, "EEE, MMM dd, y", locale=locale)
+    return (
+        f"{format_datetime(local, 'EEE, MMM dd, y', locale=locale)}"
+        f" {_('at')} {format_datetime(local, 'HH:mm', locale=locale)}"
+    )
 
 
 def _due_reminders(conn) -> list[dict]:
@@ -278,7 +286,12 @@ class CalendarReminderWorker:
         now: datetime,
     ):
         user_id = account.customer_id
-        user_tz_name = resolve_user_timezone(settings.timezone if settings else "browser")
+        # No Flask session here: "browser" resolves via the browser tz cached
+        # on CustomerSettings (persisted on web requests, migration 0021).
+        user_tz_name = resolve_user_timezone(
+            settings.timezone if settings else "browser",
+            cached_browser_tz=getattr(settings, "browser_tz", None),
+        )
         for reminder in _due_reminders(conn):
             offset = parse_trigger_duration(reminder["trigger_val"])
             if offset is None:

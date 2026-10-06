@@ -118,6 +118,7 @@ class CustomerSettings(db.Model):
     timezone = db.Column(db.String(64), default="browser", nullable=False)
     language = db.Column(db.String(16), default="browser", nullable=False)
     browser_locale = db.Column(db.String(8), nullable=True)
+    browser_tz = db.Column(db.String(64), nullable=True)
     date_format = db.Column(db.String(32), default="DD/MM/YYYY", nullable=False)
     theme = db.Column(db.String(16), default="light", nullable=False)
     pinned_folders = db.Column(db.Text, nullable=True)

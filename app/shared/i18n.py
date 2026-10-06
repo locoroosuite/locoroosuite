@@ -247,6 +247,15 @@ def register_i18n(app) -> None:
             from app.shared.db import db
 
             db.session.rollback()
+        try:
+            from app.shared.timezone import persist_browser_tz
+
+            persist_browser_tz()
+        except Exception:
+            logger.debug("failed to persist browser timezone", exc_info=True)
+            from app.shared.db import db
+
+            db.session.rollback()
 
     @app.route("/app/i18n/messages.js")
     def i18n_messages_js():

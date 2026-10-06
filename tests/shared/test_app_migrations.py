@@ -149,3 +149,43 @@ class TestNotifyChatEnabledMigration:
             assert run_migrations(conn, [self._migration_0020()]) == 0
         finally:
             conn.close()
+
+
+class TestCustomerSettingsBrowserTzMigration:
+    """0021_customer_settings_browser_tz: browser tz cache for workers (U24.31)."""
+
+    def _pre_migration_conn(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE customer_settings (customer_id INTEGER PRIMARY KEY, timezone VARCHAR(64))"
+        )
+        conn.commit()
+        return conn
+
+    def _migration_0021(self):
+        return next(m for m in APP_DB_MIGRATIONS if m.name == "0021_customer_settings_browser_tz")
+
+    def test_migration_adds_column_and_preserves_rows(self):
+        conn = self._pre_migration_conn()
+        try:
+            conn.execute(
+                "INSERT INTO customer_settings (customer_id, timezone) VALUES (1, 'browser')"
+            )
+            conn.commit()
+            assert run_migrations(conn, [self._migration_0021()]) == 1
+            cols = table_columns(conn, "customer_settings")
+            assert "browser_tz" in cols
+            row = conn.execute(
+                "SELECT timezone FROM customer_settings WHERE customer_id = 1"
+            ).fetchone()
+            assert row == ("browser",)
+        finally:
+            conn.close()
+
+    def test_migration_is_idempotent(self):
+        conn = self._pre_migration_conn()
+        try:
+            run_migrations(conn, [self._migration_0021()])
+            assert run_migrations(conn, [self._migration_0021()]) == 0
+        finally:
+            conn.close()

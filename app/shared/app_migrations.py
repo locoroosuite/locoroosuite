@@ -329,6 +329,15 @@ def _notify_chat_enabled(conn) -> None:
     )
 
 
+def _customer_settings_browser_tz(conn) -> None:
+    """0021: cache the customer's browser timezone for worker-side use (U24.31)."""
+    if not has_table(conn, "customer_settings"):
+        return
+    if "browser_tz" in table_columns(conn, "customer_settings"):
+        return
+    conn.execute("ALTER TABLE customer_settings ADD COLUMN browser_tz VARCHAR(64)")
+
+
 APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_domain_status", _domain_status),
     Migration("0002_customer_settings_spam_action", _customer_settings_spam_action),
@@ -350,4 +359,5 @@ APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0018_domain_matrix_mas", _domain_matrix_mas),
     Migration("0019_domain_turn", _domain_turn),
     Migration("0020_notify_chat_enabled", _notify_chat_enabled),
+    Migration("0021_customer_settings_browser_tz", _customer_settings_browser_tz),
 )

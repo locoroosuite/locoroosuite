@@ -7,7 +7,7 @@ events must bubble.
 """
 
 _SWIPE_JS = """
-(selector, x0, x1, y, steps) => {
+([selector, x0, x1, y, steps]) => {
   const el = document.querySelector(selector);
   if (!el) throw new Error('element not found: ' + selector);
   const mk = (x) => new Touch({ identifier: 1, target: el, clientX: x, clientY: y });
@@ -41,7 +41,7 @@ _SWIPE_JS = """
 """
 
 _LONG_PRESS_JS = """
-(selector, ms) => {
+([selector, ms]) => {
   const el = document.querySelector(selector);
   if (!el) throw new Error('element not found: ' + selector);
   const mk = () => new Touch({ identifier: 1, target: el, clientX: 0, clientY: 0 });
@@ -79,8 +79,53 @@ def swipe_element(page, selector, dx, steps=6):
 
 
 def long_press_element(page, selector, ms=650):
-    """Press-and-hold the element for ms milliseconds (UX3h selection)."""
+    """Press-and-hold on the element for ms milliseconds (UX3h selection)."""
     el = page.query_selector(selector)
     if el is None:
         raise AssertionError(f"element not found for long-press: {selector}")
     page.evaluate(_LONG_PRESS_JS, [selector, ms])
+
+
+_EDGE_SWIPE_JS = """
+([x0, x1, y, selector]) => {
+  const el = document.querySelector(selector) || document.body;
+  const mk = (x) => new Touch({ identifier: 1, target: el, clientX: x, clientY: y });
+  const fire = (type, touch) => el.dispatchEvent(new TouchEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    touches: [touch],
+    targetTouches: [touch],
+    changedTouches: [touch]
+  }));
+  return new Promise((resolve, reject) => {
+    try {
+      fire('touchstart', mk(x0));
+      let i = 0;
+      const steps = 8;
+      const step = () => {
+        i += 1;
+        const x = x0 + (x1 - x0) * (i / steps);
+        fire('touchmove', mk(x));
+        if (i < steps) {
+          setTimeout(step, 16);
+        } else {
+          setTimeout(() => { fire('touchend', mk(x1)); resolve(true); }, 16);
+        }
+      };
+      setTimeout(step, 30);
+    } catch (err) {
+      reject(String(err));
+    }
+  });
+}
+"""
+
+
+def edge_swipe(page, selector, x0, x1, y):
+    """Drag horizontally from x0 to x1 at viewport y, dispatching a touch
+    sequence on selector (U24.2a edge-swipe drawer gestures). The events
+    bubble to document where the shared drawer engine listens."""
+    el = page.query_selector(selector)
+    if el is None:
+        raise AssertionError(f"element not found for edge swipe: {selector}")
+    page.evaluate(_EDGE_SWIPE_JS, [x0, x1, y, selector])

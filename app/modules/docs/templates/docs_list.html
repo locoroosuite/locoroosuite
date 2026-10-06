@@ -629,6 +629,15 @@
       setDocsDrawerOpen(false);
     }
   });
+  // U24.2a: edge-swipe open/close gestures (shared engine in js/drawer.js).
+  if (window.LRDrawer) {
+    window.LRDrawer.register({
+      drawer: docsSidebar,
+      backdrop: docsBackdrop,
+      isOpen: isDocsDrawerOpen,
+      setOpen: setDocsDrawerOpen
+    });
+  }
 })();
 
 (() => {

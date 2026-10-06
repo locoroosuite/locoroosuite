@@ -5,6 +5,7 @@ import contextlib
 import pytest
 
 from tests.e2e.conftest import skip_if_no_services
+from tests.e2e.ui.touch_actions import edge_swipe
 
 
 @skip_if_no_services
@@ -91,6 +92,84 @@ class TestMobileMailUi:
         assert date_box is not None and star_box is not None and row_box is not None
         assert star_box["y"] > date_box["y"]
         assert star_box["x"] + star_box["width"] / 2 > row_box["x"] + row_box["width"] / 2
+
+
+@skip_if_no_services
+class TestDrawerEdgeSwipe:
+    """U24.2a: below lg, dragging from the left edge finger-tracks the
+    drawer open; a reverse drag on the open drawer closes it. The drawer
+    is w-72 (288px) at the 390px test viewport, so half-width is 144px:
+    a 235px drag opens, a 40px drag snaps back, a 220px reverse drag
+    closes."""
+
+    def test_edge_swipe_opens_mail_drawer(self, mobile_logged_in_page):
+        page = mobile_logged_in_page
+        page.wait_for_selector("#message-list", timeout=15000)
+        edge_swipe(page, "#message-list", 5, 240, 400)
+        sidebar = page.wait_for_selector("#sidebar:not(.-translate-x-full)", timeout=5000)
+        assert sidebar is not None
+        assert page.query_selector("#sidebar-backdrop:not(.hidden)") is not None
+
+    def test_edge_swipe_below_threshold_snaps_back(self, mobile_logged_in_page):
+        page = mobile_logged_in_page
+        page.wait_for_selector("#message-list", timeout=15000)
+        edge_swipe(page, "#message-list", 5, 45, 400)
+        page.wait_for_timeout(300)
+        assert page.query_selector("#sidebar.-translate-x-full") is not None
+        assert page.query_selector("#sidebar-backdrop:not(.hidden)") is None
+
+    def test_edge_swipe_does_not_archive_or_navigate(
+        self, seeded_inbox_message, mobile_logged_in_page
+    ):
+        """The edge drag passes over message rows; the row swipe (UX3g)
+        must yield and no message may open or archive."""
+        page = mobile_logged_in_page
+        page.wait_for_selector(".message-row", timeout=15000)
+        edge_swipe(page, "#message-list", 5, 240, 400)
+        page.wait_for_selector("#sidebar:not(.-translate-x-full)", timeout=5000)
+        page.wait_for_timeout(300)
+        assert "/mail/message/" not in page.url
+        assert page.query_selector(".message-row") is not None
+        assert page.query_selector("#undo-banner:not(.hidden)") is None
+
+    def test_drag_left_on_open_drawer_closes_it(self, mobile_logged_in_page):
+        page = mobile_logged_in_page
+        page.wait_for_selector("#mobile-sidebar-toggle", timeout=10000)
+        page.click("#mobile-sidebar-toggle")
+        page.wait_for_selector("#sidebar:not(.-translate-x-full)", timeout=5000)
+        edge_swipe(page, "#sidebar", 240, 20, 400)
+        page.wait_for_selector("#sidebar.-translate-x-full", timeout=5000)
+        assert page.query_selector("#sidebar-backdrop:not(.hidden)") is None
+
+    def test_edge_swipe_opens_calendar_drawer(self, mobile_logged_in_page):
+        page = mobile_logged_in_page
+        page.goto("http://localhost:8001/app/calendar/")
+        page.wait_for_selector("#calendar-grid", timeout=10000)
+        edge_swipe(page, "#calendar-grid", 5, 240, 400)
+        sidebar = page.wait_for_selector("#cal-sidebar:not(.-translate-x-full)", timeout=5000)
+        assert sidebar is not None
+
+    def test_calendar_center_swipe_still_shifts_period(self, mobile_logged_in_page):
+        """U12.56d off the edge zone: a center-origin grid swipe changes
+        the period instead of opening the drawer."""
+        page = mobile_logged_in_page
+        page.goto("http://localhost:8001/app/calendar/")
+        page.wait_for_selector("#calendar-grid", timeout=10000)
+        page.wait_for_timeout(500)
+        before = page.evaluate("() => LRCal.state.date.getTime()")
+        edge_swipe(page, "#calendar-grid", 200, 345, 400)
+        page.wait_for_timeout(300)
+        after = page.evaluate("() => LRCal.state.date.getTime()")
+        assert after != before, "center grid swipe did not shift the period (U12.56d)"
+        assert page.query_selector("#cal-sidebar.-translate-x-full") is not None
+
+    def test_edge_swipe_opens_docs_drawer(self, mobile_logged_in_page):
+        page = mobile_logged_in_page
+        page.goto("http://localhost:8001/app/docs/")
+        page.wait_for_selector("#docs-sidebar", timeout=10000)
+        edge_swipe(page, "#docs-sidebar", 5, 240, 400)
+        sidebar = page.wait_for_selector("#docs-sidebar:not(.-translate-x-full)", timeout=5000)
+        assert sidebar is not None
 
 
 @skip_if_no_services

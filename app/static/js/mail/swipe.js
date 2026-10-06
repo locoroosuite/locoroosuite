@@ -48,6 +48,8 @@
     container.addEventListener('touchstart', function (e) {
       if (!SWIPE_QUERY.matches || !e.touches || e.touches.length !== 1) return;
       if (container.hasAttribute('data-selection-mode')) return;
+      // U24.2a: edge-origin touches belong to the drawer gesture.
+      if (window.LRDrawer && window.LRDrawer.claims(e.touches[0].clientX)) return;
       var row = e.target.closest('.message-row');
       if (!row || !row.querySelector('[data-swipe-panel]')) return;
       swipe = {

@@ -71,6 +71,14 @@
     window.addEventListener('resize', function () {
       if (window.matchMedia('(min-width: 1024px)').matches && isOpen()) setOpen(false);
     });
+    if (window.LRDrawer && sidebar && backdrop) {
+      window.LRDrawer.register({
+        drawer: sidebar,
+        backdrop: backdrop,
+        isOpen: isOpen,
+        setOpen: setOpen
+      });
+    }
   }
 
   /* ---- swipe navigation (U12.56d) ---- */
@@ -82,7 +90,11 @@
     grid.addEventListener(
       'touchstart',
       function (e) {
-        if (e.touches.length !== 1 || LRCal.dnd.active) {
+        if (
+          e.touches.length !== 1 ||
+          LRCal.dnd.active ||
+          (window.LRDrawer && window.LRDrawer.claims(e.touches[0].clientX)) // U24.2a
+        ) {
           touch = null;
           return;
         }

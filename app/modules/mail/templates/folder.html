@@ -355,6 +355,16 @@
     }
   });
 
+  // U24.2a: edge-swipe open/close gestures (shared engine in js/drawer.js).
+  if (window.LRDrawer) {
+    window.LRDrawer.register({
+      drawer: sidebar,
+      backdrop: sidebarBackdrop,
+      isOpen: isDrawerOpen,
+      setOpen: setDrawerOpen
+    });
+  }
+
   if (createFolderToggle && createFolderForm) {
     const showCreateFolder = (show) => {
       createFolderForm.classList.toggle('hidden', !show);

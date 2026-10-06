@@ -108,6 +108,15 @@
       }
     }
 
+    // UX3h: on touch (below md), every select-all entry point also
+    // enters selection mode so the per-row circles and the Done control
+    // appear; on desktop this is a no-op (checkboxes stay the path).
+    function ensureSelectionMode() {
+      if (selectionMode || !longPressQuery.matches) return;
+      selectionMode = true;
+      container.setAttribute('data-selection-mode', '1');
+    }
+
     function enterSelectionMode(row) {
       selectionMode = true;
       container.setAttribute('data-selection-mode', '1');
@@ -236,6 +245,7 @@
 
     if (selectAll) {
       selectAll.addEventListener('change', function () {
+        ensureSelectionMode();
         mode = 'page';
         selection.clear();
         if (selectAll.checked) {
@@ -259,6 +269,7 @@
 
     if (matchBtn) {
       matchBtn.addEventListener('click', function () {
+        ensureSelectionMode();
         mode = 'match';
         rowIds().forEach(function (id) { selection.add(id); });
         refresh();

@@ -60,8 +60,8 @@ class TestMobileMailUi:
         self, seeded_inbox_message, mobile_logged_in_page
     ):
         """UX3e: below md each row stacks three lines — sender + date,
-        subject, snippet — with the star under the date on the right, and
-        no select checkbox outside selection mode."""
+        subject, snippet — with the star inline with the date on the
+        right edge, and no select checkbox outside selection mode."""
         page = mobile_logged_in_page
         row = page.wait_for_selector(".message-row", timeout=15000)
         assert row is not None
@@ -82,7 +82,8 @@ class TestMobileMailUi:
         # No checkbox visible outside selection mode (UX3h).
         checkbox = row.query_selector("input[data-select-message]")
         assert checkbox is None or not checkbox.is_visible()
-        # Star sits below the date on the right edge.
+        # Star sits inline with the date on line 1, right edge (UX3e);
+        # it must not add a fourth line.
         date = row.query_selector("[data-date]")
         star = row.query_selector("[data-star-toggle]")
         assert date is not None and star is not None
@@ -90,7 +91,14 @@ class TestMobileMailUi:
         star_box = star.bounding_box()
         row_box = row.bounding_box()
         assert date_box is not None and star_box is not None and row_box is not None
-        assert star_box["y"] > date_box["y"]
+        date_center_y = date_box["y"] + date_box["height"] / 2
+        star_center_y = star_box["y"] + star_box["height"] / 2
+        assert abs(star_center_y - date_center_y) < 12, (
+            "star must sit on the date line, not on its own line (UX3e)"
+        )
+        assert star_box["x"] > date_box["x"] + date_box["width"], (
+            "star must sit to the right of the date (UX3e)"
+        )
         assert star_box["x"] + star_box["width"] / 2 > row_box["x"] + row_box["width"] / 2
 
 

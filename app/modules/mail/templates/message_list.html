@@ -113,9 +113,9 @@
       <div class="flex-1 min-w-0">
         <div class="flex flex-wrap md:flex-nowrap items-baseline md:items-center gap-x-3 gap-y-0.5">
           <span class="min-w-0 flex-1 md:flex-none md:w-36 lg:w-44 xl:w-52 truncate text-[15px] md:text-[13px] {{ 'font-semibold text-slate-900' if msg.is_unread else 'text-slate-600' }}" title="{{ msg.sender_tooltip }}" tabindex="0" aria-label="{{ msg.sender_tooltip }}" data-sender="true">{{ msg.sender_display }}</span>
-          <div class="flex flex-col items-end flex-shrink-0 md:order-3">
+          <div class="flex items-center justify-end gap-1 flex-shrink-0 md:order-3">
             <span class="whitespace-nowrap text-[12px] md:text-[11px] text-slate-500" data-date="true">{{ msg.date_display }}</span>
-            {{ star_form(account.id, msg.id, msg.is_flagged, 'message-action md:hidden mt-0.5 -mr-1') }}
+            {{ star_form(account.id, msg.id, msg.is_flagged, 'message-action md:hidden') }}
           </div>
           <div class="basis-full md:basis-auto md:flex-1 md:order-2 min-w-0 flex items-center gap-2">
             <span class="truncate text-[15px] md:text-[13px] {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>

@@ -3,7 +3,9 @@
 Covers the touch interaction stack for the message list: the hover action
 overlay must stay inert on touch (UX3b/UX3d), row actions are revealed by
 swipe gestures instead of the removed '...' toggle (UX3g), and
-press-and-hold enters the long-press selection mode (UX3h).
+press-and-hold enters the long-press selection mode (UX3h) — which every
+select-all entry point must also enter, with the action overlay hidden
+while it is active.
 """
 
 import contextlib
@@ -238,6 +240,89 @@ class TestTouchMailList:
         done.click()
         page.wait_for_selector("#message-list:not([data-selection-mode])", timeout=5000)
         assert page.query_selector("#bulk-toolbar:not(.hidden)") is None
+
+    def test_header_select_all_enters_selection_mode(
+        self, seeded_inbox_message, mobile_logged_in_page
+    ):
+        """UX3h: on touch, the header "Select" checkbox must enter the
+        long-press selection mode (per-row circles + Done control), not
+        fill the selection silently with circles left hidden."""
+        page = mobile_logged_in_page
+        row = page.wait_for_selector(".message-row", timeout=15000)
+        assert row is not None
+        page.check("#select-all-messages")
+        page.wait_for_selector("#message-list[data-selection-mode='1']", timeout=5000)
+        circle = row.query_selector("[data-select-circle]")
+        assert circle is not None and circle.is_visible(), (
+            "selection circle not visible after header select-all"
+        )
+        assert "is-selected" in (circle.get_attribute("class") or "")
+        toolbar = page.query_selector("#bulk-toolbar:not(.hidden)")
+        assert toolbar is not None, "bulk toolbar must appear after header select-all"
+        assert "selected" in toolbar.inner_text()
+        done = page.query_selector("#bulk-toolbar [data-bulk-done]:not(.hidden)")
+        assert done is not None, "Done control missing after header select-all"
+        done.click()
+        page.wait_for_selector("#message-list:not([data-selection-mode])", timeout=5000)
+
+    def test_tap_in_selection_mode_never_reveals_action_overlay(
+        self, seeded_inbox_message, mobile_logged_in_page
+    ):
+        """UX3b/UX3h regression: tapping a row while in selection mode can
+        focus the row's tabindex'd span; the overlay's focus-within reveal
+        used to surface the Archive/Delete/... menu then. The overlay must
+        stay display:none in selection mode on touch."""
+        page = mobile_logged_in_page
+        page.wait_for_selector(".message-row", timeout=15000)
+        # Seed a second message so there is a row to tap besides the
+        # long-pressed one.
+        subject = f"E2E UI selmode {uuid.uuid4().hex[:8]}"
+        session = login_session("e2e-test@test.localhost")
+        account_id = get_account_id(APP_URL, session)
+        r = session.post(
+            f"{APP_URL}/app/mail/send",
+            data={
+                "account_id": account_id,
+                "to": "e2e-test@test.localhost",
+                "subject": subject,
+                "body_html": f"<p>{subject}</p>",
+            },
+            allow_redirects=True,
+        )
+        assert r.status_code == 200, f"send failed: {r.status_code}"
+
+        def folder_lists_subject() -> bool:
+            resp = session.get(f"{APP_URL}/app/mail/folder/{account_id}/INBOX")
+            return resp.status_code == 200 and subject in resp.text
+
+        wait_for(folder_lists_subject, timeout=30)
+
+        page.reload()
+        page.wait_for_function("document.querySelectorAll('.message-row').length >= 2")
+        rows = [r for r in page.query_selector_all(".message-row")
+                if r.query_selector("[data-swipe-panel]") is not None]
+        assert len(rows) >= 2, "need two swipeable rows for the tap test"
+        held_id = rows[0].get_attribute("data-message-id")
+        assert held_id
+        long_press_element(page, f".message-row[data-message-id='{held_id}']", ms=650)
+        page.wait_for_selector("#message-list[data-selection-mode='1']", timeout=5000)
+        tap_row = rows[1]
+        box = tap_row.bounding_box()
+        assert box is not None
+        page.touchscreen.tap(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+        page.wait_for_timeout(300)
+        tapped_circle = tap_row.query_selector("[data-select-circle]")
+        assert tapped_circle is not None
+        assert "is-selected" in (tapped_circle.get_attribute("class") or ""), (
+            "tapped second row was not selected in selection mode (UX3h)"
+        )
+        overlay = tap_row.query_selector("[data-message-actions]")
+        assert overlay is not None
+        display = overlay.evaluate("el => getComputedStyle(el).display")
+        assert display == "none", (
+            f"action overlay visible in selection mode on touch ({display}) — "
+            "Archive/Delete leak (UX3b/UX3h)"
+        )
 
     def test_folder_sidebar_actions_visible_on_touch(self, mobile_logged_in_page):
         """UX3d: the folder '...' menu toggle is hover-hidden on desktop but

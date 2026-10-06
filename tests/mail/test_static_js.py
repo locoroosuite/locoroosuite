@@ -20,6 +20,13 @@ Regression guards for the message-list interaction stack:
    constants/disambiguation thresholds, the selection-mode navigation
    interception, and the template plumbing (swipe panels, foreground,
    circles, no "..." toggle) must all stay wired.
+5. Mobile regression guards: swipe panels must span the full row width
+   so the revealed background never shows a blank gap past the panel's
+   content width (UX3g); every select-all entry point must enter
+   selection mode on touch so the per-row circles appear (UX3h); and
+   the hover/focus action overlay must stay hidden in selection mode
+   and on touch devices (UX3b — a tap that focuses a row's tabindex'd
+   span must not reveal the overlay).
 """
 
 import re
@@ -233,6 +240,61 @@ def test_row_common_has_swipe_panels_and_selection_controls():
     assert "data-swipe-archive-form" in content
     assert "data-select-circle" in content
     assert 'aria-pressed="false"' in content
+
+
+# --- Bug fix: swipe panels span the full row width (UX3g) ---
+
+
+def test_swipe_panels_span_full_row_width():
+    """Revealed panels used to be only content-width, so dragging past
+    the panel's natural width exposed blank page background behind the
+    row ("the green background stops"). Both panels must carry w-full so
+    the colored fill always covers the entire revealed strip."""
+    content = (MAIL_TEMPLATES / "_row_common.html").read_text()
+    for panel in ('data-swipe-panel="left"', 'data-swipe-panel="right"'):
+        idx = content.find(panel)
+        assert idx != -1, f"{panel} missing from _row_common.html"
+        div_start = content.rfind("<div", 0, idx)
+        div = content[div_start:idx]
+        assert "w-full" in div, f"{panel} div must carry w-full"
+
+
+# --- Bug fix: select-all enters selection mode on touch (UX3h) ---
+
+
+def test_select_all_enters_selection_mode_on_touch():
+    """Tapping the header "Select" checkbox on mobile filled the
+    selection but never entered selection mode, so the per-row circles
+    and Done control stayed hidden. Every select-all entry point must
+    call ensureSelectionMode(), which is gated to touch (below md)."""
+    source = BULK_SELECT_JS.read_text()
+    assert "function ensureSelectionMode()" in source
+    assert "longPressQuery.matches" in source
+    select_all_at = source.find("selectAll.addEventListener")
+    assert select_all_at != -1
+    assert "ensureSelectionMode();" in source[select_all_at:source.find("}", source.find("refresh();", select_all_at))]
+    match_at = source.find("matchBtn.addEventListener")
+    assert match_at != -1
+    assert "ensureSelectionMode();" in source[match_at:source.find("}", source.find("refresh();", match_at))]
+
+
+# --- Bug fix: action overlay hidden in selection mode and on touch (UX3b) ---
+
+
+def test_action_overlay_hidden_in_selection_mode_and_on_touch():
+    """The overlay's group-focus-within reveal fired on touch (tapping a
+    row focuses its tabindex'd span), showing Archive/Delete/... during
+    selection. The overlay must be display:none while the list is in
+    selection mode, and on hover-incapable/coarse-pointer devices."""
+    for css in _css_files():
+        normalized = _normalized(css)
+        assert '[data-selection-mode="1"].message-actions-overlay{display:none' in normalized, css.name
+        media_at = normalized.find("@media(hover:none),(pointer:coarse)")
+        assert media_at != -1, f"touch media query missing from {css.name}"
+        rule_at = normalized.find(".message-actions-overlay{display:none", media_at)
+        assert rule_at != -1, (
+            f".message-actions-overlay display:none must sit inside the (hover: none), (pointer: coarse) block in {css.name}"
+        )
 
 
 def test_message_rows_use_responsive_single_copy_layout():

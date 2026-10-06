@@ -1365,7 +1365,7 @@ M13d - Dev-only snippet diagnostics may log privacy-safe metadata (content-type 
 UX1 - List density settings are out of scope for MVP; use the default list density.
 UX2 - Message list rows are fully clickable; subtle hover actions are available (archive/delete/mark read) without overwhelming the layout.
 UX3 - Message list visual hierarchy: subject and sender are primary; snippet is secondary (mobile rows only); date/time is tertiary and right-aligned.
-UX3b - Message list row actions are hidden by default and appear on hover/focus. No reserved action column; actions overlay the right side of the row. The hover/focus reveal applies only on hover-capable devices: all Tailwind `hover:`/`group-hover:` variants are emitted inside `@media (hover: hover) and (pointer: fine)` (`future.hoverOnlyWhenSupported`), and the hidden overlay carries `pointer-events-none` so it can never intercept taps on touch devices (browsers emulate `:hover` during a tap, which otherwise makes an invisible overlay briefly interactive). Keyboard `focus-within` reveal is unaffected. On touch/mobile below `lg`, mail message rows reveal actions via horizontal swipe gestures (UX3g) instead of a “…” toggle.
+UX3b - Message list row actions are hidden by default and appear on hover/focus. No reserved action column; actions overlay the right side of the row. The hover/focus reveal applies only on hover-capable devices: all Tailwind `hover:`/`group-hover:` variants are emitted inside `@media (hover: hover) and (pointer: fine)` (`future.hoverOnlyWhenSupported`), and the hidden overlay carries `pointer-events-none` so it can never intercept taps on touch devices (browsers emulate `:hover` during a tap, which otherwise makes an invisible overlay briefly interactive). Keyboard `focus-within` reveal is unaffected on hover-capable devices; on touch devices the overlay is hidden entirely (`@media (hover: none), (pointer: coarse)`) so a tap-induced focus on the row never reveals it — swipe gestures (UX3g) are the touch path. While the list is in long-press selection mode (UX3h) the overlay is hidden at every breakpoint. On touch/mobile below `lg`, mail message rows reveal actions via horizontal swipe gestures (UX3g) instead of a “…” toggle.
 UX3c - Message list row action hierarchy (Gmail-style):
   - Star toggle: always visible as a star icon in a narrow column to the left of the subject. Filled amber when starred, muted outline when not. Clicking toggles the IMAP flag.
   - Primary hover actions (desktop): Archive and Delete buttons appear on row hover/focus, overlaid on the right side of the row.
@@ -1387,7 +1387,7 @@ UX3e - Message list row layout (mobile, below `md`) — stacked three-line row:
   - Line 1: Sender on the left; date/time right-aligned on the same line.
   - Line 2: Subject.
   - Line 3: First line of the body snippet (single line, ellipsized; sanitized per UX4).
-  - The star toggle sits on the right edge below the date.
+  - The star toggle sits inline with the date on line 1, on the right edge (e.g. "12 Oct ★"); it must never add a fourth line or extra row height.
   - No select checkbox is rendered outside selection mode (UX3h).
   - Sender display follows the same two-words/local-part rule as UX3a; date formats follow UX3a.
 UX3f - Full-width list surface (all breakpoints): the mail message list (folder view and search results) renders without outer card chrome — no left/right/top borders, no rounded corners, no outer padding — on desktop as well as mobile, maximizing usable row width. Rows are separated by hairline dividers; hover tint distinguishes rows instead of card boundaries. This is a deliberate exception to U24.33's "card design unchanged at `md:` and up" and applies to the mail message list only.
@@ -1396,11 +1396,12 @@ UX3g - Mail row swipe gestures (touch only, below `lg`): mail message rows suppo
   - Swipe left: reveals the full action menu (Archive, Delete, Mark as read/unread, Report Spam, Move to…); release on an action triggers it, release elsewhere snaps the row back.
   - Gesture disambiguation: a drag counts as a swipe only when horizontal movement dominates (|dx| >= 60px and |dx| >= |dy| * 1.5, matching the calendar swipe threshold pattern of U12.56d); otherwise the touch is normal scrolling/navigation. A tap (no significant movement) never triggers a swipe; inline controls (e.g. the star) win over gesture start within their hit areas.
   - The row follows the finger during the drag and snaps (back or forward) with a spring-like transition; `prefers-reduced-motion` disables the follow animation.
+  - Revealed panel backgrounds span the full row width behind the opaque row foreground, so the colored fill always covers the entire revealed strip no matter how far the drag goes (no blank gap past the panel's content width).
   - Fine-pointer devices (desktop) never get swipe behavior; hover overlay actions (UX3b/UX3c) remain the desktop path.
 UX3h - Mobile multi-select via long-press (touch only, below `md`): instead of always-visible checkboxes, message rows enter a selection mode via press-and-hold:
   - Press-and-hold (~500ms, haptic feedback via `navigator.vibrate` where supported) on a row enters selection mode and selects that row. The press is cancelled if the pointer moves beyond the tap slop or scrolling starts.
   - In selection mode each row shows an animated selection control at the left edge — a circular outline that fills with a checkmark when selected, with a transition animation on both select and unselect. Tapping rows toggles their selection.
-  - A "Done" control exits selection mode; deselecting the last selected row also exits. Select-all remains available from the bulk toolbar (U5.6).
+  - A "Done" control exits selection mode; deselecting the last selected row also exits. Select-all remains available from the bulk toolbar (U5.6); on touch, every select-all entry point (the header "Select" checkbox, the bulk toolbar's select-all, and "select all N that match") enters selection mode so the per-row circles and the Done control appear.
   - Desktop (`md:` and up) keeps always-visible checkboxes, which are the keyboard/screen-reader accessible path; long-press is a touch-only accelerator.
 UX4 - Snippets are sanitized and normalized (no raw HTML fragments); clamp to 1–2 lines with ellipsis.
 UX4a - Snippet extraction rules:

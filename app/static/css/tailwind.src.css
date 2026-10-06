@@ -110,6 +110,19 @@
     }
   }
 
+  /* UX3b: the hover/focus action overlay is never shown on touch —
+   * swipe gestures (UX3g) are the touch path, and a tap that focuses a
+   * row's tabindex'd span must not reveal the overlay (focus-within) —
+   * nor while the list is in long-press selection mode (UX3h). */
+  [data-selection-mode="1"] .message-actions-overlay {
+    display: none;
+  }
+  @media (hover: none), (pointer: coarse) {
+    .message-actions-overlay {
+      display: none;
+    }
+  }
+
   /* UX3h: mobile long-press selection mode. The circle control is
    * display:none outside selection mode (container attribute set by
    * LRBulkSelect); the ring fills and the checkmark springs in when

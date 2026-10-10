@@ -39,3 +39,22 @@ def test_time_grid_uses_inline_grid_template_not_classes():
     source = (STATIC_JS_DIR / "calendar" / "time_grid.js").read_text()
     assert "grid-template-columns:" in source
     assert "grid-cols-[" not in source
+
+
+def test_navigation_shows_busy_indicator_and_guards_stale_renders():
+    """U24.39: view/date navigation surfaces the cal-busy indicator while
+    events load, and a superseded fetch may not render a stale range."""
+    source = (STATIC_JS_DIR / "calendar" / "state.js").read_text()
+    assert "LRCal.setBusy(true);" in source
+    assert "if (seq === navSeq) LRCal.setBusy(false);" in source
+    assert "if (seq !== navSeq) return;" in source
+
+
+def test_fetch_failures_never_cached_and_surface_as_toast():
+    """U24.39: a failed events fetch resolves to [] for callers but is
+    never cached as an empty range, and errors surface via a toast."""
+    source = (STATIC_JS_DIR / "calendar" / "api.js").read_text()
+    assert "notifyFetchError" in source
+    cache_store = source.index("rangeCache[key] = data;")
+    failure = source.index("notifyFetchError();")
+    assert cache_store < failure

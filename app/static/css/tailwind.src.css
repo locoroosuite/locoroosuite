@@ -73,6 +73,50 @@
     100% { background-position: -200% 0; }
   }
 
+  /* Navigation pending feedback (U24.39/UX9): tapped link dims and
+   * stops accepting events; a thin indeterminate bar at the top of the
+   * viewport signals the in-flight document navigation. */
+  .lr-nav-pending {
+    opacity: 0.55;
+    pointer-events: none;
+    transition: opacity 120ms ease-out;
+  }
+  .lr-nav-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    z-index: 60; /* above drawers (z-50); decorative, never interactive */
+    overflow: hidden;
+    pointer-events: none;
+    visibility: hidden;
+  }
+  .lr-nav-progress.lr-nav-active {
+    visibility: visible;
+  }
+  .lr-nav-progress-bar {
+    display: block;
+    height: 100%;
+    width: 40%;
+    background: #0f172a;
+    border-radius: 9999px;
+    animation: lr-nav-slide 1s ease-in-out infinite;
+  }
+  @keyframes lr-nav-slide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(250%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lr-nav-pending {
+      transition: none;
+    }
+    .lr-nav-progress-bar {
+      animation: none;
+      transform: translateX(100%);
+    }
+  }
+
   .message-row.is-dragging {
     opacity: 0.45;
   }

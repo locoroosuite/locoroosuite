@@ -7,6 +7,7 @@
 
   var LRCal = (window.LRCal = window.LRCal || {});
   var rangeCache = {};
+  var lastFetchErrorAt = 0;
 
   function jsonFetch(url, options) {
     return fetch(url, options).then(function (r) {
@@ -16,18 +17,34 @@
     });
   }
 
+  /* U24.39: event fetch failures surface as a toast (deduped so the
+   * mini calendar + main view don't double-fire), never silently. */
+  function notifyFetchError() {
+    var now = Date.now();
+    if (now - lastFetchErrorAt < 5000) return;
+    lastFetchErrorAt = now;
+    if (LRCal.notifyError) LRCal.notifyError(window.LR.t('Failed to load calendar events.'));
+  }
+
   function fetchEvents(start, end, force) {
     var key = start + '|' + end;
     if (!force && rangeCache[key]) return Promise.resolve(rangeCache[key]);
     var url =
       LRCal.boot.EVENTS_URL + '?start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end);
-    return jsonFetch(url)
+    return fetch(url)
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json().catch(function () {
+          throw new Error('Invalid response');
+        });
+      })
       .then(function (data) {
         if (!Array.isArray(data)) data = [];
         rangeCache[key] = data;
         return data;
       })
-      .catch(function () {
+      .catch(function (err) {
+        notifyFetchError();
         return [];
       });
   }

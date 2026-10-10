@@ -200,3 +200,26 @@ class TestComposeRecipients:
         assert error is not None
         assert "recipient" in error.inner_text().lower()
         assert "/mail/compose" in page.url
+
+
+@skip_if_no_services
+class TestNavPendingFeedback:
+    def test_folder_link_tap_acknowledges_before_navigation(self, logged_in_page):
+        """HLD UX9/U24.39: clicking a folder link immediately dims the link
+        and shows the top progress bar. The navigation is aborted via route
+        interception so the pending state can be observed in the DOM."""
+        page = logged_in_page
+        link = page.query_selector("#sidebar a.folder-drop")
+        if link is None:
+            return
+        page.route("**/mail/folder/**", lambda route: route.abort())
+        try:
+            link.click()
+            page.wait_for_selector("#sidebar a.folder-drop.lr-nav-pending", timeout=3000)
+            assert page.eval_on_selector(
+                "#lr-nav-progress", "el => el.classList.contains('lr-nav-active')"
+            )
+            assert page.evaluate("document.body.getAttribute('aria-busy')") == "true"
+        finally:
+            page.unroute("**/mail/folder/**")
+            page.evaluate("window.LR.clearNavPending()")

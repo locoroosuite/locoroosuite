@@ -127,9 +127,10 @@ document.querySelectorAll('.delete-contact-btn').forEach(function(btn) {
       || (btn.closest('[data-contact-card]') ? btn.closest('[data-contact-card]').dataset.contactName : '')
       || window.LR.t('this contact');
     if (confirm(window.LR.t('Delete {name}?', {name: name}))) {
-      btn.disabled = true;
-      btn.textContent = window.LR.t('Deleting...');
-      form.submit();
+      // U24.39: shared loading convention instead of a hand-rolled label swap
+      // (programmatic submit bypasses the global submit spinner).
+      window.LR.setButtonLoading(btn);
+      form.requestSubmit();
     }
   });
 });

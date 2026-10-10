@@ -22,7 +22,7 @@
       {% for cal in calendars %}
       <div class="flex items-center gap-2 py-1.5 group">
         <form method="post" action="{{ url_for('calendar.toggle_calendar', calendar_id=cal.id) }}" class="inline flex-shrink-0">
-          <input type="checkbox" {{ 'checked' if cal.is_visible else '' }} onchange="this.form.submit()" class="h-4 w-4 rounded border-slate-300 cursor-pointer" style="accent-color: {{ cal.color }}" aria-label="{{ _('Show or hide calendar {name}').format(name=cal.displayname) }}" />
+          <input type="checkbox" {{ 'checked' if cal.is_visible else '' }} onchange="window.LR.navPending(this.closest('.group')); this.form.requestSubmit()" class="h-4 w-4 rounded border-slate-300 cursor-pointer" style="accent-color: {{ cal.color }}" aria-label="{{ _('Show or hide calendar {name}').format(name=cal.displayname) }}" />
         </form>
         <span class="text-sm text-slate-700 truncate flex-1">{{ cal.displayname }}</span>
         <div class="flex items-center gap-0.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto lr-touch-visible transition-opacity">

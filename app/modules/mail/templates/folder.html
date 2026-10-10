@@ -12,7 +12,7 @@
       </div>
     </div>
     <form method="post" action="{{ url_for('mail.set_active_account') }}" class="mb-4" data-collapsible="hide">
-      <select name="account_id" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" onchange="this.form.submit()">
+      <select name="account_id" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" onchange="window.LR.navPending(this); this.form.requestSubmit()">
         {% for acct in accounts %}
         <option value="{{ acct.id }}" {% if acct.id == account.id %}selected{% endif %}>{{ acct.email_address }}</option>
         {% endfor %}
@@ -351,6 +351,16 @@
   });
   window.addEventListener('resize', () => {
     if (isDesktopViewport() && isDrawerOpen()) {
+      setDrawerOpen(false);
+    }
+  });
+
+  // UX9: on mobile, tapping any navigating link in the drawer closes it
+  // immediately so the destination view (and its pending state) is
+  // visible right away instead of behind the open drawer.
+  sidebar.addEventListener('click', (e) => {
+    const link = e.target.closest('a[href]');
+    if (link && isDrawerOpen()) {
       setDrawerOpen(false);
     }
   });

@@ -708,13 +708,13 @@
       const ext = file.name.split('.').pop().toLowerCase();
       const allowed = ['odt','ods','odp','docx','xlsx','pptx','pdf'];
       if (!allowed.includes(ext)) {
-        alert(window.LR.t('Unsupported file type. Accepted: .odt, .ods, .odp, .docx, .xlsx, .pptx'));
+        window.LR.notifyError(window.LR.t('Unsupported file type. Accepted: .odt, .ods, .odp, .docx, .xlsx, .pptx'), { suffix: false });
         uploadInput.value = '';
         return;
       }
 
       if (file.size > 50 * 1024 * 1024) {
-        alert(window.LR.t('File exceeds 50 MB limit.'));
+        window.LR.notifyError(window.LR.t('File exceeds 50 MB limit.'), { suffix: false });
         uploadInput.value = '';
         return;
       }
@@ -1038,13 +1038,13 @@
           } else {
             btn.disabled = false;
             btn.innerHTML = origHTML;
-            alert(data.error || window.LR.t('Conversion failed. Please try again.'));
+            window.LR.notifyError(data.error || window.LR.t('Conversion failed. Please try again.'), data.error ? undefined : { suffix: false });
           }
         })
         .catch(() => {
           btn.disabled = false;
           btn.innerHTML = origHTML;
-          alert(window.LR.t('Conversion failed. Please check your connection or try again.'));
+          window.LR.notifyError(window.LR.t('Conversion failed. Please check your connection or try again.'), { suffix: false });
         });
     });
   });
@@ -1127,9 +1127,9 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (data.ok) { window.location.reload(); }
-          else { newFolderAdd.disabled = false; alert((data.error && data.error.message) || window.LR.t('Could not create folder.')); }
+          else { newFolderAdd.disabled = false; window.LR.notifyError((data.error && data.error.message) || window.LR.t('Could not create folder.')); }
         })
-        .catch(function() { newFolderAdd.disabled = false; alert(window.LR.t('Network error. Please try again.')); });
+        .catch(function() { newFolderAdd.disabled = false; window.LR.notifyError(window.LR.t('Network error. Please try again.'), { suffix: false }); });
     });
   }
 
@@ -1143,14 +1143,16 @@
       if (newName === null) return;
       newName = newName.trim();
       if (!newName || newName === name) return;
+      window.LR.setButtonLoading(btn);
       fetch('{{ url_for("docs.rename_folder") }}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: path, name: newName }),
       })
         .then(function(r) { return r.json(); })
-        .then(function(data) { if (data.ok) window.location.reload(); else alert((data.error && data.error.message) || window.LR.t('Rename failed.')); })
-        .catch(function() { alert(window.LR.t('Network error. Please try again.')); });
+        .then(function(data) { if (data.ok) window.location.reload(); else window.LR.notifyError((data.error && data.error.message) || window.LR.t('Rename failed.')); })
+        .catch(function() { window.LR.notifyError(window.LR.t('Network error. Please try again.'), { suffix: false }); })
+        .finally(function() { window.LR.clearButtonLoading(btn); });
     });
   });
 
@@ -1168,6 +1170,7 @@
       e.stopPropagation();
       var path = btn.getAttribute('data-folder-path');
       var name = btn.getAttribute('data-folder-name');
+      window.LR.setButtonLoading(btn);
       fetch('{{ url_for("docs.delete_folder") }}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1180,10 +1183,11 @@
             // Reload fires before this line in practice; banner is shown by server if needed.
             showUndoBanner(window.LR.t('Folder "{name}" deleted. Contents moved up.', {name: name}));
           } else {
-            alert((data.error && data.error.message) || window.LR.t('Delete failed.'));
+            window.LR.notifyError((data.error && data.error.message) || window.LR.t('Delete failed.'));
           }
         })
-        .catch(function() { alert(window.LR.t('Network error. Please try again.')); });
+        .catch(function() { window.LR.notifyError(window.LR.t('Network error. Please try again.'), { suffix: false }); })
+        .finally(function() { window.LR.clearButtonLoading(btn); });
     });
   });
   if (undoBtn) {
@@ -1191,8 +1195,8 @@
       undoBtn.disabled = true;
       fetch('{{ url_for("docs.undo_delete_folder") }}', { method: 'POST' })
         .then(function(r) { return r.json(); })
-        .then(function(data) { if (data.ok) window.location.reload(); else { undoBtn.disabled = false; alert((data.error && data.error.message) || window.LR.t('Undo failed.')); } })
-        .catch(function() { undoBtn.disabled = false; alert(window.LR.t('Network error. Please try again.')); });
+        .then(function(data) { if (data.ok) window.location.reload(); else { undoBtn.disabled = false; window.LR.notifyError((data.error && data.error.message) || window.LR.t('Undo failed.')); } })
+        .catch(function() { undoBtn.disabled = false; window.LR.notifyError(window.LR.t('Network error. Please try again.'), { suffix: false }); });
     });
   }
 
@@ -1254,8 +1258,8 @@
       body: JSON.stringify({ folder: folder || '' }),
     })
       .then(function(r) { return r.json(); })
-      .then(function(data) { if (data.ok) window.location.reload(); else alert((data.error && data.error.message) || window.LR.t('Move failed.')); })
-      .catch(function() { alert(window.LR.t('Could not move the document. Please try again.')); });
+      .then(function(data) { if (data.ok) window.location.reload(); else window.LR.notifyError((data.error && data.error.message) || window.LR.t('Move failed.')); })
+      .catch(function() { window.LR.notifyError(window.LR.t('Could not move the document. Please try again.'), { suffix: false }); });
   }
 
   // -----------------------------------------------------------------------
@@ -1313,8 +1317,8 @@
       body: JSON.stringify({ add: [t] }),
     })
       .then(function(r) { return r.json(); })
-      .then(function(d) { tagAddBtn.disabled = false; tagInput.value = ''; if (d.ok) renderTagCurrent(d.tags); else alert((d.error && d.error.message) || window.LR.t('Could not add tag.')); })
-      .catch(function() { tagAddBtn.disabled = false; alert(window.LR.t('Network error. Please try again.')); });
+      .then(function(d) { tagAddBtn.disabled = false; tagInput.value = ''; if (d.ok) renderTagCurrent(d.tags); else window.LR.notifyError((d.error && d.error.message) || window.LR.t('Could not add tag.')); })
+      .catch(function() { tagAddBtn.disabled = false; window.LR.notifyError(window.LR.t('Network error. Please try again.'), { suffix: false }); });
   }
 
   function openTagModal(docId, docName) {

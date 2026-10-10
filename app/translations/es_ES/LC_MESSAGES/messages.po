@@ -4128,6 +4128,9 @@ msgstr "No se ha podido procesar la cancelación."
 msgid "Failed to import event."
 msgstr "Error al importar el evento."
 
+msgid "Failed to load calendar events."
+msgstr "Error al cargar los eventos del calendario."
+
 msgid "Failed to load shares."
 msgstr "Error al cargar los elementos compartidos."
 

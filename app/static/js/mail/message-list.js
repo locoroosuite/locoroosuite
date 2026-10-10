@@ -287,6 +287,10 @@
         opts.onLoadPreview(row);
         return;
       }
+      // UX9: acknowledge the tap before the full-page navigation.
+      if (window.LR && typeof window.LR.navPending === 'function') {
+        window.LR.navPending(row);
+      }
       window.location.href = messageUrl;
     });
 

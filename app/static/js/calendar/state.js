@@ -132,6 +132,8 @@
     history.replaceState(null, '', url);
   }
 
+  var navSeq = 0;
+
   function navigate(view) {
     if (view) LRCal.state.view = view;
     if (LRCal.state.view === 'agenda') LRCal.state.view = 'schedule'; // legacy alias
@@ -147,7 +149,13 @@
     updateViewButtons();
     renderMini();
 
+    // U24.39: surface a busy indicator while the view's events load, and
+    // ignore superseded responses so a slow earlier fetch can't render a
+    // stale range over a newer navigation.
+    var seq = ++navSeq;
+    LRCal.setBusy(true);
     LRCal.api.fetchEvents(range.fetchStart, range.fetchEnd).then(function (events) {
+      if (seq !== navSeq) return;
       LRCal.lastEventsById = {};
       events.forEach(function (ev) {
         LRCal.lastEventsById[ev.id] = ev;
@@ -158,6 +166,8 @@
         events: events,
       });
       syncUrl();
+    }).finally(function () {
+      if (seq === navSeq) LRCal.setBusy(false);
     });
   }
 

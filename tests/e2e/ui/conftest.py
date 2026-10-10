@@ -221,7 +221,10 @@ def seeded_contact(app_url, user_session):
         resp = user_session.get(f"{app_url}/app/contacts/")
         return resp.status_code == 200 and name in resp.text
 
-    wait_for(list_shows_contact, timeout=30)
+    # Under full-suite load the dev radicale can lag behind the create by
+    # well over the default 30s; the listing itself is the consistency
+    # checkpoint, so give it room rather than failing the test setup.
+    wait_for(list_shows_contact, timeout=90)
     return name
 
 

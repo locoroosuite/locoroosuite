@@ -2,18 +2,25 @@
 
 Covers the touch interaction stack for the message list: the hover action
 overlay must stay inert on touch (UX3b/UX3d), row actions are revealed by
-swipe gestures instead of the removed '...' toggle (UX3g), and
-press-and-hold enters the long-press selection mode (UX3h) — which every
-select-all entry point must also enter, with the action overlay hidden
-while it is active.
+labeled swipe-gesture quick actions with the remaining actions in the
+"More" bottom sheet (UX3g), and press-and-hold enters the long-press
+selection mode (UX3h) — which every select-all entry point must also
+enter, with the action overlay hidden while it is active.
 """
 
 import contextlib
 import uuid
 
+import pytest
+
 from tests.e2e.conftest import skip_if_no_services
 from tests.e2e.services import APP_URL, get_account_id, login_session, wait_for
-from tests.e2e.ui.touch_actions import long_press_element, swipe_element
+from tests.e2e.ui.touch_actions import (
+    long_press_element,
+    swipe_element,
+    tap_element,
+    wait_list_settled as _wait_list_settled,
+)
 
 
 def _assert_touch_emulation(page):
@@ -35,9 +42,7 @@ class TestTouchMailList:
     def test_touch_context_matches_hover_none(self, mobile_logged_in_page):
         _assert_touch_emulation(mobile_logged_in_page)
 
-    def test_overlay_is_inert_until_revealed(
-        self, seeded_inbox_message, mobile_logged_in_page
-    ):
+    def test_overlay_is_inert_until_revealed(self, seeded_inbox_message, mobile_logged_in_page):
         """UX3b: with the overlay unrevealed, its pointer-events must be
         none — even though the row may pick up sticky :hover from a tap."""
         page = mobile_logged_in_page
@@ -82,6 +87,7 @@ class TestTouchMailList:
         row foreground; Archive from the revealed panel removes the row."""
         page = mobile_logged_in_page
         page.wait_for_selector(".message-row", timeout=15000)
+        _wait_list_settled(page)
         row = _first_swipeable_row(page)
         assert row is not None, "no swipeable rows rendered"
         msg_id = row.get_attribute("data-message-id")
@@ -93,15 +99,16 @@ class TestTouchMailList:
             f"{row_sel} [data-swipe-panel='right'] form[data-action='archive'] button"
         )
         assert archive is not None and archive.is_visible(), "archive button not revealed"
-        archive.click()
+        tap_element(
+            page, f"{row_sel} [data-swipe-panel='right'] form[data-action='archive'] button"
+        )
         page.wait_for_selector(row_sel, state="detached", timeout=10000)
 
-    def test_swipe_right_archives_row_with_undo(
-        self, seeded_inbox_message, mobile_logged_in_page
-    ):
+    def test_swipe_right_archives_row_with_undo(self, seeded_inbox_message, mobile_logged_in_page):
         """UX3g: a full right swipe archives immediately (U5.11 undo)."""
         page = mobile_logged_in_page
         page.wait_for_selector(".message-row", timeout=15000)
+        _wait_list_settled(page)
         row = _first_swipeable_row(page)
         assert row is not None, "no swipeable rows rendered"
         msg_id = row.get_attribute("data-message-id")
@@ -112,13 +119,12 @@ class TestTouchMailList:
         undo = page.query_selector("#undo-banner:not(.hidden)")
         assert undo is not None, "archive swipe did not surface the undo banner"
 
-    def test_swipe_below_threshold_snaps_back(
-        self, seeded_inbox_message, mobile_logged_in_page
-    ):
+    def test_swipe_below_threshold_snaps_back(self, seeded_inbox_message, mobile_logged_in_page):
         """UX3g: a short drag disambiguated as a swipe must snap the row
         back closed when released before the trigger threshold."""
         page = mobile_logged_in_page
         page.wait_for_selector(".message-row", timeout=15000)
+        _wait_list_settled(page)
         row = _first_swipeable_row(page)
         assert row is not None, "no swipeable rows rendered"
         msg_id = row.get_attribute("data-message-id")
@@ -130,43 +136,116 @@ class TestTouchMailList:
             "row stayed open after a sub-threshold swipe"
         )
 
-    def test_overflow_menu_reopen_after_close_shows_options(
+    def test_swipe_panel_buttons_show_visible_labels(
         self, seeded_inbox_message, mobile_logged_in_page
     ):
-        """Regression: closing the "more actions" (⋮) overflow menu used to
-        wipe its innerHTML (restore from a never-captured originalContent
-        cache), so the open → close → open cycle left an empty menu."""
+        """UX3g: revealed quick actions carry visible labels under their
+        icons — icon-only reveals are not self-explanatory."""
         page = mobile_logged_in_page
         page.wait_for_selector(".message-row", timeout=15000)
+        _wait_list_settled(page)
         row = _first_swipeable_row(page)
         assert row is not None, "no swipeable rows rendered"
         msg_id = row.get_attribute("data-message-id")
         assert msg_id
         row_sel = f".message-row[data-message-id='{msg_id}']"
-        menu_sel = f"{row_sel} [data-overflow-menu]"
+        swipe_element(page, row_sel, -160)
+        page.wait_for_selector(f"{row_sel}.is-swipe-open", timeout=5000)
+        labels = [
+            span.text_content().strip()
+            for span in page.query_selector_all(f"{row_sel} [data-swipe-panel='right'] button span")
+            if span.text_content().strip()
+        ]
+        assert "Archive" in labels and "Delete" in labels and "More" in labels, (
+            f"quick-action labels missing from revealed panel: {labels}"
+        )
+        assert "Mark read" in labels or "Mark unread" in labels, (
+            f"mark read/unread label missing from revealed panel: {labels}"
+        )
+
+    def test_overflow_more_opens_bottom_sheet_with_options(
+        self, seeded_inbox_message, mobile_logged_in_page
+    ):
+        """UX3g: the swipe panel's "More" opens the touch bottom action
+        sheet with the row's overflow entries. Regression: the old path
+        opened the in-row dropdown, which lives inside the hover action
+        overlay — display:none on touch — so tapping "More" showed
+        nothing. The open → cancel → open cycle must keep showing all
+        options (the dropdown variant used to wipe its content)."""
+        page = mobile_logged_in_page
+        page.wait_for_selector(".message-row", timeout=15000)
+        _wait_list_settled(page)
+        row = _first_swipeable_row(page)
+        assert row is not None, "no swipeable rows rendered"
+        msg_id = row.get_attribute("data-message-id")
+        assert msg_id
+        row_sel = f".message-row[data-message-id='{msg_id}']"
         toggle_sel = f"{row_sel} [data-swipe-panel='right'] [data-overflow-toggle]"
 
         swipe_element(page, row_sel, -160)
         page.wait_for_selector(f"{row_sel}.is-swipe-open", timeout=5000)
 
-        for _ in range(2):  # open, then reopen after close
-            page.click(toggle_sel)
-            page.wait_for_selector(menu_sel, state="visible", timeout=5000)
-            assert page.is_visible(f"{menu_sel} [data-move-to-folder]"), (
-                "overflow menu reopened empty (originalContent wipe regression)"
+        for _ in range(2):  # open, cancel, reopen
+            tap_element(page, toggle_sel)
+            page.wait_for_selector("[data-sheet-panel]", state="visible", timeout=5000)
+            entry = page.wait_for_selector(
+                "[data-sheet-content] [data-sheet-entry]", state="visible", timeout=5000
             )
-            assert page.query_selector(f"{menu_sel} form[data-action='mark']") is not None
-            page.click(toggle_sel)
-            page.wait_for_selector(menu_sel, state="hidden", timeout=5000)
+            assert entry is not None
+            kinds = [
+                e.get_attribute("data-sheet-entry")
+                for e in page.query_selector_all("[data-sheet-content] [data-sheet-entry]")
+            ]
+            assert "mark" in kinds, "mark entry missing from the sheet"
+            assert "move" in kinds, "move-to-folder entry missing from the sheet"
+            page.click("[data-sheet-cancel]")
+            page.wait_for_selector("[data-sheet-panel]", state="hidden", timeout=5000)
+
+    def test_sheet_action_marks_message_read_in_place(
+        self, seeded_inbox_message, mobile_logged_in_page
+    ):
+        """Sheet entries submit the row's real overflow-menu forms, so
+        Mark as read updates the row in place (no navigation) and the
+        sheet closes."""
+        page = mobile_logged_in_page
+        page.wait_for_selector(".message-row", timeout=15000)
+        _wait_list_settled(page)
+        row = _first_swipeable_row(page)
+        assert row is not None, "no swipeable rows rendered"
+        msg_id = row.get_attribute("data-message-id")
+        assert msg_id
+        assert row.get_attribute("data-is-unread") == "1", (
+            "fixture contract: the seeded message must arrive unread"
+        )
+        row_sel = f".message-row[data-message-id='{msg_id}']"
+
+        swipe_element(page, row_sel, -160)
+        page.wait_for_selector(f"{row_sel}.is-swipe-open", timeout=5000)
+        tap_element(page, f"{row_sel} [data-swipe-panel='right'] [data-overflow-toggle]")
+        page.wait_for_selector("[data-sheet-panel]", state="visible", timeout=5000)
+        page.wait_for_timeout(350)  # let the 250ms slide-up finish before computing tap coords
+        tap_element(page, "[data-sheet-entry='mark']")
+        page.wait_for_selector("[data-sheet-panel]", state="hidden", timeout=5000)
+        page.wait_for_function(
+            "id => { const el = document.querySelector(`.message-row[data-message-id='${id}']`);"
+            " return !!el && el.dataset.isUnread === '0'; }",
+            arg=msg_id,
+            timeout=10000,
+        )
+        assert page.query_selector(row_sel) is not None, (
+            "row vanished — the sheet entry navigated instead of submitting in place"
+        )
 
     def test_overflow_menu_layered_above_following_row_surfaces(
-        self, seeded_inbox_message, mobile_logged_in_page
+        self, seeded_inbox_message, logged_in_page
     ):
         """Regression: the overflow menu's z-50 is confined to the action
         overlay's z-20 stacking context, so following rows' surfaces
         (overlays, revealed swipe panels) painted over the open menu. The
-        active row must be elevated above sibling rows' overlays."""
-        page = mobile_logged_in_page
+        active row must be elevated above sibling rows' overlays. This is
+        the desktop path; on touch the swipe panel's "More" opens the
+        bottom sheet instead (see test_overflow_more_opens_bottom_sheet)."""
+        page = logged_in_page
         subject = f"E2E UI overflow {uuid.uuid4().hex[:8]}"
         session = login_session("e2e-test@test.localhost")
         account_id = get_account_id(APP_URL, session)
@@ -190,20 +269,23 @@ class TestTouchMailList:
 
         page.reload()
         page.wait_for_function("document.querySelectorAll('.message-row').length >= 2")
-        # Bounce/draft/sent row variants have no swipe panels; only rows
+        # Bounce/draft/sent row variants have no action overlay; only rows
         # that can open the menu are relevant for the layering check.
-        rows = [r for r in page.query_selector_all(".message-row")
-                if r.query_selector("[data-swipe-panel]") is not None]
-        assert len(rows) >= 2, "need two swipeable rows for the layering check"
+        rows = [
+            r
+            for r in page.query_selector_all(".message-row")
+            if r.query_selector("[data-message-actions]") is not None
+        ]
+        assert len(rows) >= 2, "need two actionable rows for the layering check"
         first = rows[0]
         following = rows[1]
         msg_id = first.get_attribute("data-message-id")
         assert msg_id
         row_sel = f".message-row[data-message-id='{msg_id}']"
 
-        swipe_element(page, row_sel, -160)
-        page.wait_for_selector(f"{row_sel}.is-swipe-open", timeout=5000)
-        page.click(f"{row_sel} [data-swipe-panel='right'] [data-overflow-toggle]")
+        first.hover()
+        page.wait_for_selector(f"{row_sel} [data-message-actions]", state="visible", timeout=5000)
+        page.click(f"{row_sel} [data-message-actions] [data-overflow-toggle]")
         page.wait_for_selector(f"{row_sel} [data-overflow-menu]", state="visible", timeout=5000)
 
         z_row = first.evaluate("el => getComputedStyle(el).zIndex")
@@ -214,17 +296,19 @@ class TestTouchMailList:
             f"active row z-index ({z_row}) must beat sibling overlay ({z_overlay})"
         )
 
-    def test_long_press_enters_selection_mode(
-        self, seeded_inbox_message, mobile_logged_in_page
-    ):
+    def test_long_press_enters_selection_mode(self, seeded_inbox_message, mobile_logged_in_page):
         """UX3h: press-and-hold enters selection mode, shows the animated
-        circle (selected on the held row), and 'Done' exits."""
+        circle (selected on the held row), and 'Done' exits. The held
+        row's circle must stay selected even if the background SSE sync
+        replaces the list right after the press (state re-application
+        guard in js/mail/bulk-select.js)."""
         page = mobile_logged_in_page
         row = page.wait_for_selector(".message-row", timeout=15000)
         assert row is not None
         msg_id = row.get_attribute("data-message-id")
         assert msg_id
         row_sel = f".message-row[data-message-id='{msg_id}']"
+        _wait_list_settled(page)
 
         long_press_element(page, row_sel, ms=650)
         page.wait_for_selector("#message-list[data-selection-mode='1']", timeout=5000)
@@ -246,13 +330,21 @@ class TestTouchMailList:
     ):
         """UX3h: on touch, the header "Select" checkbox must enter the
         long-press selection mode (per-row circles + Done control), not
-        fill the selection silently with circles left hidden."""
+        fill the selection silently with circles left hidden. The label
+        (not the bare input) is clicked: its lr-hit ::before hit-area
+        expansion covers the input on coarse pointers and intercepts
+        point hits — label activation toggles the input either way."""
         page = mobile_logged_in_page
-        row = page.wait_for_selector(".message-row", timeout=15000)
+        page.wait_for_selector(".message-row", timeout=15000)
+        _wait_list_settled(page)
+        row = _first_swipeable_row(page)
         assert row is not None
-        page.check("#select-all-messages")
+        msg_id = row.get_attribute("data-message-id")
+        assert msg_id
+        row_sel = f".message-row[data-message-id='{msg_id}']"
+        page.click("label:has(#select-all-messages)")
         page.wait_for_selector("#message-list[data-selection-mode='1']", timeout=5000)
-        circle = row.query_selector("[data-select-circle]")
+        circle = page.query_selector(f"{row_sel} [data-select-circle]")
         assert circle is not None and circle.is_visible(), (
             "selection circle not visible after header select-all"
         )
@@ -299,18 +391,30 @@ class TestTouchMailList:
 
         page.reload()
         page.wait_for_function("document.querySelectorAll('.message-row').length >= 2")
-        rows = [r for r in page.query_selector_all(".message-row")
-                if r.query_selector("[data-swipe-panel]") is not None]
+        _wait_list_settled(page)
+        rows = [
+            r
+            for r in page.query_selector_all(".message-row")
+            if r.query_selector("[data-swipe-panel]") is not None
+        ]
         assert len(rows) >= 2, "need two swipeable rows for the tap test"
         held_id = rows[0].get_attribute("data-message-id")
         assert held_id
         long_press_element(page, f".message-row[data-message-id='{held_id}']", ms=650)
         page.wait_for_selector("#message-list[data-selection-mode='1']", timeout=5000)
-        tap_row = rows[1]
+        # Re-query by id right before use: a background SSE refresh can
+        # replace the row nodes between here and the earlier capture,
+        # detaching the stale handles.
+        tap_id = rows[1].get_attribute("data-message-id")
+        assert tap_id
+        tap_sel = f".message-row[data-message-id='{tap_id}']"
+        tap_row = page.query_selector(tap_sel)
         box = tap_row.bounding_box()
         assert box is not None
         page.touchscreen.tap(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
         page.wait_for_timeout(300)
+        tap_row = page.query_selector(tap_sel)
+        assert tap_row is not None, "tapped row vanished (list replaced mid-tap?)"
         tapped_circle = tap_row.query_selector("[data-select-circle]")
         assert tapped_circle is not None
         assert "is-selected" in (tapped_circle.get_attribute("class") or ""), (
@@ -375,6 +479,29 @@ class TestTouchSearch:
 
 @skip_if_no_services
 class TestTouchDocs:
+    def test_docs_swipe_reveals_labeled_quick_actions(self, mobile_logged_in_page):
+        """U24.32/UX3g parity: swiping a doc card left reveals the
+        quick-action panel with visible labels (Download), and the panel
+        stays interactive (taps route to the buttons, not the card)."""
+        page = mobile_logged_in_page
+        page.goto("http://localhost:8001/app/docs/")
+        page.wait_for_load_state("load")
+        page.wait_for_selector("#docs-sidebar", timeout=10000)
+        card = page.query_selector("#docs-mobile-list .doc-swipe-row [data-row-foreground]")
+        if card is None:
+            pytest.skip("no documents in the dev env")
+        row_sel = "#docs-mobile-list .doc-swipe-row"
+        swipe_element(page, row_sel, -160)
+        page.wait_for_selector(f"{row_sel}.is-swipe-open", timeout=5000)
+        page.wait_for_timeout(350)  # let the snap-open transition finish
+        download = page.query_selector(f"{row_sel} [data-swipe-panel='right'] a[title='Download']")
+        assert download is not None and download.is_visible(), (
+            "Download quick action not revealed by the swipe (U24.32)"
+        )
+        assert "Download" in (download.text_content() or ""), (
+            "revealed quick actions must carry a visible label (UX3g parity)"
+        )
+
     def test_docs_mobile_card_layout_and_visible_actions(self, mobile_logged_in_page):
         """U24.32: below lg the docs list renders cards (no table) and the
         card actions are always visible (no hover dependency)."""

@@ -28,8 +28,21 @@ def app():
         return
 
     try:
-        with patch("app.workers.manager.WorkerManager") as MockWM:
+        with (
+            # No background threads in unit tests: the workers share the
+            # in-memory SQLite connection with test fixtures and race the
+            # per-test _clean_db wipe (ghost rows reappear, admin rows
+            # momentarily vanish -> random /admin/setup redirects and
+            # UNIQUE-constraint errors, ~1 run in N, different test each
+            # time). WorkerManager was already mocked; the calendar/chat
+            # workers were missed and ran for real.
+            patch("app.workers.manager.WorkerManager") as MockWM,
+            patch("app.workers.calendar_reminders.CalendarReminderWorker") as MockCal,
+            patch("app.workers.chat_push.ChatPushWorker") as MockChat,
+        ):
             MockWM.return_value = MagicMock()
+            MockCal.return_value = MagicMock()
+            MockChat.return_value = MagicMock()
 
             from app import create_app
 

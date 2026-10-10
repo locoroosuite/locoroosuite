@@ -62,8 +62,15 @@ class TestMobileMailUi:
         """UX3e: below md each row stacks three lines — sender + date,
         subject, snippet — with the star inline with the date on the
         right edge, and no select checkbox outside selection mode."""
+        from tests.e2e.ui.touch_actions import wait_list_settled
+
         page = mobile_logged_in_page
-        row = page.wait_for_selector(".message-row", timeout=15000)
+        # The folder view's load-time SSE sync replaces the whole list once
+        # the background sync completes; measuring against pre-replacement
+        # element handles yields detached nodes (None boxes). Wait for the
+        # list to go quiet, then measure fresh handles in one pass.
+        wait_list_settled(page)
+        row = page.query_selector(".message-row")
         assert row is not None
         assert row.query_selector("[data-message-actions-toggle]") is None, (
             "the '...' toggle was removed (UX3g)"
@@ -83,10 +90,12 @@ class TestMobileMailUi:
         checkbox = row.query_selector("input[data-select-message]")
         assert checkbox is None or not checkbox.is_visible()
         # Star sits inline with the date on line 1, right edge (UX3e);
-        # it must not add a fourth line.
+        # it must not add a fourth line. Rows render two stars (desktop
+        # column `hidden md:block` + mobile one under the date); measure
+        # the visible (mobile) one.
         date = row.query_selector("[data-date]")
-        star = row.query_selector("[data-star-toggle]")
-        assert date is not None and star is not None
+        star = page.locator(".message-row [data-star-toggle] >> visible=true").first
+        assert date is not None and star.count() > 0
         date_box = date.bounding_box()
         star_box = star.bounding_box()
         row_box = row.bounding_box()
@@ -96,8 +105,9 @@ class TestMobileMailUi:
         assert abs(star_center_y - date_center_y) < 12, (
             "star must sit on the date line, not on its own line (UX3e)"
         )
-        assert star_box["x"] > date_box["x"] + date_box["width"], (
-            "star must sit to the right of the date (UX3e)"
+        assert star_box["x"] + 6 > date_box["x"] + date_box["width"], (
+            "star must sit to the right of the date (UX3e; the -m-1 hit-area "
+            "tune may overlap the gap by a few px)"
         )
         assert star_box["x"] + star_box["width"] / 2 > row_box["x"] + row_box["width"] / 2
 
@@ -485,7 +495,9 @@ class TestMobileContactsUi:
         page = mobile_logged_in_page
         page.goto("http://localhost:8001/app/contacts/")
         page.wait_for_load_state("load")
-        page.wait_for_selector("#contacts-search-input", timeout=15000)
+        # Anchor on the seeded card (the old #contacts-search-input no
+        # longer exists in the list template).
+        page.wait_for_selector(f"[data-contact-name='{seeded_contact}']", timeout=15000)
         overflow = page.evaluate(
             "() => document.documentElement.scrollWidth - document.documentElement.clientWidth"
         )
@@ -497,8 +509,7 @@ class TestMobileContactsUi:
         page = mobile_logged_in_page
         page.goto("http://localhost:8001/app/contacts/")
         page.wait_for_load_state("load")
-        page.wait_for_selector("#contacts-search-input", timeout=15000)
-        cards = page.wait_for_selector(f"[data-contact-name='{seeded_contact}']", timeout=10000)
+        cards = page.wait_for_selector(f"[data-contact-name='{seeded_contact}']", timeout=15000)
         assert cards is not None
         table = page.query_selector("table")
         assert table is None or not table.is_visible()

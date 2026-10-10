@@ -369,6 +369,18 @@ def cleanup_e2e_contacts(user: str = "e2e-test@test.localhost", password: str | 
         )
         if r.status_code not in (200, 204, 404):
             pass
+    # The app serves the contacts list from its SQLCipher cache and only
+    # re-syncs on demand (the Sync button / contact_sync). Deleting the
+    # server-side vcards alone leaves cache ghosts: the list keeps serving
+    # stale rows, they accumulate across sessions, and eventually push
+    # freshly seeded contacts past page 1 (per_page=50) — the seeded_contact
+    # fixture then times out waiting for the list. Trigger an app-side sync
+    # so the cache converges with the now-empty address book.
+    try:
+        sync_session = login_session(user, password)
+        sync_session.post(f"{APP_URL}/app/contacts/sync", allow_redirects=True, timeout=15)
+    except Exception:
+        pass
 
 
 def carddav_get_addressbooks(user: str, password: str | None = None) -> list[dict]:

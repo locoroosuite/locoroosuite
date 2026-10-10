@@ -78,6 +78,46 @@ def swipe_element(page, selector, dx, steps=6):
     page.evaluate(_SWIPE_JS, [selector, x0, x0 + dx, y, steps])
 
 
+def tap_element(page, selector):
+    """Tap an element's center via the touchscreen API.
+
+    Use this (not page.click) for revealed swipe-panel buttons: Chrome
+    retargets the click a tap produces to the row, bypassing the panel
+    button handlers; the app's touchend fast-path (js/mail/swipe.js)
+    activates the button for real touch sequences only."""
+    el = page.query_selector(selector)
+    if el is None:
+        raise AssertionError(f"element not found for tap: {selector}")
+    box = el.bounding_box()
+    if box is None:
+        raise AssertionError(f"element has no box: {selector}")
+    page.touchscreen.tap(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+
+
+def wait_list_settled(page, quiet_ms=1200, timeout=15000):
+    """Wait until the mail message list stops mutating.
+
+    The folder view's load-time SSE sync replaces the whole list once the
+    background sync completes; a row revealed by swipe (or measured for
+    geometry assertions) right before that loses its state / detaches its
+    handles when the DOM node is replaced. Interactions and measurements
+    must wait for the list to go quiet first."""
+    page.wait_for_function(
+        """(quiet) => {
+          const list = document.getElementById('message-list') || document.getElementById('search-results');
+          if (!list) return true;
+          if (!window.__lrLastListMut) {
+            window.__lrLastListMut = Date.now();
+            const obs = new MutationObserver(() => { window.__lrLastListMut = Date.now(); });
+            obs.observe(list, { childList: true, subtree: true, attributes: true });
+          }
+          return Date.now() - window.__lrLastListMut >= quiet;
+        }""",
+        arg=quiet_ms,
+        timeout=timeout,
+    )
+
+
 def long_press_element(page, selector, ms=650):
     """Press-and-hold on the element for ms milliseconds (UX3h selection)."""
     el = page.query_selector(selector)

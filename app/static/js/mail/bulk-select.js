@@ -174,6 +174,12 @@
     // or by lifting the finger early.
     container.addEventListener('touchstart', function (e) {
       if (!longPressQuery.matches || !e.touches || e.touches.length !== 1) return;
+      // The suppressToggleTap flag only applies to the trailing click of
+      // the SAME long-press interaction. A fresh touch starts a new
+      // interaction, so clear it — otherwise a long-press whose trailing
+      // click was swallowed (synthetic events, scroll-cancel suppression)
+      // eats the next real tap.
+      suppressToggleTap = false;
       var row = e.target.closest('.message-row');
       if (!row || !row.dataset.messageId) return;
       pressStart = {
@@ -426,6 +432,19 @@
         if (window.LR) window.LR.clearButtonLoading(btn);
       });
     });
+
+    // Bug fix: the folder view's background SSE sync replaces the whole
+    // list (FLIP refresh). Replacement rows render from server HTML with
+    // checkboxes/circles in their default state, silently wiping the
+    // visual selection while the id Set lives on — e.g. long-press a row
+    // just as a sync lands and the held row appears unselected. Re-apply
+    // the state whenever rows are replaced. (refresh() only mutates
+    // attributes/classes, never childList, so this cannot loop.)
+    var resyncOnListReplacement = new MutationObserver(function () {
+      if (!selectionMode && selection.size === 0) return;
+      refresh();
+    });
+    resyncOnListReplacement.observe(container, { childList: true });
 
     refresh();
     return {

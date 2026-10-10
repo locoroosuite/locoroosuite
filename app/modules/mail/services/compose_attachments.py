@@ -13,6 +13,7 @@ from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import make_msgid
 from typing import Any, NotRequired, TypedDict
 
 from flask import current_app
@@ -236,11 +237,25 @@ def build_message_root(
     body_html: str,
     staged_files: list[StagedFile],
 ) -> MIMEMultipart:
-    """Build a multipart/mixed root: headers + body container + regular attachments."""
+    """Build a multipart/mixed root: headers + body container + regular attachments.
+
+    Always stamps a Message-ID (RFC 5322 3.6.4) when the caller did not
+    supply one: without it, replies cannot thread and archive/delete undo
+    (which searches IMAP by Message-ID) is unavailable. Senders that need
+    a stable identity across variants of the same message (e.g. the wire
+    copy and the Sent copy) must pass their own shared value.
+    """
     root = MIMEMultipart("mixed")
+    has_message_id = False
     for name, value in headers:
         if value:
             root[name] = value
+        if name.lower() == "message-id":
+            has_message_id = True
+    if not has_message_id:
+        from_addr = root["From"] if "From" in root else ""
+        domain = from_addr.split("@")[-1] if "@" in (from_addr or "") else "localhost"
+        root["Message-ID"] = make_msgid(domain=domain)
     root.attach(build_body_container(body, body_html, staged_files))
     for file in staged_files:
         if not file.get("content_id"):

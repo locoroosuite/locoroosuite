@@ -3,7 +3,7 @@ import re
 import time
 import uuid
 from email import message_from_bytes
-from email.utils import formataddr, formatdate, getaddresses
+from email.utils import formataddr, formatdate, getaddresses, make_msgid
 
 from flask import current_app, jsonify, redirect, render_template, request, session, url_for
 from flask_babel import _
@@ -384,12 +384,16 @@ def send_mail():
     body_html = apply_inline_content_ids(body_html_form, staged_files)
     body = html_to_text_lines(body_html)
 
+    # One Message-ID shared by the wire copy and the Sent copy so replies
+    # thread correctly and archive/delete undo (IMAP HEADER search) works.
+    message_id = make_msgid(domain=domain.name)
     base_headers = [
         ("From", from_addr),
         ("To", to_addrs),
         ("Cc", cc_addrs),
         ("Subject", subject),
         ("Date", formatdate(localtime=True)),
+        ("Message-ID", message_id),
     ]
     if request_receipt:
         base_headers.append(("Disposition-Notification-To", from_addr))
@@ -406,6 +410,7 @@ def send_mail():
             ("Bcc", bcc_addrs),
             ("Subject", subject),
             ("Date", msg_root["Date"]),
+            ("Message-ID", message_id),
         ]
         if request_receipt:
             sent_headers.append(("Disposition-Notification-To", from_addr))

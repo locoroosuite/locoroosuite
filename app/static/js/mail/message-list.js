@@ -1,7 +1,8 @@
 /**
  * Shared message-list behavior (HLD UX2/UX3b/UX3d/UX3g/UX3h) for the
  * folder view, search results, and full-search results: the row action
- * overlay, the overflow menu and move-to-folder picker, inline
+ * overlay, the desktop overflow dropdown, the touch bottom sheet and
+ * move-to-folder picker (js/mail/overflow_menu.js), inline
  * form.message-action submits, thread collapse, row navigation, and the
  * touch swipe gestures (UX3g).
  *
@@ -10,8 +11,10 @@
  * (pointer:fine) via Tailwind hoverOnlyWhenSupported).
  *
  * UX3g: on touch below lg, swiping a row right archives it (with the
- * standard undo banner) and swiping left reveals the row action buttons
- * behind the row's opaque foreground. Desktop never gets swipe behavior.
+ * standard undo banner) and swiping left reveals the labeled quick
+ * actions plus "More" behind the row's opaque foreground. "More" opens
+ * the touch bottom sheet (LROverflowMenu.openSheet). Desktop never gets
+ * swipe behavior; its "..." stays in the hover overlay dropdown.
  *
  * UX3h: while the container is in long-press selection mode
  * ([data-selection-mode]), row taps toggle selection instead of
@@ -19,8 +22,6 @@
  */
 (function () {
   'use strict';
-
-  var MOVE_URL_TEMPLATE = '/app/mail/message/{accountId}/{messageId}/move';
 
   function initMessageList(opts) {
     var container = opts.container;
@@ -86,32 +87,6 @@
       }
     };
 
-    var renderFolderPicker = function (menu) {
-      if (!menu) return;
-      if (!menu.dataset.originalContent) {
-        menu.dataset.originalContent = menu.innerHTML;
-      }
-      var targets = folders.filter(function (f) {
-        return f.toLowerCase() !== currentFolder.toLowerCase();
-      });
-      if (targets.length === 0) {
-          if (window.LR) window.LR.notifyError(window.LR.t('No other folders available.'));
-        renderOverflowMenu(menu);
-        return;
-      }
-      var html = '<button type="button" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2 text-slate-500 hover:bg-slate-50 hover:text-slate-600 whitespace-nowrap" data-move-back>&larr; ' + window.LR.t('Back') + '</button>';
-      html += '<div class="border-t border-slate-100"></div>';
-      html += '<div class="px-2 py-1"><input type="text" placeholder="' + window.LR.t('Filter folders...') + '" class="w-full text-base md:text-[11px] px-2 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:border-slate-400" data-folder-filter /></div>';
-      html += '<div class="max-h-40 overflow-y-auto" data-folder-list>';
-      targets.forEach(function (f) {
-        html += '<button type="button" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-target="' + CSS.escape(f) + '">' + folderLabel(f) + '</button>';
-      });
-      html += '</div>';
-      menu.innerHTML = html;
-      var row = menu.closest('.message-row');
-      if (row) positionOverflowMenu(menu, row);
-    };
-
     // ---- UX3g: touch swipe gestures live in js/mail/swipe.js ----
     var swipeApi = window.LRSwipe ? window.LRSwipe.init(container) : null;
     var resetSwipeRow = function (row) {
@@ -123,6 +98,21 @@
       swipeApi.closeAll();
     };
 
+    // Desktop "..." dropdown folder picker + move fetch (js/mail/overflow_menu.js).
+    if (window.LROverflowMenu) {
+      window.LROverflowMenu.initDropdownPicker(container, {
+        folders: folders,
+        currentFolder: currentFolder,
+        folderLabels: folderLabels,
+        onMoved: function (row) {
+          openOverflowMenu = null;
+          removeRowWithAnimation(row);
+        },
+        onRestore: renderOverflowMenu,
+        positionMenu: positionOverflowMenu
+      });
+    }
+
     container.addEventListener('click', function (e) {
       var overflowToggle = e.target.closest('[data-overflow-toggle]');
       if (overflowToggle) {
@@ -130,6 +120,21 @@
         e.stopPropagation();
         var row = overflowToggle.closest('.message-row');
         if (!row) return;
+        // UX3g: the swipe panel's "More" button opens the touch bottom
+        // sheet. The in-row dropdown lives inside the hover action
+        // overlay, which is display:none on touch devices, so it can
+        // never render there.
+        if (overflowToggle.closest('[data-swipe-panel]') && window.LROverflowMenu) {
+          window.LROverflowMenu.openSheet({
+            row: row,
+            folders: folders,
+            folderLabels: folderLabels,
+            currentFolder: currentFolder,
+            removeRowWithAnimation: removeRowWithAnimation,
+            onMenuClosed: opts.onMenuClosed
+          });
+          return;
+        }
         var menu = row.querySelector('[data-overflow-menu]');
         if (!menu) return;
         var wasHidden = menu.classList.contains('hidden');
@@ -147,66 +152,6 @@
         } else {
           closeOverflowMenu();
         }
-        return;
-      }
-
-      var moveBtn = e.target.closest('[data-move-to-folder]');
-      if (moveBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        var row = moveBtn.closest('.message-row');
-        if (!row) return;
-        renderFolderPicker(row.querySelector('[data-overflow-menu]'));
-        return;
-      }
-
-      var backBtn = e.target.closest('[data-move-back]');
-      if (backBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        var menu = backBtn.closest('[data-overflow-menu]');
-        renderOverflowMenu(menu);
-        var row = menu ? menu.closest('.message-row') : null;
-        if (menu && row) positionOverflowMenu(menu, row);
-        return;
-      }
-
-      var target = e.target.closest('[data-move-target]');
-      if (target) {
-        e.preventDefault();
-        e.stopPropagation();
-        var row = target.closest('.message-row');
-        if (!row) return;
-        var menu = row.querySelector('[data-overflow-menu]');
-        var destination = target.dataset.moveTarget;
-        if (!destination) return;
-        var messageId = row.dataset.messageId;
-        var accountId = row.dataset.accountId;
-        if (!messageId || !accountId) return;
-        target.disabled = true;
-        var spinner = document.createElement('span');
-        spinner.className = 'inline-block w-3 h-3 border-2 border-slate-400 border-r-transparent rounded-full animate-spin ml-1';
-        target.appendChild(spinner);
-        var url = MOVE_URL_TEMPLATE
-          .replace('{accountId}', encodeURIComponent(accountId))
-          .replace('{messageId}', encodeURIComponent(messageId));
-        fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
-          body: 'destination=' + encodeURIComponent(destination)
-        })
-          .then(function (resp) {
-            if (!resp.ok) throw new Error('Move failed');
-            return resp.json();
-          })
-          .then(function () {
-            openOverflowMenu = null;
-            removeRowWithAnimation(row);
-          })
-          .catch(function () {
-            if (window.LR) window.LR.notifyError(window.LR.t('Failed to move message. Please retry. If it keeps happening, check your connection or refresh.'));
-            renderOverflowMenu(menu);
-          });
         return;
       }
 
@@ -257,6 +202,15 @@
       // Row navigation.
       var row = e.target.closest('.message-row');
       if (!row) return;
+      // UX3g: tapping the revealed panel's empty area (not one of its
+      // buttons) snaps the row closed — the gesture translates the clip
+      // wrapper, so such taps land on the panel itself, not the wrapper.
+      if (e.target.closest('[data-swipe-panel]') && !e.target.closest('button')) {
+        e.preventDefault();
+        e.stopPropagation();
+        resetSwipeRow(row);
+        return;
+      }
       if (e.target.closest('[data-no-row-nav]')) return;
       // UX3h: in long-press selection mode taps toggle selection
       // (handled by LRBulkSelect), never navigate.
@@ -296,19 +250,6 @@
         window.LR.navPending(row);
       }
       window.location.href = messageUrl;
-    });
-
-    container.addEventListener('input', function (e) {
-      var filter = e.target.closest('[data-folder-filter]');
-      if (!filter) return;
-      e.stopPropagation();
-      var list = filter.closest('[data-overflow-menu]').querySelector('[data-folder-list]');
-      if (!list) return;
-      var query = filter.value.toLowerCase();
-      list.querySelectorAll('[data-move-target]').forEach(function (btn) {
-        var match = !query || btn.textContent.toLowerCase().includes(query);
-        btn.classList.toggle('hidden', !match);
-      });
     });
 
     container.addEventListener('auxclick', function (e) {

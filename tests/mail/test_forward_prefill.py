@@ -341,6 +341,36 @@ class TestComposeAttachmentHelpers:
         assert "multipart/related" not in types
         assert "multipart/alternative" in types
 
+    def test_build_message_root_stamps_message_id_when_missing(self):
+        """Every outgoing message needs a Message-ID (RFC 5322 3.6.4):
+        undo of archive/delete searches IMAP by it and replies thread on
+        it. The root builder must stamp one when the caller didn't."""
+        staged: list[StagedFile] = []
+        root = build_message_root(
+            [("From", "a@x.com"), ("To", "b@y.com"), ("Subject", "S")],
+            "plain",
+            "<p>html</p>",
+            staged,
+        )
+        msg_id = root.get("Message-ID")
+        assert msg_id, "build_message_root must stamp a Message-ID when none is supplied"
+        assert msg_id.startswith("<") and msg_id.endswith(">")
+        assert "@x.com" in msg_id, "the id's domain should derive from the From address"
+
+    def test_build_message_root_keeps_caller_supplied_message_id(self):
+        staged: list[StagedFile] = []
+        root = build_message_root(
+            [
+                ("From", "a@x.com"),
+                ("Subject", "S"),
+                ("Message-ID", "<stable@x.com>"),
+            ],
+            "plain",
+            "",
+            staged,
+        )
+        assert root.get("Message-ID") == "<stable@x.com>"
+
 
 class TestSendWithInlineImages:
     def test_send_builds_related_and_cid_refs(self, app, authed_client, staging_dir):

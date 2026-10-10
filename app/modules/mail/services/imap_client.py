@@ -158,6 +158,25 @@ def fetch_message_with_flags(client, uid):
     return None, [], None
 
 
+def fetch_message_id_header(client, uid):
+    """Fetch only the Message-ID header of a message (header-only peek).
+
+    Used by the archive/delete/junk undo path when the cached row predates
+    sends always stamping a Message-ID (or was synced from a message that
+    lacked one): undo searches IMAP by this header, so it must be read
+    before the message is moved. Returns None when absent."""
+    status, data = client.uid("FETCH", uid, "(BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)])")
+    if status != "OK" or not data:
+        return None
+    for item in data:
+        _uid, _flags, raw, _ = _parse_fetch_item(item)
+        if raw:
+            msg = email.message_from_bytes(raw)
+            value = (msg.get("Message-ID") or "").strip()
+            return value or None
+    return None
+
+
 def fetch_raw_message(client, uid):
     status, data = client.uid("FETCH", uid, "(BODY.PEEK[])")
     if status != "OK" or not data:

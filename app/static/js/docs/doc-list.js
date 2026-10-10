@@ -503,6 +503,20 @@
       swipe = null;
     });
 
+    // Panel-button activation fast-path (same rationale as mail's
+    // js/mail/swipe.js): Chrome can retarget the click a tap produces to
+    // the card even when every touch event resolved to the revealed
+    // panel button, leaving the tap dead. Touch events keep the
+    // touchstart target for the whole sequence, so ending on a panel
+    // button is reliable: suppress the ghost click and click it directly.
+    container.addEventListener('touchend', function (e) {
+      if (!e.target.closest) return;
+      var panelButton = e.target.closest('[data-swipe-panel] a, [data-swipe-panel] button');
+      if (!panelButton) return;
+      if (e.cancelable) e.preventDefault();
+      panelButton.click();
+    });
+
     // Tapping anywhere in an open card's foreground closes the reveal.
     container.addEventListener('click', function (e) {
       var open = e.target.closest('.doc-swipe-row.is-swipe-open');

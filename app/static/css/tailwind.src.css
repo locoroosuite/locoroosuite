@@ -134,22 +134,23 @@
     pointer-events: auto !important;
   }
 
-  /* UX3g: swipe gesture plumbing. The foreground translates with the
-   * finger (transition disabled by JS during the drag); back panels sit
-   * behind the opaque foreground and are display:none until engaged.
+  /* UX3g: swipe gesture plumbing. The row's clip wrapper ([data-row-clip])
+   * translates with the finger (transition disabled by JS during the
+   * drag), moving its whole z-10 box aside so the revealed panels (z-0)
+   * receive taps; back panels are display:none until engaged.
    * touch-action:pan-y keeps vertical scrolling native while horizontal
    * moves stay cancelable for the swipe. */
   .message-row {
     touch-action: pan-y;
   }
-  .message-row [data-row-foreground] {
+  .message-row [data-row-clip] {
     transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .message-row.is-swipe-open {
     z-index: 25;
   }
   @media (prefers-reduced-motion: reduce) {
-    .message-row [data-row-foreground] {
+    .message-row [data-row-clip] {
       transition: none;
     }
   }
@@ -164,6 +165,35 @@
   @media (hover: none), (pointer: coarse) {
     .message-actions-overlay {
       display: none;
+    }
+  }
+
+  /* UX3g: touch bottom action sheet for the swipe panel's "More" entry.
+   * It is a document-level dialog (appended to <body> by
+   * js/mail/overflow_menu.js), so it escapes both the touch-hidden
+   * action overlay and the row's transformed foreground. JS toggles
+   * .is-open; the sheet element carries `hidden` while fully closed. */
+  .lr-sheet-backdrop {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .lr-sheet-panel {
+    transform: translateY(100%);
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .lr-sheet.is-open .lr-sheet-backdrop {
+    opacity: 1;
+  }
+  .lr-sheet.is-open .lr-sheet-panel {
+    transform: translateY(0);
+  }
+  .lr-sheet-actions {
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lr-sheet-backdrop,
+    .lr-sheet-panel {
+      transition: none;
     }
   }
 

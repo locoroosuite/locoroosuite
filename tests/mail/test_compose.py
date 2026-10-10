@@ -73,6 +73,80 @@ class TestCompose:
                     if _pending_sends[token].get("user_id") == user_id:
                         _pending_sends.pop(token, None)
 
+    def test_send_mail_includes_message_id_header(self, app, authed_client):
+        """RFC 5322 3.6.4 + undo contract: outgoing messages carry a
+        Message-ID. Undo of archive/delete searches IMAP by this header,
+        and replies thread on it — messages sent without one used to be
+        un-undoable and un-threadable."""
+        from email import message_from_bytes
+
+        client, user_id, account_id = authed_client
+        try:
+            with (
+                patch("app.modules.mail.controllers.compose.decrypt_with_key"),
+                patch("app.modules.mail.controllers.compose._start_send_worker"),
+                patch("app.modules.mail.controllers.compose._cleanup_pending_sends"),
+            ):
+                resp = client.post(
+                    "/app/mail/send",
+                    data={
+                        "account_id": account_id,
+                        "to": "test@test.com",
+                        "subject": "Test",
+                        "body_html": "<p>hi</p>",
+                    },
+                )
+            assert resp.status_code == 302
+            with _pending_sends_lock:
+                tokens = [t for t in _pending_sends if _pending_sends[t].get("user_id") == user_id]
+                assert tokens
+                payload = _pending_sends[tokens[0]]
+            parsed = message_from_bytes(payload["msg"])
+            assert parsed.get("Message-ID"), "sent message must carry a Message-ID header"
+        finally:
+            with _pending_sends_lock:
+                for token in list(_pending_sends):
+                    if _pending_sends[token].get("user_id") == user_id:
+                        _pending_sends.pop(token, None)
+
+    def test_send_mail_wire_and_sent_copy_share_message_id(self, app, authed_client):
+        """With Bcc recipients the wire copy and the Sent copy are built
+        separately; they must share ONE Message-ID so the sender's own
+        Sent copy threads with replies to the wire message."""
+        from email import message_from_bytes
+
+        client, user_id, account_id = authed_client
+        try:
+            with (
+                patch("app.modules.mail.controllers.compose.decrypt_with_key"),
+                patch("app.modules.mail.controllers.compose._start_send_worker"),
+                patch("app.modules.mail.controllers.compose._cleanup_pending_sends"),
+            ):
+                resp = client.post(
+                    "/app/mail/send",
+                    data={
+                        "account_id": account_id,
+                        "to": "test@test.com",
+                        "bcc": "hidden@test.com",
+                        "subject": "Test",
+                        "body_html": "<p>hi</p>",
+                    },
+                )
+            assert resp.status_code == 302
+            with _pending_sends_lock:
+                tokens = [t for t in _pending_sends if _pending_sends[t].get("user_id") == user_id]
+                assert tokens
+                payload = _pending_sends[tokens[0]]
+            wire_id = message_from_bytes(payload["msg"]).get("Message-ID")
+            sent_id = message_from_bytes(payload["sent_msg"]).get("Message-ID")
+            assert wire_id and sent_id, "both copies must carry a Message-ID"
+            assert wire_id == sent_id, "wire and Sent copies must share one Message-ID"
+        finally:
+            with _pending_sends_lock:
+                for token in list(_pending_sends):
+                    if _pending_sends[token].get("user_id") == user_id:
+                        _pending_sends.pop(token, None)
+
     def test_undo_send(self, app, authed_client):
         client, user_id, _account_id = authed_client
         token = "test-undo-token-123"

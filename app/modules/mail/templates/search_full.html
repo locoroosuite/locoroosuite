@@ -7,7 +7,7 @@
   {% if row.message_id %}
   <div class="message-row group relative text-sm cursor-pointer transition-all duration-200" data-message-id="{{ row.message_id }}" data-account-id="{{ account_id }}" data-message-url="{{ url_for('mail.message_view', account_id=account_id, message_id=row.message_id) }}" data-is-unread="{{ '1' if row.is_unread else '0' }}" data-is-flagged="{{ '1' if row.is_flagged else '0' }}">
     {{ swipe_panels(account_id, row.message_id, row.is_unread) }}
-    <div class="relative z-10 overflow-hidden">
+    <div class="relative z-10 overflow-hidden" data-row-clip>
       <div class="flex items-start md:items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5 md:py-2 {{ 'bg-[#fef7d8] hover:bg-amber-100' if row.is_unread else 'bg-white hover:bg-slate-50/80' }} transition-all duration-200" data-row-foreground>
         {{ star_form(account_id, row.message_id, row.is_flagged, 'hidden md:block flex-shrink-0') }}
         <div class="flex-1 min-w-0">
@@ -65,6 +65,7 @@
   {% endfor %}
 </div>
 
+<script src="{{ url_for('static', filename='js/mail/overflow_menu.js') }}?v={{ static_v('js/mail/overflow_menu.js') }}"></script>
 <script src="{{ url_for('static', filename='js/mail/message-list.js') }}?v={{ static_v('js/mail/message-list.js') }}"></script>
 <script src="{{ url_for('static', filename='js/mail/swipe.js') }}?v={{ static_v('js/mail/swipe.js') }}"></script>
 <script>

@@ -30,6 +30,7 @@ from app.modules.mail.services.folder_aliases import folder_display_names
 from app.modules.mail.services.imap_client import (
     create_folder,
     fetch_message,
+    fetch_message_id_header,
     fetch_raw_message,
     move_message,
     safe_logout,
@@ -345,6 +346,29 @@ def move_message_route(account_id, message_id):
     return redirect(url_for("mail.folder_view", account_id=account_id, folder=destination))
 
 
+def _undo_message_id_header(client, message):
+    """Message-ID for the undo token, tolerating legacy cache rows.
+
+    Undo restores by searching IMAP for the Message-ID header. Cache rows
+    written before outgoing messages always carried one (stamped in
+    compose.send_mail) can hold NULL; fetch the header live before the
+    message is moved so undo still works for them. Call after
+    select_folder() on the message's folder."""
+    header = message["message_id"]
+    if header:
+        return header
+    try:
+        return fetch_message_id_header(client, message["uid"])
+    except Exception:
+        logger.warning(
+            "undo message-id fetch failed message_id=%s uid=%s",
+            message["id"],
+            message["uid"],
+            exc_info=True,
+        )
+        return None
+
+
 @mail_bp.route("/mail/message/<int:account_id>/<int:message_id>/delete", methods=["POST"])
 @require_customer
 def delete_message(account_id, message_id):
@@ -369,10 +393,10 @@ def delete_message(account_id, message_id):
         session["undo_error"] = error_message
         return redirect(url_for("mail.message_view", account_id=account_id, message_id=message_id))
     was_unread = "\\Seen" not in flags
-    message_id_header = message["message_id"]
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)
     select_folder(client, folder)
+    message_id_header = _undo_message_id_header(client, message)
     move_message(client, uid, "Trash")
     client.expunge()
     client.logout()
@@ -413,11 +437,11 @@ def archive_message(account_id, message_id):
     folder = message["folder"]
     flags = _parse_flags(message["flags"])
     was_unread = "\\Seen" not in flags
-    message_id_header = message["message_id"]
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)
     create_folder(client, "Archive")
     select_folder(client, folder)
+    message_id_header = _undo_message_id_header(client, message)
     move_message(client, uid, "Archive")
     client.expunge()
     client.logout()
@@ -471,6 +495,7 @@ def junk_message(account_id, message_id):
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)
     select_folder(client, folder)
+    message_id_header = _undo_message_id_header(client, message)
     try:
         destination = report_spam(client, uid)
     except SpamFolderMissingError:
@@ -535,10 +560,10 @@ def not_junk_message(account_id, message_id):
     folder = message["folder"]
     flags = _parse_flags(message["flags"])
     was_unread = "\\Seen" not in flags
-    message_id_header = message["message_id"]
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)
     select_folder(client, folder)
+    message_id_header = _undo_message_id_header(client, message)
     destination = not_spam(client, uid, folder)
     safe_logout(client)
     undo_action = None

@@ -20,8 +20,14 @@
   function init(container) {
     var swipe = null;
 
+    // UX3g: the gesture translates the row's clip wrapper ([data-row-clip],
+    // `relative z-10 overflow-hidden`), NOT the inner foreground. The
+    // wrapper's box spans the whole row and sits above the panels (z-0),
+    // so translating only the inner foreground would leave the wrapper
+    // covering the revealed panel — its buttons could never receive
+    // clicks/taps.
     var foregroundOf = function (row) {
-      return row.querySelector('[data-row-foreground]');
+      return row.querySelector('[data-row-clip]') || row.querySelector('[data-row-foreground]');
     };
 
     var resetRow = function (row) {
@@ -123,6 +129,23 @@
         resetRow(swipe.row);
       }
       swipe = null;
+    });
+
+    // Panel-button activation fast-path. Chrome can retarget the click a
+    // tap produces (derived mouse events included) to the row even when
+    // every touch event resolved to the panel button — the delegated
+    // [data-overflow-toggle] / form-submit handlers then never fire, so
+    // tapping a revealed button "does nothing". Touch events keep the
+    // touchstart target for the whole sequence, so ending on a panel
+    // button is reliable: suppress the ghost click and click the button
+    // directly. Swipes never reach this: their touchend still targets
+    // the row foreground the touch started on.
+    container.addEventListener('touchend', function (e) {
+      if (!e.target.closest) return;
+      var panelButton = e.target.closest('[data-swipe-panel] button');
+      if (!panelButton) return;
+      if (e.cancelable) e.preventDefault();
+      panelButton.click();
     });
 
     return {

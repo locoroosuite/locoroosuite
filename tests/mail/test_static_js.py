@@ -129,6 +129,33 @@ def test_locked_overlay_no_longer_shifts_actions_for_removed_toggle():
 # --- UX3g: swipe gestures ---
 
 
+def test_swipe_panel_buttons_activate_on_touchend_fast_path():
+    """Bug fix: Chrome can retarget a tap's click to the row even when
+    every touch event resolved to the revealed panel button, so the
+    delegated overflow-toggle/submit handlers never fired ("tapping the
+    buttons does nothing"). The touchend fast-path must preventDefault
+    the ghost click and click the panel button directly."""
+    source = SWIPE_JS.read_text()
+    assert "e.target.closest('[data-swipe-panel] button')" in source
+    assert "panelButton.click()" in source
+
+
+def test_swipe_translates_clip_wrapper_not_inner_foreground():
+    """Bug fix: the swipe translated [data-row-foreground] inside the
+    clip wrapper (``relative z-10 overflow-hidden``), whose box still
+    covered the whole row above the panels (z-0) — revealed buttons
+    could never receive taps. The gesture must translate the wrapper
+    itself ([data-row-clip]) so the exposed area belongs to the panel."""
+    source = SWIPE_JS.read_text()
+    assert "row.querySelector('[data-row-clip]')" in source
+    for name in ("message_list.html", "search.html", "search_full.html"):
+        content = (MAIL_TEMPLATES / name).read_text()
+        assert "data-row-clip" in content, f"data-row-clip missing from {name}"
+    for css in _css_files():
+        normalized = _normalized(css)
+        assert ".message-row[data-row-clip]{transition:transform" in normalized, css.name
+
+
 def test_swipe_constants_and_disambiguation_present():
     source = SWIPE_JS.read_text()
     assert "SWIPE_ENGAGE_PX = 12" in source
@@ -161,6 +188,68 @@ def test_swipe_resets_after_inplace_actions():
     assert source.count("resetSwipeRow(row);") >= 2
 
 
+# --- UX3g: swipe panel labels + "More" bottom sheet ---
+
+
+def test_swipe_panel_buttons_carry_visible_labels():
+    """UX3g: revealed quick actions must be self-explanatory — every tile
+    carries a visible i18n'd label under its icon. Icon-only reveals are
+    not acceptable (nobody knows what the icons do)."""
+    content = (MAIL_TEMPLATES / "_row_common.html").read_text()
+    right_at = content.find('data-swipe-panel="right"')
+    assert right_at != -1, "right swipe panel missing from _row_common.html"
+    panel = content[right_at:]
+    for label in ("_('Archive')", "_('Delete')", "_('Mark read')", "_('Mark unread')", "_('More')"):
+        assert label in panel, f"{label} label missing from the swipe panel"
+    # Four labeled tiles (archive, delete, mark, more).
+    assert panel.count("text-[10px] font-medium leading-none") == 4
+
+
+def test_overflow_menu_module_is_loaded_by_all_list_pages():
+    """Every page that inits LRMessageList must also load overflow_menu.js
+    (the dropdown folder picker and the touch bottom sheet live there)."""
+    for name in ("folder.html", "search.html", "search_full.html"):
+        content = (MAIL_TEMPLATES / name).read_text()
+        assert "js/mail/overflow_menu.js" in content, f"overflow_menu.js missing from {name}"
+
+
+def test_swipe_panel_more_opens_bottom_sheet_not_hidden_dropdown():
+    """The swipe panel's "More" must open the touch bottom sheet: the
+    in-row dropdown lives inside the hover action overlay, which is
+    display:none on touch, so opening it there shows nothing."""
+    source = MESSAGE_LIST_JS.read_text()
+    assert "overflowToggle.closest('[data-swipe-panel]')" in source
+    assert "openSheet" in source
+
+
+def test_sheet_submits_row_forms_instead_of_cloned_ones():
+    """Sheet entries must submit the row's real overflow-menu forms (the
+    shared inline-action path runs); a native submit of the cloned form
+    would full-page navigate."""
+    source = (STATIC_DIR / "js" / "mail" / "overflow_menu.js").read_text()
+    assert "requestSubmit" in source
+    assert "form.message-action[data-action=" in source
+
+
+def test_sheet_dismissal_paths_present():
+    source = (STATIC_DIR / "js" / "mail" / "overflow_menu.js").read_text()
+    for needle in ("data-sheet-backdrop", "data-sheet-cancel", "e.key !== 'Escape'"):
+        assert needle in source, f"{needle} missing from overflow_menu.js"
+
+
+def test_sheet_css_and_reduced_motion_present():
+    for css in _css_files():
+        normalized = _normalized(css)
+        assert ".lr-sheet.is-open.lr-sheet-backdrop{" in normalized, css.name
+        assert ".lr-sheet.is-open.lr-sheet-panel{" in normalized, css.name
+        assert ".lr-sheet-panel{transform:translateY(100%)" in normalized, css.name
+        # The slide must be disabled under prefers-reduced-motion. (The
+        # minifier merges same-predicate media blocks and reorders/splits
+        # rule selectors, so this is an existence check, not positional.)
+        assert "@media(prefers-reduced-motion:reduce)" in normalized, css.name
+        assert ".lr-sheet-panel{transition:none" in normalized, css.name
+
+
 # --- UX3h: long-press selection mode ---
 
 
@@ -188,6 +277,17 @@ def test_selection_mode_enter_exit_wiring():
     assert "selection.size === 0" in source
     assert "data-bulk-done" in source
     assert "data-bulk-select-page" in source
+
+
+def test_selection_state_reapplied_after_list_replacement():
+    """Bug fix: the folder view's background SSE sync replaces the whole
+    list; replacement rows rendered from server HTML lose the selection
+    visuals (circles/checkboxes) while the id Set lives on — a long-press
+    racing a sync left the held row looking unselected. bulk-select must
+    re-apply its state when the container's children are replaced."""
+    source = BULK_SELECT_JS.read_text()
+    assert "MutationObserver" in source
+    assert "resyncOnListReplacement.observe(container, { childList: true })" in source
 
 
 def test_selection_circle_css_present():
@@ -272,10 +372,16 @@ def test_select_all_enters_selection_mode_on_touch():
     assert "longPressQuery.matches" in source
     select_all_at = source.find("selectAll.addEventListener")
     assert select_all_at != -1
-    assert "ensureSelectionMode();" in source[select_all_at:source.find("}", source.find("refresh();", select_all_at))]
+    assert (
+        "ensureSelectionMode();"
+        in source[select_all_at : source.find("}", source.find("refresh();", select_all_at))]
+    )
     match_at = source.find("matchBtn.addEventListener")
     assert match_at != -1
-    assert "ensureSelectionMode();" in source[match_at:source.find("}", source.find("refresh();", match_at))]
+    assert (
+        "ensureSelectionMode();"
+        in source[match_at : source.find("}", source.find("refresh();", match_at))]
+    )
 
 
 # --- Bug fix: action overlay hidden in selection mode and on touch (UX3b) ---
@@ -288,7 +394,9 @@ def test_action_overlay_hidden_in_selection_mode_and_on_touch():
     selection mode, and on hover-incapable/coarse-pointer devices."""
     for css in _css_files():
         normalized = _normalized(css)
-        assert '[data-selection-mode="1"].message-actions-overlay{display:none' in normalized, css.name
+        assert '[data-selection-mode="1"].message-actions-overlay{display:none' in normalized, (
+            css.name
+        )
         media_at = normalized.find("@media(hover:none),(pointer:coarse)")
         assert media_at != -1, f"touch media query missing from {css.name}"
         rule_at = normalized.find(".message-actions-overlay{display:none", media_at)

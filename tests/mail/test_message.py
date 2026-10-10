@@ -462,6 +462,81 @@ class TestMessageView:
         undo_args = mock_undo.call_args
         assert undo_args[0][3] == "<msg-id@test.com>"
 
+    def test_archive_message_fetches_message_id_when_cache_row_null(self, app, authed_client):
+        """Undo restores by IMAP Message-ID search, but cache rows written
+        before sends always stamped a Message-ID hold NULL; the archive
+        path must fetch the header live (before the move) so undo still
+        works for them."""
+        client, _user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1/archive"
+        legacy_msg = dict(MOCK_MSG, message_id=None)
+        mock_client = MagicMock()
+        mock_conn = MagicMock()
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message") as mock_get,
+            patch("app.modules.mail.controllers.message._parse_flags") as mock_parse,
+            patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+            patch("app.modules.mail.controllers.message.select_folder"),
+            patch("app.modules.mail.controllers.message.create_folder"),
+            patch("app.modules.mail.controllers.message.move_message"),
+            patch("app.modules.mail.controllers.message.fetch_message_id_header") as mock_fetch_id,
+            patch("app.modules.mail.controllers.message._set_undo_action") as mock_undo,
+            patch("app.modules.mail.controllers.message._current_undo_action") as mock_current,
+        ):
+            mock_cache.return_value = mock_conn
+            mock_get.return_value = legacy_msg
+            mock_parse.return_value = []
+            mock_decrypt.return_value = "secret"
+            mock_imap.return_value = (mock_client, MagicMock())
+            mock_fetch_id.return_value = "<legacy@test.com>"
+            mock_undo.return_value = "token"
+            mock_current.return_value = {"token": "token"}
+            resp = client.post(url, headers={"X-Requested-With": "XMLHttpRequest"})
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data["status"] == "ok"
+        assert data["undo_action"] is not None, "undo must survive a NULL cache message_id"
+        mock_fetch_id.assert_called_once_with(mock_client, legacy_msg["uid"])
+        # The header must be read before the message is moved away.
+        mock_fetch_id.assert_called_once()
+        undo_args = mock_undo.call_args
+        assert undo_args[0][3] == "<legacy@test.com>"
+
+    def test_archive_message_without_any_message_id_skips_undo(self, app, authed_client):
+        """No Message-ID in cache AND none on the server: undo is
+        unavailable, the archive itself still succeeds."""
+        client, _user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1/archive"
+        legacy_msg = dict(MOCK_MSG, message_id=None)
+        mock_client = MagicMock()
+        mock_conn = MagicMock()
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message") as mock_get,
+            patch("app.modules.mail.controllers.message._parse_flags") as mock_parse,
+            patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+            patch("app.modules.mail.controllers.message.select_folder"),
+            patch("app.modules.mail.controllers.message.create_folder"),
+            patch("app.modules.mail.controllers.message.move_message"),
+            patch("app.modules.mail.controllers.message.fetch_message_id_header") as mock_fetch_id,
+            patch("app.modules.mail.controllers.message._set_undo_action") as mock_undo,
+        ):
+            mock_cache.return_value = mock_conn
+            mock_get.return_value = legacy_msg
+            mock_parse.return_value = []
+            mock_decrypt.return_value = "secret"
+            mock_imap.return_value = (mock_client, MagicMock())
+            mock_fetch_id.return_value = None
+            resp = client.post(url, headers={"X-Requested-With": "XMLHttpRequest"})
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data["status"] == "ok"
+        assert data["undo_action"] is None
+        mock_undo.assert_not_called()
+
     def test_download_message(self, app, authed_client):
         client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/download"

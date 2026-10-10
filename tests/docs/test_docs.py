@@ -1253,6 +1253,33 @@ class TestDocActionMenuMarkup:
         finally:
             _safe_unlink(paths["cache"])
 
+    def test_swipe_panel_buttons_labeled_and_touch_safe(self, authed_client, app):
+        """U24.32/UX3g parity: revealed quick actions carry visible labels
+        (icon-only reveals are not self-explanatory), and panel-button
+        activation uses the touchend fast-path so Chrome's tap-click
+        retargeting cannot swallow taps."""
+        from pathlib import Path
+
+        client, _user_id, account_id = authed_client
+        paths = _setup_test_env(app, account_id)
+        static_dir = Path(__file__).resolve().parents[2] / "app" / "static"
+        doc_list_js = (static_dir / "js" / "docs" / "doc-list.js").read_text()
+        docs_list_html = (
+            static_dir.parents[0] / "modules" / "docs" / "templates" / "docs_list.html"
+        ).read_text()
+        try:
+            client.post("/app/docs/new", data={"doc_type": "odt"}, follow_redirects=False)
+            resp = client.get("/app/docs/")
+            assert resp.status_code == 200
+            # Download shows a visible label, not just the title tooltip.
+            assert b'<span class="text-xs font-medium">Download</span>' in resp.data
+            # Touchend fast-path (ghost-click defense, mail UX3g pattern).
+            assert "panelButton.click()" in doc_list_js
+            assert "[data-swipe-panel] a, [data-swipe-panel] button" in doc_list_js
+            assert "_('Download')" in docs_list_html
+        finally:
+            _safe_unlink(paths["cache"])
+
     def test_list_menu_conditional_items(self, authed_client, app):
         client, _user_id, account_id = authed_client
         paths = _setup_test_env(app, account_id)

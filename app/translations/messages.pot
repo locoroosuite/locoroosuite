@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-06 18:40+1030\n"
+"POT-Creation-Date: 2026-10-10 18:55+1030\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -187,8 +187,8 @@ msgid "Event not in calendar."
 msgstr ""
 
 #: app/modules/calendar/controllers/events.py:66
-#: app/modules/mail/controllers/helpers.py:1178
-#: app/workers/calendar_reminders.py:122
+#: app/modules/mail/controllers/helpers.py:1188
+#: app/workers/calendar_reminders.py:129
 msgid "at"
 msgstr ""
 
@@ -380,8 +380,8 @@ msgstr ""
 #: app/modules/calendar/templates/calendar_form.html:24
 #: app/modules/chat/templates/chat/index.html:179
 #: app/modules/contacts/templates/list.html:73
-#: app/modules/docs/templates/docs_list.html:135
-#: app/modules/docs/templates/docs_list.html:356
+#: app/modules/docs/templates/docs_list.html:203
+#: app/modules/docs/templates/docs_list.html:423
 msgid "Name"
 msgstr ""
 
@@ -403,12 +403,12 @@ msgid "Create Calendar"
 msgstr ""
 
 #: app/modules/calendar/templates/calendar_form.html:39
-#: app/modules/calendar/templates/index.html:269
-#: app/modules/calendar/templates/index.html:298
+#: app/modules/calendar/templates/index.html:280
+#: app/modules/calendar/templates/index.html:309
 #: app/modules/chat/templates/chat/index.html:191
 #: app/modules/chat/templates/chat/index.html:212
 #: app/modules/contacts/templates/form.html:92
-#: app/modules/docs/templates/docs_editor.html:132
+#: app/modules/docs/templates/docs_editor.html:208
 #: app/modules/mail/templates/settings.html:288
 #: app/modules/mail/templates/twofa_confirm.html:31
 msgid "Cancel"
@@ -438,12 +438,12 @@ msgstr ""
 #: app/modules/calendar/templates/event_detail.html:41
 #: app/modules/calendar/templates/event_detail.html:44
 #: app/modules/calendar/templates/event_detail.html:109
-#: app/modules/calendar/templates/index.html:251
+#: app/modules/calendar/templates/index.html:262
 msgid "Tentative"
 msgstr ""
 
 #: app/modules/calendar/templates/event_detail.html:23
-#: app/modules/calendar/templates/index.html:252
+#: app/modules/calendar/templates/index.html:263
 msgid "Cancelled"
 msgstr ""
 
@@ -482,18 +482,18 @@ msgstr ""
 
 #: app/modules/calendar/templates/event_detail.html:51
 #: app/modules/calendar/templates/event_detail.html:54
-#: app/modules/calendar/templates/index.html:267
+#: app/modules/calendar/templates/index.html:278
 #: app/modules/contacts/templates/detail.html:22
 #: app/modules/contacts/templates/list.html:61
 #: app/modules/contacts/templates/list.html:93
-#: app/modules/docs/templates/docs_editor.html:115
-#: app/modules/docs/templates/docs_editor.html:117
+#: app/modules/docs/templates/docs_editor.html:175
 #: app/modules/mail/templates/_bulk_toolbar.html:16
-#: app/modules/mail/templates/_row_common.html:43
+#: app/modules/mail/templates/_row_common.html:44
+#: app/modules/mail/templates/_row_common.html:46
 #: app/modules/mail/templates/message.html:75
 #: app/modules/mail/templates/message.html:87
 #: app/modules/mail/templates/message_list.html:134
-#: app/modules/mail/templates/search.html:59
+#: app/modules/mail/templates/search.html:60
 #: app/modules/mail/templates/search_full.html:33
 msgid "Delete"
 msgstr ""
@@ -507,7 +507,7 @@ msgid "all day"
 msgstr ""
 
 #: app/modules/calendar/templates/event_detail.html:84
-#: app/modules/calendar/templates/index.html:213
+#: app/modules/calendar/templates/index.html:224
 #: app/templates/_search_panel_calendar.html:14
 msgid "Location"
 msgstr ""
@@ -525,12 +525,12 @@ msgid "Pending"
 msgstr ""
 
 #: app/modules/calendar/templates/event_detail.html:122
-#: app/modules/calendar/templates/index.html:218
+#: app/modules/calendar/templates/index.html:229
 msgid "Description"
 msgstr ""
 
 #: app/modules/calendar/templates/event_detail.html:129
-#: app/modules/calendar/templates/index.html:237
+#: app/modules/calendar/templates/index.html:248
 #: app/modules/mail/templates/settings.html:10
 #: app/modules/mail/templates/settings.html:172
 msgid "Notifications"
@@ -553,7 +553,7 @@ msgid "View original email"
 msgstr ""
 
 #: app/modules/calendar/templates/event_detail.html:173
-#: app/modules/calendar/templates/index.html:283
+#: app/modules/calendar/templates/index.html:294
 msgid "Send updates to guests?"
 msgstr ""
 
@@ -562,12 +562,12 @@ msgid "Do you want to send a calendar update to the event guests?"
 msgstr ""
 
 #: app/modules/calendar/templates/event_detail.html:177
-#: app/modules/calendar/templates/index.html:286
+#: app/modules/calendar/templates/index.html:297
 msgid "Don't send"
 msgstr ""
 
 #: app/modules/calendar/templates/event_detail.html:180
-#: app/modules/calendar/templates/index.html:287
+#: app/modules/calendar/templates/index.html:298
 #: app/modules/chat/templates/chat/index.html:113
 #: app/modules/mail/templates/compose.html:89
 msgid "Send"
@@ -582,7 +582,7 @@ msgid "This event has guests. Do you want to notify them about the cancellation?
 msgstr ""
 
 #: app/modules/calendar/templates/event_detail.html:197
-#: app/modules/calendar/templates/index.html:299
+#: app/modules/calendar/templates/index.html:310
 msgid "Delete without notifying"
 msgstr ""
 
@@ -596,7 +596,7 @@ msgid "Calendars"
 msgstr ""
 
 #: app/modules/calendar/templates/index.html:8
-#: app/modules/docs/templates/docs_list.html:43
+#: app/modules/docs/templates/docs_list.html:111
 #: app/modules/mail/templates/folder.html:9
 msgid "Close menu"
 msgstr ""
@@ -613,7 +613,7 @@ msgstr ""
 
 #: app/modules/calendar/templates/index.html:41
 #: app/modules/contacts/templates/list.html:14
-#: app/modules/docs/templates/docs_list.html:210
+#: app/modules/docs/templates/docs_list.html:278
 msgid "Sync"
 msgstr ""
 
@@ -693,139 +693,139 @@ msgstr ""
 msgid "Sync calendars"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:145
-#: app/modules/calendar/templates/index.html:176
+#: app/modules/calendar/templates/index.html:156
+#: app/modules/calendar/templates/index.html:187
 msgid "Add title"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:150
+#: app/modules/calendar/templates/index.html:161
 msgid "More options"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:155
-#: app/modules/docs/templates/docs_editor.html:133
+#: app/modules/calendar/templates/index.html:166
+#: app/modules/docs/templates/docs_editor.html:209
 msgid "Save"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:162
+#: app/modules/calendar/templates/index.html:173
 msgid "Event editor"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:167
+#: app/modules/calendar/templates/index.html:178
 msgid "New Event"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:168
+#: app/modules/calendar/templates/index.html:179
 #: app/modules/chat/templates/chat/index.html:234
 #: app/modules/chat/templates/chat/index.html:283
 #: app/modules/mail/templates/message.html:300
 msgid "Close"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:179 app/templates/layout.html:224
+#: app/modules/calendar/templates/index.html:190 app/templates/layout.html:226
 msgid "Calendar"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:185
+#: app/modules/calendar/templates/index.html:196
 msgid "All day"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:190
+#: app/modules/calendar/templates/index.html:201
 msgid "Start"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:197
+#: app/modules/calendar/templates/index.html:208
 msgid "End"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:225
+#: app/modules/calendar/templates/index.html:236
 msgid "Repeat"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:227
+#: app/modules/calendar/templates/index.html:238
 msgid "Does not repeat"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:228
+#: app/modules/calendar/templates/index.html:239
 msgid "Daily"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:229
+#: app/modules/calendar/templates/index.html:240
 msgid "Weekly"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:230
+#: app/modules/calendar/templates/index.html:241
 msgid "Biweekly"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:231
+#: app/modules/calendar/templates/index.html:242
 msgid "Monthly"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:232
+#: app/modules/calendar/templates/index.html:243
 msgid "Yearly"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:239
+#: app/modules/calendar/templates/index.html:250
 msgid "No notification"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:242
+#: app/modules/calendar/templates/index.html:253
 msgid "Add notification"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:248
+#: app/modules/calendar/templates/index.html:259
 msgid "Status"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:250
+#: app/modules/calendar/templates/index.html:261
 msgid "Confirmed"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:256
+#: app/modules/calendar/templates/index.html:267
 msgid "Visibility"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:258
+#: app/modules/calendar/templates/index.html:269
 msgid "Public"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:259
+#: app/modules/calendar/templates/index.html:270
 msgid "Private"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:260
+#: app/modules/calendar/templates/index.html:271
 msgid "Confidential"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:272
+#: app/modules/calendar/templates/index.html:283
 msgid "Create Event"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:284
+#: app/modules/calendar/templates/index.html:295
 msgid "Email the updated event details to all guests."
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:295
+#: app/modules/calendar/templates/index.html:306
 msgid "Delete event"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:296
+#: app/modules/calendar/templates/index.html:307
 msgid "This event has guests. Notify them by email about the cancellation?"
 msgstr ""
 
-#: app/modules/calendar/templates/index.html:300
+#: app/modules/calendar/templates/index.html:311
 msgid "Delete and notify"
 msgstr ""
 
 #: app/modules/calendar/templates/search_events.html:5
-#: app/templates/layout.html:151
+#: app/templates/layout.html:153
 msgid "Search calendar"
 msgstr ""
 
 #: app/modules/calendar/templates/search_events.html:6
 #: app/modules/contacts/templates/list.html:35
-#: app/modules/docs/templates/docs_list.html:280
+#: app/modules/docs/templates/docs_list.html:348
 msgid "Clear search"
 msgstr ""
 
@@ -1005,7 +1005,7 @@ msgstr ""
 msgid "Chat sync failed; retrying."
 msgstr ""
 
-#: app/modules/chat/templates/chat/index.html:20 app/templates/layout.html:230
+#: app/modules/chat/templates/chat/index.html:20 app/templates/layout.html:232
 msgid "Chat"
 msgstr ""
 
@@ -1288,7 +1288,7 @@ msgstr ""
 msgid "Create Contact"
 msgstr ""
 
-#: app/modules/contacts/templates/list.html:6 app/templates/layout.html:218
+#: app/modules/contacts/templates/list.html:6 app/templates/layout.html:220
 msgid "Contacts"
 msgstr ""
 
@@ -1318,6 +1318,9 @@ msgid "Phone"
 msgstr ""
 
 #: app/modules/contacts/templates/list.html:77
+#: app/modules/docs/templates/docs_editor.html:140
+#: app/modules/docs/templates/docs_list.html:42
+#: app/modules/docs/templates/docs_list.html:426
 msgid "Actions"
 msgstr ""
 
@@ -1332,8 +1335,8 @@ msgid "{count} contacts"
 msgstr ""
 
 #: app/modules/contacts/templates/list.html:108
-#: app/modules/mail/templates/folder.html:252
-#: app/modules/mail/templates/folder.html:255
+#: app/modules/mail/templates/folder.html:253
+#: app/modules/mail/templates/folder.html:256
 msgid "Previous"
 msgstr ""
 
@@ -1343,98 +1346,111 @@ msgid "Page {page} of {total_pages}"
 msgstr ""
 
 #: app/modules/contacts/templates/list.html:112
-#: app/modules/mail/templates/folder.html:260
-#: app/modules/mail/templates/folder.html:263
+#: app/modules/mail/templates/folder.html:261
+#: app/modules/mail/templates/folder.html:264
 msgid "Next"
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:192
-#: app/modules/docs/controllers/docs.py:744
+#: app/modules/docs/controllers/docs.py:221
+#: app/modules/docs/controllers/docs.py:833
 msgid "No account selected."
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:198
-#: app/modules/docs/controllers/docs.py:761
-#: app/modules/docs/controllers/docs.py:791
-#: app/modules/docs/controllers/docs.py:833
-#: app/modules/docs/controllers/docs.py:866
-#: app/modules/docs/controllers/docs.py:914
-#: app/modules/docs/controllers/docs.py:958
-#: app/modules/docs/controllers/docs.py:989
-#: app/modules/docs/controllers/docs.py:1039
+#: app/modules/docs/controllers/docs.py:227
+#: app/modules/docs/controllers/docs.py:850
+#: app/modules/docs/controllers/docs.py:880
+#: app/modules/docs/controllers/docs.py:922
+#: app/modules/docs/controllers/docs.py:955
+#: app/modules/docs/controllers/docs.py:1003
+#: app/modules/docs/controllers/docs.py:1047
+#: app/modules/docs/controllers/docs.py:1078
+#: app/modules/docs/controllers/docs.py:1128
 msgid "Unable to open document store."
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:250
+#: app/modules/docs/controllers/docs.py:279
 msgid "Untitled Document"
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:344
+#: app/modules/docs/controllers/docs.py:374
 msgid "Invalid name"
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:478
+#: app/modules/docs/controllers/docs.py:511
+#, python-format
+msgid "Unsupported export format .%(ext)s"
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:518
+msgid "Document file is missing. Try re-syncing from the docs list."
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:528
+msgid "Export failed. Check the Collabora connection and try again in a moment."
+msgstr ""
+
+#: app/modules/docs/controllers/docs.py:567
 msgid "No active account"
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:485
+#: app/modules/docs/controllers/docs.py:574
 msgid "No file provided"
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:491
+#: app/modules/docs/controllers/docs.py:580
 msgid "No filename provided"
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:497
+#: app/modules/docs/controllers/docs.py:586
 #, python-format
 msgid "Unsupported file type .%(ext)s"
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:505
+#: app/modules/docs/controllers/docs.py:594
 msgid "File exceeds 50 MB limit"
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:525
+#: app/modules/docs/controllers/docs.py:614
 msgid "Could not open document store"
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:592
+#: app/modules/docs/controllers/docs.py:681
 #, python-format
 msgid ""
 "Could not convert %(filename)s. Please try uploading an .odt file or try "
 "again later."
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:652
+#: app/modules/docs/controllers/docs.py:741
 msgid "document is already editable"
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:668
+#: app/modules/docs/controllers/docs.py:757
 #, python-format
 msgid "Could not convert .%(ext)s file"
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:693
+#: app/modules/docs/controllers/docs.py:782
 #, python-format
 msgid "Conversion failed: %(error)s"
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:696
+#: app/modules/docs/controllers/docs.py:785
 msgid "Unexpected error during conversion"
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:821
-#: app/modules/docs/controllers/docs.py:859
+#: app/modules/docs/controllers/docs.py:910
+#: app/modules/docs/controllers/docs.py:948
 msgid "path is required"
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:908
+#: app/modules/docs/controllers/docs.py:997
 msgid "Nothing to undo."
 msgstr ""
 
-#: app/modules/docs/controllers/docs.py:964
-#: app/modules/docs/controllers/docs.py:995
-#: app/modules/docs/controllers/docs.py:1045
+#: app/modules/docs/controllers/docs.py:1053
+#: app/modules/docs/controllers/docs.py:1084
+#: app/modules/docs/controllers/docs.py:1134
 #: app/modules/docs/templates/docs_share_error.html:6
 msgid "Document not found"
 msgstr ""
@@ -1452,9 +1468,9 @@ msgid "This link has been revoked or does not exist."
 msgstr ""
 
 #: app/modules/docs/controllers/wopi.py:129
-#: app/modules/docs/templates/docs_list.html:154
-#: app/modules/docs/templates/docs_list.html:241
-#: app/modules/docs/templates/docs_list.html:587
+#: app/modules/docs/templates/docs_list.html:222
+#: app/modules/docs/templates/docs_list.html:309
+#: app/modules/docs/templates/docs_list.html:635
 #: app/modules/docs/templates/docs_share_view.html:6
 #: app/modules/docs/templates/docs_share_view.html:58
 msgid "Document"
@@ -1464,41 +1480,25 @@ msgstr ""
 msgid "Guest"
 msgstr ""
 
-#: app/modules/docs/templates/docs_editor.html:81
+#: app/modules/docs/templates/docs_editor.html:120
 msgid "Close and return to documents"
 msgstr ""
 
-#: app/modules/docs/templates/docs_editor.html:87
+#: app/modules/docs/templates/docs_editor.html:126
 msgid "Read only"
 msgstr ""
 
-#: app/modules/docs/templates/docs_editor.html:93
+#: app/modules/docs/templates/docs_editor.html:132
+#: app/modules/docs/templates/docs_editor.html:165
 #: app/modules/docs/templates/docs_list.html:24
+#: app/modules/docs/templates/docs_list.html:53
 #: app/modules/mail/templates/folder.html:93
 msgid "Rename"
 msgstr ""
 
-#: app/modules/docs/templates/docs_editor.html:100
-#: app/modules/docs/templates/docs_editor.html:102
-#: app/modules/docs/templates/docs_list.html:328
-#: app/modules/docs/templates/docs_list.html:431
-msgid "Convert to editable document"
-msgstr ""
-
-#: app/modules/docs/templates/docs_editor.html:106
-#: app/modules/docs/templates/docs_editor.html:108
-#: app/modules/docs/templates/docs_editor.html:158
-#: app/modules/docs/templates/docs_list.html:333
-#: app/modules/docs/templates/docs_list.html:436
-#: app/modules/docs/templates/docs_list.html:558
-#: app/modules/mail/templates/settings.html:185
-msgid "Share"
-msgstr ""
-
-#: app/modules/docs/templates/docs_editor.html:111
-#: app/modules/docs/templates/docs_editor.html:113
-#: app/modules/docs/templates/docs_list.html:340
-#: app/modules/docs/templates/docs_list.html:443
+#: app/modules/docs/templates/docs_editor.html:147
+#: app/modules/docs/templates/docs_list.html:57
+#: app/modules/docs/templates/docs_list.html:370
 #: app/modules/mail/templates/attachment_view.html:34
 #: app/modules/mail/templates/attachment_view.html:36
 #: app/modules/mail/templates/message.html:258
@@ -1506,41 +1506,94 @@ msgstr ""
 msgid "Download"
 msgstr ""
 
-#: app/modules/docs/templates/docs_editor.html:128
+#: app/modules/docs/templates/docs_editor.html:152
+#: app/modules/docs/templates/docs_list.html:62
+msgid "Export as"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:159
+#: app/modules/docs/templates/docs_list.html:69
+msgid "Convert to editable document"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:169
+#: app/modules/docs/templates/docs_editor.html:234
+#: app/modules/docs/templates/docs_list.html:74
+#: app/modules/docs/templates/docs_list.html:606
+#: app/modules/mail/templates/settings.html:185
+msgid "Share"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:182
+#: app/modules/docs/templates/docs_list.html:93
+msgid "Back"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:188
+#: app/modules/docs/templates/docs_list.html:99
+msgid "PDF document"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:188
+#: app/modules/docs/templates/docs_list.html:99
+msgid "PNG image"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:188
+#: app/modules/docs/templates/docs_list.html:99
+msgid "Web page"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:188
+#: app/modules/docs/templates/docs_list.html:99
+msgid "E-book (EPUB)"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:188
+#: app/modules/docs/templates/docs_list.html:99
+msgid "Plain text"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:188
+#: app/modules/docs/templates/docs_list.html:99
+msgid "CSV data"
+msgstr ""
+
+#: app/modules/docs/templates/docs_editor.html:204
 msgid "Rename document"
 msgstr ""
 
-#: app/modules/docs/templates/docs_editor.html:143
+#: app/modules/docs/templates/docs_editor.html:219
 #, python-brace-format
 msgid "Share: {name}"
 msgstr ""
 
-#: app/modules/docs/templates/docs_editor.html:150
-#: app/modules/docs/templates/docs_list.html:549
+#: app/modules/docs/templates/docs_editor.html:226
+#: app/modules/docs/templates/docs_list.html:597
 msgid "Enter email addresses (comma-separated)"
 msgstr ""
 
-#: app/modules/docs/templates/docs_editor.html:155
-#: app/modules/docs/templates/docs_list.html:164
-#: app/modules/docs/templates/docs_list.html:554
+#: app/modules/docs/templates/docs_editor.html:231
+#: app/modules/docs/templates/docs_list.html:232
+#: app/modules/docs/templates/docs_list.html:602
 #: app/modules/docs/templates/docs_share_view.html:69
 msgid "Can view"
 msgstr ""
 
-#: app/modules/docs/templates/docs_editor.html:156
-#: app/modules/docs/templates/docs_list.html:164
-#: app/modules/docs/templates/docs_list.html:555
+#: app/modules/docs/templates/docs_editor.html:232
+#: app/modules/docs/templates/docs_list.html:232
+#: app/modules/docs/templates/docs_list.html:603
 #: app/modules/docs/templates/docs_share_view.html:66
 msgid "Can edit"
 msgstr ""
 
-#: app/modules/docs/templates/docs_editor.html:164
-#: app/modules/docs/templates/docs_list.html:565
+#: app/modules/docs/templates/docs_editor.html:240
+#: app/modules/docs/templates/docs_list.html:613
 msgid "People with access"
 msgstr ""
 
-#: app/modules/docs/templates/docs_editor.html:170
-#: app/modules/docs/templates/docs_list.html:571
+#: app/modules/docs/templates/docs_editor.html:246
+#: app/modules/docs/templates/docs_list.html:619
 msgid "No shares yet."
 msgstr ""
 
@@ -1553,176 +1606,178 @@ msgstr ""
 msgid "Delete folder"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:42
-#: app/modules/docs/templates/docs_list.html:50
+#: app/modules/docs/templates/docs_list.html:49
+msgid "Open"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:79
+msgid "Add tag"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:85
+#: app/modules/docs/templates/docs_list.html:367
+msgid "Move to trash"
+msgstr ""
+
+#: app/modules/docs/templates/docs_list.html:110
+#: app/modules/docs/templates/docs_list.html:118
 msgid "Documents"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:54
-#: app/modules/docs/templates/docs_list.html:203
+#: app/modules/docs/templates/docs_list.html:122
+#: app/modules/docs/templates/docs_list.html:271
 msgid "My Documents"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:61
-#: app/modules/docs/templates/docs_list.html:121
+#: app/modules/docs/templates/docs_list.html:129
+#: app/modules/docs/templates/docs_list.html:189
 msgid "Shared with me"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:71
+#: app/modules/docs/templates/docs_list.html:139
 #: app/modules/mail/templates/mailbox.html:26
 msgid "Folders"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:72
+#: app/modules/docs/templates/docs_list.html:140
 #: app/modules/mail/templates/folder.html:46
 msgid "New folder"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:78
+#: app/modules/docs/templates/docs_list.html:146
 msgid "Folder name"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:81
-#: app/modules/docs/templates/docs_list.html:591
+#: app/modules/docs/templates/docs_list.html:149
+#: app/modules/docs/templates/docs_list.html:639
 #: app/modules/mail/templates/folder.html:48
 #: app/modules/mail/templates/settings.html:187
 msgid "Add"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:89
+#: app/modules/docs/templates/docs_list.html:157
 msgid "No folders yet."
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:94
-#: app/modules/docs/templates/docs_list.html:581
+#: app/modules/docs/templates/docs_list.html:162
+#: app/modules/docs/templates/docs_list.html:629
 msgid "Tags"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:106
+#: app/modules/docs/templates/docs_list.html:174
 msgid "No tags yet."
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:118
-#: app/modules/docs/templates/docs_list.html:199
+#: app/modules/docs/templates/docs_list.html:186
+#: app/modules/docs/templates/docs_list.html:267
 msgid "Open menu"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:128
+#: app/modules/docs/templates/docs_list.html:196
 msgid "No documents have been shared with you yet."
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:136
+#: app/modules/docs/templates/docs_list.html:204
 msgid "Shared by"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:137
+#: app/modules/docs/templates/docs_list.html:205
 msgid "Permission"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:138
-#: app/modules/docs/templates/docs_list.html:357
+#: app/modules/docs/templates/docs_list.html:206
+#: app/modules/docs/templates/docs_list.html:424
 msgid "Last updated"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:184
+#: app/modules/docs/templates/docs_list.html:252
 msgid "Home"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:192
+#: app/modules/docs/templates/docs_list.html:260
 msgid "Clear tag filter"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:203
+#: app/modules/docs/templates/docs_list.html:271
 #: app/templates/_search_panel.html:27
 msgid "Folder"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:217
+#: app/modules/docs/templates/docs_list.html:285
 msgid "Upload"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:231
+#: app/modules/docs/templates/docs_list.html:299
 msgid "New"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:251
+#: app/modules/docs/templates/docs_list.html:319
 msgid "Spreadsheet"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:261
+#: app/modules/docs/templates/docs_list.html:329
 msgid "Presentation"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:272
-#: app/modules/mail/templates/folder.html:182 app/templates/layout.html:369
+#: app/modules/docs/templates/docs_list.html:340
+#: app/modules/mail/templates/folder.html:183 app/templates/layout.html:371
 msgid "Undo"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:279
+#: app/modules/docs/templates/docs_list.html:347
 msgid "No documents match your search."
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:285
+#: app/modules/docs/templates/docs_list.html:353
 msgid "No documents yet."
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:286
+#: app/modules/docs/templates/docs_list.html:354
 msgid "Create a new document or upload an existing file."
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:330
-#: app/modules/docs/templates/docs_list.html:433
-msgid "Convert"
+#: app/modules/docs/templates/docs_list.html:374
+msgid "Export as PDF"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:337
-#: app/modules/docs/templates/docs_list.html:440
-msgid "Add tag"
-msgstr ""
-
-#: app/modules/docs/templates/docs_list.html:344
-#: app/modules/docs/templates/docs_list.html:447
-msgid "Move to trash"
-msgstr ""
-
-#: app/modules/docs/templates/docs_list.html:358
+#: app/modules/docs/templates/docs_list.html:425
 msgid "Size"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:412
+#: app/modules/docs/templates/docs_list.html:479
 msgid "Filter by tag"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:464
+#: app/modules/docs/templates/docs_list.html:512
 #, python-brace-format
 msgid "Trash ({count})"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:479
-#: app/modules/docs/templates/docs_list.html:480
-#: app/modules/docs/templates/docs_list.html:508
+#: app/modules/docs/templates/docs_list.html:527
+#: app/modules/docs/templates/docs_list.html:528
+#: app/modules/docs/templates/docs_list.html:556
 msgid "Restore"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:484
-#: app/modules/docs/templates/docs_list.html:485
-#: app/modules/docs/templates/docs_list.html:513
+#: app/modules/docs/templates/docs_list.html:532
+#: app/modules/docs/templates/docs_list.html:533
+#: app/modules/docs/templates/docs_list.html:561
 msgid "Delete permanently"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:526
+#: app/modules/docs/templates/docs_list.html:574
 msgid "Empty trash"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:542
+#: app/modules/docs/templates/docs_list.html:590
 msgid "Share document"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:589
+#: app/modules/docs/templates/docs_list.html:637
 msgid "Add a tag and press Enter"
 msgstr ""
 
-#: app/modules/docs/templates/docs_list.html:595
+#: app/modules/docs/templates/docs_list.html:643
 msgid "Suggested"
 msgstr ""
 
@@ -1871,105 +1926,105 @@ msgstr ""
 msgid "Unable to save draft right now. Retry, check connection, or refresh."
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:160
-#: app/modules/mail/controllers/helpers.py:170
+#: app/modules/mail/controllers/helpers.py:161
+#: app/modules/mail/controllers/helpers.py:171
 msgid ""
 "IMAP is temporarily unavailable. Showing cached data while retrying in "
 "the background."
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:306
-#: app/modules/mail/controllers/helpers.py:890
-#: app/modules/mail/controllers/helpers.py:1361
-#: app/modules/mail/controllers/search.py:73
-#: app/modules/mail/controllers/search.py:207
-#: app/modules/mail/controllers/search.py:362 app/shared/push.py:169
+#: app/modules/mail/controllers/helpers.py:316
+#: app/modules/mail/controllers/helpers.py:900
+#: app/modules/mail/controllers/helpers.py:1371
+#: app/modules/mail/controllers/search.py:74
+#: app/modules/mail/controllers/search.py:210
+#: app/modules/mail/controllers/search.py:371 app/shared/push.py:169
 msgid "(no subject)"
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:646
+#: app/modules/mail/controllers/helpers.py:656
 msgid ""
 "IMAP rejected this request while finalizing send. Retry or check account "
 "settings."
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:651
+#: app/modules/mail/controllers/helpers.py:661
 msgid "Mail server authentication failed. Retry or verify account credentials."
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:653
+#: app/modules/mail/controllers/helpers.py:663
 msgid "Connection timed out while sending. Retry, check connection, or refresh."
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:655
+#: app/modules/mail/controllers/helpers.py:665
 msgid "Mail server is temporarily unreachable. Retry in a moment."
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:657
+#: app/modules/mail/controllers/helpers.py:667
 msgid "Daily sending limit reached. Contact support to increase your quota."
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:660
+#: app/modules/mail/controllers/helpers.py:670
 msgid ""
 "Unable to send this message right now. Retry, check connection, or "
 "refresh."
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:703
+#: app/modules/mail/controllers/helpers.py:713
 msgid "Message failed to send."
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:784
+#: app/modules/mail/controllers/helpers.py:794
 msgid "Message sent, but saving to Sent failed."
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:1100
+#: app/modules/mail/controllers/helpers.py:1110
 msgid "From:"
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:1102
+#: app/modules/mail/controllers/helpers.py:1112
 msgid "Date:"
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:1104
+#: app/modules/mail/controllers/helpers.py:1114
 msgid "To:"
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:1106
+#: app/modules/mail/controllers/helpers.py:1116
 msgid "Cc:"
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:1110
+#: app/modules/mail/controllers/helpers.py:1120
 #, python-format
 msgid "On %(date)s, %(sender)s wrote:"
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:1112
+#: app/modules/mail/controllers/helpers.py:1122
 #, python-format
 msgid "%(sender)s wrote:"
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:1114
+#: app/modules/mail/controllers/helpers.py:1124
 msgid "Quoted text"
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:1136
+#: app/modules/mail/controllers/helpers.py:1146
 #: app/modules/mail/templates/message.html:54
 #: app/modules/mail/templates/print.html:9 app/templates/_search_panel.html:15
 msgid "From"
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:1137
+#: app/modules/mail/controllers/helpers.py:1147
 msgid "Date"
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:1138
+#: app/modules/mail/controllers/helpers.py:1148
 #: app/modules/mail/templates/compose.html:57
 #: app/templates/_search_panel.html:23
 msgid "Subject"
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:1139
+#: app/modules/mail/controllers/helpers.py:1149
 #: app/modules/mail/templates/compose.html:21
 #: app/modules/mail/templates/message.html:54
 #: app/modules/mail/templates/message_list.html:67
@@ -1977,123 +2032,123 @@ msgstr ""
 msgid "To"
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:1140
+#: app/modules/mail/controllers/helpers.py:1150
 #: app/modules/mail/templates/compose.html:37
 #: app/modules/mail/templates/message.html:54
 #: app/modules/mail/templates/print.html:9
 msgid "Cc"
 msgstr ""
 
-#: app/modules/mail/controllers/helpers.py:1155
-#: app/modules/mail/controllers/helpers.py:1158
+#: app/modules/mail/controllers/helpers.py:1165
+#: app/modules/mail/controllers/helpers.py:1168
 msgid "Forwarded message"
 msgstr ""
 
-#: app/modules/mail/controllers/mailbox.py:246
+#: app/modules/mail/controllers/mailbox.py:247
 msgid "Folder name is required."
 msgstr ""
 
-#: app/modules/mail/controllers/mailbox.py:270
-#: app/modules/mail/controllers/mailbox.py:274
+#: app/modules/mail/controllers/mailbox.py:271
+#: app/modules/mail/controllers/mailbox.py:275
 msgid "Folder could not be created. Retry or check your connection."
 msgstr ""
 
-#: app/modules/mail/controllers/mailbox.py:323
+#: app/modules/mail/controllers/mailbox.py:324
 msgid "System folders are always protected and cannot be changed."
 msgstr ""
 
-#: app/modules/mail/controllers/mailbox.py:347
+#: app/modules/mail/controllers/mailbox.py:348
 msgid "System folders cannot be renamed."
 msgstr ""
 
-#: app/modules/mail/controllers/mailbox.py:364
+#: app/modules/mail/controllers/mailbox.py:365
 msgid "Folder could not be renamed. Retry or check your connection."
 msgstr ""
 
-#: app/modules/mail/controllers/mailbox.py:388
+#: app/modules/mail/controllers/mailbox.py:389
 msgid "This folder is protected and cannot be deleted."
 msgstr ""
 
-#: app/modules/mail/controllers/mailbox.py:408
+#: app/modules/mail/controllers/mailbox.py:409
 msgid "Folder could not be deleted. Retry or check your connection."
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:278
+#: app/modules/mail/controllers/message.py:280
 msgid ""
 "Server doesn't support message lock flags, the option is disabled in your"
 " account"
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:305
+#: app/modules/mail/controllers/message.py:307
 msgid "Destination folder is required."
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:314
+#: app/modules/mail/controllers/message.py:316
 msgid "Message not found."
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:320
+#: app/modules/mail/controllers/message.py:322
 msgid "Message is already in that folder."
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:385
+#: app/modules/mail/controllers/message.py:387
 msgid "Message deleted"
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:388
+#: app/modules/mail/controllers/message.py:390
 msgid "View Trash"
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:394
-#: app/modules/mail/controllers/message.py:439
-#: app/modules/mail/controllers/message.py:515
-#: app/modules/mail/controllers/message.py:562
-#: app/modules/mail/controllers/message.py:720
+#: app/modules/mail/controllers/message.py:396
+#: app/modules/mail/controllers/message.py:441
+#: app/modules/mail/controllers/message.py:518
+#: app/modules/mail/controllers/message.py:565
+#: app/modules/mail/controllers/message.py:723
 msgid "Undo unavailable for this message."
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:430
+#: app/modules/mail/controllers/message.py:432
 msgid "Message archived"
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:433
+#: app/modules/mail/controllers/message.py:435
 msgid "View Archived"
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:457
+#: app/modules/mail/controllers/message.py:459
 msgid "Spam action is disabled in your settings."
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:479
+#: app/modules/mail/controllers/message.py:481
 msgid "No Spam/Junk folder available on this server. The Spam action is disabled."
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:490
+#: app/modules/mail/controllers/message.py:492
 msgid "Server doesn't support Spam flags, the option is disabled in your account"
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:500
+#: app/modules/mail/controllers/message.py:503
 #, python-format
 msgid "View %(destination)s"
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:506
+#: app/modules/mail/controllers/message.py:509
 msgid "Reported as spam"
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:549
+#: app/modules/mail/controllers/message.py:552
 msgid "Marked as not spam"
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:556
+#: app/modules/mail/controllers/message.py:559
 msgid "View Inbox"
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:709
+#: app/modules/mail/controllers/message.py:712
 msgid "Undo period expired."
 msgstr ""
 
-#: app/modules/mail/controllers/message.py:742
+#: app/modules/mail/controllers/message.py:745
 msgid "Undo failed; message not found."
 msgstr ""
 
@@ -2149,15 +2204,15 @@ msgid ""
 "configuration (PUSH_VAPID_* settings) and retry."
 msgstr ""
 
-#: app/modules/mail/controllers/search.py:266
+#: app/modules/mail/controllers/search.py:270
 msgid "Invalid action."
 msgstr ""
 
-#: app/modules/mail/controllers/search.py:268
+#: app/modules/mail/controllers/search.py:272
 msgid "Choose a destination folder."
 msgstr ""
 
-#: app/modules/mail/controllers/search.py:270
+#: app/modules/mail/controllers/search.py:274
 msgid "Enter a search query first."
 msgstr ""
 
@@ -2231,19 +2286,19 @@ msgid "Tag %(tag_id)d"
 msgstr ""
 
 #: app/modules/mail/templates/_bulk_toolbar.html:4
-#: app/modules/mail/templates/_row_common.html:49
+#: app/modules/mail/templates/_row_common.html:51
 #: app/modules/mail/templates/message.html:95
 #: app/modules/mail/templates/message_list.html:141
-#: app/modules/mail/templates/search.html:66
+#: app/modules/mail/templates/search.html:67
 #: app/modules/mail/templates/search_full.html:40
 msgid "Mark as read"
 msgstr ""
 
 #: app/modules/mail/templates/_bulk_toolbar.html:5
-#: app/modules/mail/templates/_row_common.html:49
+#: app/modules/mail/templates/_row_common.html:51
 #: app/modules/mail/templates/message.html:95
 #: app/modules/mail/templates/message_list.html:141
-#: app/modules/mail/templates/search.html:66
+#: app/modules/mail/templates/search.html:67
 #: app/modules/mail/templates/search_full.html:40
 msgid "Mark as unread"
 msgstr ""
@@ -2259,7 +2314,7 @@ msgstr ""
 #: app/modules/mail/templates/message.html:97
 #: app/modules/mail/templates/message.html:299
 #: app/modules/mail/templates/message_list.html:158
-#: app/modules/mail/templates/search.html:68
+#: app/modules/mail/templates/search.html:69
 msgid "Move to folder"
 msgstr ""
 
@@ -2292,21 +2347,34 @@ msgstr ""
 #: app/modules/mail/templates/_row_common.html:30
 #: app/modules/mail/templates/_row_common.html:32
 #: app/modules/mail/templates/_row_common.html:38
+#: app/modules/mail/templates/_row_common.html:40
 #: app/modules/mail/templates/mailbox.html:33
 #: app/modules/mail/templates/message.html:72
 #: app/modules/mail/templates/message.html:84
 #: app/modules/mail/templates/message_list.html:131
-#: app/modules/mail/templates/search.html:56
+#: app/modules/mail/templates/search.html:57
 #: app/modules/mail/templates/search_full.html:30
 msgid "Archive"
 msgstr ""
 
-#: app/modules/mail/templates/_row_common.html:54
+#: app/modules/mail/templates/_row_common.html:53
+msgid "Mark read"
+msgstr ""
+
+#: app/modules/mail/templates/_row_common.html:53
+msgid "Mark unread"
+msgstr ""
+
+#: app/modules/mail/templates/_row_common.html:57
 #: app/modules/mail/templates/message.html:78
 #: app/modules/mail/templates/message_list.html:137
-#: app/modules/mail/templates/search.html:62
+#: app/modules/mail/templates/search.html:63
 #: app/modules/mail/templates/search_full.html:36
 msgid "More actions"
+msgstr ""
+
+#: app/modules/mail/templates/_row_common.html:59
+msgid "More"
 msgstr ""
 
 #: app/modules/mail/templates/api_settings.html:5
@@ -2428,7 +2496,7 @@ msgstr ""
 
 #: app/modules/mail/templates/compose.html:4
 #: app/modules/mail/templates/folder.html:23
-#: app/modules/mail/templates/folder.html:280
+#: app/modules/mail/templates/folder.html:281
 #: app/modules/mail/templates/mailbox.html:15
 #: app/modules/mail/templates/mailbox.html:39
 msgid "Compose"
@@ -2586,38 +2654,38 @@ msgstr ""
 msgid "Preview"
 msgstr ""
 
-#: app/modules/mail/templates/folder.html:176
+#: app/modules/mail/templates/folder.html:177
 msgid "Undo available for"
 msgstr ""
 
-#: app/modules/mail/templates/folder.html:179
+#: app/modules/mail/templates/folder.html:180
 msgid "View folder"
 msgstr ""
 
-#: app/modules/mail/templates/folder.html:192
+#: app/modules/mail/templates/folder.html:193
 msgid ""
 "Next step: keep using cached messages; background sync will retry with "
 "backoff automatically."
 msgstr ""
 
-#: app/modules/mail/templates/folder.html:198
+#: app/modules/mail/templates/folder.html:199
 msgid "Next step: retry send now, or open draft to edit and send again."
 msgstr ""
 
-#: app/modules/mail/templates/folder.html:203
+#: app/modules/mail/templates/folder.html:204
 msgid "Retry send"
 msgstr ""
 
-#: app/modules/mail/templates/folder.html:205
+#: app/modules/mail/templates/folder.html:206
 msgid "Open draft"
 msgstr ""
 
-#: app/modules/mail/templates/folder.html:246
+#: app/modules/mail/templates/folder.html:247
 #, python-brace-format
 msgid "Page {current} of {total}"
 msgstr ""
 
-#: app/modules/mail/templates/folder.html:271
+#: app/modules/mail/templates/folder.html:272
 msgid "Select a message to preview."
 msgstr ""
 
@@ -2847,7 +2915,7 @@ msgstr ""
 #: app/modules/mail/templates/message_list.html:61
 #: app/modules/mail/templates/message_list.html:86
 #: app/modules/mail/templates/message_list.html:111
-#: app/modules/mail/templates/search.html:37
+#: app/modules/mail/templates/search.html:38
 msgid "Select message"
 msgstr ""
 
@@ -2882,7 +2950,7 @@ msgstr ""
 msgid "Selected snippet:"
 msgstr ""
 
-#: app/modules/mail/templates/search.html:6 app/templates/layout.html:135
+#: app/modules/mail/templates/search.html:6 app/templates/layout.html:137
 msgid "Search mail"
 msgstr ""
 
@@ -2890,12 +2958,12 @@ msgstr ""
 msgid "Remove this filter"
 msgstr ""
 
-#: app/modules/mail/templates/search.html:75
+#: app/modules/mail/templates/search.html:76
 #: app/modules/mail/templates/search_full.html:62
 msgid "No messages found"
 msgstr ""
 
-#: app/modules/mail/templates/search.html:76
+#: app/modules/mail/templates/search.html:77
 #: app/modules/mail/templates/search_full.html:63
 msgid "Try different keywords or check your spelling."
 msgstr ""
@@ -2909,7 +2977,7 @@ msgstr ""
 msgid "Redirecting to inbox…"
 msgstr ""
 
-#: app/modules/mail/templates/settings.html:4 app/templates/layout.html:254
+#: app/modules/mail/templates/settings.html:4 app/templates/layout.html:256
 msgid "Settings"
 msgstr ""
 
@@ -2923,7 +2991,7 @@ msgid "General"
 msgstr ""
 
 #: app/modules/mail/templates/settings.html:8
-#: app/modules/mail/templates/settings.html:70 app/templates/layout.html:212
+#: app/modules/mail/templates/settings.html:70 app/templates/layout.html:214
 msgid "Mail"
 msgstr ""
 
@@ -3067,7 +3135,7 @@ msgstr ""
 msgid "Add LocoRooSuite to your home screen for a faster, full-screen experience."
 msgstr ""
 
-#: app/modules/mail/templates/settings.html:182 app/templates/layout.html:283
+#: app/modules/mail/templates/settings.html:182 app/templates/layout.html:285
 msgid "Install app"
 msgstr ""
 
@@ -3502,115 +3570,115 @@ msgstr ""
 msgid "An unexpected error occurred."
 msgstr ""
 
-#: app/templates/layout.html:134
+#: app/templates/layout.html:136
 msgid "Search mail — try from:, is:unread, has:attachment"
 msgstr ""
 
-#: app/templates/layout.html:142
+#: app/templates/layout.html:144
 msgid "Search contacts by name, email, or phone"
 msgstr ""
 
-#: app/templates/layout.html:143
+#: app/templates/layout.html:145
 msgid "Search contacts"
 msgstr ""
 
-#: app/templates/layout.html:150
+#: app/templates/layout.html:152
 msgid "Search calendar events"
 msgstr ""
 
-#: app/templates/layout.html:158 app/templates/layout.html:159
+#: app/templates/layout.html:160 app/templates/layout.html:161
 msgid "Filter conversations"
 msgstr ""
 
-#: app/templates/layout.html:166
+#: app/templates/layout.html:168
 msgid "Search documents by name"
 msgstr ""
 
-#: app/templates/layout.html:167
+#: app/templates/layout.html:169
 msgid "Search documents"
 msgstr ""
 
-#: app/templates/layout.html:190 app/templates/layout.html:272
+#: app/templates/layout.html:192 app/templates/layout.html:274
 msgid "Show search options"
 msgstr ""
 
-#: app/templates/layout.html:205
+#: app/templates/layout.html:207
 msgid "App launcher"
 msgstr ""
 
-#: app/templates/layout.html:236
+#: app/templates/layout.html:238
 msgid "Docs"
 msgstr ""
 
-#: app/templates/layout.html:242
+#: app/templates/layout.html:244
 msgid "Admin"
 msgstr ""
 
-#: app/templates/layout.html:257 app/templates/layout.html:264
+#: app/templates/layout.html:259 app/templates/layout.html:266
 msgid "Domain Management"
 msgstr ""
 
-#: app/templates/layout.html:259
+#: app/templates/layout.html:261
 msgid "Log out"
 msgstr ""
 
-#: app/templates/layout.html:287
+#: app/templates/layout.html:289
 msgid "Install LocoRooSuite"
 msgstr ""
 
-#: app/templates/layout.html:288
+#: app/templates/layout.html:290
 msgid "Add the app to your home screen for a faster, full-screen experience."
 msgstr ""
 
-#: app/templates/layout.html:290
+#: app/templates/layout.html:292
 msgid "Dismiss install banner"
 msgstr ""
 
-#: app/templates/layout.html:294
+#: app/templates/layout.html:296
 msgid "Install"
 msgstr ""
 
-#: app/templates/layout.html:298 app/templates/layout.html:302
+#: app/templates/layout.html:300 app/templates/layout.html:304
 msgid "Turn on notifications"
 msgstr ""
 
-#: app/templates/layout.html:303
+#: app/templates/layout.html:305
 msgid ""
 "Get a notification when new mail arrives. You can turn this off anytime "
 "in Settings."
 msgstr ""
 
-#: app/templates/layout.html:305
+#: app/templates/layout.html:307
 msgid "Dismiss notifications prompt"
 msgstr ""
 
-#: app/templates/layout.html:309
+#: app/templates/layout.html:311
 msgid "Turn on"
 msgstr ""
 
-#: app/templates/layout.html:310
+#: app/templates/layout.html:312
 msgid "Don’t ask again"
 msgstr ""
 
-#: app/templates/layout.html:338
+#: app/templates/layout.html:340
 msgid "Done."
 msgstr ""
 
-#: app/templates/layout.html:341
+#: app/templates/layout.html:343
 msgid ""
 "Action failed. Please retry. If it keeps happening, check your connection"
 " or refresh."
 msgstr ""
 
-#: app/templates/layout.html:361
+#: app/templates/layout.html:363
 msgid "Preparing to send…"
 msgstr ""
 
-#: app/templates/layout.html:364
+#: app/templates/layout.html:366
 msgid "Dismiss"
 msgstr ""
 
-#: app/templates/layout.html:370
+#: app/templates/layout.html:372
 msgid "Send now"
 msgstr ""
 
@@ -3701,9 +3769,6 @@ msgid "Attached"
 msgstr ""
 
 msgid "August"
-msgstr ""
-
-msgid "Back"
 msgstr ""
 
 msgid "Browse files"
@@ -3880,9 +3945,6 @@ msgstr ""
 msgid "Delete {name}?"
 msgstr ""
 
-msgid "Deleting..."
-msgstr ""
-
 msgid "Direct connection: failed"
 msgstr ""
 
@@ -3929,6 +3991,9 @@ msgid "Failed to handle cancellation."
 msgstr ""
 
 msgid "Failed to import event."
+msgstr ""
+
+msgid "Failed to load calendar events."
 msgstr ""
 
 msgid "Failed to load shares."

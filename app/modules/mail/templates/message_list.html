@@ -106,7 +106,7 @@
 {% else %}
 <div class="message-row group relative text-sm cursor-pointer transition-all duration-200" draggable="true" data-message-id="{{ msg.id }}" data-account-id="{{ account.id }}" data-message-url="{{ url_for('mail.message_view', account_id=account.id, message_id=msg.id) }}" data-preview-url="{{ preview_url }}" data-is-unread="{{ '1' if msg.is_unread else '0' }}" data-is-flagged="{{ '1' if msg.is_flagged else '0' }}">
   {{ swipe_panels(account.id, msg.id, msg.is_unread) }}
-  <div class="relative z-10 overflow-hidden">
+  <div class="relative z-10 overflow-hidden" data-row-clip>
     <div class="flex items-start md:items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5 md:py-2 {{ 'bg-[#fef7d8] hover:bg-amber-100' if msg.is_unread else 'bg-white hover:bg-slate-50/80' }} transition-all duration-200" data-row-foreground>
       {{ select_controls(msg.id, _('Select message')) }}
       {{ star_form(account.id, msg.id, msg.is_flagged, 'hidden md:block flex-shrink-0') }}

@@ -54,8 +54,10 @@ def build_folder_sections(folders, pinned, conn):
         sections.append({"title": "Favorites", "folders": pinned_folders})
     if system_folders:
         sections.append({"title": "System", "folders": system_folders})
-    if recent_folders:
-        sections.append({"title": "Folders", "folders": recent_folders})
+    # U4.15/U4.15a: the Folders section (and its "+" create affordance in
+    # folder.html) must render even when empty, otherwise accounts without
+    # custom folders can never create their first one.
+    sections.append({"title": "Folders", "folders": recent_folders})
     return sections
 
 

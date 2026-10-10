@@ -199,3 +199,15 @@ class TestBuildFolderSections:
         system = next(s for s in sections if s["title"] == "System")
         system_names = set(system["folders"])
         assert system_names == {"Sent", "Drafts", "Trash", "Junk", "Archive"}
+
+    def test_folders_section_present_when_empty(self):
+        # U4.15/U4.15a: a new account with only INBOX + system folders must
+        # still get the Folders section — folder.html renders the "+"
+        # create-folder affordance only inside it.
+        conn = self._make_conn()
+        sections = build_folder_sections(["INBOX", "Sent", "Drafts", "Trash", "Junk"], [], conn)
+        folders_sections = [s for s in sections if s["title"] == "Folders"]
+        assert len(folders_sections) == 1
+        assert folders_sections[0]["folders"] == []
+        # Exactly one section per title, in HLD order.
+        assert [s["title"] for s in sections] == ["INBOX", "System", "Folders"]

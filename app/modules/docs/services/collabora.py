@@ -103,12 +103,43 @@ def is_collabora_available(collabora_url=None):
         return False
 
 
+_ZIP_MAGIC = b"PK\x03\x04"
+
+# Per-format output magic. Targets absent from this map are text-ish (html,
+# txt, csv) and fall through to the error-marker sniff below.
+_OUTPUT_MAGIC = {
+    "pdf": b"%PDF",
+    "png": b"\x89PNG",
+    "odt": _ZIP_MAGIC,
+    "ods": _ZIP_MAGIC,
+    "odp": _ZIP_MAGIC,
+    "odg": _ZIP_MAGIC,
+    "docx": _ZIP_MAGIC,
+    "xlsx": _ZIP_MAGIC,
+    "pptx": _ZIP_MAGIC,
+    "epub": _ZIP_MAGIC,
+}
+
+# Text targets have no reliable magic bytes, so reject bodies that look like a
+# Collabora error response (some versions return HTTP 200 with an error page)
+# or like another format's binary output.
+_TEXT_ERROR_MARKERS = (
+    b"conversion failed",
+    b"failed to convert",
+    b"error during conversion",
+)
+
+
 def _is_valid_output(content: bytes, target_type: str) -> bool:
-    if not content or len(content) < 4:
+    if not content:
         return False
-    if target_type == "pdf":
-        return content[:4] == b"%PDF"
-    return content[:4] == b"PK\x03\x04"
+    magic = _OUTPUT_MAGIC.get(target_type)
+    if magic is not None:
+        return len(content) >= len(magic) and content[: len(magic)] == magic
+    head = content[:512].lstrip()
+    if head.startswith((b"%PDF", _ZIP_MAGIC)):
+        return False
+    return not any(marker in head.lower() for marker in _TEXT_ERROR_MARKERS)
 
 
 def _default_url():

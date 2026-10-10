@@ -27,6 +27,7 @@ ACCOUNT_SWITCHER = ROOT / "app" / "templates" / "_account_switcher.html"
 CAL_INDEX = ROOT / "app" / "modules" / "calendar" / "templates" / "index.html"
 CAL_API = ROOT / "app" / "static" / "js" / "calendar" / "api.js"
 DOCS_LIST = ROOT / "app" / "modules" / "docs" / "templates" / "docs_list.html"
+DOCS_JS_DIR = ROOT / "app" / "static" / "js" / "docs"
 CONTACTS_LIST = ROOT / "app" / "modules" / "contacts" / "templates" / "list.html"
 
 _CSS_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
@@ -108,11 +109,16 @@ class TestNavFeedbackStatic:
         assert source.index("notifyFetchError();") > source.index("rangeCache[key] = data;")
 
     def test_docs_never_use_alert(self):
-        source = DOCS_LIST.read_text()
-        assert not re.search(r"\balert\(", source), (
-            "U24.39: docs failures surface as LR.notifyError toasts, never alert()"
-        )
-        assert "window.LR.setButtonLoading(btn);" in source
+        # U13.33a moved the docs list inline script to static JS files; scan
+        # both the template and the JS so a regression in either is caught.
+        sources = [DOCS_LIST.read_text()] + [
+            p.read_text() for p in sorted(DOCS_JS_DIR.glob("*.js"))
+        ]
+        for source in sources:
+            assert not re.search(r"\balert\(", source), (
+                "U24.39: docs failures surface as LR.notifyError toasts, never alert()"
+            )
+        assert any("window.LR.setButtonLoading(btn);" in source for source in sources)
 
     def test_contacts_delete_uses_shared_loading(self):
         source = CONTACTS_LIST.read_text()

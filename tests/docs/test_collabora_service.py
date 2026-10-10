@@ -133,6 +133,32 @@ class TestIsValidOutput:
         assert _is_valid_output(b"%PDF-1.4 data", "pdf") is True
         assert _is_valid_output(b"PK\x03\x04data", "pdf") is False
 
+    def test_office_targets_require_zip_magic(self):
+        # U13.31 export allowlist: docx/xlsx/pptx/epub are ZIP containers.
+        for target in ("docx", "xlsx", "pptx", "epub"):
+            assert _is_valid_output(b"PK\x03\x04office", target) is True
+            assert _is_valid_output(b"%PDF-1.4 data", target) is False
+
+    def test_png_target_requires_png_magic(self):
+        # Previously PNG exports were rejected: only %PDF/PK were accepted.
+        assert _is_valid_output(b"\x89PNG\r\n\x1a\nrest", "png") is True
+        assert _is_valid_output(b"PK\x03\x04data", "png") is False
+        assert _is_valid_output(b"%PDF-1.4 data", "png") is False
+
+    def test_text_targets_accept_plain_text(self):
+        # No reliable magic for text formats: valid text must pass.
+        assert _is_valid_output(b"<html><body>hello</body></html>", "html") is True
+        assert _is_valid_output(b"  \n plain text export", "txt") is True
+        assert _is_valid_output(b"a,b,c\n1,2,3\n", "csv") is True
+
+    def test_text_targets_reject_binary_and_error_pages(self):
+        # Binary output means Collabora ignored the format -> invalid.
+        assert _is_valid_output(b"%PDF-1.4 data", "html") is False
+        assert _is_valid_output(b"PK\x03\x04zip", "html") is False
+        # Known Collabora error phrases must not ship as "exports".
+        assert _is_valid_output(b"<!DOCTYPE html>Conversion failed: bad doc", "html") is False
+        assert _is_valid_output(b"failed to convert document", "txt") is False
+
     def test_rejects_empty(self):
         assert _is_valid_output(b"", "odt") is False
 

@@ -4876,3 +4876,41 @@ msgstr "hace {n} min"
 #~ msgid "Show actions"
 #~ msgstr "Mostrar acciones"
 
+
+# --- Docs per-item menu + export (U13.33a/U13.31/U24.32) ---
+
+msgid "Open"
+msgstr "Abrir"
+
+msgid "Export as"
+msgstr "Exportar como"
+
+msgid "Export as PDF"
+msgstr "Exportar como PDF"
+
+msgid "PDF document"
+msgstr "Documento PDF"
+
+msgid "PNG image"
+msgstr "Imagen PNG"
+
+msgid "Web page"
+msgstr "Página web"
+
+msgid "E-book (EPUB)"
+msgstr "Libro electrónico (EPUB)"
+
+msgid "Plain text"
+msgstr "Texto sin formato"
+
+msgid "CSV data"
+msgstr "Datos CSV"
+
+msgid "Unsupported export format .%(ext)s"
+msgstr "Formato de exportación no admitido .%(ext)s"
+
+msgid "Document file is missing. Try re-syncing from the docs list."
+msgstr "Falta el archivo del documento. Prueba a resincronizar desde la lista de documentos."
+
+msgid "Export failed. Check the Collabora connection and try again in a moment."
+msgstr "No se pudo exportar. Comprueba la conexión con Collabora e inténtalo de nuevo en unos instantes."

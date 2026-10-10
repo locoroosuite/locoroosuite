@@ -36,6 +36,74 @@
   {% endif %}
 </li>
 {% endmacro %}
+{# U13.33a: per-item kebab action menu (desktop rows + mobile cards). #}
+{% macro doc_menu(doc, btn_classes) %}
+<div class="relative flex-shrink-0" data-doc-menu>
+  <button type="button" data-doc-menu-toggle class="doc-menu-toggle {{ btn_classes }} rounded-md hover:bg-slate-100 flex items-center justify-center transition-colors" data-doc-id="{{ doc.id }}" data-doc-name="{{ doc.name }}" aria-haspopup="menu" aria-expanded="false" aria-label="{{ _('Actions') }}" title="{{ _('Actions') }}">
+    <svg class="h-5 w-5 text-slate-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/></svg>
+  </button>
+  <div class="hidden absolute right-0 mt-1.5 w-60 z-40 rounded-xl border border-slate-200 bg-white py-1 shadow-lg" role="menu" data-doc-menu-panel>
+    <div data-menu-view="main">
+      <a href="{{ url_for('docs.editor', doc_id=doc.id) }}" target="_blank" role="menuitem" class="flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100">
+        <svg class="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.25 5.5A1.75 1.75 0 016 3.75h3.5a.75.75 0 010 1.5H6a.25.25 0 00-.25.25v9c0 .138.112.25.25.25h9a.25.25 0 00.25-.25V11a.75.75 0 011.5 0v3.5A1.75 1.75 0 0115 16.25H6a1.75 1.75 0 01-1.75-1.75v-9z" clip-rule="evenodd"/><path fill-rule="evenodd" d="M12.5 3.75a.75.75 0 01.75-.75h3.5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0V5.56l-5.22 5.22a.75.75 0 11-1.06-1.06l5.22-5.22h-1.69a.75.75 0 01-.75-.75z" clip-rule="evenodd"/></svg>
+        {{ _('Open') }}
+      </a>
+      <button type="button" role="menuitem" class="rename-doc-btn flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 w-full text-left" data-doc-id="{{ doc.id }}" data-doc-name="{{ doc.name }}">
+        <svg class="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.38-2.83-2.828z"/></svg>
+        {{ _('Rename') }}
+      </button>
+      <a href="{{ url_for('docs.download', doc_id=doc.id) }}" role="menuitem" class="flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100">
+        <svg class="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/></svg>
+        {{ _('Download') }}
+      </a>
+      {% if doc.export_formats %}
+      <button type="button" role="menuitem" data-menu-export-btn class="flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 w-full text-left">
+        <svg class="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+        {{ _('Export as') }}
+        <svg class="h-3 w-3 text-slate-400 ml-auto" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+      </button>
+      {% endif %}
+      {% if doc.original_format %}
+      <button type="button" role="menuitem" class="convert-doc-btn flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 w-full text-left" data-doc-id="{{ doc.id }}" data-doc-name="{{ doc.name }}">
+        <svg class="h-4 w-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+        <span class="convert-label">{{ _('Convert to editable document') }}</span>
+      </button>
+      {% else %}
+      <button type="button" role="menuitem" class="share-doc-btn flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 w-full text-left" data-doc-id="{{ doc.id }}" data-doc-name="{{ doc.name }}">
+        <svg class="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z"/></svg>
+        {{ _('Share') }}
+      </button>
+      {% endif %}
+      <button type="button" role="menuitem" class="tag-doc-btn flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 w-full text-left" data-doc-id="{{ doc.id }}" data-doc-name="{{ doc.name }}">
+        <svg class="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0L1.586 10A2 2 0 011 8.586V3a1 1 0 011-1h5.586A2 2 0 0110 2.586l7.707 6.707zM4 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+        {{ _('Add tag') }}
+      </button>
+      <div class="my-1 border-t border-slate-100"></div>
+      <form method="post" action="{{ url_for('docs.delete', doc_id=doc.id) }}">
+        <button type="submit" role="menuitem" class="flex items-center gap-2.5 px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 w-full text-left">
+          <svg class="h-4 w-4 text-rose-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+          {{ _('Move to trash') }}
+        </button>
+      </form>
+    </div>
+    {% if doc.export_formats %}
+    <div data-menu-view="export" class="hidden">
+      <button type="button" data-menu-export-back class="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-400 hover:text-slate-600 uppercase tracking-wide w-full text-left">
+        <svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+        {{ _('Back') }}
+      </button>
+      <div class="my-1 border-t border-slate-100"></div>
+      {% for fmt in doc.export_formats %}
+      <a href="{{ url_for('docs.export', doc_id=doc.id, fmt=fmt) }}" role="menuitem" class="flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100">
+        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-slate-100 text-slate-500 min-w-[2.75rem] justify-center">{{ fmt }}</span>
+        {% if fmt == 'pdf' %}{{ _('PDF document') }}{% elif fmt == 'png' %}{{ _('PNG image') }}{% elif fmt == 'html' %}{{ _('Web page') }}{% elif fmt == 'epub' %}{{ _('E-book (EPUB)') }}{% elif fmt == 'txt' %}{{ _('Plain text') }}{% elif fmt == 'csv' %}{{ _('CSV data') }}{% else %}{{ fmt|upper }}{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
 <div class="flex h-[calc(100vh-4rem)]">
   <aside id="docs-sidebar" class="flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] -translate-x-full transition-transform duration-200 overflow-y-auto border-r border-slate-200/80 bg-white lg:static lg:z-auto lg:w-60 lg:max-w-none lg:translate-x-0">
     <div class="flex items-center justify-between py-3 pl-4 pr-3 lg:hidden">
@@ -289,63 +357,62 @@
 
       {% if documents | length > 0 %}
       {% set image_exts = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp'] %}
-      {# U24.32: mobile card list (below lg) with always-visible actions. #}
-      <div class="lg:hidden bg-white border-t border-b border-slate-200/80 divide-y divide-slate-100 md:bg-transparent md:border-0 md:divide-y-0 md:space-y-3">
+      {# U24.32: mobile card list (below lg) — single kebab menu (U13.33a)
+         + swipe gestures (right = trash, left = quick actions). #}
+      <div id="docs-mobile-list" class="lg:hidden bg-white border-t border-b border-slate-200/80 divide-y divide-slate-100 md:bg-transparent md:border-0 md:divide-y-0 md:space-y-3">
         {% for doc in documents %}
-        <div class="bg-white px-3 py-3 md:rounded-2xl md:border md:border-slate-200/80 md:shadow-sm md:px-4 doc-row" draggable="true" data-doc-id="{{ doc.id }}" data-doc-folder="{{ doc.folder_path }}">
-          <a href="{{ url_for('docs.editor', doc_id=doc.id) }}" target="_blank" class="flex items-center gap-3 min-w-0">
-            <span class="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0
-              {% if doc.original_format == 'pdf' %}bg-red-50 text-red-500
-              {% elif doc.original_format == 'docx' %}bg-blue-50 text-blue-600
-              {% elif doc.original_format == 'xlsx' %}bg-green-50 text-green-600
-              {% elif doc.original_format == 'pptx' %}bg-orange-50 text-orange-600
-              {% elif doc.original_format in image_exts %}bg-purple-50 text-purple-600
-              {% elif doc.doc_type == 'odt' %}bg-blue-50 text-blue-600
-              {% elif doc.doc_type == 'ods' %}bg-green-50 text-green-600
-              {% elif doc.doc_type == 'odp' %}bg-orange-50 text-orange-600
-              {% elif doc.doc_type == 'odg' %}bg-purple-50 text-purple-600
-              {% else %}bg-slate-50 text-slate-600{% endif %}">
-              <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
-            </span>
-            <span class="min-w-0 flex-1">
-              <span class="block text-sm font-medium text-slate-900 truncate">{{ doc.name }}</span>
-              <span class="block text-xs text-slate-400 mt-0.5">
-                .{{ doc.original_format or doc.doc_type }}
-                {% if doc.updated_at %} &middot; <span class="relative-date" data-datetime="{{ doc.updated_at }}">{{ doc.updated_at[:16] }}</span>{% endif %}
-                {% if doc.file_size %} &middot; {{ (doc.file_size / 1024) | round(1) }} KB{% endif %}
-              </span>
-            </span>
-          </a>
-          {% if doc.tag_list %}
-          <div class="flex items-center gap-1 flex-wrap mt-2">
-            {% for tag in doc.tag_list %}
-            <a href="{{ url_for('docs.index', tag=tag) }}" class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] md:text-[10px] font-medium bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors">#{{ tag }}</a>
-            {% endfor %}
+        <div class="relative overflow-hidden md:rounded-2xl md:border md:border-slate-200/80 md:shadow-sm doc-row doc-swipe-row" draggable="true" data-doc-id="{{ doc.id }}" data-doc-folder="{{ doc.folder_path }}">
+          <div data-swipe-panel="left" class="hidden absolute inset-y-0 left-0 w-28 bg-rose-50 flex items-center justify-start pl-4 gap-1.5 text-rose-600" aria-hidden="true">
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+            <span class="text-xs font-medium">{{ _('Move to trash') }}</span>
           </div>
-          {% endif %}
-          <div class="flex items-center justify-end gap-1 mt-2 pt-2 border-t border-slate-100">
-            {% if doc.original_format %}
-            <button type="button" class="h-9 rounded-md hover:bg-emerald-50 flex items-center justify-center transition-colors gap-1 px-2.5 convert-doc-btn lr-hit" data-doc-id="{{ doc.id }}" data-doc-name="{{ doc.name }}" title="{{ _('Convert to editable document') }}">
-              <svg class="h-3.5 w-3.5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
-              <span class="text-xs text-emerald-700 font-medium">{{ _('Convert') }}</span>
-            </button>
-            {% else %}
-            <button type="button" class="h-9 w-9 rounded-md hover:bg-slate-100 flex items-center justify-center transition-colors share-doc-btn lr-hit" data-doc-id="{{ doc.id }}" data-doc-name="{{ doc.name }}" title="{{ _('Share') }}">
-              <svg class="h-3.5 w-3.5 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z"/></svg>
-            </button>
-            {% endif %}
-            <button type="button" class="h-9 w-9 rounded-md hover:bg-slate-100 flex items-center justify-center transition-colors tag-doc-btn lr-hit" data-doc-id="{{ doc.id }}" data-doc-name="{{ doc.name }}" title="{{ _('Add tag') }}">
-              <svg class="h-3.5 w-3.5 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0L1.586 10A2 2 0 011 8.586V3a1 1 0 011-1h5.586A2 2 0 0110 2.586l7.707 6.707zM4 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
-            </button>
-            <a href="{{ url_for('docs.download', doc_id=doc.id) }}" class="h-9 w-9 rounded-md hover:bg-slate-100 flex items-center justify-center transition-colors lr-hit" title="{{ _('Download') }}">
-              <svg class="h-3.5 w-3.5 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/></svg>
+          <div data-swipe-panel="right" class="hidden absolute inset-y-0 right-0 bg-slate-50 border-l border-slate-200 flex items-center gap-1 pr-3 pl-4" aria-hidden="true">
+            <a href="{{ url_for('docs.download', doc_id=doc.id) }}" class="h-10 w-10 rounded-md bg-white border border-slate-200 flex items-center justify-center text-slate-600" title="{{ _('Download') }}">
+              <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/></svg>
             </a>
-            <form method="post" action="{{ url_for('docs.delete', doc_id=doc.id) }}" class="inline">
-              <button type="submit" class="h-9 w-9 rounded-md hover:bg-rose-50 flex items-center justify-center transition-colors lr-hit" title="{{ _('Move to trash') }}">
-                <svg class="h-3.5 w-3.5 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-              </button>
-            </form>
+            {% if 'pdf' in doc.export_formats %}
+            <a href="{{ url_for('docs.export', doc_id=doc.id, fmt='pdf') }}" class="h-10 px-3 rounded-md bg-white border border-slate-200 flex items-center justify-center gap-1.5 text-slate-600" title="{{ _('Export as PDF') }}">
+              <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+              <span class="text-xs font-medium">PDF</span>
+            </a>
+            {% endif %}
           </div>
+          <div data-row-foreground class="relative bg-white px-3 py-3 md:px-4">
+            <div class="flex items-center gap-1 min-w-0">
+              <a href="{{ url_for('docs.editor', doc_id=doc.id) }}" target="_blank" class="flex items-center gap-3 min-w-0 flex-1">
+                <span class="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0
+                  {% if doc.original_format == 'pdf' %}bg-red-50 text-red-500
+                  {% elif doc.original_format == 'docx' %}bg-blue-50 text-blue-600
+                  {% elif doc.original_format == 'xlsx' %}bg-green-50 text-green-600
+                  {% elif doc.original_format == 'pptx' %}bg-orange-50 text-orange-600
+                  {% elif doc.original_format in image_exts %}bg-purple-50 text-purple-600
+                  {% elif doc.doc_type == 'odt' %}bg-blue-50 text-blue-600
+                  {% elif doc.doc_type == 'ods' %}bg-green-50 text-green-600
+                  {% elif doc.doc_type == 'odp' %}bg-orange-50 text-orange-600
+                  {% elif doc.doc_type == 'odg' %}bg-purple-50 text-purple-600
+                  {% else %}bg-slate-50 text-slate-600{% endif %}">
+                  <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-sm font-medium text-slate-900 truncate">{{ doc.name }}</span>
+                  <span class="block text-xs text-slate-400 mt-0.5">
+                    .{{ doc.original_format or doc.doc_type }}
+                    {% if doc.updated_at %} &middot; <span class="relative-date" data-datetime="{{ doc.updated_at }}">{{ doc.updated_at[:16] }}</span>{% endif %}
+                    {% if doc.file_size %} &middot; {{ (doc.file_size / 1024) | round(1) }} KB{% endif %}
+                  </span>
+                </span>
+              </a>
+              {{ doc_menu(doc, 'h-9 w-9') }}
+            </div>
+            {% if doc.tag_list %}
+            <div class="flex items-center gap-1 flex-wrap mt-2">
+              {% for tag in doc.tag_list %}
+              <a href="{{ url_for('docs.index', tag=tag) }}" class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] md:text-[10px] font-medium bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors">#{{ tag }}</a>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+          <form method="post" action="{{ url_for('docs.delete', doc_id=doc.id) }}" data-swipe-trash-form class="hidden" aria-hidden="true"></form>
         </div>
         {% endfor %}
       </div>
@@ -356,7 +423,7 @@
                <th class="py-3 px-4 text-xs font-medium text-slate-400 uppercase tracking-wider">{{ _('Name') }}</th>
               <th class="py-3 px-4 text-xs font-medium text-slate-400 uppercase tracking-wider hidden sm:table-cell">{{ _('Last updated') }}</th>
               <th class="py-3 px-4 text-xs font-medium text-slate-400 uppercase tracking-wider hidden md:table-cell">{{ _('Size') }}</th>
-              <th class="py-3 px-4 w-32"></th>
+              <th class="py-3 px-4 w-16"><span class="sr-only">{{ _('Actions') }}</span></th>
             </tr>
           </thead>
            <tbody class="divide-y divide-slate-50">
@@ -426,28 +493,9 @@
                 <span class="text-xs text-slate-500">{% if doc.file_size %}{{ (doc.file_size / 1024) | round(1) }} KB{% else %}-{% endif %}</span>
               </td>
               <td class="py-2.5 px-4">
-                <div class="flex items-center justify-end gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto lr-touch-visible transition-opacity">
-                  {% if doc.original_format %}
-                  <button type="button" class="h-8 rounded-md hover:bg-emerald-50 flex items-center justify-center transition-colors gap-1 px-2 convert-doc-btn lr-hit" data-doc-id="{{ doc.id }}" data-doc-name="{{ doc.name }}" title="{{ _('Convert to editable document') }}">
-                    <svg class="h-3.5 w-3.5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
-                    <span class="text-xs text-emerald-700 font-medium">{{ _('Convert') }}</span>
-                  </button>
-                  {% else %}
-                  <button type="button" class="h-8 w-8 rounded-md hover:bg-slate-100 flex items-center justify-center transition-colors share-doc-btn lr-hit" data-doc-id="{{ doc.id }}" data-doc-name="{{ doc.name }}" title="{{ _('Share') }}">
-                    <svg class="h-3.5 w-3.5 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z"/></svg>
-                  </button>
-                  {% endif %}
-                  <button type="button" class="h-8 w-8 rounded-md hover:bg-slate-100 flex items-center justify-center transition-colors tag-doc-btn lr-hit" data-doc-id="{{ doc.id }}" data-doc-name="{{ doc.name }}" title="{{ _('Add tag') }}">
-                    <svg class="h-3.5 w-3.5 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0L1.586 10A2 2 0 011 8.586V3a1 1 0 011-1h5.586A2 2 0 0110 2.586l7.707 6.707zM4 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
-                  </button>
-                  <a href="{{ url_for('docs.download', doc_id=doc.id) }}" class="h-8 w-8 rounded-md hover:bg-slate-100 flex items-center justify-center transition-colors lr-hit" title="{{ _('Download') }}">
-                    <svg class="h-3.5 w-3.5 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/></svg>
-                  </a>
-                  <form method="post" action="{{ url_for('docs.delete', doc_id=doc.id) }}" class="inline">
-                    <button type="submit" class="h-8 w-8 rounded-md hover:bg-rose-50 flex items-center justify-center transition-colors lr-hit" title="{{ _('Move to trash') }}">
-                      <svg class="h-3.5 w-3.5 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-                    </button>
-                  </form>
+                {# U13.33a: single kebab menu replaces the inline action row. #}
+                <div class="flex items-center justify-end">
+                  {{ doc_menu(doc, 'h-8 w-8') }}
                 </div>
               </td>
             </tr>
@@ -603,751 +651,7 @@
   </div>
 </div>
 
-<script>
-(() => {
-  // U24.2/U13.60m: docs sidebar is an off-canvas drawer below lg.
-  const docsSidebar = document.getElementById('docs-sidebar');
-  const docsBackdrop = document.getElementById('docs-sidebar-backdrop');
-  const docsClose = document.getElementById('docs-sidebar-close');
-  const docsToggles = document.querySelectorAll('.docs-sidebar-toggle');
-  const isDocsDrawerOpen = () => docsSidebar && !docsSidebar.classList.contains('-translate-x-full');
-  const setDocsDrawerOpen = (open) => {
-    if (!docsSidebar || !docsBackdrop) return;
-    docsSidebar.classList.toggle('-translate-x-full', !open);
-    docsBackdrop.classList.toggle('hidden', !open);
-    document.body.style.overflow = open ? 'hidden' : '';
-    docsToggles.forEach((t) => t.setAttribute('aria-expanded', open ? 'true' : 'false'));
-  };
-  docsToggles.forEach((t) => t.addEventListener('click', () => setDocsDrawerOpen(!isDocsDrawerOpen())));
-  if (docsClose) docsClose.addEventListener('click', () => setDocsDrawerOpen(false));
-  if (docsBackdrop) docsBackdrop.addEventListener('click', () => setDocsDrawerOpen(false));
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && isDocsDrawerOpen()) setDocsDrawerOpen(false);
-  });
-  window.addEventListener('resize', () => {
-    if (window.matchMedia('(min-width: 1024px)').matches && isDocsDrawerOpen()) {
-      setDocsDrawerOpen(false);
-    }
-  });
-  // U24.2a: edge-swipe open/close gestures (shared engine in js/drawer.js).
-  if (window.LRDrawer) {
-    window.LRDrawer.register({
-      drawer: docsSidebar,
-      backdrop: docsBackdrop,
-      isOpen: isDocsDrawerOpen,
-      setOpen: setDocsDrawerOpen
-    });
-  }
-})();
-
-(() => {
-  const btn = document.getElementById('new-doc-button');
-  const panel = document.getElementById('new-doc-panel');
-  if (btn && panel) {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      panel.classList.toggle('hidden');
-    });
-    document.addEventListener('click', () => panel.classList.add('hidden'));
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') panel.classList.add('hidden');
-    });
-  }
-
-  const trashToggle = document.getElementById('trash-toggle');
-  const trashSection = document.getElementById('trash-section');
-  const trashChevron = document.getElementById('trash-chevron');
-  if (trashToggle && trashSection) {
-    trashToggle.addEventListener('click', () => {
-      const open = !trashSection.classList.contains('hidden');
-      trashSection.classList.toggle('hidden');
-      if (trashChevron) trashChevron.style.transform = open ? '' : 'rotate(180deg)';
-    });
-  }
-
-  const uploadForm = document.getElementById('upload-form');
-  const uploadInput = document.getElementById('upload-input');
-  const uploadLabel = document.getElementById('upload-label');
-  const uploadLabelText = document.getElementById('upload-label-text');
-  const uploadProgress = document.getElementById('upload-progress');
-  const uploadProgressBar = document.getElementById('upload-progress-bar');
-  const uploadProgressText = document.getElementById('upload-progress-text');
-  const uploadResult = document.getElementById('upload-result');
-
-  function setUploadState(state) {
-    uploadProgress.classList.toggle('hidden', state !== 'uploading' && state !== 'converting');
-    uploadResult.classList.toggle('hidden', state !== 'success' && state !== 'error');
-
-    if (state === 'idle') {
-      uploadLabel.classList.remove('pointer-events-none', 'opacity-50');
-      uploadLabelText.textContent = window.LR.t('Upload');
-      uploadInput.value = '';
-    } else if (state === 'uploading') {
-      uploadLabel.classList.add('pointer-events-none', 'opacity-50');
-      uploadLabelText.textContent = window.LR.t('Uploading...');
-    } else if (state === 'converting') {
-      uploadLabelText.textContent = window.LR.t('Converting...');
-      uploadProgressBar.style.width = '100%';
-      uploadProgressBar.classList.remove('bg-slate-900');
-      uploadProgressBar.classList.add('bg-blue-500');
-      uploadProgressText.textContent = window.LR.t('Converting...');
-    } else if (state === 'success') {
-      uploadProgressBar.classList.remove('bg-blue-500');
-      uploadProgressBar.classList.add('bg-slate-900');
-    } else if (state === 'error') {
-      uploadProgressBar.classList.remove('bg-blue-500');
-      uploadProgressBar.classList.add('bg-slate-900');
-    }
-  }
-
-  if (uploadInput) {
-    uploadInput.addEventListener('change', () => {
-      const file = uploadInput.files[0];
-      if (!file) return;
-
-      const ext = file.name.split('.').pop().toLowerCase();
-      const allowed = ['odt','ods','odp','docx','xlsx','pptx','pdf'];
-      if (!allowed.includes(ext)) {
-        window.LR.notifyError(window.LR.t('Unsupported file type. Accepted: .odt, .ods, .odp, .docx, .xlsx, .pptx'), { suffix: false });
-        uploadInput.value = '';
-        return;
-      }
-
-      if (file.size > 50 * 1024 * 1024) {
-        window.LR.notifyError(window.LR.t('File exceeds 50 MB limit.'), { suffix: false });
-        uploadInput.value = '';
-        return;
-      }
-
-      setUploadState('uploading');
-
-      const fd = new FormData();
-      fd.append('file', file);
-
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', uploadForm.action);
-      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-
-      const isOdf = ['odt','ods','odp'].includes(ext);
-
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          const pct = Math.round((e.loaded / e.total) * 100);
-          uploadProgressBar.style.width = pct + '%';
-          uploadProgressText.textContent = pct + '%';
-        }
-      });
-
-      xhr.addEventListener('load', () => {
-        let data;
-        try { data = JSON.parse(xhr.responseText); } catch { data = null; }
-        if (xhr.status >= 200 && xhr.status < 300 && data && data.editor_url) {
-          setUploadState('success');
-          const newTab = window.open(data.editor_url, '_blank');
-          uploadResult.innerHTML = '';
-          const link = document.createElement('a');
-          link.href = data.editor_url;
-          link.target = '_blank';
-          link.className = 'text-sm font-medium text-slate-900 hover:text-slate-700 underline underline-offset-2';
-          link.textContent = window.LR.t('Open document');
-          uploadResult.appendChild(link);
-          if (!newTab || newTab.closed) {
-            const hint = document.createElement('span');
-            hint.className = 'text-xs text-slate-400';
-            hint.textContent = window.LR.t('(popup blocked — use the link)');
-            uploadResult.appendChild(hint);
-          }
-          setTimeout(() => { setUploadState('idle'); window.location.reload(); }, 4000);
-        } else {
-          setUploadState('error');
-          const msg = (data && data.error) ? data.error : window.LR.t('Upload failed. Please try again.');
-          uploadResult.innerHTML = '';
-          const errSpan = document.createElement('span');
-          errSpan.className = 'text-sm text-rose-600';
-          errSpan.textContent = msg;
-          uploadResult.appendChild(errSpan);
-          const retryBtn = document.createElement('button');
-          retryBtn.type = 'button';
-          retryBtn.className = 'text-sm font-medium text-slate-700 hover:text-slate-900 underline underline-offset-2';
-          retryBtn.textContent = window.LR.t('Retry');
-          retryBtn.addEventListener('click', () => setUploadState('idle'));
-          uploadResult.appendChild(retryBtn);
-          setTimeout(() => setUploadState('idle'), 8000);
-        }
-      });
-
-      xhr.addEventListener('error', () => {
-        setUploadState('error');
-        uploadResult.innerHTML = '';
-        const errSpan = document.createElement('span');
-        errSpan.className = 'text-sm text-rose-600';
-         errSpan.textContent = window.LR.t('Network error. Check your connection and try again.');
-        uploadResult.appendChild(errSpan);
-        const retryBtn = document.createElement('button');
-        retryBtn.type = 'button';
-        retryBtn.className = 'text-sm font-medium text-slate-700 hover:text-slate-900 underline underline-offset-2';
-           retryBtn.textContent = window.LR.t('Retry');
-           retryBtn.addEventListener('click', () => setUploadState('idle'));
-           uploadResult.appendChild(retryBtn);
-           setTimeout(() => setUploadState('idle'), 8000);
-         });
-
-      xhr.send(fd);
-    });
-  }
-
-  function relativeTime(isoStr) {
-    if (!isoStr) return '';
-    const d = new Date(isoStr + (isoStr.includes('Z') || isoStr.includes('+') ? '' : 'Z'));
-    if (isNaN(d.getTime())) return isoStr;
-    const now = new Date();
-    const diffMs = now - d;
-    const diffSec = Math.floor(diffMs / 1000);
-    if (diffSec < 5) return window.LR.t('just now');
-    if (diffSec < 60) return window.LR.t('{n} seconds ago', {n: diffSec});
-    const diffMin = Math.floor(diffSec / 60);
-    if (diffMin === 1) return window.LR.t('1 minute ago');
-    if (diffMin < 60) return window.LR.t('{n} minutes ago', {n: diffMin});
-    const diffHr = Math.floor(diffMin / 60);
-    if (diffHr === 1) return window.LR.t('1 hour ago');
-    if (diffHr < 24) return window.LR.t('{n} hours ago', {n: diffHr});
-    const diffDay = Math.floor(diffHr / 24);
-    if (diffDay === 1) return window.LR.t('yesterday');
-    if (diffDay < 30) return window.LR.t('{n} days ago', {n: diffDay});
-    const diffMonth = Math.floor(diffDay / 30);
-    if (diffMonth === 1) return window.LR.t('1 month ago');
-    if (diffMonth < 12) return window.LR.t('{n} months ago', {n: diffMonth});
-    const diffYear = Math.floor(diffDay / 365);
-    if (diffYear === 1) return window.LR.t('1 year ago');
-    return window.LR.t('{n} years ago', {n: diffYear});
-  }
-
-  function localDatetime(isoStr) {
-    if (!isoStr) return '';
-    const d = new Date(isoStr + (isoStr.includes('Z') || isoStr.includes('+') ? '' : 'Z'));
-    if (isNaN(d.getTime())) return isoStr;
-    return d.toLocaleString(undefined, {
-      year: 'numeric', month: 'short', day: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    });
-  }
-
-  document.querySelectorAll('.relative-date').forEach((el) => {
-    const iso = el.dataset.datetime;
-    el.textContent = relativeTime(iso);
-    el.title = localDatetime(iso);
-    el.classList.add('cursor-default');
-  });
-
-  // Share modal logic
-  const shareModal = document.getElementById('share-modal');
-  const shareOverlay = document.getElementById('share-overlay');
-  const shareClose = document.getElementById('share-modal-close');
-  const shareEmailsInput = document.getElementById('share-emails-input');
-  const sharePermSelect = document.getElementById('share-permission-select');
-  const shareAddBtn = document.getElementById('share-add-btn');
-  const shareError = document.getElementById('share-error');
-  const shareSuccess = document.getElementById('share-success');
-  const shareListLoading = document.getElementById('share-list-loading');
-  const shareListEmpty = document.getElementById('share-list-empty');
-  const shareList = document.getElementById('share-list');
-  const shareModalTitle = document.getElementById('share-modal-title');
-
-  let currentShareDocId = null;
-  let currentShareDocName = '';
-
-  function openShareModal(docId, docName) {
-    currentShareDocId = docId;
-    currentShareDocName = docName;
-    shareModalTitle.textContent = window.LR.t('Share: {name}', {name: docName});
-    shareEmailsInput.value = '';
-    shareError.classList.add('hidden');
-    shareSuccess.classList.add('hidden');
-    shareAddBtn.disabled = true;
-    shareModal.classList.remove('hidden');
-    shareEmailsInput.focus();
-    loadShareList(docId);
-  }
-
-  function closeShareModal() {
-    shareModal.classList.add('hidden');
-    currentShareDocId = null;
-  }
-
-  shareOverlay.addEventListener('click', closeShareModal);
-  shareClose.addEventListener('click', closeShareModal);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !shareModal.classList.contains('hidden')) closeShareModal(); });
-
-  const shareAutocomplete = document.getElementById('share-autocomplete');
-  let acTimer = null;
-
-  function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
-
-  shareEmailsInput.addEventListener('input', () => {
-    shareAddBtn.disabled = !shareEmailsInput.value.trim();
-
-    clearTimeout(acTimer);
-    const parts = shareEmailsInput.value.split(',');
-    const lastPart = parts[parts.length - 1].trim();
-    if (lastPart.length >= 2) {
-      acTimer = setTimeout(() => {
-        fetch('/app/contacts/api/search?q=' + encodeURIComponent(lastPart))
-          .then(r => r.json())
-          .then(results => {
-            shareAutocomplete.innerHTML = '';
-            if (!results.length) { shareAutocomplete.classList.add('hidden'); return; }
-            results.forEach(r => {
-              const emails = (r.emails || []).map(e => e.email).filter(Boolean);
-              if (!emails.length) return;
-              emails.forEach(email => {
-                const item = document.createElement('div');
-                item.className = 'px-3 py-2 cursor-pointer text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 border-b border-slate-50 last:border-0';
-                item.innerHTML = '<span class="font-medium">' + esc(r.fn || email) + '</span><span class="text-xs text-slate-400">&lt;' + esc(email) + '&gt;</span>';
-                item.addEventListener('click', () => {
-                  parts[parts.length - 1] = ' ' + email;
-                  shareEmailsInput.value = parts.join(',') + ', ';
-                  shareAutocomplete.classList.add('hidden');
-                  shareEmailsInput.focus();
-                  shareEmailsInput.dispatchEvent(new Event('input'));
-                });
-                shareAutocomplete.appendChild(item);
-              });
-            });
-            shareAutocomplete.classList.remove('hidden');
-          })
-          .catch(() => { shareAutocomplete.classList.add('hidden'); });
-      }, 300);
-    } else {
-      shareAutocomplete.classList.add('hidden');
-    }
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!shareAutocomplete.contains(e.target) && e.target !== shareEmailsInput) {
-      shareAutocomplete.classList.add('hidden');
-    }
-  });
-
-  shareAddBtn.addEventListener('click', () => {
-    if (!currentShareDocId || !shareEmailsInput.value.trim()) return;
-    shareAddBtn.disabled = true;
-    shareError.classList.add('hidden');
-    shareSuccess.classList.add('hidden');
-
-    fetch('/app/docs/' + currentShareDocId + '/shares', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        emails: shareEmailsInput.value.trim(),
-        permission: sharePermSelect.value,
-        send_invite: true,
-      }),
-    })
-    .then(r => r.json())
-    .then(data => {
-      shareAddBtn.disabled = false;
-      if (data.shares && data.shares.length > 0) {
-        shareEmailsInput.value = '';
-        shareSuccess.textContent = window.LR.t('Shared with {emails}', {emails: data.shares.map(s => s.recipient_email).join(', ')});
-        shareSuccess.classList.remove('hidden');
-        setTimeout(() => shareSuccess.classList.add('hidden'), 4000);
-        loadShareList(currentShareDocId);
-      } else if (data.error) {
-        shareError.textContent = data.error;
-        shareError.classList.remove('hidden');
-      }
-    })
-    .catch(() => {
-      shareAddBtn.disabled = false;
-      shareError.textContent = window.LR.t('Failed to share. Please try again.');
-      shareError.classList.remove('hidden');
-    });
-  });
-
-  function loadShareList(docId) {
-    shareListLoading.classList.remove('hidden');
-    shareListEmpty.classList.add('hidden');
-    shareList.innerHTML = '';
-
-    fetch('/app/docs/' + docId + '/shares')
-      .then(r => r.json())
-      .then(data => {
-        shareListLoading.classList.add('hidden');
-        const shares = data.shares || [];
-        if (shares.length === 0) {
-          shareListEmpty.classList.remove('hidden');
-          return;
-        }
-        shares.forEach(s => {
-          const row = document.createElement('div');
-          row.className = 'flex items-center justify-between py-2 px-1';
-          row.innerHTML = `
-            <div class="flex items-center gap-2 min-w-0">
-              <div class="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 text-xs font-medium text-slate-500">${s.recipient_email.charAt(0).toUpperCase()}</div>
-              <div class="min-w-0">
-                <p class="text-sm text-slate-900 truncate">${s.recipient_email}</p>
-                <p class="text-xs text-slate-400">${s.permission === 'write' ? window.LR.t('Can edit') : window.LR.t('Can view')} &middot; ${(s.view_count || 0) === 1 ? window.LR.t('{n} view', {n: s.view_count || 0}) : window.LR.t('{n} views', {n: s.view_count || 0})}${s.last_accessed_at ? ' &middot; ' + window.LR.t('Last:') + ' ' + relativeTime(s.last_accessed_at) : ''}</p>
-              </div>
-            </div>
-            <button type="button" class="revoke-share-btn text-xs text-slate-400 hover:text-rose-600 transition-colors px-2 py-1 rounded hover:bg-rose-50" data-share-id="${s.id}" ${s._disabled ? 'disabled' : ''}>${window.LR.t('Revoke')}</button>
-          `;
-          shareList.appendChild(row);
-        });
-
-        shareList.querySelectorAll('.revoke-share-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const shareId = btn.dataset.shareId;
-            btn.disabled = true;
-            btn.textContent = window.LR.t('Revoking...');
-            fetch('/app/docs/' + currentShareDocId + '/shares/' + shareId, { method: 'DELETE' })
-              .then(r => r.json())
-              .then(() => loadShareList(currentShareDocId))
-              .catch(() => { btn.disabled = false; btn.textContent = window.LR.t('Revoke'); });
-          });
-        });
-      })
-      .catch(() => {
-        shareListLoading.classList.add('hidden');
-        shareError.textContent = window.LR.t('Failed to load shares.');
-        shareError.classList.remove('hidden');
-      });
-  }
-
-  document.querySelectorAll('.share-doc-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      openShareModal(btn.dataset.docId, btn.dataset.docName);
-    });
-  });
-
-  document.querySelectorAll('.convert-doc-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const docId = btn.dataset.docId;
-      const origHTML = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = '<svg class="h-3.5 w-3.5 animate-spin text-emerald-600" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg><span class="text-xs text-emerald-700 font-medium">' + window.LR.t('Converting...') + '</span>';
-      fetch('/app/docs/' + docId + '/convert', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(r => r.json())
-        .then(data => {
-          if (data.editor_url) {
-            window.open(data.editor_url, '_blank');
-            window.location.reload();
-          } else {
-            btn.disabled = false;
-            btn.innerHTML = origHTML;
-            window.LR.notifyError(data.error || window.LR.t('Conversion failed. Please try again.'), data.error ? undefined : { suffix: false });
-          }
-        })
-        .catch(() => {
-          btn.disabled = false;
-          btn.innerHTML = origHTML;
-          window.LR.notifyError(window.LR.t('Conversion failed. Please check your connection or try again.'), { suffix: false });
-        });
-    });
-  });
-
-  var docsSse = new EventSource('/events/stream');
-  docsSse.addEventListener('ui_change', function(evt) {
-    var d = JSON.parse(evt.data || '{}');
-    if (d.module === 'docs') window.location.reload();
-  });
-
-  // -----------------------------------------------------------------------
-  // Folders: tree toggle, create, rename, delete + undo
-  // -----------------------------------------------------------------------
-  function currentFolderFromUrl() {
-    var p = new URLSearchParams(window.location.search);
-    return (p.get('folder') || '').trim();
-  }
-
-  document.querySelectorAll('.folder-toggle').forEach(function(btn) {
-    var item = btn.closest('.folder-item');
-    var children = item ? item.querySelector(':scope > .folder-children') : null;
-    btn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!children) return;
-      var open = !children.classList.contains('hidden');
-      children.classList.toggle('hidden');
-      var chev = btn.querySelector('.folder-chevron');
-      if (chev) chev.style.transform = open ? '' : 'rotate(-90deg)';
-    });
-  });
-
-  // Auto-expand ancestors of the current folder so it is visible.
-  (function autoExpand() {
-    var cur = currentFolderFromUrl();
-    if (!cur) return;
-    document.querySelectorAll('.folder-item').forEach(function(item) {
-      var path = item.getAttribute('data-folder-path');
-      if (path && (cur === path || cur.indexOf(path + '/') === 0)) {
-        var children = item.querySelector(':scope > .folder-children');
-        if (children && children.classList.contains('hidden')) {
-          children.classList.remove('hidden');
-          var chev = item.querySelector('.folder-chevron');
-          if (chev) chev.style.transform = 'rotate(-90deg)';
-        }
-      }
-    });
-  })();
-
-  var addFolderBtn = document.getElementById('add-folder-btn');
-  var newFolderInline = document.getElementById('new-folder-inline');
-  var newFolderForm = document.getElementById('new-folder-form');
-  var newFolderInput = document.getElementById('new-folder-input');
-  var newFolderAdd = document.getElementById('new-folder-add');
-  if (addFolderBtn) {
-    addFolderBtn.addEventListener('click', function() {
-      newFolderInline.classList.toggle('hidden');
-      if (!newFolderInline.classList.contains('hidden')) newFolderInput.focus();
-    });
-  }
-  if (newFolderInput) {
-    newFolderInput.addEventListener('input', function() {
-      newFolderAdd.disabled = !newFolderInput.value.trim();
-    });
-    newFolderInput.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') { newFolderInline.classList.add('hidden'); newFolderInput.value = ''; }
-    });
-  }
-  if (newFolderForm) {
-    newFolderForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      var name = newFolderInput.value.trim();
-      if (!name) return;
-      newFolderAdd.disabled = true;
-      fetch('{{ url_for("docs.create_folder") }}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name, parent: currentFolderFromUrl() }),
-      })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          if (data.ok) { window.location.reload(); }
-          else { newFolderAdd.disabled = false; window.LR.notifyError((data.error && data.error.message) || window.LR.t('Could not create folder.')); }
-        })
-        .catch(function() { newFolderAdd.disabled = false; window.LR.notifyError(window.LR.t('Network error. Please try again.'), { suffix: false }); });
-    });
-  }
-
-  document.querySelectorAll('.folder-rename-btn').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      var path = btn.getAttribute('data-folder-path');
-      var name = btn.getAttribute('data-folder-name');
-      var newName = window.prompt(window.LR.t('Rename folder'), name);
-      if (newName === null) return;
-      newName = newName.trim();
-      if (!newName || newName === name) return;
-      window.LR.setButtonLoading(btn);
-      fetch('{{ url_for("docs.rename_folder") }}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: path, name: newName }),
-      })
-        .then(function(r) { return r.json(); })
-        .then(function(data) { if (data.ok) window.location.reload(); else window.LR.notifyError((data.error && data.error.message) || window.LR.t('Rename failed.')); })
-        .catch(function() { window.LR.notifyError(window.LR.t('Network error. Please try again.'), { suffix: false }); })
-        .finally(function() { window.LR.clearButtonLoading(btn); });
-    });
-  });
-
-  var undoBanner = document.getElementById('folder-undo-banner');
-  var undoMsg = document.getElementById('folder-undo-msg');
-  var undoBtn = document.getElementById('folder-undo-btn');
-  function showUndoBanner(msg) {
-    if (!undoBanner) return;
-    undoMsg.textContent = msg;
-    undoBanner.classList.remove('hidden');
-  }
-  document.querySelectorAll('.folder-delete-btn').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      var path = btn.getAttribute('data-folder-path');
-      var name = btn.getAttribute('data-folder-name');
-      window.LR.setButtonLoading(btn);
-      fetch('{{ url_for("docs.delete_folder") }}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: path }),
-      })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          if (data.ok) {
-            window.location.reload();
-            // Reload fires before this line in practice; banner is shown by server if needed.
-            showUndoBanner(window.LR.t('Folder "{name}" deleted. Contents moved up.', {name: name}));
-          } else {
-            window.LR.notifyError((data.error && data.error.message) || window.LR.t('Delete failed.'));
-          }
-        })
-        .catch(function() { window.LR.notifyError(window.LR.t('Network error. Please try again.'), { suffix: false }); })
-        .finally(function() { window.LR.clearButtonLoading(btn); });
-    });
-  });
-  if (undoBtn) {
-    undoBtn.addEventListener('click', function() {
-      undoBtn.disabled = true;
-      fetch('{{ url_for("docs.undo_delete_folder") }}', { method: 'POST' })
-        .then(function(r) { return r.json(); })
-        .then(function(data) { if (data.ok) window.location.reload(); else { undoBtn.disabled = false; window.LR.notifyError((data.error && data.error.message) || window.LR.t('Undo failed.')); } })
-        .catch(function() { undoBtn.disabled = false; window.LR.notifyError(window.LR.t('Network error. Please try again.'), { suffix: false }); });
-    });
-  }
-
-  // -----------------------------------------------------------------------
-  // Drag-and-drop document move
-  // -----------------------------------------------------------------------
-  var dragDocId = null;
-  document.querySelectorAll('.doc-row').forEach(function(row) {
-    row.addEventListener('dragstart', function() {
-      dragDocId = row.getAttribute('data-doc-id');
-      row.classList.add('opacity-50');
-    });
-    row.addEventListener('dragend', function() {
-      dragDocId = null;
-      row.classList.remove('opacity-50');
-      document.querySelectorAll('.folder-drop-target').forEach(function(el) {
-        el.classList.remove('folder-drop-target');
-      });
-    });
-  });
-
-  function dropTargetFolder(el) {
-    var node = el.closest('[data-folder-path]');
-    return node ? node.getAttribute('data-folder-path') : null;
-  }
-
-  document.querySelectorAll('.folder-link, .folder-row, #docs-home-link').forEach(function(el) {
-    el.addEventListener('dragover', function(e) {
-      if (!dragDocId) return;
-      e.preventDefault();
-      var target = dropTargetFolder(el);
-      if (target === null) target = el.getAttribute('data-folder-path');
-      el.classList.add('folder-drop-target');
-    });
-    el.addEventListener('dragleave', function() {
-      el.classList.remove('folder-drop-target');
-    });
-    el.addEventListener('drop', function(e) {
-      if (!dragDocId) return;
-      e.preventDefault();
-      el.classList.remove('folder-drop-target');
-      var target = dropTargetFolder(el);
-      if (target === null) target = el.getAttribute('data-folder-path');
-      moveDoc(dragDocId, target);
-    });
-  });
-  // Home link is a drop target for "move to root".
-  var homeLink = document.getElementById('docs-home-link');
-  if (homeLink) {
-    homeLink.addEventListener('dragover', function(e) { if (dragDocId) { e.preventDefault(); homeLink.classList.add('folder-drop-target'); } });
-    homeLink.addEventListener('dragleave', function() { homeLink.classList.remove('folder-drop-target'); });
-    homeLink.addEventListener('drop', function(e) { if (dragDocId) { e.preventDefault(); homeLink.classList.remove('folder-drop-target'); moveDoc(dragDocId, ''); } });
-  }
-
-  function moveDoc(docId, folder) {
-    fetch('/app/docs/' + encodeURIComponent(docId) + '/move', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ folder: folder || '' }),
-    })
-      .then(function(r) { return r.json(); })
-      .then(function(data) { if (data.ok) window.location.reload(); else window.LR.notifyError((data.error && data.error.message) || window.LR.t('Move failed.')); })
-      .catch(function() { window.LR.notifyError(window.LR.t('Could not move the document. Please try again.'), { suffix: false }); });
-  }
-
-  // -----------------------------------------------------------------------
-  // Tags modal
-  // -----------------------------------------------------------------------
-  var tagModal = document.getElementById('tag-modal');
-  var tagOverlay = document.getElementById('tag-overlay');
-  var tagClose = document.getElementById('tag-modal-close');
-  var tagInput = document.getElementById('tag-input');
-  var tagAddBtn = document.getElementById('tag-add-btn');
-  var tagCurrent = document.getElementById('tag-current');
-  var tagDocName = document.getElementById('tag-modal-doc-name');
-  var currentTagDocId = null;
-
-  function esc2(t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
-
-  function renderTagCurrent(tags) {
-    tagCurrent.innerHTML = '';
-    if (!tags.length) {
-      var empty = document.createElement('span');
-      empty.className = 'text-xs text-slate-400';
-      empty.textContent = window.LR.t('No tags yet.');
-      tagCurrent.appendChild(empty);
-      return;
-    }
-    tags.forEach(function(t) {
-      var chip = document.createElement('span');
-      chip.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700';
-      chip.innerHTML = '#' + esc2(t) + ' <button type="button" class="text-slate-400 hover:text-rose-600" title="' + window.LR.t('Remove') + '">&times;</button>';
-      chip.querySelector('button').addEventListener('click', function() {
-        fetch('/app/docs/' + encodeURIComponent(currentTagDocId) + '/tags', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ remove: [t] }),
-        }).then(function(r) { return r.json(); }).then(function(d) { if (d.ok) renderTagCurrent(d.tags); });
-      });
-      tagCurrent.appendChild(chip);
-    });
-  }
-
-  function loadTags(docId) {
-    fetch('/app/docs/' + encodeURIComponent(docId) + '/tags', { method: 'GET' })
-      .then(function(r) { return r.json(); })
-      .then(function(d) { renderTagCurrent(d.tags || []); })
-      .catch(function() { renderTagCurrent([]); });
-  }
-
-  function addTag(value) {
-    var t = (value || '').trim();
-    if (!t) return;
-    tagAddBtn.disabled = true;
-    fetch('/app/docs/' + encodeURIComponent(currentTagDocId) + '/tags', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ add: [t] }),
-    })
-      .then(function(r) { return r.json(); })
-      .then(function(d) { tagAddBtn.disabled = false; tagInput.value = ''; if (d.ok) renderTagCurrent(d.tags); else window.LR.notifyError((d.error && d.error.message) || window.LR.t('Could not add tag.')); })
-      .catch(function() { tagAddBtn.disabled = false; window.LR.notifyError(window.LR.t('Network error. Please try again.'), { suffix: false }); });
-  }
-
-  function openTagModal(docId, docName) {
-    currentTagDocId = docId;
-    tagDocName.textContent = docName || '';
-    tagInput.value = '';
-    tagModal.classList.remove('hidden');
-    loadTags(docId);
-    setTimeout(function() { tagInput.focus(); }, 50);
-  }
-  function closeTagModal() { tagModal.classList.add('hidden'); currentTagDocId = null; }
-
-  if (tagOverlay) tagOverlay.addEventListener('click', closeTagModal);
-  if (tagClose) tagClose.addEventListener('click', closeTagModal);
-  document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && tagModal && !tagModal.classList.contains('hidden')) closeTagModal(); });
-  if (tagAddBtn) tagAddBtn.addEventListener('click', function() { addTag(tagInput.value); });
-  if (tagInput) tagInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); addTag(tagInput.value); } });
-
-  document.querySelectorAll('.tag-doc-btn').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      openTagModal(btn.getAttribute('data-doc-id'), btn.getAttribute('data-doc-name'));
-    });
-  });
-
-  document.querySelectorAll('.tag-suggest-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() { addTag(btn.getAttribute('data-tag')); });
-  });
-})();
-</script>
+<script src="{{ url_for('static', filename='js/docs/doc-list.js') }}?v={{ static_v('js/docs/doc-list.js') }}"></script>
+<script src="{{ url_for('static', filename='js/docs/doc-modals.js') }}?v={{ static_v('js/docs/doc-modals.js') }}"></script>
+<script src="{{ url_for('static', filename='js/docs/doc-folders.js') }}?v={{ static_v('js/docs/doc-folders.js') }}"></script>
 {% endblock %}

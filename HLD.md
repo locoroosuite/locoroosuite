@@ -513,6 +513,7 @@ U13.13 - Document list view: paginated grid/list showing document name, type ico
 U13.14 - Document type icons distinguish between text, spreadsheet, and presentation.
 U13.15 - Empty state: when no documents exist, show a clear "No documents" message with a prominent "Create document" action.
 U13.16 - Search/filter by document name. Implemented server-side: the docs list view accepts a `q` query parameter and filters to documents whose name contains the value (case-insensitive), plus an optional `type` parameter (odt/ods/odp/odg). Header search box integration per U7.10; name/type filters compose with folder and tag filters (U13.91d, logical AND). A fruitless search renders an explicit "no documents match" empty state with a clear-filter action.
+U13.33a - **Per-item action menu**: every document row (desktop table and mobile card) exposes a single kebab ("⋯") button opening a dropdown menu — no inline per-item action buttons. Menu items (conditionally rendered): Open, Rename (U13.25), Download (U13.30), Export as ▸ submenu (U13.31, per-type allowlist), Convert to Docs (non-ODF only, U13.38), Share (ODF only, U13.60o), Add tag (U13.91), Move to trash (U13.27). The menu follows the mail overflow-menu pattern: `role="menu"`, Escape/outside-click close, only one open at a time. All menu actions submit the same routes the previous inline buttons used; no new endpoints except export (U13.31). List JS lives in `app/static/js/docs/doc-list.js` (versioned per U26.12) — not inline in the template.
 
 ## Create Document
 
@@ -524,7 +525,7 @@ U13.19 - The document name defaults to "Untitled Document" / "Untitled Spreadshe
 
 U13.20 - Clicking a document in the list opens the editor view: a full-page iframe embedding Collabora with the WOPI src URL and access token.
 U13.20a - Editor host pages (editor view and public share view) disable browser-level pinch-zoom on mobile: the viewport meta sets `maximum-scale=1.0, user-scalable=no` and the Collabora iframe has `touch-action: none`. This ensures pinch/pan gestures are handled by Collabora's own mobile UI (which zooms/scrolls the document internally) instead of the browser zooming the whole page and fighting Collabora's re-rendering (symptom: view jumping to a random part of the document 1-2s after pinching).
-U13.21 - The editor view shows a minimal top bar with: back-to-list link, document name (editable inline), and a dropdown with Download, Rename, and Delete actions. The top bar is always visible (not hover-to-reveal) and the Collabora iframe is sized to fit below it so the app bar never overlaps Collabora's own toolbar.
+U13.21 - The editor view shows a minimal top bar with: back-to-list link, document name (editable inline), and a dropdown ("⋯" kebab, same pattern as the list menu U13.33a) with Download, Export as ▸ (U13.31 allowlist), Rename, and Delete actions. The top bar is always visible (not hover-to-reveal) and the Collabora iframe is sized to fit below it so the app bar never overlaps Collabora's own toolbar.
 U13.22 - Collabora auto-saves via WOPI putFile. The docs module updates `updated_at` on every putFile callback.
 U13.23 - WOPI CheckFileInfo returns: document name, size, owner user ID, read-only flag (false for owner), user display name (email local-part), and last modified timestamp. For non-ODF originals (`original_format` non-NULL), `ReadOnly` is always `true` and `BaseFileName` includes the original extension so Collabora opens the correct viewer.
 U13.24 - If the WOPI token is expired or invalid, Collabora shows an error and the user is prompted to reopen the document from the list.
@@ -543,7 +544,7 @@ U13.29 - Undo within the same session restores the document. Trashed documents a
 ## Download
 
 U13.30 - Download document: downloads the file in its native ODF format.
-U13.31 - Export as PDF: uses Collabora's WOPI export capability to convert and download as PDF.
+U13.31 - **Export as**: converts a document via Collabora's `/cool/convert-to` endpoint and downloads the result (`GET /app/docs/<doc_id>/export/<fmt>`, session-auth). The format is validated server-side against a per-doc-type allowlist — text (odt/docx/doc/md/txt/rtf) → `pdf, docx, txt, html, epub, png`; spreadsheet (ods/xlsx/csv) → `pdf, xlsx, csv, html, png`; presentation (odp/pptx) → `pdf, pptx, png, html`; anything else → 400. Converted output is magic-byte validated per format (PDF `%PDF`, PNG `\x89PNG`, ZIP-family `PK`, HTML/TXT sniffed against Collabora HTML error pages). Conversion failure or unreachable Collabora returns an actionable error naming the document. The REST API equivalent (`GET /api/v1/docs/documents/<id>/download/pdf`, U15.77) covers PDF only; web-export covers the full allowlist.
 
 ## Upload
 
@@ -606,7 +607,7 @@ U13.60m - **Docs list sidebar**: the document list view (`/app/docs/`) includes 
 
 U13.60n - **Share UI in editor**: the editor floating bar gains a "Share" button that opens a modal for managing shares. The modal shows: a form to add email addresses (comma-separated) with permission selection (view/write), a list of current shares with stats (view count, last access) and revoke buttons. The modal uses AJAX — no page navigation.
 
-U13.60o - **Share UI in docs list**: the document list hover actions gain a "Share" button that opens the same share modal for the selected document.
+U13.60o - **Share UI in docs list**: the document list item menu (U13.33a) includes a "Share" action (ODF documents only) that opens the same share modal for the selected document.
 
 U13.60p - **Public share view** (`/app/docs/s/<share_token>`): for external access, this route validates the share token, checks it is not revoked, increments `view_count`, updates `last_accessed_at`, generates a share-based WOPI token, and renders the editor template. No login required. The page shows a minimal top bar with the document name and "Shared by [owner email]".
 
@@ -1871,7 +1872,7 @@ U24.5 - Mail compose: a floating action button (FAB) is visible on mobile (`lg:h
 U24.6 - Calendar on phones (`< md`): the default view is Day view regardless of the persisted last view (U12.10 persistence is unchanged for desktop); Week and Month views remain selectable and scroll horizontally with a minimum width. Click-and-drag quick-create is desktop-only; on touch, tapping an empty time slot opens the create form with that time pre-filled.
 U24.7 - Contacts list: below `md` the table renders as a stacked card list (name, primary email, primary phone); alphabetical sorting and search are unchanged.
 U24.8 - Docs list follows U13.60m: sidebar collapsible (drawer) on mobile, always visible on desktop.
-U24.32 - Docs list mobile layout: below the `lg` breakpoint the document table renders as a stacked card list (type icon + name, folder/tag badges, last-updated time, always-visible actions) mirroring the contacts card pattern (U24.7). The desktop table with hover-revealed actions is unchanged at `lg:` and up. Row actions follow UX3d: hidden overlays are non-interactive, and actions are always visible on touch devices.
+U24.32 - Docs list mobile layout: below the `lg` breakpoint the document table renders as a stacked card list (type icon + name, folder/tag badges, last-updated time) mirroring the contacts card pattern (U24.7). Per-item actions use the same single kebab menu as desktop (U13.33a) — one always-visible "⋯" button per card, no inline action rows. Cards additionally support touch swipe gestures (mail UX3g pattern, docs-owned JS): swipe right = move to trash, swipe left = reveal a quick-action panel (Download, Export as PDF). The desktop table is unchanged at `lg:` and up. Row actions follow UX3d: hidden overlays are non-interactive, and actions are always visible on touch devices.
 
 ## Mobile Density (edge-to-edge)
 

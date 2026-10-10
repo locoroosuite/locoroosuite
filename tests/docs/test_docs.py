@@ -1001,3 +1001,295 @@ class TestConvertDocument:
             assert resp.status_code == 404
         finally:
             _safe_unlink(paths["cache"])
+
+
+class TestExportFormatsForDoc:
+    """Unit tests for the U13.31 per-type export allowlist helper."""
+
+    def test_text_doc_gets_text_targets_without_own_format(self):
+        from app.modules.docs.controllers.docs import export_formats_for_doc
+
+        assert export_formats_for_doc({"doc_type": "odt", "original_format": None}) == [
+            "pdf",
+            "docx",
+            "txt",
+            "html",
+            "epub",
+            "png",
+        ]
+
+    def test_docx_original_excludes_docx(self):
+        from app.modules.docs.controllers.docs import export_formats_for_doc
+
+        # docx upload: doc_type=odt (text family), stored format=docx.
+        fmts = export_formats_for_doc({"doc_type": "odt", "original_format": "docx"})
+        assert "docx" not in fmts
+        assert "pdf" in fmts
+
+    def test_spreadsheet_and_presentation_targets(self):
+        from app.modules.docs.controllers.docs import export_formats_for_doc
+
+        assert export_formats_for_doc({"doc_type": "ods", "original_format": None}) == [
+            "pdf",
+            "xlsx",
+            "csv",
+            "html",
+            "png",
+        ]
+        assert export_formats_for_doc({"doc_type": "odp", "original_format": None}) == [
+            "pdf",
+            "pptx",
+            "png",
+            "html",
+        ]
+
+    def test_drawing_pdf_original_excludes_pdf(self):
+        from app.modules.docs.controllers.docs import export_formats_for_doc
+
+        # PDF uploads are stored as odg; exporting back to PDF is pointless
+        # (Download covers it), so only png remains.
+        assert export_formats_for_doc({"doc_type": "odg", "original_format": "pdf"}) == ["png"]
+
+    def test_unknown_doc_type_falls_back_to_pdf_only(self):
+        from app.modules.docs.controllers.docs import export_formats_for_doc
+
+        assert export_formats_for_doc({"doc_type": "zzz", "original_format": None}) == ["pdf"]
+
+
+class TestExportDocument:
+    """Route tests for GET /app/docs/<doc_id>/export/<fmt> (HLD U13.31)."""
+
+    def _create_doc(self, client, doc_type="odt"):
+        resp = client.post("/app/docs/new", data={"doc_type": doc_type}, follow_redirects=False)
+        assert resp.status_code == 302
+        return resp.headers["Location"].rsplit("/", 2)[-2]
+
+    def test_export_pdf_happy_path(self, authed_client, app):
+        client, _user_id, account_id = authed_client
+        paths = _setup_test_env(app, account_id)
+        try:
+            doc_id = self._create_doc(client)
+
+            fake_pdf = b"%PDF-1.4 exported content"
+            with patch(
+                "app.modules.docs.controllers.docs.collabora.convert_upload",
+                return_value=io.BytesIO(fake_pdf),
+            ) as mock_convert:
+                resp = client.get(f"/app/docs/{doc_id}/export/pdf")
+
+            assert resp.status_code == 200
+            assert resp.content_type == "application/pdf"
+            assert resp.data == fake_pdf
+            assert "attachment" in resp.headers["Content-Disposition"]
+            assert "Untitled Document.pdf" in resp.headers["Content-Disposition"]
+
+            mock_convert.assert_called_once()
+            # (stream, source filename with stored ext, target format)
+            assert mock_convert.call_args.args[1] == "doc.odt"
+            assert mock_convert.call_args.args[2] == "pdf"
+        finally:
+            _safe_unlink(paths["cache"])
+
+    def test_export_xlsx_allowed_for_spreadsheet(self, authed_client, app):
+        client, _user_id, account_id = authed_client
+        paths = _setup_test_env(app, account_id)
+        try:
+            doc_id = self._create_doc(client, "ods")
+
+            with patch(
+                "app.modules.docs.controllers.docs.collabora.convert_upload",
+                return_value=io.BytesIO(b"PK\x03\x04 xlsx bytes"),
+            ) as mock_convert:
+                resp = client.get(f"/app/docs/{doc_id}/export/xlsx")
+
+            assert resp.status_code == 200
+            assert (
+                resp.content_type
+                == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            mock_convert.assert_called_once()
+        finally:
+            _safe_unlink(paths["cache"])
+
+    def test_export_rejects_format_not_in_allowlist(self, authed_client, app):
+        client, _user_id, account_id = authed_client
+        paths = _setup_test_env(app, account_id)
+        try:
+            doc_id = self._create_doc(client, "odt")
+
+            with patch(
+                "app.modules.docs.controllers.docs.collabora.convert_upload"
+            ) as mock_convert:
+                resp = client.get(f"/app/docs/{doc_id}/export/pptx", follow_redirects=True)
+
+            # pptx is not offered for text documents -> flash + back to list,
+            # and Collabora must never be called with a free-form format.
+            mock_convert.assert_not_called()
+            assert resp.status_code == 200
+            assert b"Unsupported export format" in resp.data
+        finally:
+            _safe_unlink(paths["cache"])
+
+    def test_export_rejects_arbitrary_format_string(self, authed_client, app):
+        client, _user_id, account_id = authed_client
+        paths = _setup_test_env(app, account_id)
+        try:
+            doc_id = self._create_doc(client, "odt")
+
+            with patch(
+                "app.modules.docs.controllers.docs.collabora.convert_upload"
+            ) as mock_convert:
+                resp = client.get(f"/app/docs/{doc_id}/export/evil", follow_redirects=False)
+
+            mock_convert.assert_not_called()
+            assert resp.status_code == 302
+        finally:
+            _safe_unlink(paths["cache"])
+
+    def test_export_unknown_doc_redirects_to_list(self, authed_client, app):
+        client, _user_id, account_id = authed_client
+        paths = _setup_test_env(app, account_id)
+        try:
+            resp = client.get("/app/docs/nonexistent/export/pdf", follow_redirects=False)
+            assert resp.status_code == 302
+            assert "/app/docs/" in resp.headers["Location"]
+        finally:
+            _safe_unlink(paths["cache"])
+
+    def test_export_deleted_doc_redirects_to_list(self, authed_client, app):
+        client, _user_id, account_id = authed_client
+        paths = _setup_test_env(app, account_id)
+        try:
+            doc_id = self._create_doc(client)
+            client.post(f"/app/docs/{doc_id}/delete")
+
+            resp = client.get(f"/app/docs/{doc_id}/export/pdf", follow_redirects=False)
+            assert resp.status_code == 302
+            assert "/app/docs/" in resp.headers["Location"]
+        finally:
+            _safe_unlink(paths["cache"])
+
+    def test_export_conversion_error_flashes_actionable_message(self, authed_client, app):
+        client, _user_id, account_id = authed_client
+        paths = _setup_test_env(app, account_id)
+        try:
+            doc_id = self._create_doc(client)
+
+            from app.modules.docs.services.collabora import ConversionError
+
+            with patch(
+                "app.modules.docs.controllers.docs.collabora.convert_upload",
+                side_effect=ConversionError("Collabora conversion failed: boom"),
+            ):
+                resp = client.get(f"/app/docs/{doc_id}/export/pdf", follow_redirects=True)
+
+            assert resp.status_code == 200
+            assert b"Export failed. Check the Collabora connection" in resp.data
+        finally:
+            _safe_unlink(paths["cache"])
+
+    def test_export_missing_file_flashes_message(self, authed_client, app):
+        client, user_id, account_id = authed_client
+        paths = _setup_test_env(app, account_id)
+        try:
+            # Cache row only, no file on disk.
+            with app.app_context():
+                from app.modules.docs.services import cache_db
+                from app.modules.docs.services.cache import get_cache_path
+                from app.shared.db import db
+                from app.shared.keys import get_user_key
+                from app.shared.models.core import CustomerAccount
+
+                key = get_user_key(user_id)
+                account = db.session.get(CustomerAccount, account_id)
+                conn = cache_db.open_cache(get_cache_path(account), key)
+                try:
+                    cache_db.create_document(
+                        conn, "nofiledoc1", "Ghost", "odt", account_id, file_size=0
+                    )
+                finally:
+                    conn.close()
+
+            resp = client.get("/app/docs/nofiledoc1/export/pdf", follow_redirects=True)
+            assert resp.status_code == 200
+            assert b"Document file is missing" in resp.data
+        finally:
+            _safe_unlink(paths["cache"])
+
+
+class TestDocActionMenuMarkup:
+    """U13.33a/U24.32: kebab menu replaces inline action rows; mobile cards
+    get swipe panels; the editor bar folds actions into a dropdown (U13.21)."""
+
+    def test_list_renders_kebab_menu_and_swipe_structure(self, authed_client, app):
+        client, _user_id, account_id = authed_client
+        paths = _setup_test_env(app, account_id)
+        try:
+            client.post("/app/docs/new", data={"doc_type": "odt"}, follow_redirects=False)
+            resp = client.get("/app/docs/")
+            assert resp.status_code == 200
+
+            # Kebab menu (desktop + mobile), not inline action rows.
+            assert b"data-doc-menu-toggle" in resp.data
+            assert b'role="menu"' in resp.data
+            assert b"tag-doc-btn lr-hit" not in resp.data
+            assert b"share-doc-btn lr-hit" not in resp.data
+
+            # Export-as sub-view links to the export route.
+            assert b'data-menu-view="export"' in resp.data
+            assert b"/export/pdf" in resp.data
+
+            # Rename lives in the context menu (U13.25).
+            assert b"rename-doc-btn" in resp.data
+
+            # Swipe structure (U24.32): trash panel, quick actions, hidden form.
+            assert b'data-swipe-panel="left"' in resp.data
+            assert b'data-swipe-panel="right"' in resp.data
+            assert b"data-swipe-trash-form" in resp.data
+            assert b'id="docs-mobile-list"' in resp.data
+
+            # List JS is a versioned static file, not inline (U13.33a).
+            assert b"js/docs/doc-list.js?v=" in resp.data
+        finally:
+            _safe_unlink(paths["cache"])
+
+    def test_list_menu_conditional_items(self, authed_client, app):
+        client, _user_id, account_id = authed_client
+        paths = _setup_test_env(app, account_id)
+        try:
+            client.post(
+                "/app/docs/upload",
+                data={"file": (io.BytesIO(b"%PDF-1.4 x"), "contract.pdf")},
+                content_type="multipart/form-data",
+                headers={"X-Requested-With": "XMLHttpRequest"},
+            )
+            resp = client.get("/app/docs/")
+            assert resp.status_code == 200
+
+            # Non-ODF doc: Convert present, Share absent, PDF export hidden
+            # (stored format is pdf already).
+            assert b"convert-doc-btn" in resp.data
+            assert b"share-doc-btn" not in resp.data
+            assert b"/export/pdf" not in resp.data
+            assert b"/export/png" in resp.data
+        finally:
+            _safe_unlink(paths["cache"])
+
+    def test_editor_page_renders_action_dropdown(self, authed_client, app):
+        client, _user_id, account_id = authed_client
+        paths = _setup_test_env(app, account_id)
+        try:
+            resp = client.post("/app/docs/new", data={"doc_type": "odt"}, follow_redirects=False)
+            doc_id = resp.headers["Location"].rsplit("/", 2)[-2]
+
+            resp = client.get(f"/app/docs/{doc_id}/edit")
+            assert resp.status_code == 200
+            # U13.21: single kebab dropdown with the document actions.
+            assert b'id="action-menu-toggle"' in resp.data
+            assert b'data-menu-view="export"' in resp.data
+            assert b'id="menu-rename-btn"' in resp.data
+            assert b"/export/pdf" in resp.data
+            # The old inline Download/Delete action buttons are gone.
+            assert b'class="fb-action danger"' not in resp.data
+        finally:
+            _safe_unlink(paths["cache"])

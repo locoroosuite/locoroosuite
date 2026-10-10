@@ -5,6 +5,7 @@ from urllib.parse import quote
 
 from flask import (
     current_app,
+    flash,
     jsonify,
     redirect,
     render_template,
@@ -71,6 +72,33 @@ PANDOC_UPLOAD_EXTENSIONS = {
 
 ALL_UPLOAD_EXTENSIONS = ALLOWED_UPLOAD_EXTENSIONS | PANDOC_UPLOAD_EXTENSIONS
 
+# HLD U13.31: server-side export allowlist per doc_type family. The format is
+# validated here — never passed through to Collabora unchecked.
+EXPORT_TARGETS_BY_DOC_TYPE = {
+    "odt": ("pdf", "docx", "txt", "html", "epub", "png"),
+    "ods": ("pdf", "xlsx", "csv", "html", "png"),
+    "odp": ("pdf", "pptx", "png", "html"),
+    "odg": ("pdf", "png"),
+}
+EXPORT_MIME_TYPES = {
+    "pdf": "application/pdf",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "txt": "text/plain",
+    "csv": "text/csv",
+    "html": "text/html",
+    "epub": "application/epub+zip",
+    "png": "image/png",
+}
+
+
+def export_formats_for_doc(doc):
+    """Export formats offered for a document (HLD U13.31), excluding its stored format."""
+    stored = doc.get("original_format") or doc.get("doc_type") or "odt"
+    targets = EXPORT_TARGETS_BY_DOC_TYPE.get(doc.get("doc_type") or "odt", ("pdf",))
+    return [fmt for fmt in targets if fmt != stored]
+
 
 @docs_bp.route("/docs/")
 @require_customer
@@ -109,6 +137,7 @@ def index():
             docs = [d for d in docs if d.get("doc_type") == type_filter]
         for d in docs:
             d["tag_list"] = cache_db.parse_tags(d.get("tags"))
+            d["export_formats"] = export_formats_for_doc(d)
         return (
             docs,
             cache_db.list_trash(conn, account_id),
@@ -318,6 +347,7 @@ def editor(doc_id):
         return render_template(
             "docs_editor.html",
             doc=doc,
+            export_formats=export_formats_for_doc(doc),
             account=account,
             collabora_src=collabora_src,
             token=token,
@@ -446,6 +476,65 @@ def download(doc_id):
             mimetype=mime,
             as_attachment=True,
             download_name=filename,
+        )
+    finally:
+        conn.close()
+
+
+@docs_bp.route("/docs/<doc_id>/export/<fmt>")
+@require_customer
+def export(doc_id, fmt):
+    """Export a document to an allowed format via Collabora (HLD U13.31)."""
+    user_id = session.get("user_id")
+    account_id = _resolve_account_id()
+    if not account_id:
+        return redirect(url_for("docs.index"))
+
+    account = _get_account(account_id, user_id)
+    conn = _open_cache_for_account(account)
+    if not conn:
+        return redirect(url_for("mail.login"))
+
+    try:
+        doc = cache_db.get_document(conn, doc_id)
+        if not doc or doc.get("deleted_at"):
+            return redirect(url_for("docs.index"))
+
+        allowed = EXPORT_TARGETS_BY_DOC_TYPE.get(doc.get("doc_type") or "odt", ())
+        if fmt not in allowed:
+            logger.warning(
+                "Rejected export fmt=%r for doc_id=%s doc_type=%s",
+                fmt,
+                doc_id,
+                doc.get("doc_type"),
+            )
+            flash(_("Unsupported export format .%(ext)s", ext=fmt), "error")
+            # The editor page is standalone and does not render flashed
+            # messages, so failures always land on the list (which does).
+            return redirect(url_for("docs.index"))
+
+        data = storage.read_file(user_id, account_id, doc_id)
+        if data is None:
+            flash(_("Document file is missing. Try re-syncing from the docs list."), "error")
+            return redirect(url_for("docs.index"))
+
+        source_ext = doc.get("original_format") or doc["doc_type"]
+        try:
+            converted = collabora.convert_upload(io.BytesIO(data), f"doc.{source_ext}", fmt)
+            export_data = converted.read()
+        except collabora.ConversionError as exc:
+            logger.error("Export failed for doc_id=%s fmt=%s: %s", doc_id, fmt, exc)
+            flash(
+                _("Export failed. Check the Collabora connection and try again in a moment."),
+                "error",
+            )
+            return redirect(url_for("docs.index"))
+
+        return send_file(
+            io.BytesIO(export_data),
+            mimetype=EXPORT_MIME_TYPES.get(fmt, "application/octet-stream"),
+            as_attachment=True,
+            download_name=f"{doc['name']}.{fmt}",
         )
     finally:
         conn.close()

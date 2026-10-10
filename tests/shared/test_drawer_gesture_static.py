@@ -17,7 +17,7 @@ DRAWER_JS = ROOT / "app" / "static" / "js" / "drawer.js"
 MAIL_FOLDER = ROOT / "app" / "modules" / "mail" / "templates" / "folder.html"
 MAIL_SWIPE = ROOT / "app" / "static" / "js" / "mail" / "swipe.js"
 CAL_MAIN = ROOT / "app" / "static" / "js" / "calendar" / "main.js"
-DOCS_LIST = ROOT / "app" / "modules" / "docs" / "templates" / "docs_list.html"
+DOCS_LIST_JS = ROOT / "app" / "static" / "js" / "docs" / "doc-list.js"
 
 
 class TestDrawerGestureStatic:
@@ -49,7 +49,14 @@ class TestDrawerGestureStatic:
         )
 
     def test_docs_registers_drawer(self):
-        assert "LRDrawer.register" in DOCS_LIST.read_text()
+        # U13.33a: the docs list drawer wiring lives in doc-list.js (the
+        # inline script was extracted from the template).
+        source = DOCS_LIST_JS.read_text()
+        assert "LRDrawer.register" in source
+        assert "LRDrawer.claims" in source, (
+            "docs card swipe (U24.32) must yield edge-origin touches (U24.2a) "
+            "or an edge drag trashes a document while opening the drawer"
+        )
 
     def test_mail_row_swipe_yields_edge_touches(self):
         assert "LRDrawer.claims" in MAIL_SWIPE.read_text(), (

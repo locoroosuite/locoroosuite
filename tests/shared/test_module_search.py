@@ -42,7 +42,7 @@ def _mail_page(client, app, account_id):
         ),
         patch(
             "app.modules.mail.controllers.mailbox._folder_sidebar_context",
-            return_value=([], [], {}, [], 0, None),
+            return_value=([], [], {}, [], 0, None, {}),
         ),
         patch("app.modules.mail.controllers.mailbox._snippet_debug_enabled", return_value=False),
         patch(

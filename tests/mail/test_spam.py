@@ -197,7 +197,9 @@ class TestJunkRoute:
         data = json.loads(resp.data)
         assert data["status"] == "ok"
         assert data["undo_action"]["label"] == "Reported as spam"
-        assert data["undo_action"]["view_label"] == "View Junk"
+        # U4.15b: the undo banner uses the canonical display label even when
+        # the server's junk folder is literally named "Junk".
+        assert data["undo_action"]["view_label"] == "View Spam"
         assert data["undo_action"]["action_type"] == "junk"
         mock_report.assert_called_once()
 

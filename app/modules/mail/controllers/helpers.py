@@ -25,6 +25,7 @@ from app.modules.mail.services.compose_attachments import (
     stage_mime_attachments,
     strip_cid_imgs,
 )
+from app.modules.mail.services.folder_aliases import folder_display_names
 from app.modules.mail.services.folder_sort import build_folder_sections
 from app.modules.mail.services.imap_client import (
     connect_imap,
@@ -177,8 +178,17 @@ def _folder_sidebar_context(user_id, account, key, conn):
         except (TypeError, ValueError):
             pinned = []
     folder_sections = build_folder_sections(folders, pinned, conn)
+    folder_display = folder_display_names(folders)
     accounts = CustomerAccount.query.filter_by(customer_id=user_id, is_active=True).all()
-    return accounts, folder_sections, cached_folders, pinned, starred_count, sidebar_warning
+    return (
+        accounts,
+        folder_sections,
+        cached_folders,
+        pinned,
+        starred_count,
+        sidebar_warning,
+        folder_display,
+    )
 
 
 def _parse_flags(raw_flags):

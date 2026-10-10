@@ -25,6 +25,7 @@
 
   <div class="bg-white overflow-hidden">
     {% set bulk_folders = folders %}
+    {% set bulk_folder_display = folder_labels or {} %}
     {% set bulk_total_matches = total if total else none %}
     {% set bulk_query = query %}
     {% include "_bulk_toolbar.html" %}
@@ -102,6 +103,7 @@
   window.LRMessageList.init({
     container: container,
     folders: {{ folders | tojson }},
+    folderLabels: {{ (folder_labels or {}) | tojson }},
     onListChanged: checkEmpty
   });
 

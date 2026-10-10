@@ -28,6 +28,10 @@
       return null;
     }
     var folders = opts.folders || [];
+    var folderLabels = opts.folderLabels || {};
+    var folderLabel = function (f) {
+      return folderLabels[f] || f;
+    };
     var currentFolder = opts.currentFolder || '';
     var previewPane = opts.previewPane || null;
 
@@ -100,7 +104,7 @@
       html += '<div class="px-2 py-1"><input type="text" placeholder="' + window.LR.t('Filter folders...') + '" class="w-full text-base md:text-[11px] px-2 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:border-slate-400" data-folder-filter /></div>';
       html += '<div class="max-h-40 overflow-y-auto" data-folder-list>';
       targets.forEach(function (f) {
-        html += '<button type="button" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-target="' + CSS.escape(f) + '">' + f + '</button>';
+        html += '<button type="button" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-target="' + CSS.escape(f) + '">' + folderLabel(f) + '</button>';
       });
       html += '</div>';
       menu.innerHTML = html;

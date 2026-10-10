@@ -8,7 +8,7 @@
     <select data-bulk-destination aria-label="{{ _('Move to folder') }}" class="text-[12px] md:text-[11px] px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm focus:border-slate-300 focus:outline-none max-w-[9rem]">
       <option value="">{{ _('Move to folder') }}</option>
       {% for f in bulk_folders or [] %}
-      <option value="{{ f }}">{{ f }}</option>
+      <option value="{{ f }}">{{ (bulk_folder_display or {}).get(f, f) }}</option>
       {% endfor %}
     </select>
     <button type="button" class="text-[12px] md:text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit" data-bulk-action="move">{{ _('Move') }}</button>

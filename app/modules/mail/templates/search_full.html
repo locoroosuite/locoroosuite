@@ -19,7 +19,7 @@
             </div>
             <div class="basis-full md:basis-auto md:flex-1 md:order-2 min-w-0 flex items-center gap-2">
               <span class="truncate text-[15px] md:text-[13px] {{ 'font-bold text-slate-950' if row.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ row.subject }}">{{ row.subject }}</span>
-              <span class="text-[11px] md:text-[10px] text-slate-400 truncate flex-shrink-0">{{ row.folder }}</span>
+              <span class="text-[11px] md:text-[10px] text-slate-400 truncate flex-shrink-0">{{ (folder_labels or {}).get(row.folder, row.folder) }}</span>
             </div>
           </div>
         </div>
@@ -52,7 +52,7 @@
       </div>
       <div class="basis-full md:basis-auto md:flex-1 md:order-2 min-w-0 flex items-center gap-2">
         <span class="truncate text-[15px] md:text-[13px] text-slate-700" title="{{ row.subject }}">{{ row.subject }}</span>
-        <span class="text-[11px] md:text-[10px] text-slate-400 truncate flex-shrink-0">{{ row.folder }}</span>
+        <span class="text-[11px] md:text-[10px] text-slate-400 truncate flex-shrink-0">{{ (folder_labels or {}).get(row.folder, row.folder) }}</span>
       </div>
     </div>
   </div>
@@ -86,6 +86,7 @@
   window.LRMessageList.init({
     container: container,
     folders: {{ folders | tojson }},
+    folderLabels: {{ (folder_labels or {}) | tojson }},
     onListChanged: checkEmpty
   });
 })();

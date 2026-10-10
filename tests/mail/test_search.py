@@ -331,7 +331,23 @@ class TestSearchFoldersEndpoint:
         ):
             resp = client.get(f"/app/mail/search/folders?account_id={account_id}")
         assert resp.status_code == 200
-        assert resp.json == {"folders": ["INBOX", "Sent"]}
+        assert resp.json["folders"] == ["INBOX", "Sent"]
+        assert resp.json["folder_labels"] == {"INBOX": "INBOX", "Sent": "Sent"}
+
+    def test_labels_junk_alias_as_spam(self, authed_client):
+        """U4.15b: the panel dropdown shows 'Spam' for a Junk folder."""
+        client, _user_id, account_id = authed_client
+        with (
+            patch("app.modules.mail.controllers.search.open_cache", return_value=MagicMock()),
+            patch(
+                "app.modules.mail.controllers.search.list_cached_folders",
+                return_value=[{"name": "INBOX"}, {"name": "Junk"}],
+            ),
+        ):
+            resp = client.get(f"/app/mail/search/folders?account_id={account_id}")
+        assert resp.status_code == 200
+        assert resp.json["folders"] == ["INBOX", "Junk"]
+        assert resp.json["folder_labels"] == {"INBOX": "INBOX", "Junk": "Spam"}
 
     def test_rejects_foreign_account(self, authed_client):
         client, _user_id, _account_id = authed_client

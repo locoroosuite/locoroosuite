@@ -63,7 +63,7 @@
             <div class="group/row flex items-center justify-between gap-2">
               <a class="folder-drop flex-1 flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-slate-100/80 {% if f|upper == active_folder_key %}bg-slate-100{% endif %}" data-folder="{{ f }}" href="{{ url_for('mail.folder_view', account_id=account.id, folder=f) }}">
                 <span class="flex items-center gap-2 min-w-0">
-                  <span class="truncate {{ 'font-semibold text-slate-900' if cached_folders.get(f) else '' }}" data-folder-label="{{ f }}">{{ f }}</span>
+                  <span class="truncate {{ 'font-semibold text-slate-900' if cached_folders.get(f) else '' }}" data-folder-label="{{ f }}">{{ (folder_display or {}).get(f, f) }}</span>
                   <span class="text-[12px] md:text-[11px] text-slate-500 {{ '' if cached_folders.get(f) else 'hidden' }}" data-folder-count="{{ f }}">{% if cached_folders.get(f) %}{{ cached_folders.get(f) }}{% endif %}</span>
                 </span>
                 <span class="sync-indicator flex h-4 w-4 items-center justify-center" data-folder="{{ f }}"></span>
@@ -92,7 +92,7 @@
                   <form method="post" action="{{ url_for('mail.rename_folder_route', account_id=account.id, folder=f) }}" data-folder-rename-form="{{ f }}">
                     <button type="button" class="w-full px-3 py-2.5 text-left text-slate-600 hover:text-slate-900 hover:bg-slate-50" data-folder-rename-trigger="{{ f }}">{{ _('Rename') }}</button>
                   </form>
-                  <form method="post" action="{{ url_for('mail.delete_folder_route', account_id=account.id, folder=f) }}" onsubmit="return confirm('{{ _('Delete folder "{folder}" and all its messages?').format(folder=f) }}');" data-folder-delete-form="{{ f }}">
+                  <form method="post" action="{{ url_for('mail.delete_folder_route', account_id=account.id, folder=f) }}" onsubmit="return confirm('{{ _('Delete folder "{folder}" and all its messages?').format(folder=(folder_display or {}).get(f, f)) }}');" data-folder-delete-form="{{ f }}">
                     <button type="submit" class="w-full px-3 py-2.5 text-left text-red-600 hover:text-red-700 hover:bg-red-50">{{ _('Delete folder') }}</button>
                   </form>
                   {% endif %}
@@ -146,7 +146,7 @@
             <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10zm0 5.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z" clip-rule="evenodd"/></svg>
           </button>
           <div class="min-w-0">
-            <div class="text-base font-semibold truncate">{{ folder }}</div>
+            <div class="text-base font-semibold truncate">{{ (folder_display or {}).get(folder, folder) }}</div>
             <div id="thread-count" class="text-xs text-slate-500 truncate">{% if pagination %}{{ (_('{count} conversation ({total} email)') if pagination.total_messages == 1 else _('{count} conversation ({total} emails)')).format(count=pagination.total_threads, total=pagination.total_messages) if pagination.total_threads == 1 else (_('{count} conversations ({total} email)') if pagination.total_messages == 1 else _('{count} conversations ({total} emails)')).format(count=pagination.total_threads, total=pagination.total_messages) }}{% else %}{{ threads|length }} {{ _('conversations') }}{% endif %}</div>
           </div>
         </div>
@@ -166,6 +166,7 @@
         {% if f not in bulk_folders %}{% set _ = bulk_folders.append(f) %}{% endif %}
       {% endfor %}
     {% endfor %}
+    {% set bulk_folder_display = folder_display or {} %}
     <div id="bulk-toolbar-slot" data-current-folder="{{ folder }}">
       {% include "_bulk_toolbar.html" %}
     </div>
@@ -473,6 +474,7 @@
     {% endfor %}
   {% endfor %}
   const allFolders = {{ all_folders | tojson }};
+  const folderDisplay = {{ (folder_display or {}) | tojson }};
   const messagesUrl = {{ url_for('mail.folder_messages', account_id=account.id, folder=folder, snippet_debug=1 if snippet_debug else None)|tojson }};
   const currentPage = {{ pagination.current_page | default(1) if pagination is defined else 1 }};
   const initialSyncing = {{ initial_syncing|default(false)|tojson }};
@@ -1212,6 +1214,7 @@
   const listApi = window.LRMessageList.init({
     container: messageList,
     folders: allFolders,
+    folderLabels: folderDisplay,
     currentFolder: currentFolder,
     previewPane: previewPane,
     onLoadPreview: loadPreview,

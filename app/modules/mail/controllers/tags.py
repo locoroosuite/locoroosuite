@@ -66,7 +66,7 @@ def tag_view(account_id, tag_id):
         threads.setdefault(thread_key, []).append(row)
     from app.modules.mail.services.cache_db import has_completed_sync
 
-    accounts, folder_sections, cached_folders, pinned, starred_count, sidebar_warning = (
+    accounts, folder_sections, cached_folders, pinned, starred_count, sidebar_warning, folder_display = (
         _folder_sidebar_context(user_id, account, key, conn)
     )
     send_failure = _consume_send_failure_notice(user_id)
@@ -77,6 +77,7 @@ def tag_view(account_id, tag_id):
         folder=_("Tag %(tag_id)d", tag_id=tag_id),
         active_folder_key=f"TAG {tag_id}".upper(),
         folder_sections=folder_sections,
+        folder_display=folder_display,
         threads=threads,
         cached_folders=cached_folders,
         starred_count=starred_count,

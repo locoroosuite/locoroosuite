@@ -38,7 +38,7 @@ def test_folder_view(authed_client, app):
         ),
         patch(
             "app.modules.mail.controllers.mailbox._folder_sidebar_context",
-            return_value=([], [], {}, [], 0, None),
+            return_value=([], [], {}, [], 0, None, {}),
         ),
         patch("app.modules.mail.controllers.mailbox._snippet_debug_enabled", return_value=False),
         patch(
@@ -94,7 +94,7 @@ def test_folder_view_shows_create_folder_for_new_account(authed_client, app):
         ),
         patch(
             "app.modules.mail.controllers.mailbox._folder_sidebar_context",
-            return_value=([], new_account_sections, {}, [], 0, None),
+            return_value=([], new_account_sections, {}, [], 0, None, {}),
         ),
         patch("app.modules.mail.controllers.mailbox._snippet_debug_enabled", return_value=False),
         patch(
@@ -109,6 +109,56 @@ def test_folder_view_shows_create_folder_for_new_account(authed_client, app):
     html = resp.data.decode()
     assert 'id="create-folder-toggle"' in html
     assert 'id="create-folder-form"' in html
+
+
+def test_folder_view_displays_canonical_labels(authed_client, app):
+    """U4.15b: a Junk folder shows as "Spam" in the sidebar and header while
+    URLs and data attributes keep the raw IMAP name."""
+    client, _user_id, account_id = authed_client
+    mock_settings = MagicMock()
+    mock_settings.timezone = "UTC"
+    app.sync_manager.set_active_account.return_value = None
+    app.sync_manager.set_active_folder.return_value = None
+    app.sync_manager.enqueue_sync.return_value = False
+    sections = [
+        {"title": "INBOX", "folders": ["INBOX"]},
+        {"title": "System", "folders": ["Sent", "Junk"]},
+        {"title": "Folders", "folders": []},
+    ]
+    display = {"INBOX": "INBOX", "Sent": "Sent", "Junk": "Spam"}
+    with (
+        patch("app.modules.mail.controllers.mailbox.open_cache", return_value=MagicMock()),
+        patch(
+            "app.modules.mail.controllers.mailbox._build_threads",
+            return_value=({}, _empty_pagination),
+        ),
+        patch(
+            "app.modules.mail.controllers.mailbox._get_or_create_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            "app.modules.mail.controllers.mailbox._folder_sidebar_context",
+            return_value=([], sections, {}, [], 0, None, display),
+        ),
+        patch("app.modules.mail.controllers.mailbox._snippet_debug_enabled", return_value=False),
+        patch(
+            "app.modules.mail.controllers.mailbox._consume_send_failure_notice", return_value=None
+        ),
+        patch("app.modules.mail.controllers.mailbox._current_undo_action", return_value=None),
+        patch("app.modules.mail.controllers.mailbox._spam_action_enabled", return_value=False),
+        patch("app.modules.mail.services.cache_db.has_completed_sync", return_value=True),
+    ):
+        resp = client.get(f"/app/mail/folder/{account_id}/Junk")
+    assert resp.status_code == 200
+    html = resp.data.decode()
+    # Sidebar row: label is the canonical "Spam", identifiers stay raw.
+    assert 'data-folder-label="Junk">Spam</span>' in html
+    assert 'data-folder="Junk"' in html
+    assert f"/app/mail/folder/{account_id}/Junk" in html
+    # Mailbox header shows the canonical label for the open folder.
+    assert 'class="text-base font-semibold truncate">Spam</div>' in html
+    # The JS move-to-folder picker receives the display map (U4.15b).
+    assert '"Junk": "Spam"' in html
 
 
 def test_folder_messages_json(authed_client):
@@ -431,7 +481,7 @@ def test_smart_folder_unread(authed_client):
         ),
         patch(
             "app.modules.mail.controllers.mailbox._folder_sidebar_context",
-            return_value=([], [], {}, [], 0, None),
+            return_value=([], [], {}, [], 0, None, {}),
         ),
         patch(
             "app.modules.mail.controllers.mailbox._consume_send_failure_notice", return_value=None
@@ -474,7 +524,7 @@ def test_smart_folder_unread_with_messages_passes_correct_encryption_key(authed_
         ),
         patch(
             "app.modules.mail.controllers.mailbox._folder_sidebar_context",
-            return_value=([], [], {}, [], 0, None),
+            return_value=([], [], {}, [], 0, None, {}),
         ) as mock_sidebar,
         patch(
             "app.modules.mail.controllers.mailbox._consume_send_failure_notice", return_value=None

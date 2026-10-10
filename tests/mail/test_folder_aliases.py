@@ -5,6 +5,7 @@ import pytest
 
 from app.modules.mail.services.folder_aliases import (
     canonical_folder_key,
+    folder_display_names,
     resolve_folder_name,
 )
 from app.modules.mail.services.folder_sort import build_folder_sections
@@ -211,3 +212,42 @@ class TestBuildFolderSections:
         assert folders_sections[0]["folders"] == []
         # Exactly one section per title, in HLD order.
         assert [s["title"] for s in sections] == ["INBOX", "System", "Folders"]
+
+
+class TestFolderDisplayNames:
+    """U4.15b: canonical display labels for system folders."""
+
+    def test_junk_aliases_display_as_spam(self):
+        for raw in ["Junk", "junk", "Spam", "Junk E-mail", "Bulk Mail", "INBOX.Junk"]:
+            assert folder_display_names(["INBOX", raw]).get(raw) == "Spam"
+
+    def test_all_system_folders_get_canonical_labels(self):
+        folders = ["INBOX", "Sent Items", "Drafts", "Deleted Items", "Junk", "Archives"]
+        assert folder_display_names(folders) == {
+            "INBOX": "INBOX",
+            "Sent Items": "Sent",
+            "Drafts": "Drafts",
+            "Deleted Items": "Trash",
+            "Junk": "Spam",
+            "Archives": "Archive",
+        }
+
+    def test_non_system_folders_untouched(self):
+        display = folder_display_names(["INBOX", "Projects", "Junk"])
+        assert "Projects" not in display
+        assert display["Junk"] == "Spam"
+
+    def test_ambiguous_junk_folders_get_raw_suffix(self):
+        display = folder_display_names(["INBOX", "Junk", "Spam"])
+        assert display["Junk"] == "Spam (Junk)"
+        assert display["Spam"] == "Spam (Spam)"
+
+    def test_ambiguous_trash_folders_get_raw_suffix(self):
+        display = folder_display_names(["INBOX", "Trash", "Deleted Items"])
+        assert display["Trash"] == "Trash (Trash)"
+        assert display["Deleted Items"] == "Trash (Deleted Items)"
+
+    def test_single_folder_list_labels_normally(self):
+        # Undo-banner labels are computed from a single destination folder.
+        assert folder_display_names(["Junk"]) == {"Junk": "Spam"}
+        assert folder_display_names(["Projects"]) == {}

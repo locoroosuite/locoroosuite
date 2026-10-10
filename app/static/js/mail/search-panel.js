@@ -152,10 +152,12 @@
       .then(function (data) {
         var sel = field('f_folder');
         if (sel && data && Array.isArray(data.folders)) {
+          var labels = data.folder_labels || {};
           var placeholder = sel.querySelector('option[value=""]');
           var html = placeholder ? placeholder.outerHTML : '<option value=""></option>';
           data.folders.forEach(function (name) {
-            html += '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>';
+            var label = labels[name] || name;
+            html += '<option value="' + escapeHtml(name) + '">' + escapeHtml(label) + '</option>';
           });
           sel.innerHTML = html;
         }

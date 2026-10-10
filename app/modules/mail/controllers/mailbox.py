@@ -105,7 +105,7 @@ def folder_view(account_id, folder):
         protect_starred_enabled,
     )
 
-    accounts, folder_sections, cached_folders, pinned, starred_count, sidebar_warning = (
+    accounts, folder_sections, cached_folders, pinned, starred_count, sidebar_warning, folder_display = (
         _folder_sidebar_context(user_id, account, key, conn)
     )
     snippet_debug_enabled = _snippet_debug_enabled()
@@ -117,6 +117,7 @@ def folder_view(account_id, folder):
         folder=folder,
         active_folder_key=folder.upper(),
         folder_sections=folder_sections,
+        folder_display=folder_display,
         threads=threads,
         cached_folders=cached_folders,
         starred_count=starred_count,
@@ -487,7 +488,7 @@ def smart_folder(account_id, view):
         row = _decorate_message_row(msg, timezone_name=settings.timezone)
         thread_key = normalize_subject_for_threading(row["subject"])
         threads.setdefault(thread_key, []).append(row)
-    accounts, folder_sections, cached_folders, pinned, starred_count, sidebar_warning = (
+    accounts, folder_sections, cached_folders, pinned, starred_count, sidebar_warning, folder_display = (
         _folder_sidebar_context(user_id, account, key, conn)
     )
     send_failure = _consume_send_failure_notice(user_id)
@@ -504,6 +505,7 @@ def smart_folder(account_id, view):
         folder=view.title(),
         active_folder_key=view.upper(),
         folder_sections=folder_sections,
+        folder_display=folder_display,
         threads=threads,
         cached_folders=cached_folders,
         starred_count=starred_count,

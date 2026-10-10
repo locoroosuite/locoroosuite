@@ -43,7 +43,7 @@ def test_tag_view_with_messages_passes_correct_encryption_key(authed_client):
         ),
         patch(
             "app.modules.mail.controllers.tags._folder_sidebar_context",
-            return_value=([], [], {}, [], 0, None),
+            return_value=([], [], {}, [], 0, None, {}),
         ) as mock_sidebar,
         patch("app.modules.mail.controllers.tags._consume_send_failure_notice", return_value=None),
         patch("app.modules.mail.controllers.tags._current_undo_action", return_value=None),

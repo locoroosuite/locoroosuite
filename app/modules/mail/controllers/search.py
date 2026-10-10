@@ -13,6 +13,7 @@ from app.modules.mail.controllers.helpers import (
     mail_bp,
 )
 from app.modules.mail.services.cache_db import list_cached_folders, open_cache, search_messages
+from app.modules.mail.services.folder_aliases import folder_display_names
 from app.modules.mail.services.imap_client import (
     fetch_message,
     list_folders,
@@ -123,7 +124,8 @@ def search_folders():
     ).first_or_404()
     key = get_user_key(session.get("user_id"))
     conn = open_cache(account.cache_db_path, key)
-    return jsonify({"folders": [row["name"] for row in list_cached_folders(conn)]})
+    folders = [row["name"] for row in list_cached_folders(conn)]
+    return jsonify({"folders": folders, "folder_labels": folder_display_names(folders)})
 
 
 @mail_bp.route("/mail/search", methods=["GET", "POST"])
@@ -171,6 +173,7 @@ def search():
             query=query,
             account_id=account_id,
             folders=known_folders,
+            folder_labels=folder_display_names(known_folders),
             total=0,
             chips=[],
             search_prefill=query,
@@ -230,6 +233,7 @@ def search():
         query=query,
         account_id=account_id,
         folders=known_folders,
+        folder_labels=folder_display_names(known_folders),
         total=total,
         chips=chips,
         search_prefill=query,
@@ -337,7 +341,12 @@ def full_search():
     account = CustomerAccount.query.filter_by(id=account_id, customer_id=user_id).first_or_404()
     if not (query or "").strip():
         return render_template(
-            "search_full.html", results=[], query=query, account_id=account_id, folders=[]
+            "search_full.html",
+            results=[],
+            query=query,
+            account_id=account_id,
+            folders=[],
+            folder_labels={},
         )
     settings = _get_or_create_settings(user_id)
     key = get_user_key(user_id)
@@ -395,4 +404,5 @@ def full_search():
         query=query,
         account_id=account_id,
         folders=known_folders,
+        folder_labels=folder_display_names(known_folders),
     )

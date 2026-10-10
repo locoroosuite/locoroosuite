@@ -26,6 +26,7 @@ from app.modules.mail.services.cache_db import (
     open_cache,
     update_flags,
 )
+from app.modules.mail.services.folder_aliases import folder_display_names
 from app.modules.mail.services.imap_client import (
     create_folder,
     fetch_message,
@@ -73,9 +74,9 @@ def message_view(account_id, message_id):
     key = get_user_key(session.get("user_id"))
     conn = open_cache(account.cache_db_path, key)
     cached_folders = list_cached_folders(conn)
-    move_folders = (
-        [f[0] for f in cached_folders if f[0] != message["folder"]] if cached_folders else []
-    )
+    all_folder_names = [f[0] for f in cached_folders]
+    folder_display = folder_display_names(all_folder_names)
+    move_folders = [f for f in all_folder_names if f != message["folder"]]
     thread_id = message["thread_id"]
     is_draft = message["folder"].lower() == "drafts" if message["folder"] else False
     if not is_draft:
@@ -117,6 +118,7 @@ def message_view(account_id, message_id):
         protected_reason=protected_reason,
         current_folder=message["folder"],
         move_folders=move_folders,
+        folder_display=folder_display,
         thread_messages=thread_messages,
         ics_attachments=ics_attachments,
         is_draft=is_draft,
@@ -497,7 +499,8 @@ def junk_message(account_id, message_id):
     undo_action = None
     if message_id_header:
         is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
-        view_label = _("View %(destination)s", destination=destination)
+        destination_display = folder_display_names([destination]).get(destination, destination)
+        view_label = _("View %(destination)s", destination=destination_display)
         _set_undo_action(
             account_id,
             folder,

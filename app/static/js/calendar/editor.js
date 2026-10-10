@@ -562,6 +562,28 @@
 
   /* ---- quick-create popover (U12.19) ---- */
 
+  /* U12.56i: phones render quick-create as a bottom sheet (popover on
+   * desktop) with a backdrop that closes it. */
+  function isPhoneWidth() {
+    return window.matchMedia('(max-width: 767px)').matches;
+  }
+
+  function showQcSheetBackdrop() {
+    hideQcSheetBackdrop();
+    var bd = document.createElement('div');
+    bd.id = 'qc-sheet-backdrop';
+    bd.className = 'fixed inset-0 z-40 bg-slate-900/40';
+    bd.addEventListener('click', function () {
+      qc.hide();
+    });
+    document.body.appendChild(bd);
+  }
+
+  function hideQcSheetBackdrop() {
+    var bd = document.getElementById('qc-sheet-backdrop');
+    if (bd) bd.remove();
+  }
+
   var qc = {
     open: function (anchorRect, date, startMin, endMin, allDay) {
       var popover = el('quick-create-popover');
@@ -592,19 +614,33 @@
       el('qc-spinner').classList.add('hidden');
 
       popover.classList.remove('hidden');
-      var left = anchorRect ? anchorRect.right + 8 : 40;
-      var top = anchorRect ? anchorRect.top : 40;
-      popover.style.left = left + 'px';
-      popover.style.top = top + 'px';
-      requestAnimationFrame(function () {
-        var popRect = popover.getBoundingClientRect();
-        if (left + popRect.width > window.innerWidth - 8) left = (anchorRect ? anchorRect.left : 0) - popRect.width - 8;
-        if (left < 8) left = 8;
-        if (top + popRect.height > window.innerHeight - 8) top = window.innerHeight - popRect.height - 8;
-        if (top < 8) top = 8;
+      if (isPhoneWidth()) {
+        popover.classList.add('cal-qc-sheet');
+        popover.style.left = '';
+        popover.style.top = '';
+        popover.style.transform = 'translateY(100%)';
+        showQcSheetBackdrop();
+        requestAnimationFrame(function () {
+          popover.style.transform = 'translateY(0)';
+        });
+      } else {
+        popover.classList.remove('cal-qc-sheet');
+        popover.style.transform = '';
+        hideQcSheetBackdrop();
+        var left = anchorRect ? anchorRect.right + 8 : 40;
+        var top = anchorRect ? anchorRect.top : 40;
         popover.style.left = left + 'px';
         popover.style.top = top + 'px';
-      });
+        requestAnimationFrame(function () {
+          var popRect = popover.getBoundingClientRect();
+          if (left + popRect.width > window.innerWidth - 8) left = (anchorRect ? anchorRect.left : 0) - popRect.width - 8;
+          if (left < 8) left = 8;
+          if (top + popRect.height > window.innerHeight - 8) top = window.innerHeight - popRect.height - 8;
+          if (top < 8) top = 8;
+          popover.style.left = left + 'px';
+          popover.style.top = top + 'px';
+        });
+      }
       setTimeout(function () {
         el('qc-summary').focus();
       }, 50);
@@ -613,6 +649,7 @@
     hide: function () {
       var popover = el('quick-create-popover');
       if (popover) popover.classList.add('hidden');
+      hideQcSheetBackdrop();
       document.querySelectorAll('.qc-highlighted').forEach(function (n) {
         n.classList.remove('qc-highlighted');
       });
@@ -702,6 +739,9 @@
     grid.addEventListener('click', function (e) {
       var cell = e.target.closest('.month-day-cell');
       if (!cell || e.target.closest('.cal-event') || e.target.closest('.month-day-number') || e.target.closest('.month-more-link')) return;
+      /* U12.56g: touch taps drill into the Day view (month.js); cell
+       * quick-create stays mouse-only. */
+      if (window.matchMedia('(pointer: coarse)').matches) return;
       qc.hide();
       cell.classList.add('qc-highlighted');
       qc.open(cell.getBoundingClientRect(), cell.dataset.date, 0, 0, true);

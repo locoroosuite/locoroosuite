@@ -65,11 +65,11 @@
 
       if (isToday) {
         html +=
-          '<button type="button" class="month-day-number h-6 w-6 rounded-full bg-blue-600 text-white text-xs font-semibold grid place-items-center" data-date="' + iso + '">' +
+          '<button type="button" class="month-day-number lr-hit h-6 w-6 rounded-full bg-blue-600 text-white text-xs font-semibold grid place-items-center" data-date="' + iso + '">' +
           d.getDate() + '</button>';
       } else {
         html +=
-          '<button type="button" class="month-day-number h-6 w-6 rounded-full text-xs font-medium ' +
+          '<button type="button" class="month-day-number lr-hit h-6 w-6 rounded-full text-xs font-medium ' +
           (inMonth ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-300 hover:bg-slate-100') +
           ' grid place-items-center" data-date="' + iso + '">' + d.getDate() + '</button>';
       }
@@ -111,9 +111,30 @@
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
         LRCal.state.date = LRCal.parseLocalDate(btn.dataset.date);
+        LRCal.state.threedayStart = null; // stale anchor would override the tapped day
         LRCal.navigate('day');
       });
     });
+
+    /* U12.56g: on touch, tapping anywhere in a month cell drills into the
+     * Day view for that date (Gmail/O365 behavior); cell quick-create is
+     * mouse-only (see editor.js wireMonthQuickCreate). */
+    if (window.matchMedia('(pointer: coarse)').matches) {
+      container.querySelectorAll('.month-day-cell').forEach(function (cell) {
+        cell.addEventListener('click', function (e) {
+          if (
+            e.target.closest('.cal-event') ||
+            e.target.closest('.month-more-link') ||
+            e.target.closest('.month-day-number')
+          ) {
+            return;
+          }
+          LRCal.state.date = LRCal.parseLocalDate(cell.dataset.date);
+          LRCal.state.threedayStart = null;
+          LRCal.navigate('day');
+        });
+      });
+    }
 
     container.querySelectorAll('.month-more-link').forEach(function (btn) {
       btn.addEventListener('click', function (e) {

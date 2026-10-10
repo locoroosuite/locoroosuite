@@ -11,6 +11,29 @@
   var LRCal = (window.LRCal = window.LRCal || {});
   var HOUR_H = 48; // px per hour
 
+  /* U12.56i: scroll anchor — current time when the range includes today,
+   * otherwise the range's first timed event (top when none). Re-renders
+   * of an unchanged range (save/SSE refresh) preserve the position. */
+  var lastScroll = { key: null, top: 0 };
+
+  function anchorScrollTop(days, timed, now) {
+    var rangeStart = new Date(days[0]);
+    rangeStart.setHours(0, 0, 0, 0);
+    var todayISO = LRCal.toISO(now);
+    var includesToday = days.some(function (d) {
+      return LRCal.toISO(d) === todayISO;
+    });
+    if (includesToday) return Math.max(0, (now.getHours() - 1) * HOUR_H);
+    var firstMin = null;
+    timed.forEach(function (item) {
+      var s = Math.max(item.span.start.getTime(), rangeStart.getTime());
+      var m = (s - rangeStart.getTime()) / 60000;
+      if (firstMin === null || m < firstMin) firstMin = m;
+    });
+    if (firstMin === null) return 0;
+    return Math.max(0, (Math.min(firstMin - 30, 23 * 60) / 60) * HOUR_H);
+  }
+
   function esc(s) {
     return LRCal.escapeHtml(s);
   }
@@ -120,11 +143,26 @@
 
     html += '</div></div>';
 
+    /* Capture the user's live scroll position before the DOM is wiped. */
+    var prevScroll = container.querySelector('.cal-scroll');
+    if (prevScroll && prevScroll.dataset.rangeKey) {
+      lastScroll.key = prevScroll.dataset.rangeKey;
+      lastScroll.top = prevScroll.scrollTop;
+    }
+
     container.innerHTML = html;
 
     var scroll = container.querySelector('.cal-scroll');
     if (scroll) {
-      scroll.scrollTop = Math.max(0, (now.getHours() - 1) * HOUR_H);
+      var rangeKey = LRCal.toISO(days[0]) + '|' + LRCal.toISO(days[days.length - 1]);
+      scroll.dataset.rangeKey = rangeKey;
+      if (lastScroll.key === rangeKey) {
+        scroll.scrollTop = lastScroll.top;
+      } else {
+        scroll.scrollTop = anchorScrollTop(days, timed, now);
+        lastScroll.key = rangeKey;
+        lastScroll.top = scroll.scrollTop;
+      }
     }
     LRCal.startNowTimer();
   }

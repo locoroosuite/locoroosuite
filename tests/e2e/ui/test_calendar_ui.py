@@ -167,3 +167,30 @@ class TestCalendarUI:
         popup = page.wait_for_selector("#cal-event-popup", timeout=5000)
         assert popup is not None and popup.is_visible()
         assert page.query_selector("#cep-edit") is not None
+
+    def test_back_forward_navigate_view_history(self, logged_in_page):
+        """U12.56i: view/date changes push history entries, so Back/Forward
+        navigate calendar views instead of leaving the page.
+
+        Sync on history.state (not LRCal.state): the toolbar handler
+        mutates LRCal.state synchronously but the history entry is pushed
+        only after the events fetch resolves — going back before that pops
+        straight out of the calendar."""
+        import datetime as dt
+
+        page = logged_in_page
+        page.goto("http://localhost:8001/app/calendar/?view=day")
+        page.wait_for_selector(".time-cell", timeout=15000)
+        page.wait_for_function("() => window.LRCal && LRCal.state.date")
+        first_date = page.evaluate("() => LRCal.toISO(LRCal.state.date)")
+        next_date = (dt.datetime.strptime(first_date, "%Y-%m-%d") + dt.timedelta(days=1)).strftime(
+            "%Y-%m-%d"
+        )
+        page.click("#cal-next")
+        page.wait_for_function(f"() => history.state && history.state.calDate === '{next_date}'")
+        page.go_back()
+        page.wait_for_function(f"() => history.state && history.state.calDate === '{first_date}'")
+        page.wait_for_function(f"() => LRCal.toISO(LRCal.state.date) === '{first_date}'")
+        page.go_forward()
+        page.wait_for_function(f"() => history.state && history.state.calDate === '{next_date}'")
+        page.wait_for_function(f"() => LRCal.toISO(LRCal.state.date) === '{next_date}'")

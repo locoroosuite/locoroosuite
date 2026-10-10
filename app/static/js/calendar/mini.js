@@ -1,17 +1,26 @@
 /*
  * LRCal mini calendar (U12.14): sidebar month with prev/next navigation,
  * today circled, selected day highlighted, days with events dotted.
+ * Prev/next browse months WITHOUT moving the main view; only tapping a
+ * day navigates (and closes the mobile drawer, U24.2).
  */
 (function () {
   'use strict';
 
   var LRCal = (window.LRCal = window.LRCal || {});
+  /* Month currently shown in the mini calendar. Reset to state.date's
+   * month on every main-view navigation (renderMini); shifted only by
+   * the prev/next browse buttons, never touching state.date. */
+  var browseMonth = null;
 
   function renderMiniCalendar(el, opts) {
     if (!el) return;
-    var anchor = opts.date;
-    var year = anchor.getFullYear();
-    var month = anchor.getMonth();
+    var selected = opts.date; // the actual selected day (state.date)
+    var anchor = opts.anchor || selected; // month to display
+    browseMonth = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+
+    var year = browseMonth.getFullYear();
+    var month = browseMonth.getMonth();
     var todayISO = LRCal.toISO(new Date());
 
     var monthStart = new Date(year, month, 1);
@@ -31,16 +40,16 @@
             d = LRCal.addDays(d, 1);
           }
         });
-        draw(el, anchor, eventDays, todayISO);
+        draw(el, browseMonth, eventDays, todayISO, selected);
       });
   }
 
-  function draw(el, anchor, eventDays, todayISO) {
+  function draw(el, anchor, eventDays, todayISO, selectedDate) {
     var year = anchor.getFullYear();
     var month = anchor.getMonth();
     var firstDay = new Date(year, month, 1).getDay();
     var daysInMonth = new Date(year, month + 1, 0).getDate();
-    var selectedISO = LRCal.toISO(anchor);
+    var selectedISO = LRCal.toISO(selectedDate);
 
     var html =
       '<div class="flex items-center justify-between px-1 mb-1.5">' +
@@ -65,7 +74,7 @@
       var isToday = iso === todayISO;
       var isSelected = iso === selectedISO;
       html +=
-        '<div class="py-0.5 grid place-items-center"><button data-nav-date="' + iso + '" class="mini-day relative h-7 w-7 text-[12px] md:text-[11px] rounded-full grid place-items-center ' +
+        '<div class="py-0.5 grid place-items-center"><button data-nav-date="' + iso + '" class="mini-day relative h-7 w-7 text-[12px] md:text-[11px] rounded-full grid place-items-center lr-hit ' +
         (isToday
           ? 'bg-blue-600 text-white font-semibold'
           : isSelected
@@ -83,6 +92,9 @@
     el.querySelectorAll('.mini-day').forEach(function (btn) {
       btn.addEventListener('click', function () {
         LRCal.state.date = LRCal.parseLocalDate(btn.dataset.navDate);
+        LRCal.state.threedayStart = null; // stale anchor would override the tapped day
+        /* U24.2: navigating from the drawer closes it on mobile. */
+        if (LRCal.closeSidebarDrawer) LRCal.closeSidebarDrawer({ keepEntry: true });
         LRCal.navigate(LRCal.state.view);
       });
     });
@@ -90,14 +102,18 @@
     var next = el.querySelector('#mini-next');
     if (prev) {
       prev.addEventListener('click', function () {
-        LRCal.state.date = new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1);
-        renderMiniCalendar(el, { date: LRCal.state.date });
+        renderMiniCalendar(el, {
+          date: LRCal.state.date,
+          anchor: new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1),
+        });
       });
     }
     if (next) {
       next.addEventListener('click', function () {
-        LRCal.state.date = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1);
-        renderMiniCalendar(el, { date: LRCal.state.date });
+        renderMiniCalendar(el, {
+          date: LRCal.state.date,
+          anchor: new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1),
+        });
       });
     }
   }

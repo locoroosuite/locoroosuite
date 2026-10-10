@@ -125,12 +125,60 @@
     if (select) select.value = LRCal.state.view;
   }
 
+  /* U12.56i: view/date changes go through pushState so Back/Forward
+   * navigate calendar history. Re-renders of the same view+date (SSE
+   * refresh, drag-save) dedupe to zero history entries. */
+  var lastSynced = null; // {view, date} last written to the URL
+  var suppressPush = false;
+
   function syncUrl() {
+    var view = LRCal.state.view;
+    var dateISO = LRCal.toISO(LRCal.state.date);
+    if (lastSynced && lastSynced.view === view && lastSynced.date === dateISO) {
+      suppressPush = false;
+      return;
+    }
     var url = new URL(window.location);
-    url.searchParams.set('view', LRCal.state.view);
-    url.searchParams.set('date', LRCal.toISO(LRCal.state.date));
-    history.replaceState(null, '', url);
+    url.searchParams.set('view', view);
+    url.searchParams.set('date', dateISO);
+    var entry = { calView: view, calDate: dateISO };
+    if (lastSynced && !suppressPush) history.pushState(entry, '', url);
+    else history.replaceState(entry, '', url); // boot + popstate replays
+    suppressPush = false;
+    lastSynced = { view: view, date: dateISO };
   }
+
+  function applyUrlState() {
+    var params = new URLSearchParams(window.location.search);
+    var view = params.get('view');
+    if (view === 'agenda') view = 'schedule'; // legacy alias
+    var phone = window.matchMedia('(max-width: 767px)').matches;
+    var phoneViews = ['schedule', 'day', 'threeday', 'month'];
+    if (view && LRCal.state.renderers[view] && !(phone && phoneViews.indexOf(view) === -1)) {
+      LRCal.state.view = view;
+    } else if (phone && phoneViews.indexOf(LRCal.state.view) === -1) {
+      LRCal.state.view = 'schedule';
+    }
+    var date = params.get('date');
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      var d = LRCal.parseLocalDate(date);
+      if (!isNaN(d.getTime())) LRCal.state.date = d;
+    }
+    LRCal.state.threedayStart = null;
+  }
+
+  window.addEventListener('popstate', function () {
+    /* U12.56i: Back closes an open mobile drawer and applies the URL's
+     * view/date. suppressPush stays set until navigate's async syncUrl
+     * consumes it (replaceState), so the replay never duplicates the
+     * popped entry. */
+    if (LRCal.sidebarDrawerOpen && LRCal.sidebarDrawerOpen() && LRCal.closeSidebarDrawer) {
+      LRCal.closeSidebarDrawer({ fromHistory: true });
+    }
+    suppressPush = true;
+    applyUrlState();
+    LRCal.navigate();
+  });
 
   var navSeq = 0;
 

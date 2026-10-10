@@ -137,6 +137,17 @@
     #cal-editor:not(.cal-sheet-open) .cal-sheet-panel { transform: translateY(12px) scale(.98); }
   }
   #cal-fab { bottom: calc(env(safe-area-inset-bottom, 0px) + 1.25rem); }
+  /* U12.56i: quick-create renders as a bottom sheet on phones. */
+  #quick-create-popover.cal-qc-sheet {
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: auto;
+    max-width: 100%;
+    border-radius: 1rem 1rem 0 0;
+    transition: transform .18s ease;
+  }
 </style>
 
 <div id="quick-create-popover" class="hidden fixed z-50 w-72 rounded-xl border border-slate-200 bg-white shadow-xl" style="top:0;left:0">

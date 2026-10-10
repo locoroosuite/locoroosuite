@@ -52,15 +52,27 @@
     var backdrop = document.getElementById('cal-sidebar-backdrop');
     var toggle = document.getElementById('cal-sidebar-toggle');
     var closeBtn = document.getElementById('cal-sidebar-close');
+    var DRAWER_QUERY = window.matchMedia('(max-width: 1023.98px)');
     var isOpen = function () {
       return sidebar && !sidebar.classList.contains('-translate-x-full');
     };
-    function setOpen(open) {
+    function setOpen(open, opts) {
+      opts = opts || {};
       if (!sidebar || !backdrop) return;
+      var wasOpen = isOpen();
       sidebar.classList.toggle('-translate-x-full', !open);
       backdrop.classList.toggle('hidden', !open);
       document.body.style.overflow = open ? 'hidden' : '';
       if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (wasOpen === open) return;
+      if (!DRAWER_QUERY.matches) return; // inline desktop sidebar: no history entries
+      if (open) {
+        /* U12.56i: opening pushes a history entry so Back closes the drawer. */
+        history.pushState({ lrDrawer: true }, '', window.location.href);
+      } else if (!opts.fromHistory && !opts.keepEntry) {
+        /* Closed directly (backdrop/Escape/close button): consume the entry. */
+        if (history.state && history.state.lrDrawer) history.back();
+      }
     }
     if (toggle) toggle.addEventListener('click', function () { setOpen(!isOpen()); });
     if (closeBtn) closeBtn.addEventListener('click', function () { setOpen(false); });
@@ -79,6 +91,14 @@
         setOpen: setOpen
       });
     }
+    /* U12.14/U24.2: navigating from the drawer (mini-calendar day tap)
+     * closes it. keepEntry: the day tap pushes a new view entry right
+     * after, so the drawer entry is consumed naturally by that
+     * navigation's Back step instead of a racy history.back(). */
+    LRCal.sidebarDrawerOpen = isOpen;
+    LRCal.closeSidebarDrawer = function (closeOpts) {
+      setOpen(false, closeOpts);
+    };
   }
 
   /* ---- swipe navigation (U12.56d) ---- */

@@ -359,6 +359,125 @@ class TestMobileCalendarUi:
         title_value = page.eval_on_selector("#ce-title", "el => el.value")
         assert title_value == event["title"]
 
+    def test_mini_day_tap_closes_drawer_and_navigates(self, mobile_logged_in_page):
+        """U12.14/U24.2 regression: on phones, tapping a day in the mini
+        calendar navigated the main view *behind* the open drawer, so it
+        looked like nothing happened. The tap must navigate AND close the
+        drawer."""
+        page = mobile_logged_in_page
+        page.goto("http://localhost:8001/app/calendar/?view=day")
+        page.wait_for_selector(".time-cell", timeout=15000)
+        page.click("#cal-sidebar-toggle")
+        page.wait_for_selector("#cal-sidebar:not(.-translate-x-full)", timeout=5000)
+        page.wait_for_selector(".mini-day", timeout=10000)
+        today = page.evaluate("() => LRCal.toISO(new Date())")
+        target = page.evaluate(
+            """(todayIso) => {
+              const btns = [...document.querySelectorAll('.mini-day')];
+              const other = btns.find((b) => b.dataset.navDate !== todayIso);
+              return other ? other.dataset.navDate : null;
+            }""",
+            today,
+        )
+        assert target is not None
+        page.tap(f'.mini-day[data-nav-date="{target}"]')
+        page.wait_for_selector("#cal-sidebar.-translate-x-full", timeout=5000)
+        assert page.query_selector("#cal-sidebar-backdrop:not(.hidden)") is None
+        page.wait_for_timeout(600)  # navigate() fetch + render
+        assert page.evaluate("() => LRCal.toISO(LRCal.state.date)") == target
+        assert f"date={target}" in page.url
+
+    def test_mini_month_browse_does_not_move_main_view(self, mobile_logged_in_page):
+        """U12.14 regression: the mini calendar's prev/next buttons used to
+        mutate state.date without navigating — the main view kept showing
+        the old range while the toolbar's next/prev jumped relative to the
+        silently-changed date. Browsing months must never move the view."""
+        page = mobile_logged_in_page
+        page.goto("http://localhost:8001/app/calendar/?view=day")
+        page.wait_for_selector(".time-cell", timeout=15000)
+        header_before = page.inner_text("#cal-header-date")
+        page.click("#cal-sidebar-toggle")
+        page.wait_for_selector(".mini-day", timeout=10000)
+        page.click("#mini-prev")
+        page.wait_for_timeout(600)  # mini re-render (async month fetch)
+        # Close the drawer via a backdrop point not covered by the drawer.
+        page.click("#cal-sidebar-backdrop", position={"x": 340, "y": 200})
+        page.wait_for_selector("#cal-sidebar.-translate-x-full", timeout=5000)
+        page.wait_for_timeout(600)
+        assert page.inner_text("#cal-header-date") == header_before
+        # Toolbar next must advance one day from the DISPLAYED day, not
+        # jump to the browsed month's first day.
+        page.click("#cal-next")
+        page.wait_for_timeout(600)
+        assert page.inner_text("#cal-header-date") != header_before
+
+    def test_month_cell_tap_opens_day_view(self, mobile_logged_in_page):
+        """U12.56g: on touch, tapping anywhere in a month cell drills into
+        the Day view for that date (Gmail/O365 behavior)."""
+        page = mobile_logged_in_page
+        page.goto("http://localhost:8001/app/calendar/?view=month")
+        page.wait_for_selector(".month-day-cell", timeout=15000)
+        today = page.evaluate("() => LRCal.toISO(new Date())")
+        target = page.evaluate(
+            """(todayIso) => {
+              const cells = [...document.querySelectorAll('.month-day-cell')];
+              const other = cells.find(
+                (c) => c.dataset.date !== todayIso && !c.querySelector('.cal-event')
+              );
+              return other ? other.dataset.date : null;
+            }""",
+            today,
+        )
+        assert target is not None
+        box = page.query_selector(f'.month-day-cell[data-date="{target}"]').bounding_box()
+        assert box is not None
+        # Tap the empty lower-right corner of the cell, clear of the day
+        # number and any chip.
+        page.touchscreen.tap(box["x"] + box["width"] - 12, box["y"] + box["height"] - 12)
+        page.wait_for_selector(".time-cell", timeout=5000)
+        assert page.evaluate("() => LRCal.state.view") == "day"
+        assert page.evaluate("() => LRCal.toISO(LRCal.state.date)") == target
+
+    def test_quick_create_opens_as_bottom_sheet(self, mobile_logged_in_page):
+        """U12.56i: tapping an empty time slot on a phone opens quick-create
+        as a bottom sheet (docked to the viewport bottom) with a backdrop."""
+        page = mobile_logged_in_page
+        page.goto("http://localhost:8001/app/calendar/?view=day")
+        page.wait_for_selector(".time-cell", timeout=15000)
+        page.wait_for_timeout(300)
+        # page.tap() scrolls the hour cell into the visible scroll area
+        # first; raw touchscreen.tap coordinates can land on the sticky
+        # all-day lane when the cell is scrolled out of view.
+        page.tap('.time-cell[data-hour="20"]')
+        sheet = page.wait_for_selector("#quick-create-popover:not(.hidden)", timeout=5000)
+        assert sheet is not None
+        cls = sheet.get_attribute("class") or ""
+        assert "cal-qc-sheet" in cls
+        assert page.query_selector("#qc-sheet-backdrop") is not None
+        page.wait_for_timeout(300)  # let the slide-up settle
+        sbox = sheet.bounding_box()
+        viewport_h = page.viewport_size["height"]
+        assert sbox is not None
+        assert abs(sbox["y"] + sbox["height"] - viewport_h) < 5, "sheet not docked to bottom"
+        # Tapping the backdrop closes the sheet.
+        bdb = page.query_selector("#qc-sheet-backdrop").bounding_box()
+        assert bdb is not None
+        page.touchscreen.tap(bdb["x"] + bdb["width"] / 2, bdb["y"] + 60)
+        page.wait_for_selector("#quick-create-popover", state="hidden", timeout=5000)
+
+    def test_back_button_closes_drawer(self, mobile_logged_in_page):
+        """U12.56i: opening the drawer pushes a history entry so the
+        hardware/gesture Back closes it instead of leaving the page."""
+        page = mobile_logged_in_page
+        page.goto("http://localhost:8001/app/calendar/?view=day")
+        page.wait_for_selector(".time-cell", timeout=15000)
+        page.click("#cal-sidebar-toggle")
+        page.wait_for_selector("#cal-sidebar:not(.-translate-x-full)", timeout=5000)
+        page.go_back()
+        page.wait_for_selector("#cal-sidebar.-translate-x-full", timeout=5000)
+        # The popstate replay keeps the same view rendering.
+        page.wait_for_selector(".time-cell", timeout=5000)
+
 
 @skip_if_no_services
 class TestMobileContactsUi:

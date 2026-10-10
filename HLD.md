@@ -387,7 +387,7 @@ U12.10 - Default view is the week view. User's last-selected view is persisted i
 U12.11 - Month view: shows events as colored blocks on calendar days; click a day to see day detail or create event. Events that overflow the day cell show a "+N more" indicator.
 U12.12 - Week view: hourly grid (00:00–23:00) showing events as colored blocks; current time shown as a red horizontal line. Supports click-and-drag to quick-create an event with the time range pre-filled.
 U12.13 - Day view: detailed hourly grid for a single day; same current-time indicator and quick-create as week view.
-U12.14 - Mini calendar widget in the sidebar for date navigation; highlights days with events. Clicking a date navigates the main view to that date.
+U12.14 - Mini calendar widget in the sidebar for date navigation; highlights days with events. Clicking a date navigates the main view to that date (keeping the current view) and, on mobile, closes the sidebar drawer per U24.2. Browsing months with the mini calendar's prev/next controls never moves the main view or changes the selected date — the mini calendar shows a browse anchor month while the selected-day highlight stays on the actual selected date; only tapping a day commits navigation.
 U12.15 - Agenda/list view: upcoming events in a scrollable chronological list (next 30 days by default, with load-more). Shows summary, date/time, calendar color dot, and location.
 
 ## Event CRUD
@@ -460,8 +460,9 @@ U12.56c - Clicking an event shows a popup card (desktop) or bottom sheet (mobile
 U12.56d - Touch: horizontal swipe navigates between periods (previous/next day/week/month); a floating action button (+) opens event creation on mobile (the toolbar button remains on desktop).
 U12.56e - Drag-create, drag-move, and drag-resize work with both mouse and touch, snapped to 15-minute increments (completes U12.19/U12.20). Saves update DTSTART/DTEND via the quick-create/update APIs.
 U12.56f - The events endpoint (`/app/calendar/api/events`) expands recurring occurrences (RRULE, RDATE, EXDATE, RECURRENCE-ID) server-side within the requested time range; each expanded occurrence carries a stable occurrence identity (event id + recurrence date) so occurrence-scoped actions remain possible.
-U12.56g - Month view "+N more" opens a day popover listing all events for that day; clicking a day number navigates to the Day view for that date (completes U12.11).
+U12.56g - Month view "+N more" opens a day popover listing all events for that day; clicking a day number navigates to the Day view for that date (completes U12.11). On touch devices, tapping anywhere in a month cell navigates to the Day view for that date (Gmail/O365 behavior); month-cell quick-create is mouse-only. Day-number and mini-calendar day targets expand their hit area on coarse pointers via the shared `lr-hit` helper.
 U12.56h - Calendar UI JavaScript lives in versioned static files under `app/static/js/calendar/` (per the static asset versioning rule), not inline in templates.
+U12.56i - Mobile usability parity with Gmail/O365: (a) quick-create opens as a bottom sheet on phones (popover on desktop) with backdrop tap-to-close; (b) the day/week time grid scrolls to the current time when the viewed range includes today, otherwise to the first event of the range (top when empty), and re-renders of an unchanged range preserve the scroll position (no yank after save/SSE refresh); (c) view/date changes are pushed to browser history (`pushState`, deduplicated so refreshes of the same range add no entries), Back/Forward navigate calendar views, and Back closes an open mobile drawer (drawer open pushes a history entry).
 
 ## Out of Scope for MVP
 

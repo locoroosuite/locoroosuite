@@ -1,6 +1,6 @@
 {
   "name": "locoroosuite-mcp",
-  "version": "0.36.0",
+  "version": "0.37.0",
   "description": "MCP server for LocoRooSuite \u2014 lets any AI agent (coding assistants, personal assistants, local LLM UIs, automation tools) access your mail, contacts, calendar, and documents via the Model Context Protocol.",
   "type": "module",
   "keywords": [

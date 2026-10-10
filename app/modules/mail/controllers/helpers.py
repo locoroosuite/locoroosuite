@@ -75,9 +75,9 @@ def _inject_unread_excluded_folders():
     }
 
 
-_pending_sends = {}
+_pending_sends: dict[str, dict] = {}
 _pending_sends_lock = threading.RLock()
-_send_failure_notice = {}
+_send_failure_notice: dict[int, str] = {}
 _SEND_RECORD_TTL_SECONDS = 60 * 60
 _UNDO_SECONDS = 8
 
@@ -87,7 +87,13 @@ def _imap_for_account(account, secret, domain=None):
     if domain is None:
         raise ValueError(f"IMAP domain {account.domain_id} not found for account {account.id}")
     client = connect_imap(domain.imap_host, domain.imap_port, domain.imap_tls)
-    login_imap(client, account.username, password=secret)
+    try:
+        login_imap(client, account.username, password=secret)
+    except Exception:
+        # Never leave the connected socket dangling when login fails.
+        with contextlib.suppress(Exception):
+            client.logout()
+        raise
     return client, domain
 
 
@@ -101,7 +107,11 @@ def _get_or_create_settings(user_id):
     return settings
 
 
-def _fallback_sidebar_folders(conn, cached_folders):
+def _cached_sidebar_folders(conn, cached_folders):
+    """Merged per-user cached folder names (folders table plus message
+    folders), INBOX first. Returns an empty list only when the cache has
+    never been populated — that is the signal for the first-login live fetch
+    (U4A.13b)."""
     names = list((cached_folders or {}).keys())
     try:
         rows = conn.execute(
@@ -123,14 +133,14 @@ def _fallback_sidebar_folders(conn, cached_folders):
             continue
         seen.add(key)
         deduped.append(cleaned)
-    if "inbox" not in seen:
+    if "inbox" in seen:
+        for idx, name in enumerate(deduped):
+            if name.lower() == "inbox":
+                inbox_name = deduped.pop(idx)
+                deduped.insert(0, inbox_name)
+                break
+    elif deduped:
         deduped.insert(0, "INBOX")
-        return deduped
-    for idx, name in enumerate(deduped):
-        if name.lower() == "inbox":
-            inbox_name = deduped.pop(idx)
-            deduped.insert(0, inbox_name)
-            break
     return deduped
 
 
@@ -139,37 +149,42 @@ def _folder_sidebar_context(user_id, account, key, conn):
 
     cached_folders = dict(list_cached_folders(conn))
     starred_count = count_unread_flagged(conn)
-    folders = None
+    # U4A.13b: the folder list is served from the per-user cache (mirrored
+    # from IMAP LIST by every background sync); a live IMAP connection is
+    # opened only when the cache is empty (first login / fresh cache) so
+    # routine page renders never consume IMAP connections.
+    folders = _cached_sidebar_folders(conn, cached_folders)
     sidebar_warning = None
-    try:
-        secret = (
-            decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
-        )
-        client, _domain = _imap_for_account(account, secret)
+    if not folders:
         try:
-            folders = list_folders(client)
-        finally:
-            safe_logout(client)
-    except imaplib.IMAP4.error:
-        logger.exception(
-            "folder sidebar imap auth failed account_id=%s customer_id=%s",
-            account.id,
-            user_id,
-        )
-        folders = _fallback_sidebar_folders(conn, cached_folders)
-        sidebar_warning = _(
-            "IMAP is temporarily unavailable. Showing cached data while retrying in the background."
-        )
-    except Exception:
-        logger.exception(
-            "folder sidebar imap fetch failed account_id=%s customer_id=%s",
-            account.id,
-            user_id,
-        )
-        folders = _fallback_sidebar_folders(conn, cached_folders)
-        sidebar_warning = _(
-            "IMAP is temporarily unavailable. Showing cached data while retrying in the background."
-        )
+            secret = (
+                decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
+            )
+            client, _domain = _imap_for_account(account, secret)
+            try:
+                folders = list_folders(client)
+            finally:
+                safe_logout(client)
+        except imaplib.IMAP4.error:
+            logger.exception(
+                "folder sidebar imap auth failed account_id=%s customer_id=%s",
+                account.id,
+                user_id,
+            )
+            folders = _cached_sidebar_folders(conn, cached_folders) or ["INBOX"]
+            sidebar_warning = _(
+                "IMAP is temporarily unavailable. Showing cached data while retrying in the background."
+            )
+        except Exception:
+            logger.exception(
+                "folder sidebar imap fetch failed account_id=%s customer_id=%s",
+                account.id,
+                user_id,
+            )
+            folders = _cached_sidebar_folders(conn, cached_folders) or ["INBOX"]
+            sidebar_warning = _(
+                "IMAP is temporarily unavailable. Showing cached data while retrying in the background."
+            )
     settings = CustomerSettings.query.filter_by(customer_id=user_id).first()
     pinned = []
     if settings and settings.pinned_folders:
@@ -178,7 +193,11 @@ def _folder_sidebar_context(user_id, account, key, conn):
         except (TypeError, ValueError):
             pinned = []
     folder_sections = build_folder_sections(folders, pinned, conn)
-    folder_display = folder_display_names(folders)
+    # U4.15b: label only the folders actually displayed together — the
+    # sidebar shows one representative per canonical key, which carries the
+    # clean canonical label ("Sent", "Spam") without a disambiguation suffix.
+    visible_folders = [name for section in folder_sections for name in section["folders"]]
+    folder_display = folder_display_names(visible_folders)
     accounts = CustomerAccount.query.filter_by(customer_id=user_id, is_active=True).all()
     return (
         accounts,

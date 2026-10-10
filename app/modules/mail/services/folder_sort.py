@@ -3,21 +3,30 @@ from email.utils import parsedate_to_datetime
 
 from app.modules.mail.services.folder_aliases import FOLDER_ALIASES, canonical_folder_key
 
-SYSTEM_FOLDERS = list(FOLDER_ALIASES.keys())
+SYSTEM_FOLDERS: list[str] = list(FOLDER_ALIASES.keys())
 
 UNREAD_EXCLUDED_FOLDERS = {"TRASH", "JUNK", "DRAFTS"}
 
 
 def build_folder_sections(folders, pinned, conn):
-    actual_by_key = {}
+    candidates_by_key = {}
     keys_in_order = []
     for folder in folders:
         key = canonical_folder_key(folder)
-        if key not in actual_by_key:
-            actual_by_key[key] = folder
+        if key not in candidates_by_key:
+            candidates_by_key[key] = []
             keys_in_order.append(key)
-        elif key == "inbox" and folder.upper() == "INBOX":
-            actual_by_key[key] = folder
+        if folder not in candidates_by_key[key]:
+            candidates_by_key[key].append(folder)
+
+    actual_by_key = {}
+    for key, candidates in candidates_by_key.items():
+        if len(candidates) == 1:
+            actual_by_key[key] = candidates[0]
+        elif key == "inbox":
+            actual_by_key[key] = next((f for f in candidates if f == "INBOX"), candidates[0])
+        else:
+            actual_by_key[key] = _representative_folder(conn, candidates)
 
     inbox_name = actual_by_key.get("inbox")
     system_keys = set(FOLDER_ALIASES.keys())
@@ -59,6 +68,17 @@ def build_folder_sections(folders, pinned, conn):
     # custom folders can never create their first one.
     sections.append({"title": "Folders", "folders": recent_folders})
     return sections
+
+
+def _representative_folder(conn, candidates):
+    """U5.4a: when several server mailboxes share a canonical key (e.g. Sent
+    and Sent Messages), the sidebar shows the one holding cached messages —
+    latest activity wins; falls back to server LIST order when none has any."""
+    dates = _latest_message_dates(conn, candidates)
+    dated = [f for f in candidates if f in dates]
+    if not dated:
+        return candidates[0]
+    return max(dated, key=lambda f: dates[f])
 
 
 def _latest_message_dates(conn, folders):

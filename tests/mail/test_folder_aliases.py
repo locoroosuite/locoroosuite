@@ -1,4 +1,5 @@
 import imaplib
+import sqlite3
 from unittest.mock import MagicMock
 
 import pytest
@@ -15,6 +16,22 @@ from app.modules.mail.services.imap_client import (
     select_folder,
 )
 from app.modules.mail.services.imap_sync import _resolve_folders
+
+
+def _sections_conn():
+    conn = sqlite3.connect(":memory:")
+    conn.execute(
+        """
+        CREATE TABLE messages (
+            id INTEGER PRIMARY KEY,
+            folder TEXT,
+            internal_date_ts INTEGER,
+            date_ts INTEGER,
+            date TEXT
+        )
+        """
+    )
+    return conn
 
 
 class TestSelectFolder:
@@ -251,3 +268,50 @@ class TestFolderDisplayNames:
         # Undo-banner labels are computed from a single destination folder.
         assert folder_display_names(["Junk"]) == {"Junk": "Spam"}
         assert folder_display_names(["Projects"]) == {}
+
+
+class TestRepresentativeFolder:
+    """U5.4a/U4.15b: when several mailboxes share a canonical key, the
+    sidebar shows the one with cached messages, labeled cleanly."""
+
+    def test_duplicate_sent_shows_folder_with_messages(self):
+        conn = _sections_conn()
+        conn.execute(
+            "INSERT INTO messages (folder, internal_date_ts) VALUES ('Sent Messages', 1700)"
+        )
+        conn.commit()
+        sections = build_folder_sections(["INBOX", "Sent", "Sent Messages", "Junk"], [], conn)
+        system = next(s for s in sections if s["title"] == "System")
+        assert "Sent Messages" in system["folders"]
+        assert "Sent" not in system["folders"]
+
+    def test_duplicate_prefers_latest_activity(self):
+        conn = _sections_conn()
+        conn.executemany(
+            "INSERT INTO messages (folder, internal_date_ts) VALUES (?, ?)",
+            [("Sent", 100), ("Sent Messages", 200)],
+        )
+        conn.commit()
+        sections = build_folder_sections(["INBOX", "Sent", "Sent Messages"], [], conn)
+        system = next(s for s in sections if s["title"] == "System")
+        assert system["folders"] == ["Sent Messages"]
+
+    def test_duplicate_falls_back_to_list_order_when_empty(self):
+        conn = _sections_conn()
+        sections = build_folder_sections(["INBOX", "Sent", "Sent Messages"], [], conn)
+        system = next(s for s in sections if s["title"] == "System")
+        assert system["folders"] == ["Sent"]
+
+    def test_list_order_reversal_respects_messages(self):
+        conn = _sections_conn()
+        conn.execute("INSERT INTO messages (folder, internal_date_ts) VALUES ('Sent', 100)")
+        conn.commit()
+        sections = build_folder_sections(["INBOX", "Sent Messages", "Sent"], [], conn)
+        system = next(s for s in sections if s["title"] == "System")
+        assert system["folders"] == ["Sent"]
+
+    def test_inbox_casing_still_preferred(self):
+        conn = _sections_conn()
+        sections = build_folder_sections(["inbox", "INBOX"], [], conn)
+        inbox_section = next(s for s in sections if s["title"] == "INBOX")
+        assert inbox_section["folders"] == ["INBOX"]

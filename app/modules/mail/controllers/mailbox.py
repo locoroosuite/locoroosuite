@@ -9,6 +9,7 @@ from flask_babel import _
 
 from app.modules.mail.controllers.helpers import (
     _build_threads,
+    _cached_sidebar_folders,
     _consume_send_failure_notice,
     _current_undo_action,
     _decorate_message_row,
@@ -20,7 +21,8 @@ from app.modules.mail.controllers.helpers import (
     normalize_subject_for_threading,
 )
 from app.modules.mail.services.cache import purge_cache
-from app.modules.mail.services.cache_db import open_cache
+from app.modules.mail.services.cache_db import list_cached_folders, open_cache
+from app.modules.mail.services.folder_aliases import resolve_folder_name
 from app.modules.mail.services.imap_client import (
     create_folder,
     encode_mailbox_name,
@@ -64,6 +66,22 @@ def mailbox():
     return redirect(url_for("mail.folder_view", account_id=active_id, folder="INBOX"))
 
 
+def _canonicalize_folder(conn, folder):
+    """U4.15b/UX7: map a URL folder name to the account's actual IMAP mailbox
+    name via the cached folder list, so alias URLs (e.g. /Spam when the
+    server folder is Junk) read the right cache rows and receive the right
+    sync events instead of hanging on "Syncing...". Best-effort: on cache
+    errors the raw name passes through unchanged."""
+    try:
+        known = _cached_sidebar_folders(conn, dict(list_cached_folders(conn)))
+        return resolve_folder_name(known, folder)
+    except Exception:
+        logger.warning(
+            "folder canonicalization skipped, using raw name folder=%s", folder, exc_info=True
+        )
+        return folder
+
+
 @mail_bp.route("/mail/folder/<int:account_id>/<path:folder>")
 @require_customer
 def folder_view(account_id, folder):
@@ -74,15 +92,26 @@ def folder_view(account_id, folder):
         logger.warning("folder view missing key user_id=%s account_id=%s", user_id, account.id)
         session.clear()
         return render_template("login.html", error=_("Session expired. Please log in again."))
+    conn = open_cache(account.cache_db_path, key)
+    page = request.args.get("page", 1, type=int)
+    canonical = _canonicalize_folder(conn, folder)
+    if canonical.lower() != folder.lower():
+        logger.info(
+            "folder view canonicalized account_id=%s requested=%s actual=%s",
+            account.id,
+            folder,
+            canonical,
+        )
+        return redirect(
+            url_for("mail.folder_view", account_id=account.id, folder=canonical, page=page)
+        )
     session["active_account_id"] = account.id
     _sync_manager().set_active_account(user_id, account.id)
     _sync_manager().set_active_folder(account.id, folder)
     initial_syncing = _sync_manager().enqueue_sync(
         account.id, folder=folder, reason="folder_open", priority=0
     )
-    conn = open_cache(account.cache_db_path, key)
     settings = _get_or_create_settings(user_id)
-    page = request.args.get("page", 1, type=int)
     threads, pagination = _build_threads(
         conn,
         folder,
@@ -177,6 +206,7 @@ def folder_messages(account_id, folder):
     conn = open_cache(account.cache_db_path, key)
     settings = _get_or_create_settings(user_id)
     page = request.args.get("page", 1, type=int)
+    folder = _canonicalize_folder(conn, folder)
     threads, pagination = _build_threads(
         conn,
         folder,

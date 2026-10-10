@@ -55,6 +55,17 @@ def _normalized(path):
 # --- Overflow menu cache guards (unchanged behavior) ---
 
 
+def test_folder_view_error_empty_state_has_retry():
+    """UX7: a failed sync for the open folder must surface "Sync failed" with
+    a Retry action in the message-list status area — never an endless
+    "Syncing..." for a failed sync."""
+    source = (MAIL_TEMPLATES / "folder.html").read_text()
+    assert "lastSyncStatus.state === 'error'" in source
+    assert "Sync failed." in source
+    assert "window.LR.t('Retry')" in source
+    assert "window.location.reload()" in source
+
+
 def test_overflow_menu_restore_is_guarded_against_uncaptured_cache():
     source = MESSAGE_LIST_JS.read_text()
     # renderOverflowMenu must no-op when the cache was never captured

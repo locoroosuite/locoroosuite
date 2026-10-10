@@ -306,6 +306,44 @@ def _resolve_folders(available, requested):
     return resolved
 
 
+def _requested_folder_name(requested):
+    """UX7/U4A.13b: fatal sync errors must name the folder the user asked
+    about, so the folder view can surface them instead of showing a generic
+    "Syncing..." forever."""
+    if isinstance(requested, (list, tuple)) and requested:
+        return requested[0]
+    if isinstance(requested, str) and requested:
+        return requested
+    return "INBOX"
+
+
+def _mirror_folder_list(conn, available_folders):
+    """U5.4a: mirror the server IMAP LIST into the per-user folders table so
+    the cached-first sidebar (U4A.13b) tracks server-side creates/renames/
+    deletes without any per-page-load IMAP connections. Best-effort: a
+    failure here is logged and never breaks the sync itself."""
+    if not available_folders:
+        return
+    try:
+        known = {name for name, _unread in list_cached_folders(conn)}
+        for name in available_folders:
+            if name not in known:
+                upsert_folder(conn, name, 0)
+        stale = known.difference(available_folders)
+        if stale:
+            conn.executemany(
+                "DELETE FROM folders WHERE name = ?",
+                [(name,) for name in sorted(stale)],
+            )
+            if hasattr(conn, "commit"):
+                with contextlib.suppress(Exception):
+                    conn.commit()
+    except Exception:
+        logger.exception(
+            "folder list cache mirror failed available_count=%s", len(available_folders)
+        )
+
+
 def _prepare_message_args(msg, account=None):
     from app.modules.mail.services.cache_db import compute_thread_id
 
@@ -576,6 +614,7 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
             )
 
     sync_started = time.monotonic()
+    fatal_folder = _requested_folder_name(folders)
     key = get_user_key(account.customer_id)
     if not key:
         logger.warning(
@@ -584,7 +623,7 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
             account.customer_id,
             account.domain_id,
         )
-        emit("error", folder="INBOX", message="missing session key")
+        emit("error", folder=fatal_folder, message="missing session key")
         return False
 
     domain = db.session.get(Domain, account.domain_id)
@@ -595,7 +634,7 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
             account.customer_id,
             account.domain_id,
         )
-        emit("error", folder="INBOX", message="inactive domain")
+        emit("error", folder=fatal_folder, message="inactive domain")
         return False
 
     account.cache_db_path = build_cache_path(account.customer_id, account.id)
@@ -616,7 +655,7 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
             account.customer_id,
             account.cache_db_path,
         )
-        emit("error", folder="INBOX", message="cache open failed")
+        emit("error", folder=fatal_folder, message="cache open failed")
         return False
 
     logger.info(
@@ -637,7 +676,7 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
             domain.imap_port,
             domain.imap_tls,
         )
-        emit("error", folder="INBOX", message="imap connect failed")
+        emit("error", folder=fatal_folder, message="imap connect failed")
         return False
     secret = None
     if account.encrypted_secret:
@@ -655,7 +694,7 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
             account.customer_id,
             account.auth_type,
         )
-        emit("error", folder="INBOX", message="imap login failed")
+        emit("error", folder=fatal_folder, message="imap login failed")
         with contextlib.suppress(Exception):
             client.logout()
         return False
@@ -664,6 +703,7 @@ def sync_account(account, folders=None, status_cb=None, include_recent_page=Fals
     total_cached = 0
     try:
         available_folders = list_folders(client)
+        _mirror_folder_list(conn, available_folders)
         if not folders:
             folders = ["INBOX"]
         folders = _resolve_folders(available_folders, folders)

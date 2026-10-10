@@ -2,6 +2,8 @@ import json
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 
 def test_mailbox_redirects_to_inbox(authed_client):
     client, _user_id, _account_id = authed_client
@@ -109,6 +111,217 @@ def test_folder_view_shows_create_folder_for_new_account(authed_client, app):
     html = resp.data.decode()
     assert 'id="create-folder-toggle"' in html
     assert 'id="create-folder-form"' in html
+
+
+def _sidebar_cache_conn(folder_rows=(), messages=()):
+    """Minimal real sqlite cache matching the shapes _folder_sidebar_context
+    and _canonicalize_folder read: folders(name, unread_count) plus the
+    message columns used by activity/latest-date queries."""
+    import sqlite3
+
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        "CREATE TABLE folders (id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " name TEXT UNIQUE NOT NULL, unread_count INTEGER DEFAULT 0)"
+    )
+    conn.execute(
+        "CREATE TABLE messages (id INTEGER PRIMARY KEY, folder TEXT,"
+        " internal_date_ts INTEGER, date_ts INTEGER, date TEXT, flags TEXT)"
+    )
+    for name, unread in folder_rows:
+        conn.execute("INSERT INTO folders (name, unread_count) VALUES (?, ?)", (name, unread))
+    for folder, ts, flags in messages:
+        conn.execute(
+            "INSERT INTO messages (folder, internal_date_ts, flags) VALUES (?, ?, ?)",
+            (folder, ts, flags),
+        )
+    conn.commit()
+    return conn
+
+
+def test_sidebar_served_from_cache_without_imap(authed_client, app):
+    """U4A.13b: with a warm cache the sidebar never opens an IMAP connection
+    (no per-page-load connection pressure, no warning banner)."""
+    _client, user_id, _account_id = authed_client
+    conn = _sidebar_cache_conn(
+        folder_rows=[("INBOX", 0), ("Sent", 0), ("Junk", 3)],
+        messages=[("INBOX", 100, '["\\\\Seen"]'), ("Junk", 200, "")],
+    )
+    from app.modules.mail.controllers.helpers import _folder_sidebar_context
+    from app.shared.db import db as _db
+    from app.shared.models.core import CustomerAccount
+
+    with app.test_request_context("/"):
+        account = _db.session.get(CustomerAccount, _account_id)
+        with patch("app.modules.mail.controllers.helpers._imap_for_account") as mock_imap:
+            (
+                _accounts,
+                sections,
+                cached,
+                _pinned,
+                _starred,
+                warning,
+                display,
+            ) = _folder_sidebar_context(user_id, account, b"k", conn)
+    mock_imap.assert_not_called()
+    assert warning is None
+    assert cached == {"INBOX": 0, "Sent": 0, "Junk": 3}
+    assert display["Junk"] == "Spam"
+    assert display.get("Sent") == "Sent"
+    system = next(s for s in sections if s["title"] == "System")
+    assert system["folders"] == ["Sent", "Junk"]
+
+
+def test_sidebar_duplicate_sent_one_clean_label(authed_client, app):
+    """U4.15b/U5.4a: with both Sent and Sent Messages on the server, the
+    sidebar shows a single row labeled "Sent" — no "(Sent Messages)" suffix."""
+    _client, user_id, _account_id = authed_client
+    conn = _sidebar_cache_conn(
+        folder_rows=[("INBOX", 0), ("Sent", 0), ("Sent Messages", 0), ("Junk", 2)],
+        messages=[("Sent Messages", 1700, "")],
+    )
+    from app.modules.mail.controllers.helpers import _folder_sidebar_context
+    from app.shared.db import db as _db
+    from app.shared.models.core import CustomerAccount
+
+    with app.test_request_context("/"):
+        account = _db.session.get(CustomerAccount, _account_id)
+        with patch("app.modules.mail.controllers.helpers._imap_for_account") as mock_imap:
+            (
+                _accounts,
+                sections,
+                _cached,
+                _pinned,
+                _starred,
+                warning,
+                display,
+            ) = _folder_sidebar_context(user_id, account, b"k", conn)
+    mock_imap.assert_not_called()
+    assert warning is None
+    system = next(s for s in sections if s["title"] == "System")
+    # The representative is the mailbox with messages, labeled cleanly.
+    assert "Sent Messages" in system["folders"]
+    assert "Sent" not in system["folders"]
+    assert display["Sent Messages"] == "Sent"
+    assert display["Junk"] == "Spam"
+
+
+def test_sidebar_live_fetch_only_when_cache_empty(authed_client, app):
+    """U4A.13b: first login (empty cache) fetches the folder list live."""
+    _client, user_id, _account_id = authed_client
+    conn = _sidebar_cache_conn()
+    from app.modules.mail.controllers.helpers import _folder_sidebar_context
+    from app.shared.db import db as _db
+    from app.shared.models.core import CustomerAccount
+
+    with app.test_request_context("/"):
+        account = _db.session.get(CustomerAccount, _account_id)
+        mock_client = MagicMock()
+        with (
+            patch(
+                "app.modules.mail.controllers.helpers._imap_for_account",
+                return_value=(mock_client, MagicMock()),
+            ),
+            patch(
+                "app.modules.mail.controllers.helpers.list_folders",
+                return_value=["INBOX", "Junk"],
+            ) as mock_list,
+            patch("app.modules.mail.controllers.helpers.safe_logout"),
+        ):
+            _accounts, sections, _cached, _pinned, _starred, warning, display = (
+                _folder_sidebar_context(user_id, account, b"k", conn)
+            )
+    mock_list.assert_called_once_with(mock_client)
+    assert warning is None
+    assert display["Junk"] == "Spam"
+    system = next(s for s in sections if s["title"] == "System")
+    assert system["folders"] == ["Junk"]
+
+
+def test_sidebar_live_failure_shows_warning_and_inbox(authed_client, app):
+    """U4A.13b: when the required live fetch fails, the fallback still lists
+    INBOX and the non-blocking banner explains the background retry."""
+    import imaplib as _imaplib
+
+    _client, user_id, _account_id = authed_client
+    conn = _sidebar_cache_conn()
+    from app.modules.mail.controllers.helpers import _folder_sidebar_context
+    from app.shared.db import db as _db
+    from app.shared.models.core import CustomerAccount
+
+    with app.test_request_context("/"):
+        account = _db.session.get(CustomerAccount, _account_id)
+        with patch(
+            "app.modules.mail.controllers.helpers._imap_for_account",
+            side_effect=_imaplib.IMAP4.error("boom"),
+        ):
+            _accounts, sections, _cached, _pinned, _starred, warning, _display = (
+                _folder_sidebar_context(user_id, account, b"k", conn)
+            )
+    assert warning is not None
+    assert "temporarily unavailable" in warning
+    inbox_section = next(s for s in sections if s["title"] == "INBOX")
+    assert inbox_section["folders"] == ["INBOX"]
+
+
+def test_folder_view_redirects_alias_to_actual_folder(authed_client, app):
+    """U4.15b/UX7: an alias URL (/Spam when the server mailbox is Junk)
+    redirects to the actual name so cache reads and sync events match."""
+    client, _user_id, account_id = authed_client
+    conn = _sidebar_cache_conn(folder_rows=[("INBOX", 0), ("Junk", 2)])
+    with patch("app.modules.mail.controllers.mailbox.open_cache", return_value=conn):
+        resp = client.get(f"/app/mail/folder/{account_id}/Spam")
+    assert resp.status_code == 302
+    assert f"/app/mail/folder/{account_id}/Junk" in resp.headers["Location"]
+
+
+def test_folder_messages_canonicalizes_folder(authed_client, app):
+    client, _user_id, account_id = authed_client
+    conn = _sidebar_cache_conn(folder_rows=[("INBOX", 0), ("Junk", 2)])
+    with (
+        patch("app.modules.mail.controllers.mailbox.open_cache", return_value=conn),
+        patch(
+            "app.modules.mail.controllers.mailbox._build_threads",
+            return_value=({}, _empty_pagination),
+        ) as mock_threads,
+        patch(
+            "app.modules.mail.controllers.mailbox._get_or_create_settings",
+            return_value=MagicMock(timezone="UTC"),
+        ),
+        patch("app.modules.mail.controllers.mailbox._snippet_debug_enabled", return_value=False),
+    ):
+        resp = client.get(f"/app/mail/folder/{account_id}/Spam/messages")
+    assert resp.status_code == 200
+    requested_folder = mock_threads.call_args[0][1]
+    assert requested_folder == "Junk"
+
+
+def test_imap_for_account_closes_socket_on_login_failure(authed_client, app):
+    """A2 hygiene: a failed login must never leave the connected socket
+    dangling (connection-budget pressure against mail_max_userip_connections)."""
+    import imaplib as _imaplib
+
+    _client, _user_id, account_id = authed_client
+    from app.modules.mail.controllers.helpers import _imap_for_account
+    from app.shared.db import db as _db
+    from app.shared.models.core import CustomerAccount
+
+    mock_client = MagicMock()
+    with app.app_context():
+        account = _db.session.get(CustomerAccount, account_id)
+        with (
+            patch(
+                "app.modules.mail.controllers.helpers.connect_imap", return_value=mock_client
+            ),
+            patch(
+                "app.modules.mail.controllers.helpers.login_imap",
+                side_effect=_imaplib.IMAP4.error("rejected"),
+            ),
+            pytest.raises(_imaplib.IMAP4.error),
+        ):
+            _imap_for_account(account, None)
+    mock_client.logout.assert_called_once()
 
 
 def test_folder_view_displays_canonical_labels(authed_client, app):

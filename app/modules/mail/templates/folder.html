@@ -704,7 +704,23 @@
       messageListStatus.textContent = '';
       return;
     }
-    if (lastSyncStatus && lastSyncStatus.state === 'syncing') {
+    if (lastSyncStatus && lastSyncStatus.state === 'error') {
+      // UX7: a failed sync never shows an endless "Syncing..." — surface the
+      // failure and offer a retry that reloads the view (re-enqueuing the
+      // folder sync server-side).
+      messageListStatus.textContent = '';
+      const failureText = document.createElement('span');
+      failureText.textContent = window.LR.t('Sync failed.');
+      const detail = lastSyncStatus.message ? ' ' + window.LR.t(lastSyncStatus.message) : '';
+      if (detail) failureText.textContent += detail;
+      const retryBtn = document.createElement('button');
+      retryBtn.type = 'button';
+      retryBtn.className = 'ml-2 rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[12px] md:text-[11px] text-slate-600 underline hover:text-slate-900 hover:border-slate-300 lr-hit';
+      retryBtn.textContent = window.LR.t('Retry');
+      retryBtn.addEventListener('click', () => window.location.reload());
+      messageListStatus.appendChild(failureText);
+      messageListStatus.appendChild(retryBtn);
+    } else if (lastSyncStatus && lastSyncStatus.state === 'syncing') {
       const done = Number.isFinite(lastSyncStatus.done) ? lastSyncStatus.done : null;
       const total = Number.isFinite(lastSyncStatus.total) ? lastSyncStatus.total : null;
       if (done !== null && total && total > 0) {

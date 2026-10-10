@@ -1,0 +1,21 @@
+# Fast dev loop for the app service (e2e strategy P1).
+#
+# Usage: make dev-fast   (from the Makefile; do not call compose by hand —
+# the base file must always come first so this override merges onto it).
+#
+# Mounts the working-tree source into the container and swaps gunicorn for
+# the Werkzeug dev server: static/JS/template edits are served straight from
+# disk and Python edits trigger a reloader restart — no `make restart`, no
+# image rebuild. `make restart` (base file only) returns to the clean,
+# image-like run; use it before trusting any "it works in dev" result.
+#
+# Why volume-mount instead of running Flask on the host venv: the dev DB
+# stores compose DNS names for infrastructure (domains.imap_host="dovecot",
+# MAIL_API_URL=http://mail-api:8800), which only resolve inside the compose
+# network. Running on the host would require /etc/hosts entries and swapping
+# DB rows on every mode switch.
+services:
+  app:
+    volumes:
+      - ./app:/app/app
+    command: ["python", "run.py"]

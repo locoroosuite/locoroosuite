@@ -55,6 +55,7 @@ dev-infra/             # Docker dev infrastructure (Dovecot, Postfix, OpenDKIM)
 ### Integration Points
 
 - **Dev environment**: `docker-compose.dev.yml` starts all services. `make dev-up` / `dev-down` / `dev-build`.
+- **Fast dev loop**: `make dev-fast` recreates only the app container with the working tree mounted and the Werkzeug reloader (`docker-compose.dev.fast.yml`) — static/JS/template edits are e2e-visible in seconds, no rebuild. Volume-mount (not host-run Flask) because the DB stores compose DNS names (`dovecot`, `mail-api`). `make restart` returns to the clean, image-like run; trust results only after it.
 - **Mail server**: Admin domain/user CRUD calls `mail-api` when `MAIL_API_URL` is configured. Integration points: `_mail_api_call` and `_sync_domain_to_mail_api` in `app/admin/controllers/admin.py`.
 - **REST API auth**: Bearer token (API key or OAuth JWT). `authenticate_request()` in each controller validates the token.
 - **MCP parity**: `app/api/controllers/<mod>.py` ↔ `app/mcp/tools/<mod>.py` ↔ `packages/locoroosuite-mcp/src/tools/<mod>.ts` must stay in sync.
@@ -99,13 +100,24 @@ Exercise the **full request-to-response cycle** with a real SQLCipher cache DB.
 
 ### E2E Tests (`tests/e2e/`)
 
-Run against live Docker env (`make dev-up`). Developer-only, not in CI. Auto-skip if services unreachable.
+Run against live Docker env (`make dev-up`). Auto-skip if services unreachable. Nightly/manual CI job exists on the GitHub mirror (`.github/workflows/e2e.yml`, non-gating; PR-gating is a pending user decision).
 
-- **Run**: `./venv/bin/pytest tests/e2e/`
+- **Run**: `./venv/bin/pytest tests/e2e/` (self-provisioning session fixture), or `make e2e-test` = `make e2e-reset` + `E2E_BASELINE=1` run (recommended: no fixture-time user provisioning racing IMAP).
 - **Install Playwright**: `./venv/bin/pip install pytest-playwright && ./venv/bin/playwright install chromium`
 - **Core principle**: Verify effects at the **service level**, not just HTTP status codes.
-- **Service-level** (`tests/e2e/test_*.py`): Use IMAP/CardDAV/CalDAV clients to verify actual state (e.g., send email → IMAP-verify arrival).
+- **Service-level** (`tests/e2e/test_*.py`): Use IMAP/CardDAV/CalDAV clients to verify actual state (e.g. send email → IMAP-verify arrival).
 - **UI** (`tests/e2e/ui/`): Playwright for rendering, forms, empty states, dynamic behavior.
+- **Test pyramid discipline**: browser e2e only for genuinely visual/interactive claims. Anything assertable as JSON/status/HTML presence belongs in Flask test-client tests or the static-JS contract tests (`tests/mail/test_static_js.py` pattern). Do not add Playwright assertions that duplicate unit-testable behavior.
+- **UI determinism (fixtures in `tests/e2e/ui/conftest.py`)**:
+  - `/events/stream` (SSE) is **blocked by default** — the load-time SSE list replacement detaches DOM nodes mid-test. Tests exercising sync-driven DOM updates must opt in with `@pytest.mark.allow_sse` (registered in `pyproject.toml`).
+  - All Playwright contexts are pinned to `timezone_id="UTC"` — the server renders in the user's TZ (UTC until the browser's async TZ report lands) and client JS uses the browser clock; an unpinned host TZ whose date differs from UTC makes date-sensitive UI (calendar now-line) fail deterministically.
+  - Tap revealed swipe-panel buttons with `tap_element` (never `page.click` — Chrome retargets tap-clicks to the row); swipe with `swipe_element`; on SSE-enabled pages call `wait_list_settled` first. All in `tests/e2e/ui/touch_actions.py`.
+  - Pre-navigation DOM state (e.g. nav pending feedback) cannot be observed with `wait_for_selector` — the document is replaced by the navigation. Observe synchronously in the click dispatch and smuggle the snapshot out via `window.name` (survives navigation); see `test_folder_link_tap_acknowledges_before_navigation`.
+- **Env lifecycle**: `make e2e-reset` (idempotent) produces the known baseline: seeded users verified IMAP-loginable, wiped caches/IMAP/CardDAV/CalDAV state. `E2E_BASELINE=1` makes the session fixture verify (not provision) users and keep them alive across sessions.
+- **Flake protocol** (never brute-force rerun loops):
+  1. **Capture**: rerun once with `-q` to confirm; keep the failure output (`docker logs locoroomail-dev --since 5m` for app-side context).
+  2. **Minimize**: loop only the single failing test (`pytest tests/e2e/ui/test_x.py::TestClass::test_y`); strip unrelated fixtures/assertions until the repro is minimal.
+  3. **Replay & instrument**: add a targeted probe (in-page `page.evaluate` instrumentation beats polling waits). If it passes on loop, the test races something — find the race (SSE replacement? TZ date mismatch? element handle gone stale across a refresh?), fix the test or the app, then run the full suite once.
 - **Helpers** (`tests/e2e/services.py`): `imap_search`, `mailapi_get_users`, `carddav_get_addressbooks`, `caldav_get_calendars`, `wait_for`.
 - **Config** (env vars): `E2E_APP_URL` (default `http://localhost:8001`), `E2E_MAIL_API_URL` (`http://localhost:8800`), `E2E_MAIL_API_KEY` (`dev-mail-api-secret`), `E2E_IMAP_HOST` (`localhost`), `E2E_IMAP_PORT` (`993`), `E2E_CARDDAV_URL` / `E2E_CALDAV_URL` (`http://localhost:5232`). Test users: `test@test.localhost`/`TestPass123!`, `test2@test.localhost`/`TestPass123!`, `admin@dev.test`/`TestPass123!`.
 

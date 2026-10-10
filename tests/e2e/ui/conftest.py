@@ -6,9 +6,43 @@ import pytest
 
 from tests.e2e.services import E2E_DEFAULT_PASSWORD
 
+# Every UI test gets its page through the fixtures below. They block the
+# mail/docs SSE stream (/events/stream) by default: the folder view's
+# load-time SSE sync replaces the whole message list via innerHTML, which
+# detaches element handles and retargets clicks mid-test — an entire class
+# of flakes. Tests that genuinely exercise sync-driven DOM updates must opt
+# in with @pytest.mark.allow_sse (registered in pyproject.toml).
+#
+# Interaction rules for touch surfaces (see AGENTS.md -> E2E):
+#   - tap revealed swipe-panel buttons with tap_element, never page.click
+#     (Chrome retargets tap-clicks to the row);
+#   - swipe with swipe_element;
+#   - before interacting with list rows on pages that opted into SSE, call
+#     wait_list_settled.
+# All three live in tests/e2e/ui/touch_actions.py.
+
+
+def _sse_allowed(request: pytest.FixtureRequest) -> bool:
+    return request.node.get_closest_marker("allow_sse") is not None
+
+
+def _apply_sse_policy(context, request: pytest.FixtureRequest) -> None:
+    if _sse_allowed(request):
+        return
+    context.route("**/events/stream", lambda route: route.abort())
+
+
+# All contexts are pinned to UTC: the server renders calendar/mail views in
+# the user's timezone (default UTC until the browser's async TZ report
+# lands), and client JS computes "today" from the browser clock. When the
+# host timezone's date differs from UTC (13.5h/day for ACDT hosts),
+# date-sensitive rendering (e.g. the calendar now-line) flakes. Pinning the
+# browser to UTC makes both sides agree regardless of the host timezone.
+_CONTEXT_DEFAULTS: dict = {"timezone_id": "UTC"}
+
 
 @pytest.fixture(scope="function")
-def page():
+def page(request):
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
@@ -16,7 +50,8 @@ def page():
         return
     pw = sync_playwright().start()
     browser = pw.chromium.launch(headless=True)
-    context = browser.new_context()
+    context = browser.new_context(**_CONTEXT_DEFAULTS)
+    _apply_sse_policy(context, request)
     p = context.new_page()
     yield p
     context.close()
@@ -36,7 +71,7 @@ def logged_in_page(page):
 
 
 @pytest.fixture(scope="function")
-def mobile_page():
+def mobile_page(request):
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
@@ -49,7 +84,9 @@ def mobile_page():
         is_mobile=True,
         has_touch=True,
         device_scale_factor=3,
+        **_CONTEXT_DEFAULTS,
     )
+    _apply_sse_policy(context, request)
     p = context.new_page()
     yield p
     context.close()
@@ -78,7 +115,7 @@ window.addEventListener('beforeinstallprompt', function (e) {
 
 
 @pytest.fixture(scope="function")
-def android_logged_in_page():
+def android_logged_in_page(request):
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
@@ -94,7 +131,9 @@ def android_logged_in_page():
             "Mozilla/5.0 (Linux; Android 13; Pixel 7) "
             "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
         ),
+        **_CONTEXT_DEFAULTS,
     )
+    _apply_sse_policy(context, request)
     p = context.new_page()
     p.goto("http://localhost:8001/app/login")
     p.wait_for_load_state("networkidle")
@@ -109,7 +148,7 @@ def android_logged_in_page():
 
 
 @pytest.fixture(scope="function")
-def ios_logged_in_page():
+def ios_logged_in_page(request):
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
@@ -125,9 +164,11 @@ def ios_logged_in_page():
             "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) "
             "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1"
         ),
+        **_CONTEXT_DEFAULTS,
     )
     # iOS never fires beforeinstallprompt; suppress any headless-Chromium firing.
     context.add_init_script(BIP_BLOCKER)
+    _apply_sse_policy(context, request)
     p = context.new_page()
     p.goto("http://localhost:8001/app/login")
     p.wait_for_load_state("networkidle")

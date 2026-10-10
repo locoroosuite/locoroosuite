@@ -1,4 +1,7 @@
 [tool.pytest.ini_options]
+markers = [
+    "allow_sse: UI e2e opt-in to let /events/stream connect (blocked by default for determinism; see tests/e2e/ui/conftest.py)",
+]
 filterwarnings = [
     "error",
     "ignore:datetime.datetime.utcnow:DeprecationWarning:sqlalchemy.sql.schema",

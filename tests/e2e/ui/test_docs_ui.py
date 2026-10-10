@@ -47,6 +47,9 @@ class TestDocsEditorConvert:
         editor.on("pageerror", lambda exc: errors.append(str(exc)))
         editor.wait_for_load_state("load")
 
+        # U13.21 moved Convert into the kebab action menu: open it first.
+        editor.wait_for_selector("#action-menu-toggle", state="visible", timeout=10000)
+        editor.click("#action-menu-toggle")
         editor.wait_for_selector("#convert-btn", state="visible", timeout=10000)
         before_url = editor.url
         editor.click("#convert-btn")

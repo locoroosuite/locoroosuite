@@ -1,0 +1,73 @@
+# E2E nightly / manual dispatch (e2e strategy P4).
+#
+# Status: NON-GATING by design. This job exists so the e2e suite runs
+# somewhere regularly — the swipe bug shipped because e2e was
+# developer-only. Making it PR-gated is a deliberate user decision
+# (runtime below); until then it runs nightly on schedule and on demand
+# via workflow_dispatch.
+#
+# Runtime estimate (measured on the dev host, Oct 2026):
+#   - image builds (app, mail-api, dovecot, postfix, rspamd, synapse,
+#     coturn): ~5-10 min cold, ~2-4 min warm (cached layers)
+#   - `up -d` + mail-api health + IMAP warm-up: ~1-2 min
+#   - e2e-reset baseline: ~30-60 s
+#   - unit suite: ~4-6 min; e2e suite: ~20-30 min
+#   TOTAL: ~30-45 min cold, ~25-35 min warm.
+#
+# Notes:
+#   - The collabora container runs privileged (see docker-compose.dev.yml);
+#     GitHub-hosted ubuntu runners permit this. If conversion probing fails
+#   on a runner without that capability, the docs tests self-skip
+#     (is_collabora_conversion_available) — the rest of the suite is
+#     unaffected.
+#   - Runs only on the GitHub mirror (origin is a plain git server,
+#     Codeberg uses Woodpecker). `make push` mirrors master there.
+
+name: e2e
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # nightly 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Python deps
+        run: |
+          python -m venv venv
+          ./venv/bin/pip install -r requirements-dev.txt
+          ./venv/bin/playwright install --with-deps chromium
+
+      - name: Build and start dev stack
+        run: |
+          make dev-up
+          # IMAP needs 10-60s after a cold dovecot start before logins
+          # succeed; e2e-reset waits for login readiness explicitly.
+          sleep 20
+
+      - name: Unit suite
+        run: ./venv/bin/pytest tests/ --ignore=tests/e2e
+
+      - name: e2e baseline + full suite
+        run: make e2e-test
+
+      - name: Dump app logs on failure
+        if: failure()
+        run: docker logs locoroomail-dev --since 60m || true
+
+      - name: Tear down
+        if: always()
+        run: make dev-down

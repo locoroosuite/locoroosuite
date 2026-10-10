@@ -1,4 +1,5 @@
 COMPOSE := docker compose -f docker-compose.dev.yml
+COMPOSE_FAST := docker compose -f docker-compose.dev.yml -f docker-compose.dev.fast.yml
 PROD_COMPOSE := docker compose -f docker-compose.prod.yml
 
 ifneq (,$(wildcard .env.local))
@@ -9,7 +10,8 @@ REMOTE_LC ?=
 REMOTE_LC_USER ?=
 REMOTE_LC_PATH ?=
 
-.PHONY: start stop restart rebuild ssh deploy dev-up dev-down dev-build logs mail-api-shell \
+.PHONY: start stop restart rebuild dev-fast ssh deploy dev-up dev-down dev-build logs mail-api-shell \
+        e2e-reset e2e-test \
         prod-up prod-down prod-build prod-restart prod-logs dev-setup npm-publish migrate-status push \
         lint format typecheck typecheck-mcp typecheck-ratchet check css
 
@@ -38,6 +40,15 @@ dev-down:
 restart: dev-down dev-build dev-up
 
 rebuild: dev-build
+
+# Fast dev loop (e2e strategy P1): recreate ONLY the app container with the
+# working tree mounted and the Werkzeug reloader enabled. Infrastructure
+# containers (dovecot, mail-api, radicale, ...) keep running, so IMAP stays
+# logged-in ready. Static/JS/template edits become e2e-visible in seconds.
+# Return to the clean, image-like run with `make restart`.
+dev-fast:
+	@mkdir -p data/caches data/logs data/import_uploads data/radicale
+	$(COMPOSE_FAST) up -d app
 
 start: dev-up
 
@@ -68,6 +79,20 @@ app.app_context().push(); \
 rows = db.engine.raw_connection().execute('SELECT name, applied_at FROM _schema_migrations ORDER BY name').fetchall(); \
 print('Applied main-DB migrations (%d):' % len(rows)); \
 [print('  %s  %s' % (r[0], r[1])) for r in rows]"
+
+# --- E2E environment lifecycle (e2e strategy P5) ---
+
+# Produce the known e2e baseline: seeded users verified IMAP-ready, wiped
+# caches/IMAP/CardDAV/CalDAV state. Idempotent; run before baseline runs or
+# any time the environment looks polluted.
+e2e-reset:
+	./venv/bin/python scripts/e2e_reset.py
+
+# Run the full e2e suite against a freshly-reset baseline. E2E_BASELINE=1
+# makes the pytest session fixture verify (not provision) the users, so the
+# session never races IMAP provisioning.
+e2e-test: e2e-reset
+	E2E_BASELINE=1 ./venv/bin/pytest tests/e2e/
 
 # --- Production targets (docker-compose.prod.yml) ---
 

@@ -22,6 +22,10 @@ def _is_e2e_enabled():
     return os.environ.get("E2E_ENABLED", "").lower() in ("1", "true", "yes") or check_services()
 
 
+def _is_baseline_mode():
+    return os.environ.get("E2E_BASELINE", "").lower() in ("1", "true", "yes")
+
+
 skip_if_no_services = pytest.mark.skipif(
     not _is_e2e_enabled(),
     reason="E2E services not running. Start with: make dev-up",
@@ -33,6 +37,31 @@ def _e2e_session_setup():
     if not _is_e2e_enabled():
         yield
         return
+    if _is_baseline_mode():
+        # P5: `make e2e-reset` already provisioned and verified the users;
+        # fixture-time provisioning (racing IMAP readiness) is skipped. Only
+        # verify the baseline and clear admin leftovers. The seeded users
+        # survive the session — they are the stable baseline.
+        with contextlib.suppress(Exception):
+            admin = admin_session()
+            admin.post(f"{APP_URL}/admin/customers/2/purge", allow_redirects=True)
+        problems = []
+        for email, password in E2E_TEST_USERS.items():
+            try:
+                login_session(email, password)
+            except Exception as exc:
+                problems.append(f"{email}: {exc}")
+        if problems:
+            pytest.exit(
+                "E2E_BASELINE is set but the baseline is invalid "
+                "(run: make e2e-reset). Problems: " + "; ".join(problems)
+            )
+        yield
+        for email in E2E_TEST_USERS:
+            with contextlib.suppress(Exception):
+                cleanup_e2e_contacts(email)
+        return
+
     with contextlib.suppress(Exception):
         cleanup_e2e_users()
     for email in E2E_TEST_USERS:

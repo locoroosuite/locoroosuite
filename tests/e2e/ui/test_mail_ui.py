@@ -206,20 +206,55 @@ class TestComposeRecipients:
 class TestNavPendingFeedback:
     def test_folder_link_tap_acknowledges_before_navigation(self, logged_in_page):
         """HLD UX9/U24.39: clicking a folder link immediately dims the link
-        and shows the top progress bar. The navigation is aborted via route
-        interception so the pending state can be observed in the DOM."""
+        and shows the top progress bar.
+
+        The pending class lives on the pre-navigation document, which the
+        browser replaces as soon as the navigation commits — a plain
+        wait_for_selector can only see it by racing the unload. Instead the
+        click dispatch is observed synchronously and the snapshot is
+        stashed on window.name, a browsing-context property that survives
+        cross-document navigation (including error pages)."""
         page = logged_in_page
         link = page.query_selector("#sidebar a.folder-drop")
         if link is None:
             return
-        page.route("**/mail/folder/**", lambda route: route.abort())
-        try:
-            link.click()
-            page.wait_for_selector("#sidebar a.folder-drop.lr-nav-pending", timeout=3000)
-            assert page.eval_on_selector(
-                "#lr-nav-progress", "el => el.classList.contains('lr-nav-active')"
-            )
-            assert page.evaluate("document.body.getAttribute('aria-busy')") == "true"
-        finally:
-            page.unroute("**/mail/folder/**")
-            page.evaluate("window.LR.clearNavPending()")
+        page.evaluate(
+            """() => {
+              window.name = '';
+              const snapshot = () => {
+                window.name = JSON.stringify({
+                  pending: !!document.querySelector('.lr-nav-pending'),
+                  barActive: !!document.querySelector('#lr-nav-progress.lr-nav-active'),
+                  ariaBusy: document.body.getAttribute('aria-busy'),
+                });
+              };
+              // navPending() sets pending class -> bar class -> aria-busy
+              // in one synchronous tick; each hook re-snapshots, so the
+              // final write captures the completed state.
+              const origAdd = DOMTokenList.prototype.add;
+              DOMTokenList.prototype.add = function (...tokens) {
+                if (tokens.includes('lr-nav-pending') || tokens.includes('lr-nav-active')) {
+                  snapshot();
+                }
+                return origAdd.apply(this, tokens);
+              };
+              const origSetAttr = Element.prototype.setAttribute;
+              Element.prototype.setAttribute = function (name, value) {
+                const out = origSetAttr.call(this, name, value);
+                if (name === 'aria-busy') snapshot();
+                return out;
+              };
+            }"""
+        )
+        link.click()
+        # The real navigation must complete: the feedback is the
+        # acknowledgement *before* it, but a broken navigation would make
+        # the observation meaningless.
+        page.wait_for_url("**/mail/folder/**", timeout=10000)
+        recorded = page.evaluate(
+            "() => { try { return JSON.parse(window.name || 'null'); } catch { return null; } }"
+        )
+        assert recorded is not None, "nav-pending class was never added on click"
+        assert recorded["pending"] is True
+        assert recorded["barActive"] is True
+        assert recorded["ariaBusy"] == "true"

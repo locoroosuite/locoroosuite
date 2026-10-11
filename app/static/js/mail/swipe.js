@@ -1,13 +1,14 @@
 /**
  * Touch swipe gestures for message rows (HLD UX3g).
  *
- * On touch below lg: swiping a row right past the trigger archives it
- * (submitting the archive form so the shared message-action handler runs
- * the removal + undo banner), and swiping left past the trigger snaps the
- * action panel open behind the row's opaque foreground. Gesture
- * disambiguation follows the U12.56d pattern (horizontal movement must
- * dominate vertical), a tap never triggers a swipe, and desktop (fine
- * pointer or lg+ viewport) never gets swipe behavior.
+ * On touch below lg: swiping a row left past the trigger snaps the
+ * action panel open behind the row's opaque foreground. Rightward
+ * drags are inert (UX3g): they never engage the gesture engine, so
+ * the row does not move and the touch passes through as normal
+ * scrolling/navigation. Gesture disambiguation follows the U12.56d
+ * pattern (horizontal movement must dominate vertical), a tap never
+ * triggers a swipe, and desktop (fine pointer or lg+ viewport) never
+ * gets swipe behavior.
  */
 (function () {
   'use strict';
@@ -75,11 +76,12 @@
       var dy = e.touches[0].clientY - swipe.startY;
       if (!swipe.engaged) {
         // Disambiguate against vertical scrolling (UX3g, U12.56d pattern):
-        // horizontal must dominate before the gesture engages.
-        if (Math.abs(dx) > SWIPE_ENGAGE_PX && Math.abs(dx) >= Math.abs(dy) * 1.5) {
+        // horizontal must dominate before the gesture engages. Leftward
+        // only — rightward drags are inert (UX3g, no quick-archive).
+        if (dx < -SWIPE_ENGAGE_PX && Math.abs(dx) >= Math.abs(dy) * 1.5) {
           swipe.engaged = true;
           closeAll(swipe.row);
-          var panel = swipe.row.querySelector('[data-swipe-panel="' + (dx > 0 ? 'left' : 'right') + '"]');
+          var panel = swipe.row.querySelector('[data-swipe-panel="right"]');
           if (panel) {
             panel.classList.remove('hidden');
             swipe.openWidth = panel.offsetWidth || 160;
@@ -94,7 +96,7 @@
       }
       if (e.cancelable) e.preventDefault();
       swipe.dx = dx;
-      var clamped = Math.max(-(swipe.openWidth + 40), Math.min(swipe.row.offsetWidth, dx));
+      var clamped = Math.max(-(swipe.openWidth + 40), Math.min(0, dx));
       swipe.fg.style.transform = 'translateX(' + clamped + 'px)';
     }, { passive: false });
 
@@ -104,19 +106,7 @@
       swipe = null;
       if (!st.engaged) return;
       st.fg.style.transition = REDUCED_MOTION_QUERY.matches ? 'none' : '';
-      if (st.dx >= SWIPE_TRIGGER_PX) {
-        // Full right swipe: archive (UX3g). Fling out, then submit the
-        // archive form so the shared message-action handler runs
-        // (row removal + undo banner).
-        st.fg.style.transform = 'translateX(' + (st.row.offsetWidth + 40) + 'px)';
-        window.setTimeout(function () {
-          var form = st.row.querySelector('[data-swipe-archive-form]');
-          if (form) {
-            form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-          }
-          resetRow(st.row);
-        }, REDUCED_MOTION_QUERY.matches ? 0 : 220);
-      } else if (st.dx <= -SWIPE_TRIGGER_PX) {
+      if (st.dx <= -SWIPE_TRIGGER_PX) {
         st.fg.style.transform = 'translateX(-' + st.openWidth + 'px)';
         st.row.classList.add('is-swipe-open');
       } else {

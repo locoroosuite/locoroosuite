@@ -179,10 +179,22 @@ def test_swipe_constants_and_disambiguation_present():
     assert "data-selection-mode" in source
 
 
-def test_full_swipe_submits_archive_through_shared_handler():
+def test_right_swipe_is_inert_no_archive_path():
+    """UX3g (updated): swipe-right quick-Archive was removed for
+    usability — with the full action panel one swipe away, an automatic
+    action on right-swipe caused accidental archives. The gesture engine
+    must engage only for leftward drags and contain no archive-submit
+    path."""
     source = SWIPE_JS.read_text()
-    assert "[data-swipe-archive-form]" in source
-    assert "new Event('submit', { bubbles: true, cancelable: true })" in source
+    # Engagement is leftward-only; rightward drags never move the row.
+    assert "dx < -SWIPE_ENGAGE_PX" in source
+    assert "(dx > 0 ? 'left' : 'right')" not in source
+    assert '[data-swipe-panel="right"]' in source
+    assert '[data-swipe-panel="left"]' not in source
+    # No programmatic form submit (the archive fling-out) may remain.
+    assert "data-swipe-archive-form" not in source
+    assert "new Event('submit'" not in source
+    assert "st.dx >= SWIPE_TRIGGER_PX" not in source
 
 
 def test_swipe_module_is_loaded_by_all_list_pages():
@@ -346,9 +358,11 @@ def test_message_row_toggle_removed_everywhere():
 
 def test_row_common_has_swipe_panels_and_selection_controls():
     content = (MAIL_TEMPLATES / "_row_common.html").read_text()
-    assert 'data-swipe-panel="left"' in content
+    # Left swipe reveals the quick-action panel; right swipe is inert
+    # (UX3g), so no left panel and no swipe archive form may exist.
+    assert 'data-swipe-panel="left"' not in content
+    assert "data-swipe-archive-form" not in content
     assert 'data-swipe-panel="right"' in content
-    assert "data-swipe-archive-form" in content
     assert "data-select-circle" in content
     assert 'aria-pressed="false"' in content
 
@@ -359,10 +373,10 @@ def test_row_common_has_swipe_panels_and_selection_controls():
 def test_swipe_panels_span_full_row_width():
     """Revealed panels used to be only content-width, so dragging past
     the panel's natural width exposed blank page background behind the
-    row ("the green background stops"). Both panels must carry w-full so
-    the colored fill always covers the entire revealed strip."""
+    row ("the green background stops"). The action panel must carry
+    w-full so the colored fill always covers the entire revealed strip."""
     content = (MAIL_TEMPLATES / "_row_common.html").read_text()
-    for panel in ('data-swipe-panel="left"', 'data-swipe-panel="right"'):
+    for panel in ('data-swipe-panel="right"',):
         idx = content.find(panel)
         assert idx != -1, f"{panel} missing from _row_common.html"
         div_start = content.rfind("<div", 0, idx)

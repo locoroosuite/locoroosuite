@@ -19,6 +19,8 @@ from tests.e2e.ui.touch_actions import (
     long_press_element,
     swipe_element,
     tap_element,
+)
+from tests.e2e.ui.touch_actions import (
     wait_list_settled as _wait_list_settled,
 )
 
@@ -104,8 +106,9 @@ class TestTouchMailList:
         )
         page.wait_for_selector(row_sel, state="detached", timeout=10000)
 
-    def test_swipe_right_archives_row_with_undo(self, seeded_inbox_message, mobile_logged_in_page):
-        """UX3g: a full right swipe archives immediately (U5.11 undo)."""
+    def test_swipe_right_is_inert(self, seeded_inbox_message, mobile_logged_in_page):
+        """UX3g (updated): swipe-right quick-Archive was removed — a full
+        right swipe must not archive (row stays, no undo banner)."""
         page = mobile_logged_in_page
         page.wait_for_selector(".message-row", timeout=15000)
         _wait_list_settled(page)
@@ -115,9 +118,16 @@ class TestTouchMailList:
         assert msg_id
         row_sel = f".message-row[data-message-id='{msg_id}']"
         swipe_element(page, row_sel, 180)
-        page.wait_for_selector(row_sel, state="detached", timeout=10000)
-        undo = page.query_selector("#undo-banner:not(.hidden)")
-        assert undo is not None, "archive swipe did not surface the undo banner"
+        page.wait_for_timeout(500)  # former fling-out took ~220ms
+        assert page.query_selector(row_sel) is not None, (
+            "right swipe archived the row (must be inert)"
+        )
+        assert page.query_selector(f"{row_sel}.is-swipe-open") is None, (
+            "right swipe opened the action panel (must be inert)"
+        )
+        assert page.query_selector("#undo-banner:not(.hidden)") is None, (
+            "right swipe surfaced the undo banner (must be inert)"
+        )
 
     def test_swipe_below_threshold_snaps_back(self, seeded_inbox_message, mobile_logged_in_page):
         """UX3g: a short drag disambiguated as a swipe must snap the row
@@ -469,7 +479,9 @@ class TestTouchSearch:
         )
         left = page.query_selector("#search-results [data-swipe-panel='left']")
         right = page.query_selector("#search-results [data-swipe-panel='right']")
-        assert left is not None, "search rows missing the swipe archive panel (UX3g)"
+        assert left is None, (
+            "search rows must not have a swipe archive panel (right swipe inert, UX3g)"
+        )
         assert right is not None, "search rows missing the swipe actions panel (UX3g)"
         overlay = page.query_selector("#search-results [data-message-actions]")
         assert overlay is not None

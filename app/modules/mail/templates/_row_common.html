@@ -22,17 +22,10 @@
 {% endmacro %}
 
 {% macro swipe_panels(account_id, message_id, is_unread) %}
-{# UX3g: swipe-back panels, only for normal (actionable) rows. They sit
-   behind the opaque row foreground inside the row's clip wrapper and are
+{# UX3g: swipe-back action panel, only for normal (actionable) rows and
+   only for left swipes (rightward drags are inert). It sits behind the
+   opaque row foreground inside the row's clip wrapper and is
    display:none until the swipe engages (JS). #}
-<div class="absolute inset-y-0 left-0 z-0 hidden flex items-center w-full bg-emerald-600 text-white pl-5" data-swipe-panel="left" data-no-row-nav>
-  <form method="post" action="{{ url_for('mail.archive_message', account_id=account_id, message_id=message_id) }}" class="message-action" data-action="archive" data-no-row-nav data-swipe-archive-form>
-    <button type="submit" class="flex items-center gap-2 py-2 text-[13px] font-medium text-white" aria-label="{{ _('Archive') }}">
-      <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3.105 2.289a.75.75 0 00-.826.95l1.414 4.925A1.5 1.5 0 005.135 9.25h6.115a.75.75 0 010 1.5H5.135a1.5 1.5 0 00-1.442 1.086l-1.414 4.926a.75.75 0 00.826.95 28.896 28.896 0 0015.293-7.154.75.75 0 000-1.115A28.897 28.897 0 003.105 2.289z"/></svg>
-      <span>{{ _('Archive') }}</span>
-    </button>
-  </form>
-</div>
 <div class="absolute inset-y-0 right-0 z-0 hidden flex items-center justify-end gap-1 w-full pr-2 bg-slate-100" data-swipe-panel="right" data-no-row-nav>
   <form method="post" action="{{ url_for('mail.archive_message', account_id=account_id, message_id=message_id) }}" class="message-action" data-action="archive" data-no-row-nav>
     <button type="submit" class="flex w-16 flex-col items-center justify-center gap-1 rounded-lg py-2 text-emerald-600 active:bg-emerald-100/70" aria-label="{{ _('Archive') }}">

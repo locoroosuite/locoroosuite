@@ -108,7 +108,8 @@ def test_search_rows_have_swipe_panels_and_inert_overlay(authed_client):
     assert resp.status_code == 200
     html = resp.data.decode()
     assert "data-message-actions-toggle" not in html, "the '...' toggle was removed (UX3g)"
-    assert 'data-swipe-panel="left"' in html, "swipe archive panel missing from search rows"
+    assert 'data-swipe-panel="left"' not in html, "swipe archive panel must not exist (right swipe is inert, UX3g)"
+    assert "data-swipe-archive-form" not in html, "swipe archive form must not exist (right swipe is inert, UX3g)"
     assert 'data-swipe-panel="right"' in html, "swipe actions panel missing from search rows"
     assert "data-row-foreground" in html, "swipe foreground wrapper missing"
     assert "data-select-circle" in html, "long-press selection circle missing (UX3h)"

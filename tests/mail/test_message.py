@@ -36,7 +36,8 @@ def _make_message_with_attachment(
     msg["To"] = "recip@test.com"
     text_part = MIMEText("Hello world", "plain")
     msg.attach(text_part)
-    att_part = MIMEBase("application", "octet-stream")
+    major, _, minor = content_type.partition("/")
+    att_part = MIMEBase(major or "application", minor or "octet-stream")
     att_part.set_payload(content)
     encoders.encode_base64(att_part)
     att_part.add_header("Content-Disposition", "attachment", filename=filename)
@@ -1154,7 +1155,8 @@ class TestAttachmentDownload:
             mock_cache.return_value = MagicMock()
             mock_get.return_value = None
             resp = client.get(url)
-        assert resp.status_code == 302
+        assert resp.status_code == 410
+        assert b"Attachment unavailable" in resp.data
 
     def test_download_attachment_index_out_of_range(self, app, authed_client):
         client, _user_id, account_id = authed_client
@@ -1175,7 +1177,8 @@ class TestAttachmentDownload:
             mock_imap.return_value = (mock_client, MagicMock())
             mock_fetch.return_value = raw_msg
             resp = client.get(url)
-        assert resp.status_code == 302
+        assert resp.status_code == 410
+        assert b"Attachment unavailable" in resp.data
 
     def test_download_attachment_filename_with_newline(self, app, authed_client):
         client, _user_id, account_id = authed_client
@@ -1229,17 +1232,19 @@ class TestAttachmentDownload:
         html = resp.data.decode()
         assert "notes.txt" in html
 
-    def test_view_attachment_non_viewable_redirects_to_download(self, app, authed_client):
+    def test_view_attachment_non_viewable_shows_download_notice(self, app, authed_client):
         client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/attachment/0/view"
         with patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch:
             mock_fetch.return_value = ("archive.zip", b"zip-data", "application/zip")
             resp = client.get(url)
-        assert resp.status_code == 302
-        assert "/attachment/0" in resp.headers["Location"]
-        assert "/view" not in resp.headers["Location"]
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert f"/app/mail/message/{account_id}/1/attachment/0" in html
+        assert "/view" not in html.split("attachment/0")[1][:10]
+        assert "Go back" in html
 
-    def test_view_attachment_pandoc_failure_redirects_to_download(self, app, authed_client):
+    def test_view_attachment_pandoc_failure_shows_download_notice(self, app, authed_client):
         client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1/attachment/0/view"
         with (
@@ -1249,7 +1254,10 @@ class TestAttachmentDownload:
             mock_fetch.return_value = ("report.docx", b"docx-content", "application/octet-stream")
             mock_convert.return_value = None
             resp = client.get(url)
-        assert resp.status_code == 302
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert f"/app/mail/message/{account_id}/1/attachment/0" in html
+        assert "Go back" in html
 
     def test_view_attachment_message_not_found(self, app, authed_client):
         client, _user_id, account_id = authed_client
@@ -1257,7 +1265,8 @@ class TestAttachmentDownload:
         with patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch:
             mock_fetch.return_value = (None, None, None)
             resp = client.get(url)
-        assert resp.status_code == 302
+        assert resp.status_code == 410
+        assert b"Attachment unavailable" in resp.data
 
     def test_view_attachment_requires_auth(self, client):
         resp = client.get("/app/mail/message/1/1/attachment/0/view")
@@ -1298,6 +1307,262 @@ class TestAttachmentDownload:
         assert resp.status_code == 200
         assert "image/jpeg" in resp.content_type
         assert "inline" in resp.headers.get("Content-Disposition", "")
+
+
+class TestAttachmentContentTypeNormalization:
+    """U8.8a: iOS refuses octet-stream content — extension wins."""
+
+    def test_download_pdf_declared_octet_stream_served_as_pdf(self, app, authed_client):
+        client, _user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1/attachment/0"
+        raw_msg = _make_message_with_attachment("document.pdf", b"%PDF-1.4 fake")
+        mock_client = MagicMock()
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message") as mock_get,
+            patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+            patch("app.modules.mail.controllers.message.select_folder"),
+            patch("app.modules.mail.controllers.message.fetch_message") as mock_fetch,
+        ):
+            mock_cache.return_value = MagicMock()
+            mock_get.return_value = MOCK_MSG
+            mock_decrypt.return_value = "secret"
+            mock_imap.return_value = (mock_client, MagicMock())
+            mock_fetch.return_value = raw_msg
+            resp = client.get(url)
+        assert resp.status_code == 200
+        assert resp.content_type == "application/pdf"
+
+    def test_view_pdf_declared_octet_stream_served_as_pdf(self, app, authed_client):
+        client, _user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1/attachment/0/view"
+        with patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch:
+            mock_fetch.return_value = ("document.pdf", b"%PDF-1.4 fake", "application/octet-stream")
+            resp = client.get(url)
+        assert resp.status_code == 200
+        assert resp.content_type == "application/pdf"
+        assert "inline" in resp.headers.get("Content-Disposition", "")
+
+    def test_download_image_declared_octet_stream_served_as_jpeg(self, app, authed_client):
+        client, _user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1/attachment/0"
+        raw_msg = _make_message_with_attachment("photo.jpeg", b"\xff\xd8\xff\xe0")
+        mock_client = MagicMock()
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message") as mock_get,
+            patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+            patch("app.modules.mail.controllers.message.select_folder"),
+            patch("app.modules.mail.controllers.message.fetch_message") as mock_fetch,
+        ):
+            mock_cache.return_value = MagicMock()
+            mock_get.return_value = MOCK_MSG
+            mock_decrypt.return_value = "secret"
+            mock_imap.return_value = (mock_client, MagicMock())
+            mock_fetch.return_value = raw_msg
+            resp = client.get(url)
+        assert resp.status_code == 200
+        assert "image/jpeg" in resp.content_type
+
+    def test_unknown_extension_keeps_declared_type(self, app, authed_client):
+        client, _user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1/attachment/0"
+        raw_msg = _make_message_with_attachment("data.zqx9v2", b"binary", "application/x-custom")
+        mock_client = MagicMock()
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message") as mock_get,
+            patch("app.modules.mail.controllers.message.decrypt_with_key") as mock_decrypt,
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+            patch("app.modules.mail.controllers.message.select_folder"),
+            patch("app.modules.mail.controllers.message.fetch_message") as mock_fetch,
+        ):
+            mock_cache.return_value = MagicMock()
+            mock_get.return_value = MOCK_MSG
+            mock_decrypt.return_value = "secret"
+            mock_imap.return_value = (mock_client, MagicMock())
+            mock_fetch.return_value = raw_msg
+            resp = client.get(url)
+        assert resp.status_code == 200
+        assert "application/x-custom" in resp.content_type
+
+
+class TestAttachmentViewFragment:
+    """U8.8c: the overlay fetches converted HTML as a JSON fragment."""
+
+    def test_fragment_returns_json_payload(self, app, authed_client):
+        client, _user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1/attachment/0/view?fragment=1"
+        with (
+            patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch,
+            patch("app.shared.pandoc_formats.convert_to_html") as mock_convert,
+        ):
+            mock_fetch.return_value = ("report.docx", b"docx-content", "application/octet-stream")
+            mock_convert.return_value = "<html><body>Report content</body></html>"
+            resp = client.get(url)
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data["ok"] is True
+        assert data["filename"] == "report.docx"
+        assert data["html"] == "<html><body>Report content</body></html>"
+
+    def test_fragment_pandoc_failure_returns_notice_not_json(self, app, authed_client):
+        client, _user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1/attachment/0/view?fragment=1"
+        with (
+            patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch,
+            patch("app.shared.pandoc_formats.convert_to_html") as mock_convert,
+        ):
+            mock_fetch.return_value = ("report.docx", b"docx-content", "application/octet-stream")
+            mock_convert.return_value = None
+            resp = client.get(url)
+        assert resp.status_code == 200
+        assert resp.content_type.startswith("text/html")
+        assert "Go back" in resp.data.decode()
+
+    def test_native_view_ignores_fragment_param(self, app, authed_client):
+        client, _user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1/attachment/0/view?fragment=1"
+        with patch("app.modules.mail.controllers.message._fetch_attachment_bytes") as mock_fetch:
+            mock_fetch.return_value = ("document.pdf", b"%PDF-1.4 fake", "application/pdf")
+            resp = client.get(url)
+        assert resp.status_code == 200
+        assert resp.content_type == "application/pdf"
+
+
+class TestAttachmentChipsRendering:
+    """U8.8c: tappable preview chips for current and thread messages."""
+
+    def _view_url(self, account_id):
+        return f"/app/mail/message/{account_id}/1"
+
+    @staticmethod
+    def _thread_message(**overrides):
+        base = {
+            "id": 1,
+            "uid": "100",
+            "folder": "INBOX",
+            "subject": "Test Subject",
+            "sender": "sender@test.com",
+            "sender_display": "sender",
+            "sender_tooltip": "sender@test.com",
+            "recipients": "recip@test.com",
+            "recipients_display": "recip",
+            "date": "date",
+            "date_display": "Jan 1",
+            "date_ts": 0,
+            "flags": ["\\Seen"],
+            "is_unread": False,
+            "is_flagged": False,
+            "is_sent": False,
+            "is_current": True,
+            "snippet": "body",
+            "body_html": "<html></html>",
+            "has_attachments": False,
+            "cc": "",
+        }
+        base.update(overrides)
+        return base
+
+    def test_message_view_renders_preview_chips_for_current_message(self, app, authed_client):
+        client, _user_id, account_id = authed_client
+        with (
+            patch("app.modules.mail.controllers.message._load_message_detail") as mock_load,
+            patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings,
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders,
+            patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam,
+            patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread,
+        ):
+            mock_load.return_value = (
+                MOCK_MSG,
+                "<p>body</p>",
+                [{"index": 0, "filename": "document.pdf"}],
+                ["\\Seen"],
+                ("", ""),
+                [],
+                "",
+            )
+            mock_settings.return_value = MagicMock()
+            mock_cache.return_value = MagicMock()
+            mock_folders.return_value = []
+            mock_spam.return_value = False
+            mock_thread.return_value = [self._thread_message()]
+            resp = client.get(self._view_url(account_id))
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert "data-attachment-preview" in html
+        assert 'data-kind="pdf"' in html
+        assert f'data-preview-url="/app/mail/message/{account_id}/1/attachment/0/view"' in html
+        assert f'data-download-url="/app/mail/message/{account_id}/1/attachment/0"' in html
+        assert "attachments.js" in html
+
+    def test_message_view_renders_chips_for_thread_attachments(self, app, authed_client):
+        client, _user_id, account_id = authed_client
+        with (
+            patch("app.modules.mail.controllers.message._load_message_detail") as mock_load,
+            patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings,
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders,
+            patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam,
+            patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread,
+        ):
+            mock_load.return_value = (MOCK_MSG, "<p>body</p>", [], ["\\Seen"], ("", ""), [], "")
+            mock_settings.return_value = MagicMock()
+            mock_cache.return_value = MagicMock()
+            mock_folders.return_value = []
+            mock_spam.return_value = False
+            mock_thread.return_value = [
+                self._thread_message(),
+                self._thread_message(
+                    id=42,
+                    uid="99",
+                    subject="Older message",
+                    is_current=False,
+                    has_attachments=True,
+                    attachment_names=["notes.txt"],
+                ),
+            ]
+            resp = client.get(self._view_url(account_id))
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert "data-attachment-preview" in html
+        assert 'data-kind="doc"' in html
+        assert f'data-preview-url="/app/mail/message/{account_id}/42/attachment/0/view"' in html
+        # Thread attachment cards must not link to the full message view (U8.8c);
+        # the attachment name lives inside the preview chip button, not an <a>.
+        assert ">notes.txt</a>" not in html
+
+    def test_message_preview_renders_chips_without_inline_script(self, app, authed_client):
+        client, _user_id, account_id = authed_client
+        url = f"/app/mail/message/{account_id}/1/preview"
+        with (
+            patch("app.modules.mail.controllers.message._load_message_detail") as mock_load,
+            patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings,
+            patch("app.modules.mail.controllers.message._snippet_debug_enabled") as mock_debug,
+        ):
+            mock_load.return_value = (
+                MOCK_MSG,
+                "<p>body</p>",
+                [{"index": 0, "filename": "photo.png"}],
+                ["\\Seen"],
+                ("", ""),
+                [],
+                "",
+            )
+            mock_settings.return_value = MagicMock()
+            mock_debug.return_value = False
+            resp = client.get(url)
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert "data-attachment-preview" in html
+        assert 'data-kind="image"' in html
+        assert "data-open-in-docs" in html
+        assert "data-download-url" in html
+        # The preview pane is injected via innerHTML: inline wiring never runs.
+        assert "querySelectorAll" not in html
 
 
 class TestDownloadAttachmentInline:

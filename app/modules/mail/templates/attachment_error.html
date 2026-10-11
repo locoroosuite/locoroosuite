@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} - {{ _('Attachment View') }}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; color: #1e293b; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 20px; }
+    .card { max-width: 420px; width: 100%; background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 28px 24px; text-align: center; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06); }
+    .card svg { width: 36px; height: 36px; color: #94a3b8; margin: 0 auto 12px; }
+    .card h1 { font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 8px; }
+    .card p { font-size: 13px; line-height: 1.5; color: #64748b; margin-bottom: 20px; }
+    .card .filename { display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .actions { display: flex; flex-direction: column; gap: 8px; }
+    .actions a, .actions button { font-size: 13px; padding: 8px 16px; border-radius: 10px; border: 1px solid #e2e8f0; background: white; color: #475569; text-decoration: none; cursor: pointer; transition: all 0.15s; }
+    .actions a:hover, .actions button:hover { background: #f1f5f9; border-color: #cbd5e1; color: #0f172a; }
+    .actions a.primary { background: #2563eb; border-color: #2563eb; color: white; }
+    .actions a.primary:hover { background: #1d4ed8; border-color: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <h1>{{ title }}</h1>
+    <p>{{ message }}</p>
+    {% if filename %}<span class="filename" title="{{ filename }}">{{ filename }}</span>{% endif %}
+    <div class="actions">
+      {% if download_url %}<a class="primary" href="{{ download_url }}">{{ _('Download file') }}</a>{% endif %}
+      <button type="button" onclick="history.back()">{{ _('Go back') }}</button>
+    </div>
+  </div>
+</body>
+</html>

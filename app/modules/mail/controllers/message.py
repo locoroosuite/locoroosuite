@@ -5,6 +5,12 @@ import time
 from flask import Response, jsonify, redirect, render_template, request, session, url_for
 from flask_babel import _
 
+from app.modules.mail.controllers.attachment_serving import (
+    attachment_actions_map,
+    attachment_notice,
+    attachment_unavailable,
+    normalized_content_type,
+)
 from app.modules.mail.controllers.helpers import (
     _current_undo_action,
     _fetch_attachment_bytes,
@@ -95,9 +101,10 @@ def message_view(account_id, message_id):
             tm["body_html"] = sanitized
     if ics_attachments:
         _format_ics_dates(ics_attachments, settings.timezone)
-    from app.shared.pandoc_formats import get_attachment_actions
-
-    attachment_actions = {a["filename"]: get_attachment_actions(a["filename"]) for a in attachments}
+    thread_attachment_names = [
+        name for tm in thread_messages for name in (tm.get("attachment_names") or [])
+    ]
+    attachment_actions = attachment_actions_map(attachments, thread_attachment_names)
     from app.modules.mail.services.protection import (
         locked_keyword_enabled,
         protection_reason,
@@ -142,9 +149,7 @@ def message_preview(account_id, message_id):
     settings = _get_or_create_settings(session.get("user_id"))
     if ics_attachments:
         _format_ics_dates(ics_attachments, settings.timezone)
-    from app.shared.pandoc_formats import get_attachment_actions
-
-    attachment_actions = {a["filename"]: get_attachment_actions(a["filename"]) for a in attachments}
+    attachment_actions = attachment_actions_map(attachments)
     snippet_debug = None
     snippet_debug_info = None
     snippet_debug_enabled = _snippet_debug_enabled()
@@ -640,7 +645,12 @@ def download_attachment(account_id, message_id, index):
     key = get_user_key(session.get("user_id"))
     message = get_message(open_cache(account.cache_db_path, key), message_id)
     if not message:
-        return redirect(url_for("mail.mailbox"))
+        logger.warning(
+            "attachment download missed cache message_id=%s account_id=%s",
+            message_id,
+            account_id,
+        )
+        return attachment_unavailable()
     uid = message["uid"]
     folder = message["folder"]
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
@@ -649,20 +659,40 @@ def download_attachment(account_id, message_id, index):
     raw_msg = fetch_message(client, uid)
     client.logout()
     if not raw_msg:
-        return redirect(url_for("mail.message_view", account_id=account_id, message_id=message_id))
+        logger.warning(
+            "attachment download IMAP fetch failed message_id=%s account_id=%s uid=%s",
+            message_id,
+            account_id,
+            uid,
+        )
+        return attachment_unavailable()
     attachments = []
     for part in raw_msg.walk():
         if _is_attachment_part(part):
             attachments.append(part)
     if index >= len(attachments):
-        return redirect(url_for("mail.message_view", account_id=account_id, message_id=message_id))
+        logger.warning(
+            "attachment download index out of range message_id=%s account_id=%s index=%s",
+            message_id,
+            account_id,
+            index,
+        )
+        return attachment_unavailable()
     part = attachments[index]
     filename = normalize_header_text(part.get_filename()) or f"attachment-{index}"
     data = part.get_payload(decode=True)
+    if not data:
+        logger.warning(
+            "attachment download empty payload message_id=%s account_id=%s index=%s",
+            message_id,
+            account_id,
+            index,
+        )
+        return attachment_unavailable()
     disposition = "inline" if request.args.get("inline") == "1" else "attachment"
     return Response(
         data,
-        mimetype=part.get_content_type() or "application/octet-stream",
+        mimetype=normalized_content_type(filename, part.get_content_type()),
         headers={"Content-Disposition": f'{disposition}; filename="{filename}"'},
     )
 
@@ -677,43 +707,35 @@ def view_attachment(account_id, message_id, index):
     ).first_or_404()
     filename, data, content_type = _fetch_attachment_bytes(account, message_id, index)
     if not filename or not data:
-        return redirect(url_for("mail.message_view", account_id=account_id, message_id=message_id))
-    actions = get_attachment_actions(filename)
-    if not actions["view"]:
-        return redirect(
-            url_for(
-                "mail.download_attachment",
-                account_id=account_id,
-                message_id=message_id,
-                index=index,
-            )
+        logger.warning(
+            "attachment view fetch failed message_id=%s account_id=%s index=%s",
+            message_id,
+            account_id,
+            index,
         )
+        return attachment_unavailable()
+    actions = get_attachment_actions(filename)
+    download_url = url_for(
+        "mail.download_attachment",
+        account_id=account_id,
+        message_id=message_id,
+        index=index,
+    )
+    if not actions["view"]:
+        return attachment_notice(_("This file type can't be previewed."), filename, download_url)
     if actions.get("native_view"):
         return Response(
             data,
-            mimetype=content_type or "application/octet-stream",
+            mimetype=normalized_content_type(filename, content_type),
             headers={"Content-Disposition": f'inline; filename="{filename}"'},
         )
-    pandoc_reader = actions.get("pandoc_reader")
-    if not pandoc_reader:
-        return redirect(
-            url_for(
-                "mail.download_attachment",
-                account_id=account_id,
-                message_id=message_id,
-                index=index,
-            )
-        )
-    html_content = convert_to_html(data, pandoc_reader)
+    if not actions.get("pandoc_reader"):
+        return attachment_notice(_("This file type can't be previewed."), filename, download_url)
+    html_content = convert_to_html(data, actions["pandoc_reader"])
     if not html_content:
-        return redirect(
-            url_for(
-                "mail.download_attachment",
-                account_id=account_id,
-                message_id=message_id,
-                index=index,
-            )
-        )
+        return attachment_notice(_("The preview could not be generated."), filename, download_url)
+    if request.args.get("fragment") == "1":
+        return jsonify({"ok": True, "filename": filename, "html": html_content})
     return render_template(
         "attachment_view.html",
         filename=filename,

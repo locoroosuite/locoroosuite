@@ -4957,3 +4957,27 @@ msgstr "hace {n} min"
 #~ msgid "Deleting..."
 #~ msgstr "Eliminando..."
 
+
+msgid "Attachment unavailable"
+msgstr "Adjunto no disponible"
+
+msgid "This attachment could not be loaded. It may have been moved or deleted, or the mail server could not be reached."
+msgstr "No se ha podido cargar este adjunto. Es posible que se haya movido o eliminado, o que no se pueda acceder al servidor de correo."
+
+msgid "No preview available"
+msgstr "Vista previa no disponible"
+
+msgid "This file type can't be previewed."
+msgstr "Este tipo de archivo no se puede previsualizar."
+
+msgid "The preview could not be generated."
+msgstr "No se ha podido generar la vista previa."
+
+msgid "Go back"
+msgstr "Volver"
+
+msgid "Preview attachment"
+msgstr "Previsualizar adjunto"
+
+msgid "Could not load the attachment preview."
+msgstr "No se ha podido cargar la vista previa del adjunto."

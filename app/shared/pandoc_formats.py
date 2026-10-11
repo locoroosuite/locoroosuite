@@ -43,6 +43,8 @@ PANDOC_EXTENSIONS: dict[str, dict[str, Any]] = {
 
 PANDOC_UPLOAD_EXTENSIONS: set[str] = set(PANDOC_EXTENSIONS.keys())
 
+IMAGE_EXTENSIONS: set[str] = {"jpg", "jpeg", "png", "gif", "svg", "webp", "bmp"}
+
 
 def get_attachment_actions(filename: str) -> dict[str, Any]:
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
@@ -57,6 +59,24 @@ def get_attachment_actions(filename: str) -> dict[str, Any]:
         "pandoc_reader": info["pandoc_reader"],
         "native_view": info.get("native_view", False),
     }
+
+
+def preview_kind(filename: str) -> str:
+    """How the mail UI should preview an attachment (U8.8c).
+
+    ``image`` renders in the in-page overlay; ``pdf`` opens a top-level tab
+    (iOS cannot render PDFs inside iframes); ``doc`` renders pandoc-converted
+    HTML in the overlay; ``other`` is download-only.
+    """
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    info = PANDOC_EXTENSIONS.get(ext)
+    if not info:
+        return "other"
+    if info.get("native_view"):
+        return "image" if ext in IMAGE_EXTENSIONS else "pdf"
+    if info["view"]:
+        return "doc"
+    return "other"
 
 
 def target_odf_type(ext: str) -> str | None:

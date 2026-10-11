@@ -284,6 +284,7 @@
 <script src="{{ url_for('static', filename='js/mail/message-list.js') }}?v={{ static_v('js/mail/message-list.js') }}"></script>
 <script src="{{ url_for('static', filename='js/mail/swipe.js') }}?v={{ static_v('js/mail/swipe.js') }}"></script>
 <script src="{{ url_for('static', filename='js/mail/bulk-select.js') }}?v={{ static_v('js/mail/bulk-select.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mail/attachments.js') }}?v={{ static_v('js/mail/attachments.js') }}"></script>
 <script>
   const UNREAD_EXCLUDED_FOLDERS = new Set({{ unread_excluded_folders | tojson }});
   const grid = document.getElementById('mailbox-grid');

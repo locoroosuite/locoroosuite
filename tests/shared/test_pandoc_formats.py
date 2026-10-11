@@ -6,8 +6,44 @@ from app.shared.pandoc_formats import (
     convert_to_html,
     convert_to_odf,
     get_attachment_actions,
+    preview_kind,
     target_odf_type,
 )
+
+
+class TestPreviewKind:
+    """U8.8c: how the mail UI previews each attachment format."""
+
+    def test_pdf_opens_top_level_tab(self):
+        assert preview_kind("document.pdf") == "pdf"
+
+    def test_images_render_in_overlay(self):
+        for filename in (
+            "photo.jpg",
+            "photo.jpeg",
+            "pic.png",
+            "anim.gif",
+            "logo.svg",
+            "hero.webp",
+            "shot.bmp",
+        ):
+            assert preview_kind(filename) == "image", filename
+
+    def test_pandoc_documents_render_in_overlay(self):
+        for filename in ("report.docx", "notes.txt", "page.html", "data.csv", "memo.md"):
+            assert preview_kind(filename) == "doc", filename
+
+    def test_non_viewable_formats_are_download_only(self):
+        for filename in ("sheet.xlsx", "deck.pptx", "table.ods", "slides.odp"):
+            assert preview_kind(filename) == "other", filename
+
+    def test_unknown_extension_is_download_only(self):
+        assert preview_kind("archive.zip") == "other"
+        assert preview_kind("noext") == "other"
+
+    def test_case_insensitive(self):
+        assert preview_kind("Document.PDF") == "pdf"
+        assert preview_kind("Photo.JPG") == "image"
 
 
 class TestGetAttachmentActions:

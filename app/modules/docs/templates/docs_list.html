@@ -183,9 +183,6 @@
       {% if section == 'shared' %}
         <div class="flex items-center justify-between mb-4 md:mb-6 gap-2">
           <div class="flex items-center gap-2 min-w-0">
-            <button type="button" class="docs-sidebar-toggle lg:hidden -ml-1.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100" aria-label="{{ _('Open menu') }}" aria-controls="docs-sidebar" aria-expanded="false">
-              <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10zm0 5.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z" clip-rule="evenodd"/></svg>
-            </button>
             <h1 class="text-xl font-semibold text-slate-900">{{ _('Shared with me') }}</h1>
           </div>
         </div>
@@ -264,9 +261,6 @@
       {% endif %}
       <div class="flex items-center justify-between mb-4 md:mb-6 gap-2 flex-wrap">
         <div class="flex items-center gap-2 min-w-0">
-          <button type="button" class="docs-sidebar-toggle lg:hidden -ml-1.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100" aria-label="{{ _('Open menu') }}" aria-controls="docs-sidebar" aria-expanded="false">
-            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10zm0 5.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z" clip-rule="evenodd"/></svg>
-          </button>
           <h1 class="text-xl font-semibold text-slate-900">
             {% if current_folder %}{{ breadcrumbs[-1].name if breadcrumbs else _('Folder') }}{% else %}{{ _('My Documents') }}{% endif %}
           </h1>

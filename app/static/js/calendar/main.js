@@ -50,7 +50,6 @@
   function initDrawer() {
     var sidebar = document.getElementById('cal-sidebar');
     var backdrop = document.getElementById('cal-sidebar-backdrop');
-    var toggle = document.getElementById('cal-sidebar-toggle');
     var closeBtn = document.getElementById('cal-sidebar-close');
     var DRAWER_QUERY = window.matchMedia('(max-width: 1023.98px)');
     var isOpen = function () {
@@ -63,18 +62,16 @@
       sidebar.classList.toggle('-translate-x-full', !open);
       backdrop.classList.toggle('hidden', !open);
       document.body.style.overflow = open ? 'hidden' : '';
-      if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
       if (wasOpen === open) return;
       if (!DRAWER_QUERY.matches) return; // inline desktop sidebar: no history entries
       if (open) {
         /* U12.56i: opening pushes a history entry so Back closes the drawer. */
         history.pushState({ lrDrawer: true }, '', window.location.href);
       } else if (!opts.fromHistory && !opts.keepEntry) {
-        /* Closed directly (backdrop/Escape/close button): consume the entry. */
+        /* Closed directly (backdrop/Escape/close button/logo): consume the entry. */
         if (history.state && history.state.lrDrawer) history.back();
       }
     }
-    if (toggle) toggle.addEventListener('click', function () { setOpen(!isOpen()); });
     if (closeBtn) closeBtn.addEventListener('click', function () { setOpen(false); });
     if (backdrop) backdrop.addEventListener('click', function () { setOpen(false); });
     document.addEventListener('keydown', function (e) {

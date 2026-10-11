@@ -12,8 +12,8 @@ from tests.e2e.ui.touch_actions import edge_swipe
 class TestMobileMailUi:
     def test_folder_drawer_opens_and_navigates(self, mobile_logged_in_page):
         page = mobile_logged_in_page
-        page.wait_for_selector("#mobile-sidebar-toggle", timeout=10000)
-        page.click("#mobile-sidebar-toggle")
+        page.wait_for_selector("#message-list", timeout=15000)
+        page.click("#brand-logo")
         sidebar = page.wait_for_selector("#sidebar:not(.-translate-x-full)", timeout=5000)
         assert sidebar is not None
         assert page.query_selector("#sidebar-backdrop:not(.hidden)") is not None
@@ -27,11 +27,28 @@ class TestMobileMailUi:
 
     def test_drawer_closes_on_backdrop(self, mobile_logged_in_page):
         page = mobile_logged_in_page
-        page.wait_for_selector("#mobile-sidebar-toggle", timeout=10000)
-        page.click("#mobile-sidebar-toggle")
+        page.wait_for_selector("#message-list", timeout=15000)
+        page.click("#brand-logo")
         page.wait_for_selector("#sidebar:not(.-translate-x-full)", timeout=5000)
         page.click("#sidebar-backdrop")
         page.wait_for_selector("#sidebar.-translate-x-full", timeout=5000)
+
+    def test_logo_tap_opens_drawer_with_toggle_aria(self, mobile_logged_in_page):
+        """U24.2b: the header logo is the single mobile drawer control.
+        The open drawer overlays the header, so closing stays with the
+        drawer's own affordances (X button, backdrop, Escape, swipe) —
+        every close path must reset the logo's aria state."""
+        page = mobile_logged_in_page
+        page.wait_for_selector("#message-list", timeout=15000)
+        logo = page.wait_for_selector("#brand-logo", timeout=10000)
+        assert logo is not None
+        logo.click()
+        page.wait_for_selector("#sidebar:not(.-translate-x-full)", timeout=5000)
+        assert logo.get_attribute("aria-expanded") == "true"
+        assert logo.get_attribute("aria-controls") == "sidebar"
+        page.click("#sidebar-close")
+        page.wait_for_selector("#sidebar.-translate-x-full", timeout=5000)
+        assert logo.get_attribute("aria-expanded") == "false"
 
     def test_compose_fab_visible_on_mobile(self, mobile_logged_in_page):
         page = mobile_logged_in_page
@@ -41,7 +58,7 @@ class TestMobileMailUi:
 
     def test_preview_toggle_hidden_on_mobile(self, mobile_logged_in_page):
         page = mobile_logged_in_page
-        page.wait_for_selector("#mobile-sidebar-toggle", timeout=10000)
+        page.wait_for_selector("#thread-count", timeout=10000)
         toggle = page.query_selector("#preview-toggle")
         assert toggle is not None
         assert not toggle.is_visible()
@@ -152,8 +169,8 @@ class TestDrawerEdgeSwipe:
 
     def test_drag_left_on_open_drawer_closes_it(self, mobile_logged_in_page):
         page = mobile_logged_in_page
-        page.wait_for_selector("#mobile-sidebar-toggle", timeout=10000)
-        page.click("#mobile-sidebar-toggle")
+        page.wait_for_selector("#message-list", timeout=15000)
+        page.click("#brand-logo")
         page.wait_for_selector("#sidebar:not(.-translate-x-full)", timeout=5000)
         edge_swipe(page, "#sidebar", 240, 20, 400)
         page.wait_for_selector("#sidebar.-translate-x-full", timeout=5000)
@@ -248,6 +265,15 @@ class TestMobileDetailHeaderUi:
         assert any(b.is_visible() for b in archive_btns), "Archive missing from mobile menu"
         assert any(b.is_visible() for b in delete_btns), "Delete missing from mobile menu"
 
+    def test_logo_tap_navigates_on_drawerless_page(
+        self, seeded_inbox_message, mobile_logged_in_page
+    ):
+        """U24.2b fallback: the message view registers no drawer, so the
+        logo keeps its N6 navigation role there (back to INBOX)."""
+        page = self._open_first_message(seeded_inbox_message, mobile_logged_in_page)
+        page.click("#brand-logo")
+        page.wait_for_selector("#sidebar.-translate-x-full", timeout=10000)
+
     def test_search_icon_expands_mobile_search(self, mobile_logged_in_page):
         page = mobile_logged_in_page
         page.wait_for_selector("#mobile-search-toggle", timeout=10000)
@@ -269,12 +295,21 @@ class TestMobileHeaderUi:
     def test_desktop_hides_mobile_extras(self, logged_in_page):
         page = logged_in_page
         page.wait_for_selector("#mailbox-grid", timeout=10000)
-        assert (
-            page.query_selector("#mobile-sidebar-toggle") is None
-            or not page.query_selector("#mobile-sidebar-toggle").is_visible()
-        )
+        # U24.2b: the content-header hamburger is gone everywhere; the
+        # logo is the drawer control only below lg.
+        assert page.query_selector("#mobile-sidebar-toggle") is None
         fab = page.query_selector("a[aria-label='Compose']")
         assert fab is None or not fab.is_visible()
+
+    def test_logo_click_navigates_on_desktop(self, logged_in_page):
+        """N6/U24.2b: at lg+ the logo keeps its plain-link role and
+        navigates to the role landing page (mail -> INBOX)."""
+        page = logged_in_page
+        page.goto("http://localhost:8001/app/calendar/")
+        page.wait_for_selector("#calendar-grid", timeout=10000)
+        assert page.query_selector("#brand-logo").get_attribute("aria-expanded") is None
+        page.click("#brand-logo")
+        page.wait_for_selector("#mailbox-grid", timeout=10000)
 
 
 @skip_if_no_services
@@ -283,9 +318,8 @@ class TestMobileCalendarUi:
         page = mobile_logged_in_page
         page.goto("http://localhost:8001/app/calendar/")
         page.wait_for_load_state("load")
-        toggle = page.wait_for_selector("#cal-sidebar-toggle", timeout=10000)
-        assert toggle is not None
-        toggle.click()
+        page.wait_for_selector("#calendar-grid", timeout=10000)
+        page.click("#brand-logo")
         sidebar = page.wait_for_selector("#cal-sidebar:not(.-translate-x-full)", timeout=5000)
         assert sidebar is not None
 
@@ -377,7 +411,7 @@ class TestMobileCalendarUi:
         page = mobile_logged_in_page
         page.goto("http://localhost:8001/app/calendar/?view=day")
         page.wait_for_selector(".time-cell", timeout=15000)
-        page.click("#cal-sidebar-toggle")
+        page.click("#brand-logo")
         page.wait_for_selector("#cal-sidebar:not(.-translate-x-full)", timeout=5000)
         page.wait_for_selector(".mini-day", timeout=10000)
         today = page.evaluate("() => LRCal.toISO(new Date())")
@@ -406,7 +440,7 @@ class TestMobileCalendarUi:
         page.goto("http://localhost:8001/app/calendar/?view=day")
         page.wait_for_selector(".time-cell", timeout=15000)
         header_before = page.inner_text("#cal-header-date")
-        page.click("#cal-sidebar-toggle")
+        page.click("#brand-logo")
         page.wait_for_selector(".mini-day", timeout=10000)
         page.click("#mini-prev")
         page.wait_for_timeout(600)  # mini re-render (async month fetch)
@@ -481,7 +515,7 @@ class TestMobileCalendarUi:
         page = mobile_logged_in_page
         page.goto("http://localhost:8001/app/calendar/?view=day")
         page.wait_for_selector(".time-cell", timeout=15000)
-        page.click("#cal-sidebar-toggle")
+        page.click("#brand-logo")
         page.wait_for_selector("#cal-sidebar:not(.-translate-x-full)", timeout=5000)
         page.go_back()
         page.wait_for_selector("#cal-sidebar.-translate-x-full", timeout=5000)

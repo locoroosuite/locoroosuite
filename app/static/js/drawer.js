@@ -1,5 +1,6 @@
 /**
- * Shared edge-swipe drawer gesture engine (HLD U24.2a).
+ * Shared edge-swipe drawer gesture engine (HLD U24.2a) and mobile logo
+ * drawer toggle (HLD U24.2b / N6).
  *
  * Modules register their existing off-canvas drawer (U24.2) with:
  *   LRDrawer.register({ drawer, backdrop, isOpen, setOpen })
@@ -14,6 +15,10 @@
  * in one place. Competing horizontal-swipe handlers (mail rows UX3g,
  * calendar period nav U12.56d) yield edge-origin touches by checking
  * LRDrawer.claims() on touchstart.
+ *
+ * Below the lg breakpoint the header logo (#brand-logo, N6) toggles the
+ * registered drawer (LRDrawer.toggle()); everywhere else it keeps its
+ * plain-link navigation role.
  */
 (function () {
   'use strict';
@@ -25,6 +30,7 @@
   var FLICK_PX_PER_MS = 0.5;
   var MOBILE_QUERY = window.matchMedia('(max-width: 1023.98px)');
   var REDUCED_MOTION_QUERY = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var LOGO_ID = 'brand-logo';
   // Targets that keep their own touch/drag behavior even inside the edge
   // zone (calendar event chips drag via pointer events, U12.56).
   var SKIP_TARGETS = '.cal-event, .cal-resize-handle';
@@ -57,8 +63,70 @@
     drawers = drawers.filter(function (d) {
       return d.drawer !== config.drawer;
     });
-    drawers.push(config);
+    drawers.push({
+      drawer: config.drawer,
+      backdrop: config.backdrop,
+      isOpen: config.isOpen,
+      setOpen: config.setOpen
+    });
+    // The logo's aria state (U24.2b) must track every drawer state
+    // change — logo tap, close button, backdrop, Escape, edge-swipe
+    // settle, resize. Modules drive their own DOM directly (e.g. the
+    // -translate-x-full class), so observe the drawer element rather
+    // than wrapping setOpen (module-local close paths bypass it).
+    if (typeof MutationObserver !== 'undefined') {
+      var drawerEl = config.drawer;
+      new MutationObserver(function () {
+        syncLogoAria(config.isOpen(), drawerEl);
+      }).observe(drawerEl, { attributes: true, attributeFilter: ['class'] });
+      MOBILE_QUERY.addEventListener('change', function () {
+        syncLogoAria(config.isOpen(), drawerEl);
+      });
+    }
+    syncLogoAria(config.isOpen(), config.drawer);
   }
+
+  /* Open the first registered drawer, or close whichever is open (U24.2b). */
+  function toggle() {
+    var d = openDrawer() || drawers[0];
+    if (!d) return false;
+    d.setOpen(!d.isOpen());
+    return true;
+  }
+
+  function hasDrawer() {
+    return drawers.length > 0;
+  }
+
+  /* The logo acts as the drawer toggle only below lg; elsewhere it is a
+   * plain link (N6), so the toggle-only aria attributes come and go. */
+  function syncLogoAria(open, drawerEl) {
+    var logo = document.getElementById(LOGO_ID);
+    if (!logo) return;
+    if (MOBILE_QUERY.matches) {
+      logo.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (drawerEl && drawerEl.id) logo.setAttribute('aria-controls', drawerEl.id);
+    } else {
+      logo.removeAttribute('aria-expanded');
+      logo.removeAttribute('aria-controls');
+    }
+  }
+
+  /* U24.2b: claim logo taps in the capture phase so nav-feedback (UX9,
+   * bubble phase) sees defaultPrevented and never shows pending state
+   * for a suppressed navigation. Modified clicks keep default behavior. */
+  document.addEventListener(
+    'click',
+    function (e) {
+      if (e.defaultPrevented) return;
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      if (!e.target.closest || !e.target.closest('#' + LOGO_ID)) return;
+      if (!MOBILE_QUERY.matches || !hasDrawer()) return; // plain link: navigate
+      e.preventDefault();
+      toggle();
+    },
+    true
+  );
 
   function begin(mode, d, touch) {
     gesture = {
@@ -184,5 +252,11 @@
   document.addEventListener('touchend', onEnd, { passive: false });
   document.addEventListener('touchcancel', onCancel, { passive: true });
 
-  window.LRDrawer = { register: register, claims: claims, EDGE_PX: EDGE_PX };
+  window.LRDrawer = {
+    register: register,
+    claims: claims,
+    toggle: toggle,
+    hasDrawer: hasDrawer,
+    EDGE_PX: EDGE_PX
+  };
 })();

@@ -142,9 +142,6 @@
     <div class="border-b border-slate-200/80 px-3 md:px-5 py-3 md:py-4">
       <div class="flex items-center justify-between gap-3">
         <div class="flex items-center gap-1.5 min-w-0">
-          <button type="button" id="mobile-sidebar-toggle" class="lg:hidden -ml-1.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100" aria-label="{{ _('Open folders') }}" aria-controls="sidebar" aria-expanded="false">
-            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10zm0 5.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z" clip-rule="evenodd"/></svg>
-          </button>
           <div class="min-w-0">
             <div class="text-base font-semibold truncate">{{ (folder_display or {}).get(folder, folder) }}</div>
             <div id="thread-count" class="text-xs text-slate-500 truncate">{% if pagination %}{{ (_('{count} conversation ({total} email)') if pagination.total_messages == 1 else _('{count} conversation ({total} emails)')).format(count=pagination.total_threads, total=pagination.total_messages) if pagination.total_threads == 1 else (_('{count} conversations ({total} email)') if pagination.total_messages == 1 else _('{count} conversations ({total} emails)')).format(count=pagination.total_threads, total=pagination.total_messages) }}{% else %}{{ threads|length }} {{ _('conversations') }}{% endif %}</div>
@@ -323,7 +320,6 @@
   }
 
   const sidebarBackdrop = document.getElementById('sidebar-backdrop');
-  const mobileSidebarToggle = document.getElementById('mobile-sidebar-toggle');
   const sidebarClose = document.getElementById('sidebar-close');
 
   const isDrawerOpen = () => !sidebar.classList.contains('-translate-x-full');
@@ -331,15 +327,9 @@
     sidebar.classList.toggle('-translate-x-full', !open);
     sidebarBackdrop.classList.toggle('hidden', !open);
     document.body.style.overflow = open ? 'hidden' : '';
-    if (mobileSidebarToggle) {
-      mobileSidebarToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-    }
   };
   const isDesktopViewport = () => window.matchMedia('(min-width: 1024px)').matches;
 
-  if (mobileSidebarToggle) {
-    mobileSidebarToggle.addEventListener('click', () => setDrawerOpen(!isDrawerOpen()));
-  }
   if (sidebarClose) {
     sidebarClose.addEventListener('click', () => setDrawerOpen(false));
   }

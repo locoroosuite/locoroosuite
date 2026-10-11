@@ -442,8 +442,8 @@ class TestTouchMailList:
         """UX3d: the folder '...' menu toggle is hover-hidden on desktop but
         must be visible on touch devices."""
         page = mobile_logged_in_page
-        page.wait_for_selector("#mobile-sidebar-toggle", timeout=10000)
-        page.click("#mobile-sidebar-toggle")
+        page.wait_for_selector("#message-list", timeout=15000)
+        page.click("#brand-logo")
         page.wait_for_selector("#sidebar:not(.-translate-x-full)", timeout=5000)
         toggle = page.wait_for_selector("[data-folder-actions-toggle]", timeout=5000)
         assert toggle is not None

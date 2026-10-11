@@ -18,7 +18,6 @@
     var sidebar = document.getElementById('docs-sidebar');
     var backdrop = document.getElementById('docs-sidebar-backdrop');
     var closeBtn = document.getElementById('docs-sidebar-close');
-    var toggles = document.querySelectorAll('.docs-sidebar-toggle');
     var isOpen = function () {
       return sidebar && !sidebar.classList.contains('-translate-x-full');
     };
@@ -27,15 +26,7 @@
       sidebar.classList.toggle('-translate-x-full', !open);
       backdrop.classList.toggle('hidden', !open);
       document.body.style.overflow = open ? 'hidden' : '';
-      toggles.forEach(function (t) {
-        t.setAttribute('aria-expanded', open ? 'true' : 'false');
-      });
     };
-    toggles.forEach(function (t) {
-      t.addEventListener('click', function () {
-        setOpen(!isOpen());
-      });
-    });
     if (closeBtn) closeBtn.addEventListener('click', function () { setOpen(false); });
     if (backdrop) backdrop.addEventListener('click', function () { setOpen(false); });
     document.addEventListener('keydown', function (e) {

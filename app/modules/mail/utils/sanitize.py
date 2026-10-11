@@ -8,6 +8,7 @@ from email.utils import getaddresses
 from typing import Any
 
 import bleach
+import tinycss2
 from bleach.css_sanitizer import CSSSanitizer
 
 ALLOWED_TAGS = [
@@ -72,6 +73,7 @@ ALLOWED_CSS_PROPERTIES = [
     "border-spacing",
     "border-top",
     "border-width",
+    "box-sizing",
     "color",
     "display",
     "font-family",
@@ -89,18 +91,22 @@ ALLOWED_CSS_PROPERTIES = [
     "max-width",
     "min-height",
     "min-width",
+    "object-fit",
+    "object-position",
     "overflow-wrap",
     "padding",
     "padding-bottom",
     "padding-left",
     "padding-right",
     "padding-top",
+    "table-layout",
     "text-align",
     "text-decoration",
     "text-transform",
     "vertical-align",
     "white-space",
     "width",
+    "word-break",
     "word-wrap",
 ]
 _css_sanitizer_kwargs: dict[str, Any] = {"allowed_css_properties": ALLOWED_CSS_PROPERTIES}
@@ -182,6 +188,97 @@ _SNIPPET_PATTERNS = None
 _CID_IMG_PLACEHOLDER_PREFIX = "__LR_CID_IMG_"
 _CID_IMG_PLACEHOLDER_RE = re.compile(r"__LR_CID_IMG_(\d+)__")
 
+_CSS_URL_TOKEN_RE = re.compile(r"url\s*\(", re.IGNORECASE)
+_STYLE_TAG_RE = re.compile(r"<style\b[^>]*>(.*?)</style\s*>", re.DOTALL | re.IGNORECASE)
+_STYLE_ATTR_RE = re.compile(r'style="([^"]*)"')
+
+
+def _sanitize_css_declarations(css_source, allow_remote):
+    """Filter a CSS declaration list to allowed properties.
+
+    Drops declarations whose value carries a remote url(...) unless the user
+    allowed remote content, and rejects any serialized value containing "<" or
+    ">" so sanitized CSS cannot break out of a <style> block or attribute.
+    """
+    kept = []
+    for node in tinycss2.parse_declaration_list(css_source or []):
+        if node.type != "declaration":
+            continue
+        name = node.lower_name
+        if name not in ALLOWED_CSS_PROPERTIES:
+            continue
+        value = tinycss2.serialize(node.value).strip()
+        if not value or "<" in value or ">" in value:
+            continue
+        if not allow_remote and _CSS_URL_TOKEN_RE.search(value):
+            continue
+        important = " !important" if node.important else ""
+        kept.append(f"{name}:{value}{important};")
+    return "".join(kept)
+
+
+def _sanitize_stylesheet(css_text, allow_remote):
+    """Sanitize a full stylesheet (sender <style> block contents).
+
+    Keeps qualified rules and @media blocks (recursively sanitized so
+    responsive emails keep adapting); drops every other at-rule
+    (@import, @font-face, ...). Remote url() values follow allow_remote.
+    """
+
+    def walk(rules):
+        out = []
+        for rule in rules:
+            if rule.type == "at-rule" and rule.lower_at_keyword == "media":
+                if rule.content is None:
+                    continue
+                inner = walk(tinycss2.parse_rule_list(rule.content))
+                if not inner:
+                    continue
+                prelude = tinycss2.serialize(rule.prelude).strip()
+                if not prelude or "<" in prelude or ">" in prelude:
+                    continue
+                out.append("@media " + prelude + "{" + inner + "}")
+            elif rule.type == "qualified-rule":
+                selector = tinycss2.serialize(rule.prelude).strip()
+                if not selector or "<" in selector or ">" in selector:
+                    continue
+                declarations = _sanitize_css_declarations(rule.content, allow_remote)
+                if declarations:
+                    out.append(selector + "{" + declarations + "}")
+        return "".join(out)
+
+    return walk(tinycss2.parse_rule_list(css_text or ""))
+
+
+def _sanitize_style_tags(fragment, allow_remote):
+    def _repl(match):
+        cleaned = _sanitize_stylesheet(match.group(1), allow_remote)
+        return f"<style>{cleaned}</style>" if cleaned else ""
+
+    return _STYLE_TAG_RE.sub(_repl, fragment)
+
+
+def _strip_inline_style_urls(fragment):
+    """Drop url()-bearing declarations from inline style attributes.
+
+    bleach's CSSSanitizer filters properties but lets url(...) values through,
+    which is a remote-fetch (tracking) vector while images are blocked.
+    Attributes without url( pass through untouched.
+    """
+    if not _CSS_URL_TOKEN_RE.search(fragment):
+        return fragment
+
+    def _repl(match):
+        css = match.group(1)
+        if not _CSS_URL_TOKEN_RE.search(css):
+            return match.group(0)
+        cleaned = _sanitize_css_declarations(css, allow_remote=False)
+        if not cleaned:
+            return ""
+        return 'style="' + html.escape(cleaned, quote=True) + '"'
+
+    return _STYLE_ATTR_RE.sub(_repl, fragment)
+
 
 def sanitize_html(html, allow_images=False):
     html = html or ""
@@ -218,6 +315,9 @@ def sanitize_html(html, allow_images=False):
         strip_comments=True,
     )
     html = cleaner.clean(html)
+    html = _sanitize_style_tags(html, allow_remote=allow_images)
+    if not allow_images:
+        html = _strip_inline_style_urls(html)
     if cid_placeholders:
 
         def _restore_cid_placeholder(m):
@@ -431,7 +531,10 @@ def wrap_email_html(body_html):
         "body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;"
         "font-size:0.9375rem;line-height:1.6;color:#0f172a;}"
         "img{max-width:100%;height:auto;}"
-        ".email-body{max-width:720px;margin:0 auto;padding:16px;}"
+        "table{max-width:100%;}"
+        "td,th{overflow-wrap:anywhere;}"
+        "pre{white-space:pre-wrap;overflow-wrap:anywhere;}"
+        ".email-body{max-width:720px;margin:0 auto;padding:16px;overflow-wrap:break-word;}"
         ".lr-quoted{margin:8px 0;border-left:3px solid #e2e8f0;padding-left:0;}"
         ".lr-quoted-toggle{cursor:pointer;font-size:0.75rem;color:#94a3b8;"
         "padding:4px 8px;user-select:none;list-style:none;display:inline-block;}"
@@ -444,11 +547,47 @@ def wrap_email_html(body_html):
         + (body_html or "")
         + "</div>"
         + "<script>"
+        + "var _lrFitMode=1;"
+        + "function _lrFitWrap(){return document.querySelector('.email-body');}"
+        + "function _lrScaled(wrap){return !!wrap&&!!wrap.style.transform;}"
         + "function lrResize(){"
-        + "try{parent.postMessage({lrIframeHeight:document.body.scrollHeight},'*')}catch(e){}}"
-        + "lrResize();"
-        + "window.addEventListener('load',lrResize);"
-        + "new MutationObserver(lrResize).observe(document.body,{childList:true,subtree:true});"
+        + "try{"
+        + "var wrap=_lrFitWrap();"
+        + "var h=_lrScaled(wrap)?Math.ceil(wrap.getBoundingClientRect().height):document.body.scrollHeight;"
+        + "parent.postMessage({lrIframeHeight:h},'*');"
+        + "}catch(e){}}"
+        + "function _lrMeasure(wrap){"
+        + "return Math.max(document.documentElement.scrollWidth,"
+        + "document.body.scrollWidth,wrap?wrap.scrollWidth:0);}"
+        + "function lrFit(){"
+        + "try{"
+        + "var wrap=_lrFitWrap();"
+        + "if(!wrap){parent.postMessage({lrFitAvailable:false,lrFitApplied:false},'*');}"
+        + "else{"
+        + "wrap.style.transform='';"
+        + "var vw=window.innerWidth;"
+        + "var sw=_lrMeasure(wrap);"
+        + "var available=sw>vw+8;"
+        + "if(available&&_lrFitMode===1){"
+        + "wrap.style.transformOrigin='top left';"
+        + "var s=(vw-1)/sw;"
+        + "wrap.style.transform='scale('+s+')';"
+        + "var sw2=Math.max(document.documentElement.scrollWidth,document.body.scrollWidth);"
+        + "if(sw2>vw){wrap.style.transform='scale('+((vw-1)*s/sw2)+')';}"
+        + "}"
+        + "parent.postMessage({lrFitAvailable:available,"
+        + "lrFitApplied:available&&_lrFitMode===1},'*');"
+        + "}"
+        + "}catch(e){}"
+        + "lrResize();}"
+        + "window.addEventListener('message',function(e){"
+        + "if(e.source===parent&&e.data&&typeof e.data.lrFitSet==='number'){"
+        + "_lrFitMode=e.data.lrFitSet;lrFit();}});"
+        + "window.addEventListener('resize',lrFit);"
+        + "document.addEventListener('load',lrFit,true);"
+        + "lrFit();"
+        + "window.addEventListener('load',lrFit);"
+        + "new MutationObserver(lrFit).observe(document.body,{childList:true,subtree:true});"
         + "</script>"
         + "</body></html>"
     )

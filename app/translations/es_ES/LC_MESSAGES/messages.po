@@ -3002,6 +3002,14 @@ msgstr "Ver"
 msgid "View full message"
 msgstr "Ver el mensaje completo"
 
+#: app/modules/mail/templates/message.html:242
+msgid "Fit width"
+msgstr "Ajustar al ancho"
+
+#: app/modules/mail/templates/message.html:242
+msgid "Actual size"
+msgstr "Tamaño real"
+
 #: app/modules/mail/templates/message.html:302
 msgid "Filter folders..."
 msgstr "Filtrar carpetas..."

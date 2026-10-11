@@ -233,6 +233,140 @@ class TestWrapperNoForcedBorderCollapse:
         assert "font-size:14px" not in wrapped
 
 
+class TestWrapperWidthFitUx8a:
+    """UX8a: bodies reflow to the viewport — tables capped, unbreakable
+    strings inside cells may break (collapses table min-content)."""
+
+    def test_wrapper_caps_table_width(self):
+        wrapped = wrap_email_html("<p>test</p>")
+        assert "table{max-width:100%;}" in wrapped
+
+    def test_wrapper_breaks_anywhere_in_cells(self):
+        # 'anywhere' (not 'break-word') is load-bearing: only it collapses
+        # min-content so nested auto-layout tables can actually shrink.
+        wrapped = wrap_email_html("<p>test</p>")
+        assert "td,th{overflow-wrap:anywhere;}" in wrapped
+
+    def test_wrapper_wraps_pre_content(self):
+        wrapped = wrap_email_html("<p>test</p>")
+        assert "pre{white-space:pre-wrap;overflow-wrap:anywhere;}" in wrapped
+
+    def test_wrapper_body_breaks_long_words(self):
+        wrapped = wrap_email_html("<p>test</p>")
+        assert "overflow-wrap:break-word" in wrapped
+
+    def test_wrapper_has_fit_protocol_script(self):
+        # UX8a: auto scale-to-fit with a fit/actual toggle driven via postMessage.
+        wrapped = wrap_email_html("<p>test</p>")
+        assert "lrFitAvailable" in wrapped
+        assert "lrFitSet" in wrapped
+        assert "lrIframeHeight" in wrapped
+
+
+class TestStyleTagSanitizerUx8b:
+    """UX8b: <style> contents are CSS-sanitized; @media preserved; remote
+    url() stripped unless the user allowed remote images."""
+
+    def test_media_preserved_with_important_rules(self):
+        html = (
+            "<style>@media (max-width:620px){.email-container{width:100% !important;"
+            "box-sizing:border-box !important}}</style><p>hi</p>"
+        )
+        result = sanitize_html(html, allow_images=False)
+        assert "@media" in result
+        assert "width:100% !important" in result
+        assert "box-sizing:border-box !important" in result
+
+    def test_style_tag_url_stripped_when_images_blocked(self):
+        html = '<style>.x{background:url(https://track.example/pixel);color:red}</style><p class="x">hi</p>'
+        result = sanitize_html(html, allow_images=False)
+        assert "url(" not in result
+        assert "track.example" not in result
+        assert ".x{color:red;}" in result
+
+    def test_style_tag_url_kept_when_images_allowed(self):
+        html = '<style>.x{background:url(https://track.example/pixel)}</style><p class="x">hi</p>'
+        result = sanitize_html(html, allow_images=True)
+        assert "url(https://track.example/pixel)" in result
+
+    def test_import_and_font_face_stripped(self):
+        html = (
+            '<style>@import url("https://evil.example/x.css");'
+            "@font-face{font-family:X;src:url(https://evil.example/f.woff2);}"
+            ".y{color:red}</style><p>hi</p>"
+        )
+        result = sanitize_html(html, allow_images=True)
+        assert "@import" not in result
+        assert "@font-face" not in result
+        assert "evil.example" not in result
+        assert ".y{color:red;}" in result
+
+    def test_media_inner_disallowed_property_dropped(self):
+        html = "<style>@media (max-width:400px){.x{position:fixed;padding:4px}}</style><p>hi</p>"
+        result = sanitize_html(html, allow_images=False)
+        assert "position" not in result
+        assert "padding:4px" in result
+
+    def test_empty_media_block_dropped(self):
+        html = "<style>@media (max-width:400px){.x{position:fixed}}</style><p>hi</p>"
+        result = sanitize_html(html, allow_images=False)
+        assert "@media" not in result
+        assert "<style" not in result
+
+    def test_style_breakout_attempt_rejected(self):
+        html = "<style>.x{font-family:'</style><script>alert(1)</script>'}</style><p>hi</p>"
+        result = sanitize_html(html, allow_images=False)
+        assert "<script" not in result
+        assert "alert" not in result
+
+    def test_unknown_selectors_and_properties_cleaned(self):
+        html = "<style>.a{color:red;-webkit-foo:bar} /* comment */ .b{margin:0}</style><p>hi</p>"
+        result = sanitize_html(html, allow_images=False)
+        assert ".a{color:red;}" in result
+        assert ".b{margin:0;}" in result
+        assert "-webkit-foo" not in result
+        assert "comment" not in result
+
+    def test_responsive_email_pattern_survives_pipeline(self):
+        # The motorscout-style pattern: media query + fixed width attrs + class hooks.
+        html = (
+            "<style>@media only screen and (max-width:620px){.email-container{width:100% !important}}</style>"
+            '<table class="email-container" width="600" cellspacing="0" cellpadding="0" border="0">'
+            '<tr><td style="padding:40px;">Hi</td></tr></table>'
+        )
+        result = sanitize_html(html, allow_images=False)
+        assert "@media" in result
+        assert "width:100% !important" in result
+        assert 'class="email-container"' in result
+        assert 'width="600"' in result
+
+
+class TestInlineStyleUrlSanitizerUx8b:
+    def test_inline_style_url_declaration_dropped_when_blocked(self):
+        html = '<p style="background:url(https://track.example/p);color:red">hi</p>'
+        result = sanitize_html(html, allow_images=False)
+        assert "url(" not in result
+        assert "track.example" not in result
+        assert "color:red" in result
+
+    def test_inline_style_url_kept_when_images_allowed(self):
+        html = '<p style="background:url(https://track.example/p);color:red">hi</p>'
+        result = sanitize_html(html, allow_images=True)
+        assert "url(https://track.example/p)" in result
+
+    def test_inline_style_without_url_untouched(self):
+        html = '<p style="color:red;font-weight:bold">hi</p>'
+        result = sanitize_html(html, allow_images=False)
+        assert 'style="color:red;font-weight:bold;"' in result
+
+    def test_inline_style_fully_removed_when_only_urls(self):
+        html = '<p style="background:url(https://track.example/p)">hi</p>'
+        result = sanitize_html(html, allow_images=False)
+        assert "style=" not in result
+        assert "track.example" not in result
+        assert ">hi<" in result
+
+
 class TestRegressionMartianLogicEmail:
     def test_full_email_buttons_and_footer_with_images_blocked(self):
         result = sanitize_html(MARTIAN_LOGIC_EMAIL, allow_images=False)

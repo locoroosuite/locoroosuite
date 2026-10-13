@@ -22,7 +22,7 @@
     <nav class="flex-1 overflow-y-auto px-2 pb-3 space-y-4">
       <div>
         <div class="px-2 py-1 flex items-center justify-between">
-          <h3 class="text-[12px] md:text-[11px] font-semibold text-slate-500 uppercase tracking-wide">{{ _('Rooms') }}</h3>
+          <h3 class="text-[0.75rem] md:text-[0.6875rem] font-semibold text-slate-500 uppercase tracking-wide">{{ _('Rooms') }}</h3>
           <button type="button" id="chat-new-room" title="{{ _('Create a room') }}"
                   class="h-7 w-7 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors lr-hit">
             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z"/></svg>
@@ -33,7 +33,7 @@
       </div>
       <div>
         <div class="px-2 py-1 flex items-center justify-between">
-          <h3 class="text-[12px] md:text-[11px] font-semibold text-slate-500 uppercase tracking-wide">{{ _('Direct messages') }}</h3>
+          <h3 class="text-[0.75rem] md:text-[0.6875rem] font-semibold text-slate-500 uppercase tracking-wide">{{ _('Direct messages') }}</h3>
           <button type="button" id="chat-new-dm" title="{{ _('New direct message') }}"
                   class="h-7 w-7 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors lr-hit">
             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.377 3.365a2.25 2.25 0 013.182 0l1.076 1.076a2.25 2.25 0 010 3.182l-8.822 8.821a3 3 0 01-1.283.752l-3.322.914.914-3.322a3 3 0 01.752-1.283l8.822-8.821z" clip-rule="evenodd"/><path d="M14.72 1.604a3.75 3.75 0 015.303 5.303l-1.067 1.068-5.304-5.304 1.068-1.067z"/></svg>
@@ -43,12 +43,12 @@
         <p id="chat-dms-empty" class="hidden px-2 py-2 text-xs text-slate-400">{{ _('No direct messages yet. Start one with the pencil icon.') }}</p>
       </div>
       <div id="chat-invites" class="hidden">
-        <h3 class="px-2 py-1 text-[12px] md:text-[11px] font-semibold text-amber-500 uppercase tracking-wide">{{ _('Invitations') }}</h3>
+        <h3 class="px-2 py-1 text-[0.75rem] md:text-[0.6875rem] font-semibold text-amber-500 uppercase tracking-wide">{{ _('Invitations') }}</h3>
         <ul id="chat-invites-list" class="space-y-0.5"></ul>
       </div>
     </nav>
     <div class="flex items-center gap-1 px-3 py-2 border-t border-slate-100">
-      <div class="flex-1 min-w-0 truncate text-[12px] md:text-[11px] text-slate-500" id="chat-sync-status">{{ _('Connecting…') }}</div>
+      <div class="flex-1 min-w-0 truncate text-[0.75rem] md:text-[0.6875rem] text-slate-500" id="chat-sync-status">{{ _('Connecting…') }}</div>
       <button type="button" id="chat-test-call" title="{{ _('Test devices & connection') }}"
               class="shrink-0 h-7 w-7 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors lr-hit">
         <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M3.25 4A2.25 2.25 0 001 6.25v7.5A2.25 2.25 0 003.25 16h7.5A2.25 2.25 0 0013 13.75v-7.5A2.25 2.25 0 0010.75 4h-7.5z"/><path d="M14 8.123v3.754a.25.25 0 00.382.214l3.202-1.877a.25.25 0 000-.428l-3.202-1.877a.25.25 0 00-.382.214z"/></svg>
@@ -85,7 +85,7 @@
         </button>
         <div class="min-w-0">
           <div class="font-semibold text-slate-800 truncate" id="chat-room-name">{{ _('Room') }}</div>
-          <div class="text-[12px] md:text-[11px] text-slate-500 truncate" id="chat-room-subtitle"></div>
+          <div class="text-[0.75rem] md:text-[0.6875rem] text-slate-500 truncate" id="chat-room-subtitle"></div>
         </div>
         <span class="flex-1"></span>
         <span class="text-xs text-slate-400 shrink-0" id="chat-room-members"></span>
@@ -203,7 +203,7 @@
              class="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:border-slate-400 focus:ring-2 focus:ring-slate-200 focus:outline-none" placeholder="name@yourdomain" />
       <div id="chat-dm-peer-list" class="hidden absolute left-0 right-0 z-10 mt-1 max-h-48 overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg"></div>
     </label>
-    <p class="text-[12px] md:text-[11px] text-slate-500 leading-relaxed">
+    <p class="text-[0.75rem] md:text-[0.6875rem] text-slate-500 leading-relaxed">
       {{ _('Start typing to pick a person from your domain. Their chat identity is created automatically if missing — for example') }}
       <span class="font-mono">test4@test.localhost</span> {{ _('maps to') }}
       <span class="font-mono">@test4:locoroo.test</span>.
@@ -227,7 +227,7 @@
              class="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:border-slate-400 focus:ring-2 focus:ring-slate-200 focus:outline-none" placeholder="name@yourdomain" />
       <div id="chat-invite-peer-list" class="hidden absolute left-0 right-0 z-10 mt-1 max-h-48 overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg"></div>
     </label>
-    <p class="text-[12px] md:text-[11px] text-slate-500 leading-relaxed">
+    <p class="text-[0.75rem] md:text-[0.6875rem] text-slate-500 leading-relaxed">
       {{ _('Start typing to pick a person from your domain. Their chat identity is created automatically if missing.') }}
     </p>
     <div class="flex justify-end gap-2 pt-2">

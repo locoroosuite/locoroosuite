@@ -160,7 +160,7 @@
   }
 
   /* Literal class set (Tailwind JIT only emits classes seen as literals). */
-  var CALL_ENTRY = "flex items-center justify-center gap-1.5 py-1.5 text-[12px] md:text-[11px] text-slate-500";
+  var CALL_ENTRY = "flex items-center justify-center gap-1.5 py-1.5 text-[0.75rem] md:text-[0.6875rem] text-slate-500";
   var CALL_ICON =
     '<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 3.5A1.5 1.5 0 013.5 2h1.148a1.5 1.5 0 011.465 1.175l.716 3.223a1.5 1.5 0 01-1.052 1.767l-.933.267c-.41.117-.643.555-.48.95a11.542 11.542 0 006.254 6.254c.395.163.833-.07.95-.48l.267-.933a1.5 1.5 0 011.767-1.052l3.223.716A1.5 1.5 0 0118 15.352V16.5a1.5 1.5 0 01-1.5 1.5H15c-7.18 0-13-5.82-13-13V3.5z" clip-rule="evenodd"/></svg>';
 

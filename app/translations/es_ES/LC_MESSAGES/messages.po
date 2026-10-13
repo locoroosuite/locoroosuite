@@ -2383,6 +2383,10 @@ msgstr "El idioma debe ser auto, inglés o español."
 msgid "Theme must be light or dark."
 msgstr "El tema debe ser claro u oscuro."
 
+#: app/modules/mail/controllers/settings.py:142
+msgid "Text size must be default, large, or larger."
+msgstr "El tamaño del texto debe ser predeterminado, grande o más grande."
+
 #: app/modules/mail/controllers/settings.py:146
 msgid "No such active account."
 msgstr "No existe esa cuenta activa."
@@ -3187,6 +3191,26 @@ msgstr "Claro"
 #: app/modules/mail/templates/settings.html:61
 msgid "Dark"
 msgstr "Oscuro"
+
+#: app/modules/mail/templates/settings.html:67
+msgid "Text size"
+msgstr "Tamaño del texto"
+
+#: app/modules/mail/templates/settings.html:68
+msgid "Size of text across the app, including emails."
+msgstr "Tamaño del texto en toda la aplicación, incluidos los correos."
+
+#: app/modules/mail/templates/settings.html:73
+msgid "Default"
+msgstr "Predeterminado"
+
+#: app/modules/mail/templates/settings.html:74
+msgid "Large"
+msgstr "Grande"
+
+#: app/modules/mail/templates/settings.html:75
+msgid "Larger"
+msgstr "Más grande"
 
 #: app/modules/mail/templates/settings.html:71
 msgid "How your mailbox behaves."

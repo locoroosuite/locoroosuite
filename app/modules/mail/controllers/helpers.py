@@ -158,7 +158,9 @@ def _folder_sidebar_context(user_id, account, key, conn):
     if not folders:
         try:
             secret = (
-                decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
+                decrypt_with_key(account.encrypted_secret, key)
+                if account.encrypted_secret
+                else None
             )
             client, _domain = _imap_for_account(account, secret)
             try:
@@ -908,13 +910,20 @@ def _rewrite_cid_urls(html, cid_map, account_id, message_id):
 
 
 def _load_message_detail(
-    account, message_id, allow_images=False, mark_seen=True, collapse_quotes=False
+    account,
+    message_id,
+    allow_images=False,
+    mark_seen=True,
+    collapse_quotes=False,
+    text_scale: float = 1.0,
 ):
     key = get_user_key(session.get("user_id"))
     conn = open_cache(account.cache_db_path, key)
     message = get_message(conn, message_id)
     if not message:
-        return None, None, None, None, None, None, ""
+        # Empty containers (not None) keep the tuple's list fields non-optional
+        # for callers; every caller returns early on the None message anyway.
+        return None, None, [], [], [], [], ""
     message = dict(message)
     message["subject"] = normalize_header_text(message["subject"]) or _("(no subject)")
     message["sender"] = decode_address_header(message["sender"])
@@ -1011,7 +1020,7 @@ def _load_message_detail(
         sanitized_body = plain_text_to_html(cleaned_text, cleaned=True)
     if collapse_quotes:
         sanitized_body = add_quoted_collapse(sanitized_body)
-    wrapped_body = wrap_email_html(sanitized_body)
+    wrapped_body = wrap_email_html(sanitized_body, text_scale=text_scale)
     return (
         message,
         wrapped_body,
@@ -1300,7 +1309,13 @@ def _thread_sort_ts(row):
 
 
 def _load_thread_for_detail(
-    conn, thread_id, current_message_id, subject, account_email=None, timezone_name=None
+    conn,
+    thread_id,
+    current_message_id,
+    subject,
+    account_email=None,
+    timezone_name=None,
+    text_scale: float = 1.0,
 ):
     from app.modules.mail.services.cache_db import list_thread_messages
 
@@ -1374,7 +1389,7 @@ def _load_thread_for_detail(
         cached_body = row["body"] or ""
         body_html = plain_text_to_html(cached_body, cleaned=True)
         body_html = add_quoted_collapse(body_html)
-        wrapped_body = wrap_email_html(body_html)
+        wrapped_body = wrap_email_html(body_html, text_scale=text_scale)
 
         snippet = normalize_preview_text(row["body"], limit=200)
         msg_flags = _parse_flags(row["flags"])

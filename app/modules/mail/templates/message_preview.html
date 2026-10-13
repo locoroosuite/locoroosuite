@@ -13,7 +13,7 @@
   <div class="rounded-xl border border-amber-200/80 bg-amber-50 px-4 py-3 shadow-sm">
     <div class="text-xs font-semibold text-amber-800">{{ _('Snippet debug (dev)') }}</div>
     <div class="mt-1 text-xs text-amber-900">{{ _('Selected snippet:') }} <span class="font-medium">{{ snippet_debug }}</span></div>
-    <pre class="mt-2 text-[11px] text-amber-900 whitespace-pre-wrap">{{ snippet_debug_info | tojson }}</pre>
+    <pre class="mt-2 text-[0.6875rem] text-amber-900 whitespace-pre-wrap">{{ snippet_debug_info | tojson }}</pre>
   </div>
   {% endif %}
   <script type="application/json" id="message-preview-srcdoc">{{ body | tojson }}</script>

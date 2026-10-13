@@ -225,7 +225,7 @@ def test_swipe_panel_buttons_carry_visible_labels():
     for label in ("_('Archive')", "_('Delete')", "_('Mark read')", "_('Mark unread')", "_('More')"):
         assert label in panel, f"{label} label missing from the swipe panel"
     # Four labeled tiles (archive, delete, mark, more).
-    assert panel.count("text-[10px] font-medium leading-none") == 4
+    assert panel.count("text-[0.625rem] font-medium leading-none") == 4
 
 
 def test_overflow_menu_module_is_loaded_by_all_list_pages():
@@ -486,7 +486,7 @@ def test_message_rows_use_responsive_single_copy_layout():
     assert "md:w-36 lg:w-44 xl:w-52" in content
     # Mobile-only snippet line (UX3e) — desktop rows are single-line.
     assert (
-        'class="md:hidden mt-1 text-[13px] text-slate-600 truncate" data-snippet="true"' in content
+        'class="md:hidden mt-1 text-[0.8125rem] text-slate-600 truncate" data-snippet="true"' in content
     )
     # Two star positions: desktop column + mobile under the date.
     assert content.count("{{ star_form(") == 2

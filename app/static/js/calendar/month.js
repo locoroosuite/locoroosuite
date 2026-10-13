@@ -41,7 +41,7 @@
     html += '<div class="grid grid-cols-7 border-b border-slate-100 bg-white">';
     LRCal.DAYS_SHORT().forEach(function (d) {
       html +=
-        '<div class="py-2 text-center text-[12px] md:text-[11px] uppercase tracking-wide text-slate-500 font-medium">' +
+        '<div class="py-2 text-center text-[0.75rem] md:text-[0.6875rem] uppercase tracking-wide text-slate-500 font-medium">' +
         d + '</div>';
     });
     html += '</div>';
@@ -82,13 +82,13 @@
         var cancelled = ev.status === 'CANCELLED';
         if (ev.all_day) {
           html +=
-            '<div class="cal-event mb-0.5 flex items-center rounded px-1.5 h-[20px] text-[11px] md:text-[11px] font-medium text-slate-900 truncate ' +
+            '<div class="cal-event mb-0.5 flex items-center rounded px-1.5 h-[20px] text-[0.6875rem] md:text-[0.6875rem] font-medium text-slate-900 truncate ' +
             (cancelled ? 'line-through opacity-60' : '') +
             '" style="background-color:' + LRCal.tint(color, 0.35) + ';border-left:3px solid ' + color + '" data-event-id="' + ev.id + '" data-occurrence="' + esc(ev.recurrence_date || '') + '">' +
             esc(ev.summary || window.LR.t('(no title)')) + '</div>';
         } else {
           html +=
-            '<div class="cal-event mb-0.5 flex items-center gap-1 rounded px-1 h-[20px] text-[11px] md:text-[11px] truncate ' +
+            '<div class="cal-event mb-0.5 flex items-center gap-1 rounded px-1 h-[20px] text-[0.6875rem] md:text-[0.6875rem] truncate ' +
             (cancelled ? 'line-through opacity-60' : '') +
             '" data-event-id="' + ev.id + '" data-occurrence="' + esc(ev.recurrence_date || '') + '">' +
             '<span class="h-2 w-2 rounded-full flex-shrink-0" style="background-color:' + color + '"></span>' +
@@ -98,7 +98,7 @@
       });
       if (evts.length > maxChips) {
         html +=
-          '<button type="button" class="month-more-link block w-full text-left pl-1 text-[11px] md:text-[10px] text-slate-500 hover:text-slate-800 font-medium" data-date="' + iso + '" data-count="' + evts.length + '">' +
+          '<button type="button" class="month-more-link block w-full text-left pl-1 text-[0.6875rem] md:text-[0.625rem] text-slate-500 hover:text-slate-800 font-medium" data-date="' + iso + '" data-count="' + evts.length + '">' +
           window.LR.t('+{n} more', { n: evts.length - maxChips }) + '</button>';
       }
       html += '</div>';

@@ -12,14 +12,14 @@
         {{ star_form(account_id, row.message_id, row.is_flagged, 'hidden md:block flex-shrink-0') }}
         <div class="flex-1 min-w-0">
           <div class="flex flex-wrap md:flex-nowrap items-baseline md:items-center gap-x-3 gap-y-0.5">
-            <span class="min-w-0 flex-1 md:flex-none md:w-36 lg:w-44 xl:w-52 truncate text-[15px] md:text-[13px] {{ 'font-semibold text-slate-900' if row.is_unread else 'text-slate-600' }}" title="{{ row.from }}" data-sender="true">{{ row.from }}</span>
+            <span class="min-w-0 flex-1 md:flex-none md:w-36 lg:w-44 xl:w-52 truncate text-[0.9375rem] md:text-[0.8125rem] {{ 'font-semibold text-slate-900' if row.is_unread else 'text-slate-600' }}" title="{{ row.from }}" data-sender="true">{{ row.from }}</span>
             <div class="flex flex-col items-end flex-shrink-0 md:order-3">
-              <span class="whitespace-nowrap text-[12px] md:text-[11px] text-slate-500" data-date="true">{{ row.date_display or row.date }}</span>
+              <span class="whitespace-nowrap text-[0.75rem] md:text-[0.6875rem] text-slate-500" data-date="true">{{ row.date_display or row.date }}</span>
               {{ star_form(account_id, row.message_id, row.is_flagged, 'message-action md:hidden mt-0.5 -mr-1') }}
             </div>
             <div class="basis-full md:basis-auto md:flex-1 md:order-2 min-w-0 flex items-center gap-2">
-              <span class="truncate text-[15px] md:text-[13px] {{ 'font-bold text-slate-950' if row.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ row.subject }}">{{ row.subject }}</span>
-              <span class="text-[11px] md:text-[10px] text-slate-400 truncate flex-shrink-0">{{ (folder_labels or {}).get(row.folder, row.folder) }}</span>
+              <span class="truncate text-[0.9375rem] md:text-[0.8125rem] {{ 'font-bold text-slate-950' if row.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ row.subject }}">{{ row.subject }}</span>
+              <span class="text-[0.6875rem] md:text-[0.625rem] text-slate-400 truncate flex-shrink-0">{{ (folder_labels or {}).get(row.folder, row.folder) }}</span>
             </div>
           </div>
         </div>
@@ -27,17 +27,17 @@
     </div>
     <div class="absolute inset-y-0 right-0 flex items-center justify-end gap-1 pl-12 pr-3 bg-gradient-to-l from-white/90 via-white/70 to-transparent opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition z-20" data-message-actions="true">
       <form method="post" action="{{ url_for('mail.archive_message', account_id=account_id, message_id=row.message_id) }}" class="message-action" data-action="archive" data-no-row-nav>
-        <button class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit">{{ _('Archive') }}</button>
+        <button class="text-[0.75rem] md:text-[0.6875rem] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit">{{ _('Archive') }}</button>
       </form>
       <form method="post" action="{{ url_for('mail.delete_message', account_id=account_id, message_id=row.message_id) }}" class="message-action" data-action="delete" data-no-row-nav>
-        <button class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit">{{ _('Delete') }}</button>
+        <button class="text-[0.75rem] md:text-[0.6875rem] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit">{{ _('Delete') }}</button>
       </form>
       <div class="relative">
-        <button type="button" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit" data-overflow-toggle data-no-row-nav aria-label="{{ _('More actions') }}">&#8943;</button>
+        <button type="button" class="text-[0.75rem] md:text-[0.6875rem] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 lr-hit" data-overflow-toggle data-no-row-nav aria-label="{{ _('More actions') }}">&#8943;</button>
         <div class="absolute right-0 py-1 min-w-[160px] rounded-lg border border-slate-200 bg-white shadow-lg hidden z-50" data-overflow-menu>
           <form method="post" action="{{ url_for('mail.mark_message', account_id=account_id, message_id=row.message_id) }}" class="message-action" data-action="mark" data-no-row-nav>
             <input type="hidden" name="action" value="{{ 'read' if row.is_unread else 'unread' }}" />
-            <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">{{ _('Mark as read') if row.is_unread else _('Mark as unread') }}</button>
+            <button type="submit" class="w-full text-left text-[0.75rem] md:text-[0.6875rem] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">{{ _('Mark as read') if row.is_unread else _('Mark as unread') }}</button>
           </form>
         </div>
       </div>
@@ -46,13 +46,13 @@
   {% else %}
   <div class="px-3 md:px-4 py-2.5 text-sm hover:bg-slate-50/80 transition-colors duration-200">
     <div class="flex flex-wrap md:flex-nowrap items-baseline md:items-center gap-x-3 gap-y-0.5">
-      <span class="min-w-0 flex-1 md:flex-none md:w-36 lg:w-44 xl:w-52 truncate text-[15px] md:text-[13px] text-slate-600" title="{{ row.from }}">{{ row.from }}</span>
+      <span class="min-w-0 flex-1 md:flex-none md:w-36 lg:w-44 xl:w-52 truncate text-[0.9375rem] md:text-[0.8125rem] text-slate-600" title="{{ row.from }}">{{ row.from }}</span>
       <div class="flex flex-col items-end flex-shrink-0 md:order-3">
-        <span class="whitespace-nowrap text-[12px] md:text-[11px] text-slate-500">{{ row.date_display or row.date }}</span>
+        <span class="whitespace-nowrap text-[0.75rem] md:text-[0.6875rem] text-slate-500">{{ row.date_display or row.date }}</span>
       </div>
       <div class="basis-full md:basis-auto md:flex-1 md:order-2 min-w-0 flex items-center gap-2">
-        <span class="truncate text-[15px] md:text-[13px] text-slate-700" title="{{ row.subject }}">{{ row.subject }}</span>
-        <span class="text-[11px] md:text-[10px] text-slate-400 truncate flex-shrink-0">{{ (folder_labels or {}).get(row.folder, row.folder) }}</span>
+        <span class="truncate text-[0.9375rem] md:text-[0.8125rem] text-slate-700" title="{{ row.subject }}">{{ row.subject }}</span>
+        <span class="text-[0.6875rem] md:text-[0.625rem] text-slate-400 truncate flex-shrink-0">{{ (folder_labels or {}).get(row.folder, row.folder) }}</span>
       </div>
     </div>
   </div>

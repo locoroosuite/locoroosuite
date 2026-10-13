@@ -25,6 +25,7 @@ from app.modules.mail.services.spam import (
 from app.modules.mail.services.spam import spam_action_enabled as _spam_action_enabled
 from app.shared.auth import require_customer
 from app.shared.db import db
+from app.shared.display import TEXT_SCALE_CHOICES
 from app.shared.i18n import LANGUAGE_SETTING_CHOICES, LANGUAGE_SETTING_LABELS
 from app.shared.keys import get_user_key
 from app.shared.models.core import CustomerAccount
@@ -187,6 +188,12 @@ def settings_pref():
         if value not in THEME_CHOICES:
             return _pref_error("INVALID_VALUE", _("Theme must be light or dark."))
         settings.theme = value
+    elif key == "text_scale":
+        if value not in TEXT_SCALE_CHOICES:
+            return _pref_error(
+                "INVALID_VALUE", _("Text size must be default, large, or larger.")
+            )
+        settings.text_scale = value
     else:
         for prefix, setter in _ACCOUNT_PREFIXES.items():
             if key.startswith(prefix):

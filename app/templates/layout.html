@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="{{ html_lang() }}" class="h-full">
+<html lang="{{ html_lang() }}" class="h-full"{% if text_scale_value != '1' %} style="--lr-text-scale: {{ text_scale_value }}"{% endif %}>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -247,7 +247,7 @@
             </div>
           </div>
           <div class="relative" id="user-menu">
-            <button type="button" id="user-menu-button" class="h-9 w-9 rounded-full bg-slate-900 text-white text-[11px] font-semibold flex items-center justify-center">
+            <button type="button" id="user-menu-button" class="h-9 w-9 rounded-full bg-slate-900 text-white text-[0.6875rem] font-semibold flex items-center justify-center">
               {{ user_menu.initials }}
             </button>
             <div id="user-menu-panel" class="hidden absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white shadow-lg py-1 text-sm">

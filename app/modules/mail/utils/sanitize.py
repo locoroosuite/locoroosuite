@@ -520,13 +520,19 @@ def add_quoted_collapse(body_html):
     return body_html
 
 
-def wrap_email_html(body_html):
+def wrap_email_html(body_html, text_scale: float = 1.0):
+    """Wrap sanitized HTML in the iframe document (UX8/UX8c).
+
+    ``text_scale`` multiplies the iframe's root font-size with the user's
+    text-size setting; the default (1.0) renders exactly as before.
+    """
+    scale_css = f"calc(100% * {text_scale:g})"
     return (
         "<!doctype html>"
         '<html><head><meta charset="utf-8" />'
         '<base target="_blank" />'
         "<style>"
-        "html{font-size:100%;}"
+        f"html{{font-size:{scale_css};}}"
         "html,body{margin:0;padding:0;}"
         "body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;"
         "font-size:0.9375rem;line-height:1.6;color:#0f172a;}"

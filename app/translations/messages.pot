@@ -2276,6 +2276,10 @@ msgstr ""
 msgid "Theme must be light or dark."
 msgstr ""
 
+#: app/modules/mail/controllers/settings.py:142
+msgid "Text size must be default, large, or larger."
+msgstr ""
+
 #: app/modules/mail/controllers/settings.py:146
 msgid "No such active account."
 msgstr ""
@@ -3059,6 +3063,26 @@ msgstr ""
 
 #: app/modules/mail/templates/settings.html:61
 msgid "Dark"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:67
+msgid "Text size"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:68
+msgid "Size of text across the app, including emails."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:73
+msgid "Default"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:74
+msgid "Large"
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:75
+msgid "Larger"
 msgstr ""
 
 #: app/modules/mail/templates/settings.html:71

@@ -121,6 +121,7 @@ class CustomerSettings(db.Model):
     browser_tz = db.Column(db.String(64), nullable=True)
     date_format = db.Column(db.String(32), default="DD/MM/YYYY", nullable=False)
     theme = db.Column(db.String(16), default="light", nullable=False)
+    text_scale = db.Column(db.String(8), default="m", nullable=False)
     pinned_folders = db.Column(db.Text, nullable=True)
     spam_action_prefs = db.Column(db.Text, nullable=True)
     protected_folders = db.Column(db.Text, nullable=True)

@@ -70,7 +70,7 @@
           <button type="button" class="rounded-md border border-slate-200 px-2 py-1 text-slate-600 hover:text-slate-900" data-command="createLink" tabindex="15">{{ _('Link') }}</button>
           <button type="button" class="rounded-md border border-slate-200 px-2 py-1 text-slate-600 hover:text-slate-900" data-command="removeFormat" tabindex="16">{{ _('Clear') }}</button>
         </div>
-        <div id="compose-editor" contenteditable="true" tabindex="5" class="min-h-[220px] px-3 py-3 text-[15px] md:text-[14px] outline-none" style="font-family: Arial, Helvetica, sans-serif; line-height: 1.6; color: #0f172a;"></div>
+        <div id="compose-editor" contenteditable="true" tabindex="5" class="min-h-[220px] px-3 py-3 text-[0.9375rem] md:text-[0.875rem] outline-none" style="font-family: Arial, Helvetica, sans-serif; line-height: 1.6; color: #0f172a;"></div>
       </div>
     </div>
     <div>
@@ -168,7 +168,7 @@
       var toggle = document.createElement('div');
       toggle.setAttribute('contenteditable', 'false');
       toggle.setAttribute('data-quote-toggle', '');
-      toggle.style.cssText = 'cursor:pointer;color:#3b82f6;font-size:13px;padding:4px 0 0 0;-webkit-user-select:none;user-select:none;';
+      toggle.style.cssText = 'cursor:pointer;color:#3b82f6;font-size:0.8125rem;padding:4px 0 0 0;-webkit-user-select:none;user-select:none;';
           toggle.textContent = '\u25B8 ' + window.LR.t('Show quoted text');
       toggle.addEventListener('click', function(e) {
         e.preventDefault();

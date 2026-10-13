@@ -586,13 +586,13 @@ class TestThreadConversationView:
         assert "flex flex-col md:flex-row" in html
         # U24.38: conversation meta line truncates instead of wrapping vertically
         # UX8: meta line renders at 13px on mobile, text-xs at md and up
-        assert "text-[13px] md:text-xs text-slate-500 mt-0.5 truncate" in html
+        assert "text-[0.8125rem] md:text-xs text-slate-500 mt-0.5 truncate" in html
         # U24.37: header buttons hidden below md (Reply All, Archive, Delete)
         assert html.count("hidden md:inline-block") == 3
         # U24.37: same actions duplicated as mobile-only overflow entries
         assert html.count('data-action="archive"') == 2
         assert html.count('data-action="delete"') == 2
-        assert "block md:hidden text-[12px]" in html
+        assert "block md:hidden text-[0.75rem]" in html
         # UX3d/U24.37: header star/lock hidden below md, duplicated as
         # mobile-only overflow entries (Star/Unstar, Lock/Unlock)
         assert html.count("mt-0.5 flex-shrink-0 hidden md:block") == 2

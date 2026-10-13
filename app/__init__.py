@@ -11,6 +11,7 @@ from flask import Flask, g, redirect, render_template, request, session, url_for
 from app.config import AppConfig
 from app.shared.app_migrations import APP_DB_MIGRATIONS
 from app.shared.db import db
+from app.shared.display import format_text_scale
 from app.shared.keys import get_user_key
 from app.shared.logging import configure_logging
 from app.shared.migrations import run_migrations
@@ -111,6 +112,18 @@ def create_app():
         if len(parts) >= 2:
             return (parts[0][0] + parts[1][0]).upper()
         return local[:2].upper() if len(local) >= 2 else local[:1].upper()
+
+    @app.context_processor
+    def inject_display_prefs():
+        # HLD UX8c: per-user text scale, applied on <html> as a CSS custom
+        # property. Anonymous and admin/manager sessions keep the default (1).
+        value = "1"
+        user_id = session.get("user_id")
+        if user_id and session.get("role") == "customer":
+            settings_row = db.session.get(core.CustomerSettings, user_id)
+            if settings_row is not None:
+                value = format_text_scale(settings_row.text_scale)
+        return {"text_scale_value": value}
 
     @app.context_processor
     def inject_user_menu():

@@ -58,6 +58,7 @@ from app.modules.mail.services.spam import spam_action_enabled as _spam_action_e
 from app.modules.mail.utils.sanitize import normalize_header_text
 from app.shared.auth import require_customer
 from app.shared.db import db
+from app.shared.display import text_scale_factor
 from app.shared.keys import get_user_key
 from app.shared.models.core import CustomerAccount
 
@@ -71,14 +72,19 @@ def message_view(account_id, message_id):
         id=account_id, customer_id=session.get("user_id")
     ).first_or_404()
     allow_images = request.args.get("show_images") == "1"
+    settings = _get_or_create_settings(session.get("user_id"))
     message, sanitized, attachments, flags, _bodies, ics_attachments, cc_display = (
         _load_message_detail(
-            account, message_id, allow_images=allow_images, mark_seen=True, collapse_quotes=True
+            account,
+            message_id,
+            allow_images=allow_images,
+            mark_seen=True,
+            collapse_quotes=True,
+            text_scale=text_scale_factor(settings.text_scale),
         )
     )
     if not message:
         return redirect(url_for("mail.mailbox"))
-    settings = _get_or_create_settings(session.get("user_id"))
     key = get_user_key(session.get("user_id"))
     conn = open_cache(account.cache_db_path, key)
     cached_folders = list_cached_folders(conn)
@@ -96,6 +102,7 @@ def message_view(account_id, message_id):
         message["subject"],
         account_email=account.email_address,
         timezone_name=settings.timezone,
+        text_scale=text_scale_factor(settings.text_scale),
     )
     for tm in thread_messages:
         if tm["is_current"]:
@@ -142,12 +149,18 @@ def message_preview(account_id, message_id):
         id=account_id, customer_id=session.get("user_id")
     ).first_or_404()
     allow_images = request.args.get("show_images") == "1"
+    settings = _get_or_create_settings(session.get("user_id"))
     message, sanitized, attachments, flags, bodies, ics_attachments, _cc_display = (
-        _load_message_detail(account, message_id, allow_images=allow_images, mark_seen=True)
+        _load_message_detail(
+            account,
+            message_id,
+            allow_images=allow_images,
+            mark_seen=True,
+            text_scale=text_scale_factor(settings.text_scale),
+        )
     )
     if not message:
         return Response("", status=404)
-    settings = _get_or_create_settings(session.get("user_id"))
     if ics_attachments:
         _format_ics_dates(ics_attachments, settings.timezone)
     attachment_actions = attachment_actions_map(attachments)

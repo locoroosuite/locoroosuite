@@ -233,6 +233,28 @@ class TestWrapperNoForcedBorderCollapse:
         assert "font-size:14px" not in wrapped
 
 
+class TestWrapperTextScaleUx8c:
+    """UX8c: the user's text-size setting multiplies the iframe root size."""
+
+    def test_default_scale_unchanged(self):
+        wrapped = wrap_email_html("<p>test</p>")
+        assert "html{font-size:calc(100% * 1);}" in wrapped
+
+    def test_large_scale_multiplies_root(self):
+        wrapped = wrap_email_html("<p>test</p>", text_scale=1.125)
+        assert "html{font-size:calc(100% * 1.125);}" in wrapped
+
+    def test_xl_scale_multiplies_root(self):
+        wrapped = wrap_email_html("<p>test</p>", text_scale=1.25)
+        assert "html{font-size:calc(100% * 1.25);}" in wrapped
+
+    def test_body_stays_rem_based(self):
+        # The body/quoted sizes are rem, so they scale with the root above.
+        wrapped = wrap_email_html("<p>test</p>", text_scale=1.125)
+        assert "font-size:0.9375rem" in wrapped
+        assert "font-size:0.875rem" in wrapped
+
+
 class TestWrapperWidthFitUx8a:
     """UX8a: bodies reflow to the viewport — tables capped, unbreakable
     strings inside cells may break (collapses table min-content)."""

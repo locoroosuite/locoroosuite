@@ -12,9 +12,9 @@
     </span>
     <span class="text-xs text-amber-700">{{ _('This message has not been sent yet.') }}</span>
     <div class="flex items-center gap-1.5 ml-auto">
-      <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message["uid"]) }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">{{ _('Edit draft') }}</a>
+      <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message["uid"]) }}" class="text-[0.75rem] md:text-[0.6875rem] px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">{{ _('Edit draft') }}</a>
       <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=message["uid"]) }}" class="message-action" data-action="discard-draft">
-        <button class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">{{ _('Discard') }}</button>
+        <button class="text-[0.75rem] md:text-[0.6875rem] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">{{ _('Discard') }}</button>
       </form>
     </div>
   </div>
@@ -49,72 +49,72 @@
             <h1 class="text-lg font-semibold text-slate-900 truncate min-w-0">{{ message["subject"] }}</h1>
           </div>
           {% if thread_count > 1 %}
-          <div class="text-[13px] md:text-xs text-slate-500 mt-0.5 truncate">{{ _('{n} messages in this conversation').format(n=thread_count) }}</div>
+          <div class="text-[0.8125rem] md:text-xs text-slate-500 mt-0.5 truncate">{{ _('{n} messages in this conversation').format(n=thread_count) }}</div>
           {% endif %}
         </div>
       </div>
 
       <div class="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
         {% if is_draft %}
-        <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message["uid"]) }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">{{ _('Edit draft') }}</a>
+        <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=message["uid"]) }}" class="text-[0.75rem] md:text-[0.6875rem] px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition font-medium">{{ _('Edit draft') }}</a>
         <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=message["uid"]) }}" class="message-action" data-action="discard-draft">
-          <button class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">{{ _('Discard') }}</button>
+          <button class="text-[0.75rem] md:text-[0.6875rem] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">{{ _('Discard') }}</button>
         </form>
         {% else %}
-        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"]) }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">{{ _('Reply') }}</a>
-        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], reply_all='1') }}" class="hidden md:inline-block text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">{{ _('Reply All') }}</a>
-        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], forward='1') }}" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">{{ _('Forward') }}</a>
+        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"]) }}" class="text-[0.75rem] md:text-[0.6875rem] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">{{ _('Reply') }}</a>
+        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], reply_all='1') }}" class="hidden md:inline-block text-[0.75rem] md:text-[0.6875rem] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">{{ _('Reply All') }}</a>
+        <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], forward='1') }}" class="text-[0.75rem] md:text-[0.6875rem] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">{{ _('Forward') }}</a>
         <span class="hidden md:block h-4 w-px bg-slate-200 mx-0.5"></span>
         {% endif %}
         <form method="post" action="{{ url_for('mail.archive_message', account_id=account.id, message_id=message["id"]) }}" class="message-action hidden md:inline-block" data-action="archive">
-          <button type="submit" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">{{ _('Archive') }}</button>
+          <button type="submit" class="text-[0.75rem] md:text-[0.6875rem] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition">{{ _('Archive') }}</button>
         </form>
         <form method="post" action="{{ url_for('mail.delete_message', account_id=account.id, message_id=message["id"]) }}" class="message-action hidden md:inline-block" data-action="delete">
-          <button type="submit" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">{{ _('Delete') }}</button>
+          <button type="submit" class="text-[0.75rem] md:text-[0.6875rem] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">{{ _('Delete') }}</button>
         </form>
         <div class="relative">
-          <button type="button" class="text-[12px] md:text-[11px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition lr-hit" data-overflow-toggle aria-label="{{ _('More actions') }}" aria-haspopup="menu" aria-expanded="false">&#8943;</button>
+          <button type="button" class="text-[0.75rem] md:text-[0.6875rem] px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition lr-hit" data-overflow-toggle aria-label="{{ _('More actions') }}" aria-haspopup="menu" aria-expanded="false">&#8943;</button>
           <div class="absolute right-0 mt-1 py-1 min-w-[170px] rounded-lg border border-slate-200 bg-white shadow-lg hidden z-50" data-overflow-menu role="menu">
             <form method="post" action="{{ url_for('mail.flag_message', account_id=account.id, message_id=message["id"]) }}" class="message-action md:hidden" data-action="flag" data-no-row-nav>
               <input type="hidden" name="action" value="{{ 'remove' if is_flagged else 'add' }}" />
-              <button type="submit" class="w-full text-left text-[12px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem" data-star-label>{{ _('Unstar') if is_flagged else _('Star') }}</button>
+              <button type="submit" class="w-full text-left text-[0.75rem] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem" data-star-label>{{ _('Unstar') if is_flagged else _('Star') }}</button>
             </form>
             {% if lock_action_enabled %}
             <form method="post" action="{{ url_for('mail.lock_message', account_id=account.id, message_id=message["id"]) }}" class="message-action md:hidden" data-action="lock" data-no-row-nav>
               <input type="hidden" name="action" value="{{ 'remove' if is_locked else 'add' }}" />
-              <button type="submit" class="w-full text-left text-[12px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem" data-lock-label>{{ _('Unlock') if is_locked else _('Lock') }}</button>
+              <button type="submit" class="w-full text-left text-[0.75rem] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem" data-lock-label>{{ _('Unlock') if is_locked else _('Lock') }}</button>
             </form>
             {% endif %}
             {% if not is_draft %}
-            <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], reply_all='1') }}" class="block md:hidden text-[12px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Reply all') }}</a>
+            <a href="{{ url_for('mail.compose', account_id=account.id, reply_to=message["id"], reply_all='1') }}" class="block md:hidden text-[0.75rem] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Reply all') }}</a>
             {% endif %}
             <form method="post" action="{{ url_for('mail.archive_message', account_id=account.id, message_id=message["id"]) }}" class="message-action md:hidden" data-action="archive">
-              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Archive') }}</button>
+              <button type="submit" class="w-full text-left text-[0.75rem] md:text-[0.6875rem] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Archive') }}</button>
             </form>
             <form method="post" action="{{ url_for('mail.delete_message', account_id=account.id, message_id=message["id"]) }}" class="message-action md:hidden" data-action="delete">
-              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-rose-600 hover:bg-rose-50 whitespace-nowrap" role="menuitem">{{ _('Delete') }}</button>
+              <button type="submit" class="w-full text-left text-[0.75rem] md:text-[0.6875rem] px-3 py-2.5 text-rose-600 hover:bg-rose-50 whitespace-nowrap" role="menuitem">{{ _('Delete') }}</button>
             </form>
             <div class="border-t border-slate-100 my-1 md:hidden"></div>
             {% if not is_draft %}
-            <a href="{{ url_for('calendar.event_new', summary=message["subject"], description=(message["snippet"] or '')[:2000], attendee=message["sender"]) }}" class="block text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Create event') }}</a>
+            <a href="{{ url_for('calendar.event_new', summary=message["subject"], description=(message["snippet"] or '')[:2000], attendee=message["sender"]) }}" class="block text-[0.75rem] md:text-[0.6875rem] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Create event') }}</a>
             {% endif %}
             <form method="post" action="{{ url_for('mail.mark_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="mark">
               <input type="hidden" name="action" value="{{ 'read' if is_unread else 'unread' }}" />
-              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Mark as read') if is_unread else _('Mark as unread') }}</button>
+              <button type="submit" class="w-full text-left text-[0.75rem] md:text-[0.6875rem] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Mark as read') if is_unread else _('Mark as unread') }}</button>
             </form>
-            <button type="button" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-to-folder role="menuitem">{{ _('Move to folder') }}</button>
+            <button type="button" class="w-full text-left text-[0.75rem] md:text-[0.6875rem] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-to-folder role="menuitem">{{ _('Move to folder') }}</button>
             {% if in_junk_folder %}
             <form method="post" action="{{ url_for('mail.not_junk_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="not-junk">
-              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Not spam') }}</button>
+              <button type="submit" class="w-full text-left text-[0.75rem] md:text-[0.6875rem] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Not spam') }}</button>
             </form>
             {% elif spam_action_enabled %}
             <form method="post" action="{{ url_for('mail.junk_message', account_id=account.id, message_id=message["id"]) }}" class="message-action" data-action="junk">
-              <button type="submit" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Report spam') }}</button>
+              <button type="submit" class="w-full text-left text-[0.75rem] md:text-[0.6875rem] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" role="menuitem">{{ _('Report spam') }}</button>
             </form>
             {% endif %}
             <div class="border-t border-slate-100 my-1"></div>
-            <a class="block text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.download_message', account_id=account.id, message_id=message["id"]) }}" role="menuitem">{{ _('Download .eml') }}</a>
-            <a class="block text-[12px] md:text-[11px] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.print_message', account_id=account.id, message_id=message["id"]) }}" target="_blank" role="menuitem">{{ _('Print') }}</a>
+            <a class="block text-[0.75rem] md:text-[0.6875rem] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.download_message', account_id=account.id, message_id=message["id"]) }}" role="menuitem">{{ _('Download .eml') }}</a>
+            <a class="block text-[0.75rem] md:text-[0.6875rem] px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" href="{{ url_for('mail.print_message', account_id=account.id, message_id=message["id"]) }}" target="_blank" role="menuitem">{{ _('Print') }}</a>
           </div>
         </div>
       </div>
@@ -132,10 +132,10 @@
           <div class="min-w-0">
             <div class="flex items-center gap-2 text-sm flex-wrap">
               {% if tm.is_bounce %}
-              <span class="inline-flex items-center gap-1 text-[11px] md:text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">{{ _('Delivery failed') }}</span>
+              <span class="inline-flex items-center gap-1 text-[0.6875rem] md:text-[0.625rem] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">{{ _('Delivery failed') }}</span>
               <span class="font-medium text-red-700 truncate" title="{{ tm.sender_tooltip }}">{{ tm.sender_display }}</span>
               {% elif tm.is_draft %}
-              <span class="inline-flex items-center gap-1 text-[11px] md:text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">{{ _('Draft') }}</span>
+              <span class="inline-flex items-center gap-1 text-[0.6875rem] md:text-[0.625rem] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">{{ _('Draft') }}</span>
               <span class="font-medium text-amber-700">{{ _('You') }}</span>
               {% if tm.recipients_display %}
               <svg class="w-3 h-3 text-amber-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
@@ -144,7 +144,7 @@
               {% if tm.cc %}<span class="text-xs text-slate-400 hidden sm:inline"><span class="text-slate-300">&middot;</span> {{ _('cc') }} {{ tm.cc }}</span>{% endif %}
               {% elif tm.is_sent %}
               <span class="font-medium text-indigo-700 cursor-pointer hover:underline" data-copy-email="{{ account.email_address }}" title="{{ _('Click to copy') }} {{ account.email_address }}">{{ _('You') }}</span>
-              <span class="text-[12px] md:text-[11px] text-slate-500 truncate max-w-[180px]">&lt;{{ account.email_address }}&gt;</span>
+              <span class="text-[0.75rem] md:text-[0.6875rem] text-slate-500 truncate max-w-[180px]">&lt;{{ account.email_address }}&gt;</span>
               {% if tm.recipients_display %}
               <svg class="w-3 h-3 text-indigo-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
               <span class="text-slate-500 truncate cursor-pointer hover:underline" {% if tm.recipients_email %}data-copy-email="{{ tm.recipients_email }}" title="{{ _('Click to copy') }} {{ tm.recipients_email }}"{% endif %}>{{ tm.recipients_display }}</span>
@@ -153,7 +153,7 @@
               {% else %}
               <span class="font-medium text-slate-900 truncate cursor-pointer hover:underline" data-copy-email="{% if tm.sender_email %}{{ tm.sender_email }}{% elif tm.sender_tooltip %}{{ tm.sender_tooltip }}{% else %}{{ tm.sender_display }}{% endif %}" title="{% if tm.sender_email %}{{ _('Click to copy') }} {{ tm.sender_email }}{% elif tm.sender_tooltip %}{{ tm.sender_tooltip }}{% else %}{{ tm.sender_display }}{% endif %}">{{ tm.sender_display }}</span>
               {% if tm.sender_email %}
-              <span class="text-[12px] md:text-[11px] text-slate-500 truncate max-w-[180px]">&lt;{{ tm.sender_email }}&gt;</span>
+              <span class="text-[0.75rem] md:text-[0.6875rem] text-slate-500 truncate max-w-[180px]">&lt;{{ tm.sender_email }}&gt;</span>
               {% endif %}
               <span class="text-xs text-slate-400 hidden sm:inline">{{ _('to') }} {{ tm.recipients }}{% if tm.cc %} <span class="text-slate-300">&middot;</span> {{ _('cc') }} {{ tm.cc }}{% endif %}</span>
               {% endif %}
@@ -174,18 +174,18 @@
         {% if not tm.is_current %}
         <div class="flex items-center gap-1.5 flex-shrink-0">
           {% if tm.is_draft %}
-          <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=tm.uid) }}" class="text-[11px] md:text-[10px] px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition" data-no-row-nav>{{ _('Edit') }}</a>
+          <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=tm.uid) }}" class="text-[0.6875rem] md:text-[0.625rem] px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition" data-no-row-nav>{{ _('Edit') }}</a>
           <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=tm.uid) }}" class="thread-draft-discard message-action" data-action="discard-draft" data-no-row-nav data-thread-draft>
-            <button class="text-[11px] md:text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">{{ _('Discard') }}</button>
+            <button class="text-[0.6875rem] md:text-[0.625rem] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">{{ _('Discard') }}</button>
           </form>
           {% endif %}
           <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 flex-shrink-0" data-expand-icon viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
         </div>
         {% elif tm.is_draft and not is_draft %}
         <div class="flex items-center gap-1.5 flex-shrink-0">
-          <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=tm.uid) }}" class="text-[11px] md:text-[10px] px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition">{{ _('Edit') }}</a>
+          <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=tm.uid) }}" class="text-[0.6875rem] md:text-[0.625rem] px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition">{{ _('Edit') }}</a>
           <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=tm.uid) }}" class="thread-draft-discard message-action" data-action="discard-draft" data-thread-draft>
-            <button class="text-[11px] md:text-[10px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">{{ _('Discard') }}</button>
+            <button class="text-[0.6875rem] md:text-[0.625rem] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">{{ _('Discard') }}</button>
           </form>
         </div>
         {% endif %}
@@ -248,7 +248,7 @@
           {% endfor %}
           {% endif %}
           <div class="mb-2 hidden" data-fit-controls>
-            <button type="button" class="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900" data-fit-toggle data-fitted="1" data-label-fit="{{ _('Fit width') }}" data-label-actual="{{ _('Actual size') }}">{{ _('Actual size') }}</button>
+            <button type="button" class="rounded-full border border-slate-200 bg-white px-3 py-1 text-[0.6875rem] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900" data-fit-toggle data-fitted="1" data-label-fit="{{ _('Fit width') }}" data-label-actual="{{ _('Actual size') }}">{{ _('Actual size') }}</button>
           </div>
           <iframe class="thread-msg-body w-full bg-white" sandbox="allow-scripts allow-popups allow-same-origin" referrerpolicy="no-referrer"></iframe>
           {% if tm.is_current and attachments %}
@@ -331,7 +331,7 @@
           {% endif %}
           {% if not tm.is_current %}
           <div class="mt-3 text-center">
-            <a class="text-[12px] md:text-[11px] text-slate-500 hover:text-slate-600 transition" href="{{ url_for('mail.message_view', account_id=account.id, message_id=tm.id) }}">{{ _('View full message') }}</a>
+            <a class="text-[0.75rem] md:text-[0.6875rem] text-slate-500 hover:text-slate-600 transition" href="{{ url_for('mail.message_view', account_id=account.id, message_id=tm.id) }}">{{ _('View full message') }}</a>
           </div>
           {% endif %}
         </div>

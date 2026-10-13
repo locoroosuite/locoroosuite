@@ -36,6 +36,7 @@ def test_settings_page_renders(authed_client):
         'data-pref="timezone"',
         'data-pref="language"',
         'data-pref="theme"',
+        'data-pref="text_scale"',
         'data-pref="sort_order"',
         'data-pref="preview_pane_default"',
         'data-pref="polling_interval"',
@@ -80,6 +81,9 @@ def test_settings_page_requires_login(client):
         ("language", "en", "language", "en"),
         ("language", "browser", "language", "browser"),
         ("theme", "dark", "theme", "dark"),
+        ("text_scale", "l", "text_scale", "l"),
+        ("text_scale", "xl", "text_scale", "xl"),
+        ("text_scale", "m", "text_scale", "m"),
         ("preview_pane_default", True, "preview_pane_default", True),
         ("protect_starred", False, "protect_starred", False),
         ("push_detailed", True, "push_detailed", True),
@@ -110,6 +114,9 @@ def test_pref_saves_fields(authed_client, app, key, value, attr, expected):
         ("language", "es-AR"),
         ("language", ""),
         ("theme", "blue"),
+        ("text_scale", "huge"),
+        ("text_scale", ""),
+        ("text_scale", None),
         ("totally_unknown", True),
     ],
 )
@@ -255,3 +262,18 @@ def test_reset_cache(authed_client):
 def test_reset_cache_no_account(client):
     resp = client.post("/app/mail/settings/reset-cache")
     assert resp.status_code == 302
+
+
+def test_text_scale_control_renders_spanish(authed_client):
+    """UX8c/U26: the text-size control is translated, not hardcoded."""
+    client, _user_id, _account_id = authed_client
+    resp = client.get(
+        "/app/mail/settings",
+        headers={"Accept-Language": "es-ES,es;q=0.9"},
+    )
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert 'data-pref="text_scale"' in body
+    assert "Tamaño del texto" in body
+    assert "Predeterminado" in body
+    assert "Más grande" in body

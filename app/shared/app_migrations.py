@@ -377,6 +377,17 @@ def _customer_settings_spam_prefs_auto_off(conn) -> None:
             )
 
 
+def _customer_settings_text_scale(conn) -> None:
+    """0023: per-user text size (font scale) setting (HLD UX8c); default 'm'."""
+    if not has_table(conn, "customer_settings"):
+        return
+    if "text_scale" in table_columns(conn, "customer_settings"):
+        return
+    conn.execute(
+        "ALTER TABLE customer_settings ADD COLUMN text_scale VARCHAR(8) NOT NULL DEFAULT 'm'"
+    )
+
+
 APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_domain_status", _domain_status),
     Migration("0002_customer_settings_spam_action", _customer_settings_spam_action),
@@ -400,4 +411,5 @@ APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0020_notify_chat_enabled", _notify_chat_enabled),
     Migration("0021_customer_settings_browser_tz", _customer_settings_browser_tz),
     Migration("0022_customer_settings_spam_prefs_auto_off", _customer_settings_spam_prefs_auto_off),
+    Migration("0023_customer_settings_text_scale", _customer_settings_text_scale),
 )

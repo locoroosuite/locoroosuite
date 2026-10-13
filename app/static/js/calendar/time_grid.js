@@ -72,7 +72,7 @@
       html +=
         '<div class="py-1.5 md:py-2 text-center border-l border-slate-100 ' +
         (isToday ? 'bg-blue-50/40' : '') +
-        '"><div class="text-[12px] md:text-[11px] uppercase tracking-wide ' +
+        '"><div class="text-[0.75rem] md:text-[0.6875rem] uppercase tracking-wide ' +
         (isToday ? 'text-blue-600 font-semibold' : 'text-slate-500') +
         '">' + LRCal.DAYS_SHORT()[d.getDay()] + '</div>' +
         '<div class="mx-auto mt-0.5 h-7 w-7 md:h-8 md:w-8 grid place-items-center text-base md:text-lg font-semibold ' +
@@ -90,7 +90,7 @@
       (allDayRows ? '' : 'h-0 overflow-hidden ') +
       '"><div class="grid" style="' + gridStyle + '">';
     html +=
-      '<div class="py-1 pr-1 text-[11px] md:text-[10px] text-slate-500 text-right">' +
+      '<div class="py-1 pr-1 text-[0.6875rem] md:text-[0.625rem] text-slate-500 text-right">' +
       (allDayRows ? window.LR.t('all-day') : '') +
       '</div>';
     days.forEach(function (d) {
@@ -103,7 +103,7 @@
           var continues = placed.continuesRight;
           html +=
             '<div class="cal-event cal-allday ' + (continues ? 'rounded-l' : '') +
-            ' flex items-center rounded px-1.5 h-[22px] mb-0.5 text-[12px] md:text-[11px] font-medium text-slate-900 overflow-hidden cursor-pointer"' +
+            ' flex items-center rounded px-1.5 h-[22px] mb-0.5 text-[0.75rem] md:text-[0.6875rem] font-medium text-slate-900 overflow-hidden cursor-pointer"' +
             ' style="background-color:' + LRCal.tint(color, 0.35) +
             ';border-left:3px solid ' + color + ';touch-action:none" data-event-id="' +
             placed.ev.id + '" data-occurrence="' + esc(placed.ev.recurrence_date || '') + '">' +
@@ -120,7 +120,7 @@
     html += '<div class="relative">';
     for (var h = 0; h < 24; h++) {
       html +=
-        '<div class="h-12 border-b border-slate-100 text-[11px] md:text-[10px] text-slate-400 text-right pr-2 pt-0.5" style="height:' + HOUR_H + 'px">' +
+        '<div class="h-12 border-b border-slate-100 text-[0.6875rem] md:text-[0.625rem] text-slate-400 text-right pr-2 pt-0.5" style="height:' + HOUR_H + 'px">' +
         (h === 0 ? '' : LRCal.pad(h) + ':00') + '</div>';
     }
     html += '</div>';
@@ -260,10 +260,10 @@
             ? 'background-color:' + color + ';'
             : 'background-color:' + LRCal.tint(color, 0.22) + ';border-left:3px solid ' + color + ';') +
           'touch-action:none" data-event-id="' + it.ev.id + '" data-occurrence="' + esc(it.ev.recurrence_date || '') + '" title="' + esc(it.ev.summary || '') + '">' +
-          '<div class="text-[12px] md:text-[11px] leading-tight truncate">' +
+          '<div class="text-[0.75rem] md:text-[0.6875rem] leading-tight truncate">' +
           esc(it.ev.summary || window.LR.t('(no title)')) + '</div>' +
           (height >= 34 && !solid
-            ? '<div class="text-[11px] md:text-[10px] text-slate-600 leading-tight">' +
+            ? '<div class="text-[0.6875rem] md:text-[0.625rem] text-slate-600 leading-tight">' +
               LRCal.formatTime(it.displayStart) + '</div>'
             : '') +
           '<div class="cal-resize-handle" style="position:absolute;left:0;right:0;bottom:0;height:8px;cursor:ns-resize"></div>' +

@@ -64,7 +64,7 @@
     html += '<div class="rounded-xl border border-slate-200/80 bg-white shadow-sm p-2">';
     html += '<div class="grid grid-cols-7 text-center mb-1">';
     LRCal.DAYS_MINI().forEach(function (d) {
-      html += '<div class="py-0.5 text-[11px] md:text-[10px] text-slate-500">' + d + '</div>';
+      html += '<div class="py-0.5 text-[0.6875rem] md:text-[0.625rem] text-slate-500">' + d + '</div>';
     });
     html += '</div>';
     html += '<div class="grid grid-cols-7 text-center">';
@@ -74,7 +74,7 @@
       var isToday = iso === todayISO;
       var isSelected = iso === selectedISO;
       html +=
-        '<div class="py-0.5 grid place-items-center"><button data-nav-date="' + iso + '" class="mini-day relative h-7 w-7 text-[12px] md:text-[11px] rounded-full grid place-items-center lr-hit ' +
+        '<div class="py-0.5 grid place-items-center"><button data-nav-date="' + iso + '" class="mini-day relative h-7 w-7 text-[0.75rem] md:text-[0.6875rem] rounded-full grid place-items-center lr-hit ' +
         (isToday
           ? 'bg-blue-600 text-white font-semibold'
           : isSelected

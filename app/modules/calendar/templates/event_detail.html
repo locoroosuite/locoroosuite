@@ -102,13 +102,13 @@
             <span class="text-slate-900">{{ att.cn if att is mapping else att }}</span>
             {% if att is mapping and att.partstat is defined %}
               {% if att.partstat == 'ACCEPTED' %}
-              <span class="text-[10px] font-medium text-green-700 bg-green-50 rounded-full px-1.5 py-0.5">{{ _('Accepted') }}</span>
+              <span class="text-[0.625rem] font-medium text-green-700 bg-green-50 rounded-full px-1.5 py-0.5">{{ _('Accepted') }}</span>
               {% elif att.partstat == 'DECLINED' %}
-              <span class="text-[10px] font-medium text-rose-700 bg-rose-50 rounded-full px-1.5 py-0.5">{{ _('Declined') }}</span>
+              <span class="text-[0.625rem] font-medium text-rose-700 bg-rose-50 rounded-full px-1.5 py-0.5">{{ _('Declined') }}</span>
               {% elif att.partstat == 'TENTATIVE' %}
-              <span class="text-[10px] font-medium text-amber-700 bg-amber-50 rounded-full px-1.5 py-0.5">{{ _('Tentative') }}</span>
+              <span class="text-[0.625rem] font-medium text-amber-700 bg-amber-50 rounded-full px-1.5 py-0.5">{{ _('Tentative') }}</span>
               {% else %}
-              <span class="text-[10px] font-medium text-slate-500 bg-slate-50 rounded-full px-1.5 py-0.5">{{ _('Pending') }}</span>
+              <span class="text-[0.625rem] font-medium text-slate-500 bg-slate-50 rounded-full px-1.5 py-0.5">{{ _('Pending') }}</span>
               {% endif %}
             {% endif %}
           </div>

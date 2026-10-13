@@ -262,3 +262,51 @@ class TestSpamPrefsAutoOffMigration:
             assert run_migrations(conn, [self._migration_0022()]) == 0
         finally:
             conn.close()
+
+
+class TestCustomerSettingsTextScaleMigration:
+    """0023_customer_settings_text_scale: per-user text scale (HLD UX8c)."""
+
+    def _pre_migration_conn(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE customer_settings (customer_id INTEGER PRIMARY KEY, timezone VARCHAR(64))"
+        )
+        conn.commit()
+        return conn
+
+    def _migration_0023(self):
+        return next(m for m in APP_DB_MIGRATIONS if m.name == "0023_customer_settings_text_scale")
+
+    def test_migration_adds_column_with_default_and_preserves_rows(self):
+        conn = self._pre_migration_conn()
+        try:
+            conn.execute(
+                "INSERT INTO customer_settings (customer_id, timezone) VALUES (1, 'browser')"
+            )
+            conn.commit()
+            assert run_migrations(conn, [self._migration_0023()]) == 1
+            cols = table_columns(conn, "customer_settings")
+            assert "text_scale" in cols
+            conn.execute("INSERT INTO customer_settings (customer_id) VALUES (2)")
+            rows = dict(
+                conn.execute(
+                    "SELECT customer_id, text_scale FROM customer_settings"
+                ).fetchall()
+            )
+            assert rows[1] == "m"  # existing row gets the default
+            assert rows[2] == "m"  # new rows default to 'm' (no visual change)
+            tz = conn.execute(
+                "SELECT timezone FROM customer_settings WHERE customer_id = 1"
+            ).fetchone()
+            assert tz == ("browser",)
+        finally:
+            conn.close()
+
+    def test_migration_is_idempotent(self):
+        conn = self._pre_migration_conn()
+        try:
+            run_migrations(conn, [self._migration_0023()])
+            assert run_migrations(conn, [self._migration_0023()]) == 0
+        finally:
+            conn.close()

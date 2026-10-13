@@ -88,12 +88,12 @@
         opts.onRestore(menu);
         return;
       }
-      var html = '<button type="button" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2 text-slate-500 hover:bg-slate-50 hover:text-slate-600 whitespace-nowrap" data-move-back>&larr; ' + window.LR.t('Back') + '</button>';
+      var html = '<button type="button" class="w-full text-left text-[0.75rem] md:text-[0.6875rem] px-3 py-2 text-slate-500 hover:bg-slate-50 hover:text-slate-600 whitespace-nowrap" data-move-back>&larr; ' + window.LR.t('Back') + '</button>';
       html += '<div class="border-t border-slate-100"></div>';
-      html += '<div class="px-2 py-1"><input type="text" placeholder="' + window.LR.t('Filter folders...') + '" class="w-full text-base md:text-[11px] px-2 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:border-slate-400" data-folder-filter /></div>';
+      html += '<div class="px-2 py-1"><input type="text" placeholder="' + window.LR.t('Filter folders...') + '" class="w-full text-base md:text-[0.6875rem] px-2 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:border-slate-400" data-folder-filter /></div>';
       html += '<div class="max-h-40 overflow-y-auto" data-folder-list>';
       targets.forEach(function (f) {
-        html += '<button type="button" class="w-full text-left text-[12px] md:text-[11px] px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-target="' + CSS.escape(f) + '">' + folderLabelOf(opts, f) + '</button>';
+        html += '<button type="button" class="w-full text-left text-[0.75rem] md:text-[0.6875rem] px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap" data-move-target="' + CSS.escape(f) + '">' + folderLabelOf(opts, f) + '</button>';
       });
       html += '</div>';
       menu.innerHTML = html;
@@ -189,10 +189,10 @@
       '<div class="lr-sheet-panel fixed inset-x-0 bottom-0 z-[61] outline-none" role="dialog" aria-modal="true" tabindex="-1" data-sheet-panel>' +
         '<div class="mx-auto w-full max-w-lg rounded-t-2xl bg-white shadow-2xl">' +
           '<div class="flex justify-center pt-2 pb-1" aria-hidden="true"><span class="h-1 w-10 rounded-full bg-slate-300"></span></div>' +
-          '<div class="truncate px-5 pb-1 text-center text-[13px] font-medium text-slate-500" data-sheet-title></div>' +
+          '<div class="truncate px-5 pb-1 text-center text-[0.8125rem] font-medium text-slate-500" data-sheet-title></div>' +
           '<div class="max-h-[60vh] overflow-y-auto overscroll-contain pb-1" data-sheet-content></div>' +
           '<div class="lr-sheet-actions border-t border-slate-100 px-3 pt-2">' +
-            '<button type="button" class="w-full rounded-lg py-3 text-[15px] font-medium text-slate-600 active:bg-slate-100" data-sheet-cancel></button>' +
+            '<button type="button" class="w-full rounded-lg py-3 text-[0.9375rem] font-medium text-slate-600 active:bg-slate-100" data-sheet-cancel></button>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -230,7 +230,7 @@
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.dataset.sheetEntry = kind;
-    btn.className = 'flex w-full items-center gap-3 border-t border-slate-100 px-5 py-3.5 text-left text-[15px] text-slate-700 first:border-t-0 active:bg-slate-100';
+    btn.className = 'flex w-full items-center gap-3 border-t border-slate-100 px-5 py-3.5 text-left text-[0.9375rem] text-slate-700 first:border-t-0 active:bg-slate-100';
     var iconWrap = document.createElement('span');
     iconWrap.className = 'flex h-5 w-5 flex-shrink-0 items-center justify-center text-slate-400';
     iconWrap.setAttribute('aria-hidden', 'true');
@@ -282,7 +282,7 @@
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.dataset.sheetBack = '';
-    btn.className = 'flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] font-medium text-sky-600 active:bg-slate-100';
+    btn.className = 'flex w-full items-center gap-2 px-4 py-2.5 text-left text-[0.8125rem] font-medium text-sky-600 active:bg-slate-100';
     btn.innerHTML = BACK_ICON;
     btn.appendChild(document.createTextNode(t('Back')));
     return btn;
@@ -305,7 +305,7 @@
 
     if (targets.length === 0) {
       var empty = document.createElement('div');
-      empty.className = 'px-5 py-6 text-center text-[13px] text-slate-400';
+      empty.className = 'px-5 py-6 text-center text-[0.8125rem] text-slate-400';
       empty.textContent = t('No other folders available.');
       content.appendChild(empty);
       return;
@@ -328,7 +328,7 @@
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.dataset.sheetMove = f;
-      btn.className = 'flex w-full items-center border-t border-slate-100 px-5 py-3 text-left text-[15px] text-slate-700 first:border-t-0 active:bg-slate-100';
+      btn.className = 'flex w-full items-center border-t border-slate-100 px-5 py-3 text-left text-[0.9375rem] text-slate-700 first:border-t-0 active:bg-slate-100';
       btn.textContent = folderLabelOf(opts, f);
       list.appendChild(btn);
     });

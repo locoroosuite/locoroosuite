@@ -577,6 +577,47 @@ class TestMobileSettingsUi:
 
 
 @skip_if_no_services
+class TestMobileTextScaleUi:
+    """UX8c: the per-user text scale grows the root font size below md."""
+
+    def _set_scale(self, page, value):
+        page.goto("http://localhost:8001/app/mail/settings")
+        page.wait_for_load_state("load")
+        page.wait_for_selector("select[data-pref='text_scale']", timeout=10000)
+        page.select_option("select[data-pref='text_scale']", value)
+        page.wait_for_selector(".pref-status.text-emerald-600", timeout=10000)
+
+    def test_default_mobile_root_is_ux8_bump(self, mobile_logged_in_page):
+        page = mobile_logged_in_page
+        page.goto("http://localhost:8001/app/mail/settings")
+        page.wait_for_load_state("load")
+        page.wait_for_selector("#tz-select", timeout=10000)
+        root_px = page.evaluate(
+            "() => parseFloat(getComputedStyle(document.documentElement).fontSize)"
+        )
+        assert root_px == pytest.approx(17.0, abs=0.2)  # 106.25% of 16px
+
+    def test_large_scale_grows_root_and_persists(self, mobile_logged_in_page):
+        page = mobile_logged_in_page
+        try:
+            self._set_scale(page, "l")
+            root_px = page.evaluate(
+                "() => parseFloat(getComputedStyle(document.documentElement).fontSize)"
+            )
+            assert root_px == pytest.approx(18.0, abs=0.2)  # 112.5% of 16px
+            # The setting persists across a fresh navigation.
+            page.goto("http://localhost:8001/app/mail/settings")
+            page.wait_for_load_state("load")
+            page.wait_for_selector("#tz-select", timeout=10000)
+            root_px = page.evaluate(
+                "() => parseFloat(getComputedStyle(document.documentElement).fontSize)"
+            )
+            assert root_px == pytest.approx(18.0, abs=0.2)
+        finally:
+            self._set_scale(page, "m")
+
+
+@skip_if_no_services
 class TestMobileDensityUi:
     """U24.33-U24.36: edge-to-edge lists and compact spacing below md (768px)."""
 

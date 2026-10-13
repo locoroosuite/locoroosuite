@@ -303,11 +303,17 @@
   }
 }
 
-/* UX8: lift all rem-based text (~6%) on phone viewports; desktop unchanged.
- * Fixed-px arbitrary utilities are unaffected and bumped explicitly in
- * templates with mobile-first responsive pairs. */
+/* UX8/UX8c: root font size = the user's text scale (UX8c), floored at the
+ * phone-viewport bump (UX8, ~6%) below md. Default scale is 1, so desktop
+ * stays at the browser default and phone viewports stay at 106.25% exactly
+ * as before the setting existed. Font-size utilities are rem-based (see the
+ * no-px-text static test) so both mechanisms scale all text uniformly. */
+html {
+  font-size: calc(100% * var(--lr-text-scale, 1));
+}
+
 @media (max-width: 767.98px) {
   html {
-    font-size: 106.25%;
+    font-size: max(106.25%, calc(100% * var(--lr-text-scale, 1)));
   }
 }

@@ -21,11 +21,14 @@
 </form>
 {% endmacro %}
 
-{% macro swipe_panels(account_id, message_id, is_unread) %}
+{% macro swipe_panels(account_id, message_id, is_unread, more=True) %}
 {# UX3g: swipe-back action panel, only for normal (actionable) rows and
    only for left swipes (rightward drags are inert). It sits behind the
    opaque row foreground inside the row's clip wrapper and is
-   display:none until the swipe engages (JS). #}
+   display:none until the swipe engages (JS). `more=False` omits the
+   "More" tile on rows whose overflow menu has no actions left after
+   excluding the swipe quick actions (e.g. full-search rows, whose only
+   overflow entry is Mark as read/unread). #}
 <div class="absolute inset-y-0 right-0 z-0 hidden flex items-center justify-end gap-1 w-full pr-2 bg-slate-100" data-swipe-panel="right" data-no-row-nav>
   <form method="post" action="{{ url_for('mail.archive_message', account_id=account_id, message_id=message_id) }}" class="message-action" data-action="archive" data-no-row-nav>
     <button type="submit" class="flex w-16 flex-col items-center justify-center gap-1 rounded-lg py-2 text-emerald-600 active:bg-emerald-100/70" aria-label="{{ _('Archive') }}">
@@ -46,11 +49,13 @@
       <span class="max-w-full truncate text-[10px] font-medium leading-none">{{ _('Mark read') if is_unread else _('Mark unread') }}</span>
     </button>
   </form>
+  {% if more %}
   <div class="relative flex items-center">
     <button type="button" class="flex w-16 flex-col items-center justify-center gap-1 rounded-lg py-2 text-slate-600 active:bg-slate-200/70" data-overflow-toggle data-no-row-nav aria-label="{{ _('More actions') }}">
       <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 3.5a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5zm0 5a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5zm0 5a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5z"/></svg>
       <span class="max-w-full truncate text-[10px] font-medium leading-none">{{ _('More') }}</span>
     </button>
   </div>
+  {% endif %}
 </div>
 {% endmacro %}

@@ -250,16 +250,30 @@
     content.innerHTML = '';
     if (!menu) return;
 
+    // UX3g: the sheet must not repeat actions already revealed as swipe
+    // quick actions (the sheet is only reachable from the swipe panel's
+    // "More" tile on touch). Filter them out when cloning the row's
+    // overflow menu.
+    var swipePanel = row ? row.querySelector('[data-swipe-panel]') : null;
+    function inSwipePanel(action) {
+      return !!(
+        swipePanel &&
+        action &&
+        swipePanel.querySelector('form.message-action[data-action="' + action + '"]')
+      );
+    }
+
     var holder = document.createElement('div');
     holder.innerHTML = menu.innerHTML;
     holder.querySelectorAll('form.message-action').forEach(function (form) {
       var button = form.querySelector('button');
       if (!button) return;
       var action = form.dataset.action || '';
+      if (inSwipePanel(action)) return;
       content.appendChild(buildEntryButton(action, button.textContent.trim(), ICONS[action] || ''));
     });
     var moveBtn = holder.querySelector('[data-move-to-folder]');
-    if (moveBtn) {
+    if (moveBtn && !inSwipePanel('move')) {
       content.appendChild(buildEntryButton('move', moveBtn.textContent.trim(), ICONS.move));
     }
   }

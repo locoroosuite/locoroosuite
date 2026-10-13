@@ -254,6 +254,49 @@ def test_sheet_submits_row_forms_instead_of_cloned_ones():
     assert "form.message-action[data-action=" in source
 
 
+def test_sheet_dedupes_swipe_quick_actions():
+    """UX3g: the bottom sheet must not repeat actions already revealed as
+    swipe quick actions (the sheet is only reachable from the swipe
+    panel's "More" tile). Mark as read/unread lives in the quick panel,
+    so cloning the row's overflow menu must skip any form whose
+    data-action already exists in [data-swipe-panel]."""
+    source = (STATIC_DIR / "js" / "mail" / "overflow_menu.js").read_text()
+    render_at = source.find("function renderSheetEntries")
+    assert render_at != -1, "renderSheetEntries missing from overflow_menu.js"
+    render_fn = source[render_at : source.find("\n  }", render_at)]
+    assert "querySelector('[data-swipe-panel]')" in render_fn, (
+        "renderSheetEntries must look up the row's swipe panel for dedupe"
+    )
+    assert 'form.message-action[data-action="' in render_fn, (
+        "renderSheetEntries must filter overflow forms by swipe-panel data-action"
+    )
+    assert "if (inSwipePanel(action)) return;" in render_fn, (
+        "overflow forms already present as swipe quick actions must be skipped"
+    )
+
+
+def test_swipe_panel_more_tile_conditional_on_remaining_actions():
+    """UX3g: rows whose overflow menu has no actions left after excluding
+    the swipe quick actions (full-search rows: only Mark as read/unread)
+    must omit the "More" tile — it would open an empty sheet."""
+    content = (MAIL_TEMPLATES / "_row_common.html").read_text()
+    assert "more=True" in content, "swipe_panels macro must take a `more` flag"
+    more_at = content.find("data-overflow-toggle")
+    assert more_at != -1, "More tile missing from the swipe panel"
+    assert "{% if more %}" in content[:more_at], "More tile must be guarded by {% if more %}"
+    full = (MAIL_TEMPLATES / "search_full.html").read_text()
+    assert "more=False" in full, "search_full rows must omit the More tile"
+    for name, call in (
+        ("search.html", "swipe_panels("),
+        ("message_list.html", "swipe_panels("),
+    ):
+        content2 = (MAIL_TEMPLATES / name).read_text()
+        assert call in content2, f"swipe_panels call missing from {name}"
+        assert "more=False" not in content2, (
+            f"{name} rows keep the More tile (Move/spam/lock survive dedupe)"
+        )
+
+
 def test_sheet_dismissal_paths_present():
     source = (STATIC_DIR / "js" / "mail" / "overflow_menu.js").read_text()
     for needle in ("data-sheet-backdrop", "data-sheet-cancel", "e.key !== 'Escape'"):

@@ -181,7 +181,9 @@ class TestTouchMailList:
         opened the in-row dropdown, which lives inside the hover action
         overlay — display:none on touch — so tapping "More" showed
         nothing. The open → cancel → open cycle must keep showing all
-        options (the dropdown variant used to wipe its content)."""
+        options (the dropdown variant used to wipe its content). UX3g
+        dedupe: actions already revealed as swipe quick actions (Mark as
+        read/unread) must not repeat in the sheet."""
         page = mobile_logged_in_page
         page.wait_for_selector(".message-row", timeout=15000)
         _wait_list_settled(page)
@@ -206,17 +208,20 @@ class TestTouchMailList:
                 e.get_attribute("data-sheet-entry")
                 for e in page.query_selector_all("[data-sheet-content] [data-sheet-entry]")
             ]
-            assert "mark" in kinds, "mark entry missing from the sheet"
+            assert "mark" not in kinds, (
+                "mark entry must not repeat in the sheet — it is a swipe quick action (UX3g dedupe)"
+            )
             assert "move" in kinds, "move-to-folder entry missing from the sheet"
             page.click("[data-sheet-cancel]")
             page.wait_for_selector("[data-sheet-panel]", state="hidden", timeout=5000)
 
-    def test_sheet_action_marks_message_read_in_place(
+    def test_swipe_tile_mark_updates_row_in_place(
         self, seeded_inbox_message, mobile_logged_in_page
     ):
-        """Sheet entries submit the row's real overflow-menu forms, so
-        Mark as read updates the row in place (no navigation) and the
-        sheet closes."""
+        """UX3g dedupe: Mark as read/unread lives only in the swipe quick
+        panel (the sheet no longer repeats it). Tapping the revealed mark
+        tile submits the row's real form, so the row updates in place (no
+        navigation) and the swipe panel snaps closed."""
         page = mobile_logged_in_page
         page.wait_for_selector(".message-row", timeout=15000)
         _wait_list_settled(page)
@@ -231,11 +236,7 @@ class TestTouchMailList:
 
         swipe_element(page, row_sel, -160)
         page.wait_for_selector(f"{row_sel}.is-swipe-open", timeout=5000)
-        tap_element(page, f"{row_sel} [data-swipe-panel='right'] [data-overflow-toggle]")
-        page.wait_for_selector("[data-sheet-panel]", state="visible", timeout=5000)
-        page.wait_for_timeout(350)  # let the 250ms slide-up finish before computing tap coords
-        tap_element(page, "[data-sheet-entry='mark']")
-        page.wait_for_selector("[data-sheet-panel]", state="hidden", timeout=5000)
+        tap_element(page, f"{row_sel} [data-swipe-panel='right'] form[data-action='mark'] button")
         page.wait_for_function(
             "id => { const el = document.querySelector(`.message-row[data-message-id='${id}']`);"
             " return !!el && el.dataset.isUnread === '0'; }",
@@ -243,7 +244,7 @@ class TestTouchMailList:
             timeout=10000,
         )
         assert page.query_selector(row_sel) is not None, (
-            "row vanished — the sheet entry navigated instead of submitting in place"
+            "row vanished — the mark tile navigated instead of submitting in place"
         )
 
     def test_overflow_menu_layered_above_following_row_surfaces(

@@ -495,8 +495,9 @@ class TestThreadConversationView:
         assert "data-expand-icon" in html
 
     def test_detail_header_responsive_layout(self, app, authed_client):
-        """U24.37/U24.38: header stacks below md; meta line truncates; Reply
-        All/Archive/Delete move into the overflow menu on mobile."""
+        """U24.37/U24.38/UX3k: header stacks below md; thread-count meta line
+        truncates; no From/To meta line; Reply All/Archive/Delete and (mobile)
+        Star/Lock move into the overflow menu."""
         client, _user_id, account_id = authed_client
         url = f"/app/mail/message/{account_id}/1"
         mock_msg = {
@@ -592,6 +593,22 @@ class TestThreadConversationView:
         assert html.count('data-action="archive"') == 2
         assert html.count('data-action="delete"') == 2
         assert "block md:hidden text-[12px]" in html
+        # UX3d/U24.37: header star/lock hidden below md, duplicated as
+        # mobile-only overflow entries (Star/Unstar, Lock/Unlock)
+        assert html.count("mt-0.5 flex-shrink-0 hidden md:block") == 2
+        assert html.count('data-action="flag"') == 2
+        assert html.count('data-action="lock"') == 2
+        assert "data-star-label" in html and "data-lock-label" in html
+        # UX3k: no From/To meta line in the header (thread rows carry sender)
+        assert "From sender@test.com" not in html
+        # UX3k: edge-to-edge surface below md, card chrome restored at md:
+        assert (
+            "bg-white/90 overflow-hidden md:border md:border-slate-200/80 "
+            "md:rounded-2xl md:shadow-sm"
+        ) in html
+        assert "mx-3 md:mx-0" not in html
+        # UX3k: borderless body iframe (all breakpoints)
+        assert 'class="thread-msg-body w-full bg-white"' in html
 
     def test_single_message_no_thread_label(self, app, authed_client):
         client, _user_id, account_id = authed_client

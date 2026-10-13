@@ -2127,6 +2127,16 @@ msgstr ""
 msgid "Server doesn't support Spam flags, the option is disabled in your account"
 msgstr ""
 
+#: app/modules/mail/controllers/message.py:549
+msgid "Spam action failed. Please try again."
+msgstr ""
+
+#: app/modules/mail/templates/settings.html:145
+msgid ""
+"Temporarily off: the server reported no Spam/Junk folder or rejected spam "
+"flags. It turns back on automatically when the server can accept it again."
+msgstr ""
+
 #: app/modules/mail/controllers/message.py:503
 #, python-format
 msgid "View %(destination)s"

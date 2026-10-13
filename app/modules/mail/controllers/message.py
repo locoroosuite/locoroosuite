@@ -48,11 +48,12 @@ from app.modules.mail.services.secrets import decrypt_with_key
 from app.modules.mail.services.spam import (
     SpamFlagUnsupportedError,
     SpamFolderMissingError,
+    SpamTransientError,
     is_junk_folder,
     not_spam,
     report_spam,
 )
-from app.modules.mail.services.spam import set_spam_action_enabled as _set_spam_action_enabled
+from app.modules.mail.services.spam import set_spam_auto_disabled as _set_spam_auto_disabled
 from app.modules.mail.services.spam import spam_action_enabled as _spam_action_enabled
 from app.modules.mail.utils.sanitize import normalize_header_text
 from app.shared.auth import require_customer
@@ -505,8 +506,13 @@ def junk_message(account_id, message_id):
         destination = report_spam(client, uid)
     except SpamFolderMissingError:
         safe_logout(client)
-        _set_spam_action_enabled(settings, account.id, False)
+        _set_spam_auto_disabled(settings, account.id)
         db.session.commit()
+        logger.warning(
+            "spam action auto-disabled account_id=%s message_id=%s: no junk folder on server",
+            account.id,
+            message_id,
+        )
         error_message = _(
             "No Spam/Junk folder available on this server. The Spam action is disabled."
         )
@@ -516,11 +522,31 @@ def junk_message(account_id, message_id):
         return redirect(url_for("mail.folder_view", account_id=account.id, folder=folder))
     except SpamFlagUnsupportedError:
         safe_logout(client)
-        _set_spam_action_enabled(settings, account.id, False)
+        _set_spam_auto_disabled(settings, account.id)
         db.session.commit()
+        logger.warning(
+            "spam action auto-disabled account_id=%s message_id=%s: server rejected \\Junk flag",
+            account.id,
+            message_id,
+        )
         error_message = _(
             "Server doesn't support Spam flags, the option is disabled in your account"
         )
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"status": "error", "error": error_message})
+        session["undo_error"] = error_message
+        return redirect(url_for("mail.folder_view", account_id=account.id, folder=folder))
+    except SpamTransientError as exc:
+        safe_logout(client)
+        logger.warning(
+            "spam action transient failure account_id=%s message_id=%s uid=%s: %s",
+            account.id,
+            message_id,
+            uid,
+            exc,
+            exc_info=True,
+        )
+        error_message = _("Spam action failed. Please try again.")
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return jsonify({"status": "error", "error": error_message})
         session["undo_error"] = error_message

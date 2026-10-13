@@ -13,6 +13,8 @@ already exist; the guards are a safety net for partial-creation edge cases.
 
 from __future__ import annotations
 
+import json
+
 from app.shared.migrations import Migration, has_table, table_columns
 
 
@@ -338,6 +340,43 @@ def _customer_settings_browser_tz(conn) -> None:
     conn.execute("ALTER TABLE customer_settings ADD COLUMN browser_tz VARCHAR(64)")
 
 
+def _customer_settings_spam_prefs_auto_off(conn) -> None:
+    """0022: legacy boolean ``false`` spam prefs -> ``"auto_off"`` (U9.5).
+
+    The pre-fix auto-disable path fired on transient IMAP failures (refused
+    LIST, vanished-UID STORE), so a stored ``false`` is more likely an
+    accidental auto-disable than a deliberate user choice. ``auto_off``
+    accounts are re-probed on the Settings page and re-enabled once the
+    server lists a junk-canonical folder; users who truly want it off can
+    toggle it off again (which stores the sticky ``"user_off"``).
+    """
+    if not has_table(conn, "customer_settings"):
+        return
+    if "spam_action_prefs" not in table_columns(conn, "customer_settings"):
+        return
+    rows = conn.execute(
+        "SELECT customer_id, spam_action_prefs FROM customer_settings "
+        "WHERE spam_action_prefs IS NOT NULL"
+    ).fetchall()
+    for customer_id, raw in rows:
+        try:
+            prefs = json.loads(raw)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(prefs, dict):
+            continue
+        changed = False
+        for key, value in prefs.items():
+            if value is False:
+                prefs[key] = "auto_off"
+                changed = True
+        if changed:
+            conn.execute(
+                "UPDATE customer_settings SET spam_action_prefs = ? WHERE customer_id = ?",
+                (json.dumps(prefs), customer_id),
+            )
+
+
 APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001_domain_status", _domain_status),
     Migration("0002_customer_settings_spam_action", _customer_settings_spam_action),
@@ -360,4 +399,5 @@ APP_DB_MIGRATIONS: tuple[Migration, ...] = (
     Migration("0019_domain_turn", _domain_turn),
     Migration("0020_notify_chat_enabled", _notify_chat_enabled),
     Migration("0021_customer_settings_browser_tz", _customer_settings_browser_tz),
+    Migration("0022_customer_settings_spam_prefs_auto_off", _customer_settings_spam_prefs_auto_off),
 )

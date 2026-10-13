@@ -35,6 +35,15 @@ def _matrix_error_type() -> type[Exception]:
         return ImportError
 
 
+def _spam_transient_error_type() -> type[Exception]:
+    try:
+        from app.modules.mail.services.spam import SpamTransientError
+
+        return SpamTransientError
+    except ImportError:
+        return ImportError
+
+
 def _build_known_error_map():
     import imaplib
     import smtplib
@@ -61,6 +70,14 @@ def _build_known_error_map():
             "SERVICE_UNAVAILABLE",
             "A required service module could not be loaded. The server may need to be restarted or reconfigured.",
             None,
+        ),
+        (
+            _spam_transient_error_type(),
+            "SPAM_ACTION_TRANSIENT",
+            "The mail server could not complete the spam action. This is usually "
+            "temporary (connection hiccup or the message moved underneath us). "
+            "The per-account Spam setting was not changed.",
+            "Retry the tool call. If it keeps failing, check the mail server's health.",
         ),
         (
             _matrix_error_type(),

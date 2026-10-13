@@ -147,7 +147,7 @@ class TestReportSpam:
         with app.app_context():
             settings = CustomerSettings.query.filter_by(customer_id=user_id).first()
             assert settings is not None
-            assert json.loads(settings.spam_action_prefs)[str(account_id)] is False
+            assert json.loads(settings.spam_action_prefs)[str(account_id)] == "auto_off"
 
     def test_flag_unsupported_409_and_auto_disables(self, app, spam_api):
         client, token, account_id, cache_path, user_id = spam_api
@@ -171,7 +171,36 @@ class TestReportSpam:
         with app.app_context():
             settings = CustomerSettings.query.filter_by(customer_id=user_id).first()
             assert settings is not None
-            assert json.loads(settings.spam_action_prefs)[str(account_id)] is False
+            assert json.loads(settings.spam_action_prefs)[str(account_id)] == "auto_off"
+
+    def test_transient_502_does_not_disable(self, app, spam_api):
+        """U5.13/U15.35a: transient failures return SPAM_ACTION_TRANSIENT (502)
+        and leave the per-account setting untouched."""
+        from app.modules.mail.services.spam import SpamTransientError
+
+        client, token, account_id, cache_path, user_id = spam_api
+        _seed(cache_path)
+        _set_account_secret(app, account_id)
+        msg_id = _message_id(client, token)
+        mock_imap = MagicMock()
+        with (
+            patch("app.api.controllers.mail._imap_connect", return_value=mock_imap),
+            patch("app.modules.mail.services.imap_client.select_folder"),
+            patch("app.modules.mail.services.imap_client.safe_logout"),
+            patch(
+                "app.api.controllers.mail.report_spam",
+                side_effect=SpamTransientError("vanished"),
+            ),
+        ):
+            resp = client.post(f"/api/v1/mail/messages/{msg_id}/spam", headers=auth_header(token))
+        assert resp.status_code == 502
+        data = json.loads(resp.data)
+        assert data["error"]["code"] == "SPAM_ACTION_TRANSIENT"
+        with app.app_context():
+            settings = CustomerSettings.query.filter_by(customer_id=user_id).first()
+            assert settings is not None
+            prefs = json.loads(settings.spam_action_prefs or "{}")
+            assert prefs.get(str(account_id), True) is True
 
 
 class TestNotSpam:

@@ -133,7 +133,7 @@ export function registerMailTools(server, client) {
         const data = await client.patch(`/api/v1/mail/messages/${encodeURIComponent(message_id)}`, { ...client.accountId(account_id), flags });
         return json(data);
     });
-    server.tool("mail_report_spam", "Report a message as spam: sets the IMAP \\Junk flag and moves the message to the server's Junk/Spam folder (alias-aware, never auto-created). Returns SPAM_ACTION_DISABLED when the per-account Spam action is off; SPAM_FOLDER_MISSING / SPAM_FLAG_UNSUPPORTED (with the setting auto-disabled) when the server lacks a junk folder or rejects the \\Junk flag.", {
+    server.tool("mail_report_spam", "Report a message as spam: sets the IMAP \\Junk flag and moves the message to the server's Junk/Spam folder (alias-aware, never auto-created). Returns SPAM_ACTION_DISABLED when the per-account Spam action is off; SPAM_FOLDER_MISSING / SPAM_FLAG_UNSUPPORTED (with the setting auto-disabled, recoverable — it re-enables once the server lists a junk folder again) when a successful LIST shows no junk folder or the server rejects the \\Junk flag for an existing message; SPAM_ACTION_TRANSIENT (502) for transient upstream failures, which never change the setting.", {
         account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
         message_id: z.string().describe("Message ID to report as spam"),
     }, async ({ account_id, message_id }) => {

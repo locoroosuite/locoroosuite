@@ -5,9 +5,13 @@ from unittest.mock import MagicMock, patch
 from app.modules.mail.services.spam import (
     SpamFlagUnsupportedError,
     SpamFolderMissingError,
+    SpamTransientError,
+    maybe_reenable_auto_disabled,
     not_spam,
     report_spam,
     set_spam_action_enabled,
+    set_spam_auto_disabled,
+    spam_action_auto_disabled,
     spam_action_enabled,
     spam_destination,
 )
@@ -38,42 +42,64 @@ class TestSpamDestination:
     def test_literal_junk_preferred(self):
         client = MagicMock()
         with patch(
-            "app.modules.mail.services.spam.list_folders", return_value=["INBOX", "Junk", "Spam"]
+            "app.modules.mail.services.spam.list_folders_strict",
+            return_value=["INBOX", "Junk", "Spam"],
         ):
             assert spam_destination(client) == "Junk"
 
     def test_spam_fallback(self):
         client = MagicMock()
-        with patch("app.modules.mail.services.spam.list_folders", return_value=["INBOX", "Spam"]):
+        with patch(
+            "app.modules.mail.services.spam.list_folders_strict", return_value=["INBOX", "Spam"]
+        ):
             assert spam_destination(client) == "Spam"
 
     def test_alias_junk_email(self):
         client = MagicMock()
         with patch(
-            "app.modules.mail.services.spam.list_folders", return_value=["INBOX", "Junk E-mail"]
+            "app.modules.mail.services.spam.list_folders_strict",
+            return_value=["INBOX", "Junk E-mail"],
         ):
             assert spam_destination(client) == "Junk E-mail"
 
     def test_alias_bulk_mail(self):
         client = MagicMock()
         with patch(
-            "app.modules.mail.services.spam.list_folders", return_value=["INBOX", "Bulk Mail"]
+            "app.modules.mail.services.spam.list_folders_strict",
+            return_value=["INBOX", "Bulk Mail"],
         ):
             assert spam_destination(client) == "Bulk Mail"
 
     def test_no_junk_folder_returns_none(self):
         client = MagicMock()
         with patch(
-            "app.modules.mail.services.spam.list_folders", return_value=["INBOX", "Archive"]
+            "app.modules.mail.services.spam.list_folders_strict",
+            return_value=["INBOX", "Archive"],
         ):
             assert spam_destination(client) is None
+
+    def test_failed_list_is_transient_not_missing(self):
+        """U5.12: a refused LIST must not be mistaken for 'no junk folder'."""
+        client = MagicMock()
+        with patch(
+            "app.modules.mail.services.spam.list_folders_strict",
+            side_effect=imaplib.IMAP4.error("LIST failed"),
+        ):
+            try:
+                spam_destination(client)
+                raise AssertionError("expected SpamTransientError")
+            except SpamTransientError:
+                pass
 
 
 class TestReportSpamService:
     def _run(self):
         client = MagicMock()
         with (
-            patch("app.modules.mail.services.spam.list_folders", return_value=["INBOX", "Junk"]),
+            patch(
+                "app.modules.mail.services.spam.list_folders_strict",
+                return_value=["INBOX", "Junk"],
+            ),
             patch("app.modules.mail.services.spam.set_flag") as mock_set,
             patch("app.modules.mail.services.spam.move_message") as mock_move,
         ):
@@ -89,7 +115,7 @@ class TestReportSpamService:
 
     def test_missing_folder_raises(self):
         client = MagicMock()
-        with patch("app.modules.mail.services.spam.list_folders", return_value=["INBOX"]):
+        with patch("app.modules.mail.services.spam.list_folders_strict", return_value=["INBOX"]):
             try:
                 report_spam(client, "100")
                 raise AssertionError("expected SpamFolderMissingError")
@@ -97,9 +123,15 @@ class TestReportSpamService:
                 pass
 
     def test_flag_rejection_raises(self):
+        """U5.13: a \\Junk STORE rejection for an existing message is a
+        capability failure."""
         client = MagicMock()
+        client.uid.return_value = ("OK", [b"100"])  # message still exists
         with (
-            patch("app.modules.mail.services.spam.list_folders", return_value=["INBOX", "Junk"]),
+            patch(
+                "app.modules.mail.services.spam.list_folders_strict",
+                return_value=["INBOX", "Junk"],
+            ),
             patch(
                 "app.modules.mail.services.spam.set_flag", side_effect=imaplib.IMAP4.error("nope")
             ),
@@ -108,6 +140,64 @@ class TestReportSpamService:
                 report_spam(client, "100")
                 raise AssertionError("expected SpamFlagUnsupportedError")
             except SpamFlagUnsupportedError:
+                pass
+
+    def test_vanished_uid_is_transient(self):
+        """U5.13: STORE failing because the message vanished (double-tap,
+        stale list, another client moved it) must not disable the setting."""
+        client = MagicMock()
+        client.uid.return_value = ("OK", [b""])  # UID no longer in folder
+        with (
+            patch(
+                "app.modules.mail.services.spam.list_folders_strict",
+                return_value=["INBOX", "Junk"],
+            ),
+            patch(
+                "app.modules.mail.services.spam.set_flag", side_effect=imaplib.IMAP4.error("nope")
+            ),
+        ):
+            try:
+                report_spam(client, "100")
+                raise AssertionError("expected SpamTransientError")
+            except SpamTransientError:
+                pass
+
+    def test_existence_probe_failure_defaults_to_transient(self):
+        """When the existence check itself fails, never auto-disable on doubt."""
+        client = MagicMock()
+        client.uid.side_effect = imaplib.IMAP4.error("connection gone")
+        with (
+            patch(
+                "app.modules.mail.services.spam.list_folders_strict",
+                return_value=["INBOX", "Junk"],
+            ),
+            patch(
+                "app.modules.mail.services.spam.set_flag", side_effect=imaplib.IMAP4.error("nope")
+            ),
+        ):
+            try:
+                report_spam(client, "100")
+                raise AssertionError("expected SpamTransientError")
+            except SpamTransientError:
+                pass
+
+    def test_move_failure_is_transient(self):
+        client = MagicMock()
+        with (
+            patch(
+                "app.modules.mail.services.spam.list_folders_strict",
+                return_value=["INBOX", "Junk"],
+            ),
+            patch("app.modules.mail.services.spam.set_flag"),
+            patch(
+                "app.modules.mail.services.spam.move_message",
+                side_effect=imaplib.IMAP4.error("COPY failed"),
+            ),
+        ):
+            try:
+                report_spam(client, "100")
+                raise AssertionError("expected SpamTransientError")
+            except SpamTransientError:
                 pass
 
 
@@ -160,7 +250,7 @@ class TestSpamPrefs:
             settings = CustomerSettings()
             settings.customer_id = 1
             set_spam_action_enabled(settings, 5, False)
-            assert json.loads(settings.spam_action_prefs) == {"5": False}
+            assert json.loads(settings.spam_action_prefs) == {"5": "user_off"}
             assert spam_action_enabled(settings, 5) is False
 
     def test_invalid_json_treated_as_default(self, app):
@@ -169,6 +259,62 @@ class TestSpamPrefs:
             settings.customer_id = 1
             settings.spam_action_prefs = "{not json"
             assert spam_action_enabled(settings, 5) is True
+
+    def test_auto_off_records_distinctly_from_user_off(self, app):
+        with app.app_context():
+            settings = CustomerSettings()
+            settings.customer_id = 1
+            set_spam_auto_disabled(settings, 5)
+            assert spam_action_enabled(settings, 5) is False
+            assert spam_action_auto_disabled(settings, 5) is True
+            set_spam_action_enabled(settings, 5, False)
+            assert spam_action_auto_disabled(settings, 5) is False
+            assert spam_action_enabled(settings, 5) is False
+            set_spam_action_enabled(settings, 5, True)
+            assert spam_action_enabled(settings, 5) is True
+            assert spam_action_auto_disabled(settings, 5) is False
+
+    def test_maybe_reenable_only_touches_auto_off(self, app):
+        with app.app_context():
+            settings = CustomerSettings()
+            settings.customer_id = 1
+            set_spam_action_enabled(settings, 5, False)  # user_off: sticky
+            assert maybe_reenable_auto_disabled(settings, 5, MagicMock()) is False
+            assert json.loads(settings.spam_action_prefs) == {"5": "user_off"}
+
+    def test_maybe_reenable_recovers_when_junk_listable(self, app):
+        with app.app_context():
+            settings = CustomerSettings()
+            settings.customer_id = 1
+            set_spam_auto_disabled(settings, 5)
+            client = MagicMock()
+            with patch("app.modules.mail.services.spam.spam_destination", return_value="Junk"):
+                assert maybe_reenable_auto_disabled(settings, 5, client) is True
+            assert spam_action_enabled(settings, 5) is True
+            assert json.loads(settings.spam_action_prefs) == {}
+
+    def test_maybe_reenable_keeps_auto_off_when_still_missing(self, app):
+        with app.app_context():
+            settings = CustomerSettings()
+            settings.customer_id = 1
+            set_spam_auto_disabled(settings, 5)
+            client = MagicMock()
+            with patch("app.modules.mail.services.spam.spam_destination", return_value=None):
+                assert maybe_reenable_auto_disabled(settings, 5, client) is False
+            assert spam_action_auto_disabled(settings, 5) is True
+
+    def test_maybe_reenable_keeps_auto_off_when_probe_transient(self, app):
+        with app.app_context():
+            settings = CustomerSettings()
+            settings.customer_id = 1
+            set_spam_auto_disabled(settings, 5)
+            client = MagicMock()
+            with patch(
+                "app.modules.mail.services.spam.spam_destination",
+                side_effect=SpamTransientError("LIST failed"),
+            ):
+                assert maybe_reenable_auto_disabled(settings, 5, client) is False
+            assert spam_action_auto_disabled(settings, 5) is True
 
 
 class TestJunkRoute:
@@ -260,7 +406,7 @@ class TestJunkRoute:
         with app.app_context():
             settings = CustomerSettings.query.filter_by(customer_id=user_id).first()
             assert settings is not None
-            assert json.loads(settings.spam_action_prefs)[str(account_id)] is False
+            assert json.loads(settings.spam_action_prefs)[str(account_id)] == "auto_off"
 
     def test_flag_rejection_auto_disables(self, app, authed_client):
         client, user_id, account_id = authed_client
@@ -283,7 +429,32 @@ class TestJunkRoute:
         with app.app_context():
             settings = CustomerSettings.query.filter_by(customer_id=user_id).first()
             assert settings is not None
-            assert json.loads(settings.spam_action_prefs)[str(account_id)] is False
+            assert json.loads(settings.spam_action_prefs)[str(account_id)] == "auto_off"
+
+    def test_transient_failure_does_not_disable(self, app, authed_client):
+        """U5.13: transient failures never change the per-account setting."""
+        client, user_id, account_id = authed_client
+        with (
+            patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
+            patch("app.modules.mail.controllers.message.get_message", return_value=dict(MOCK_MSG)),
+            patch("app.modules.mail.controllers.message._imap_for_account") as mock_imap,
+            patch("app.modules.mail.controllers.message.select_folder"),
+            patch(
+                "app.modules.mail.controllers.message.report_spam",
+                side_effect=SpamTransientError("vanished"),
+            ),
+        ):
+            mock_cache.return_value = MagicMock()
+            mock_imap.return_value = (MagicMock(), "example.com")
+            resp = self._post(client, account_id)
+        data = json.loads(resp.data)
+        assert data["status"] == "error"
+        assert "try again" in data["error"].lower()
+        with app.app_context():
+            settings = CustomerSettings.query.filter_by(customer_id=user_id).first()
+            assert settings is not None
+            prefs = json.loads(settings.spam_action_prefs or "{}")
+            assert prefs.get(str(account_id), True) is True
 
     def test_missing_message_redirects_to_mailbox(self, app, authed_client):
         client, _user_id, account_id = authed_client

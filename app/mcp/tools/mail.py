@@ -450,9 +450,12 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
             "Report a message as spam: sets the IMAP \\Junk flag and moves the message to "
             "the server's Junk/Spam folder (resolved via the folder alias map; never "
             "auto-created). Honors the per-account Spam action setting — returns "
-            "SPAM_ACTION_DISABLED when off; auto-disables the setting and returns "
-            "SPAM_FOLDER_MISSING / SPAM_FLAG_UNSUPPORTED when the server has no junk "
-            "folder or rejects the \\Junk flag."
+            "SPAM_ACTION_DISABLED when off; auto-disables the setting (recoverable: it "
+            "re-enables once the server lists a junk folder again) and returns "
+            "SPAM_FOLDER_MISSING / SPAM_FLAG_UNSUPPORTED when a successful LIST shows no "
+            "junk folder or the server rejects the \\Junk flag for an existing message. "
+            "Transient failures (refused LIST, vanished message, connection problems) "
+            "return SPAM_ACTION_TRANSIENT and never change the setting."
         ),
         annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
     )
@@ -466,9 +469,10 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
             from app.modules.mail.services.spam import (
                 SpamFlagUnsupportedError,
                 SpamFolderMissingError,
+                SpamTransientError,
                 ensure_settings,
                 report_spam,
-                set_spam_action_enabled,
+                set_spam_auto_disabled,
                 spam_action_enabled,
             )
             from app.shared.db import db
@@ -495,20 +499,43 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
                 try:
                     destination = report_spam(client, d.get("uid"))
                 except SpamFolderMissingError:
-                    set_spam_action_enabled(settings, aid, False)
+                    set_spam_auto_disabled(settings, aid)
                     db.session.commit()
+                    _mail_logger.warning(
+                        "spam action auto-disabled via mcp account_id=%s message_id=%s: "
+                        "no junk folder on server",
+                        aid,
+                        message_id,
+                    )
                     return err(
                         "SPAM_FOLDER_MISSING",
                         "No Spam/Junk folder available on this server; the Spam action "
                         "has been disabled for this account.",
                     )
                 except SpamFlagUnsupportedError:
-                    set_spam_action_enabled(settings, aid, False)
+                    set_spam_auto_disabled(settings, aid)
                     db.session.commit()
+                    _mail_logger.warning(
+                        "spam action auto-disabled via mcp account_id=%s message_id=%s: "
+                        "server rejected \\Junk flag",
+                        aid,
+                        message_id,
+                    )
                     return err(
                         "SPAM_FLAG_UNSUPPORTED",
                         "Server doesn't support Spam flags; the option has been "
                         "disabled for this account.",
+                    )
+                except SpamTransientError:
+                    _mail_logger.warning(
+                        "spam action transient failure via mcp account_id=%s message_id=%s",
+                        aid,
+                        message_id,
+                        exc_info=True,
+                    )
+                    return err(
+                        "SPAM_ACTION_TRANSIENT",
+                        "The mail server could not complete the spam action; please retry.",
                     )
             finally:
                 safe_logout(client)

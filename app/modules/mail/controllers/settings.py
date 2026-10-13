@@ -1,23 +1,36 @@
+import logging
+
 from flask import current_app, jsonify, render_template, request, session
 from flask_babel import _
 
 from app.modules.mail.controllers.helpers import (
     _get_or_create_settings,
+    _imap_for_account,
     mail_bp,
 )
 from app.modules.mail.services.cache import build_cache_path, purge_cache
+from app.modules.mail.services.imap_client import safe_logout
 from app.modules.mail.services.protection import (
     load_locked_keyword_prefs,
     set_locked_keyword_enabled,
 )
-from app.modules.mail.services.spam import load_spam_action_prefs as _load_spam_action_prefs
+from app.modules.mail.services.secrets import decrypt_with_key
+from app.modules.mail.services.spam import (
+    maybe_reenable_auto_disabled as _maybe_reenable_auto_disabled,
+)
 from app.modules.mail.services.spam import set_spam_action_enabled as _set_spam_action_enabled
+from app.modules.mail.services.spam import (
+    spam_action_auto_disabled as _spam_action_auto_disabled,
+)
+from app.modules.mail.services.spam import spam_action_enabled as _spam_action_enabled
 from app.shared.auth import require_customer
 from app.shared.db import db
 from app.shared.i18n import LANGUAGE_SETTING_CHOICES, LANGUAGE_SETTING_LABELS
 from app.shared.keys import get_user_key
 from app.shared.models.core import CustomerAccount
 from app.shared.timezone import COMMON_TIMEZONES
+
+_logger = logging.getLogger(__name__)
 
 POLL_INTERVAL_CHOICES = (30, 60, 120, 300, 600, 1800)
 SORT_ORDER_CHOICES = ("date_desc", "date_asc")
@@ -54,20 +67,56 @@ def _pref_error(code: str, message: str, status: int = 400):
     return jsonify({"error": {"code": code, "message": message}}), status
 
 
+def _recover_auto_disabled_spam(user_id, settings, accounts):
+    """U9.5: re-probe auto-disabled spam accounts; re-enable healthy ones.
+
+    A failed IMAP connection is logged and skipped (the probe retries the
+    next time the page loads); only `auto_off` accounts are touched, never a
+    deliberate user toggle.
+    """
+    candidates = [a for a in accounts if _spam_action_auto_disabled(settings, a.id)]
+    if not candidates:
+        return
+    key = get_user_key(user_id)
+    changed = False
+    for account in candidates:
+        secret = (
+            decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
+        )
+        try:
+            client, _domain = _imap_for_account(account, secret)
+        except Exception:
+            _logger.warning(
+                "spam recovery probe could not connect account_id=%s",
+                account.id,
+                exc_info=True,
+            )
+            continue
+        try:
+            changed = _maybe_reenable_auto_disabled(settings, account.id, client) or changed
+        finally:
+            safe_logout(client)
+    if changed:
+        db.session.commit()
+
+
 @mail_bp.route("/mail/settings", methods=["GET"])
 @require_customer
 def settings():
     user_id = session.get("user_id")
     settings = _get_or_create_settings(user_id)
     accounts = CustomerAccount.query.filter_by(customer_id=user_id, is_active=True).all()
-    spam_action_prefs = _load_spam_action_prefs(settings)
+    _recover_auto_disabled_spam(user_id, settings, accounts)
     locked_keyword_prefs = load_locked_keyword_prefs(settings)
     polling_choices = _polling_choices()
+    spam_enabled_map = {str(a.id): _spam_action_enabled(settings, a.id) for a in accounts}
+    spam_auto_disabled_ids = [a.id for a in accounts if _spam_action_auto_disabled(settings, a.id)]
     return render_template(
         "settings.html",
         settings=settings,
         accounts=accounts,
-        spam_action_prefs=spam_action_prefs,
+        spam_enabled_map=spam_enabled_map,
+        spam_auto_disabled_ids=spam_auto_disabled_ids,
         locked_keyword_prefs=locked_keyword_prefs,
         timezone_options=COMMON_TIMEZONES,
         polling_choices=polling_choices,

@@ -131,7 +131,8 @@
         </div>
         {% if accounts %}
         {% for account in accounts %}
-        {% set spam_enabled = spam_action_prefs.get(account.id ~ '', True) %}
+        {% set spam_enabled = spam_enabled_map.get(account.id ~ '', True) %}
+        {% set spam_auto = account.id in spam_auto_disabled_ids %}
         {% set lock_enabled = locked_keyword_prefs.get(account.id ~ '', True) %}
         <div class="py-4">
           <div class="text-sm font-medium text-slate-800">{{ account.email_address }}</div>
@@ -140,6 +141,9 @@
               <div>
                 <div class="text-sm text-slate-700">{{ _('Spam reporting') }}</div>
                 <p class="mt-0.5 text-xs text-slate-500">{{ _('Show the “report spam” action for this account.') }}</p>
+                {% if spam_auto %}
+                <p class="mt-1 text-xs text-amber-600" data-spam-auto-note>{{ _('Temporarily off: the server reported no Spam/Junk folder or rejected spam flags. It turns back on automatically when the server can accept it again.') }}</p>
+                {% endif %}
               </div>
               <label class="inline-flex cursor-pointer items-center gap-2">
                 <input type="checkbox" data-pref="spam_action_{{ account.id }}" class="peer sr-only" {% if spam_enabled %}checked{% endif %} />

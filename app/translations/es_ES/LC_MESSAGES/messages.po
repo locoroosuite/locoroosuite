@@ -2223,6 +2223,19 @@ msgstr ""
 "El servidor no admite marcas de spam; la opción está desactivada en tu "
 "cuenta"
 
+#: app/modules/mail/controllers/message.py:549
+msgid "Spam action failed. Please try again."
+msgstr "La acción de spam falló. Inténtalo de nuevo."
+
+#: app/modules/mail/templates/settings.html:145
+msgid ""
+"Temporarily off: the server reported no Spam/Junk folder or rejected spam "
+"flags. It turns back on automatically when the server can accept it again."
+msgstr ""
+"Desactivado temporalmente: el servidor informó de que no hay carpeta de "
+"Spam o rechazó las marcas de spam. Se reactivará automáticamente cuando el "
+"servidor pueda aceptarlo de nuevo."
+
 #: app/modules/mail/controllers/message.py:503
 #, python-format
 msgid "View %(destination)s"

@@ -189,3 +189,76 @@ class TestCustomerSettingsBrowserTzMigration:
             assert run_migrations(conn, [self._migration_0021()]) == 0
         finally:
             conn.close()
+
+
+class TestSpamPrefsAutoOffMigration:
+    """0022_customer_settings_spam_prefs_auto_off: legacy `false` -> `auto_off` (U9.5)."""
+
+    def _pre_migration_conn(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE customer_settings ("
+            "customer_id INTEGER PRIMARY KEY, spam_action_prefs TEXT)"
+        )
+        conn.commit()
+        return conn
+
+    def _migration_0022(self):
+        return next(
+            m for m in APP_DB_MIGRATIONS if m.name == "0022_customer_settings_spam_prefs_auto_off"
+        )
+
+    def test_legacy_false_becomes_auto_off_and_other_values_untouched(self):
+        import json
+
+        conn = self._pre_migration_conn()
+        try:
+            conn.executemany(
+                "INSERT INTO customer_settings (customer_id, spam_action_prefs) VALUES (?, ?)",
+                [
+                    (1, json.dumps({"5": False, "6": True, "7": "user_off"})),
+                    (2, "{not json"),
+                    (3, None),
+                    (4, json.dumps({"8": "auto_off"})),
+                ],
+            )
+            conn.commit()
+            assert run_migrations(conn, [self._migration_0022()]) == 1
+            rows = dict(
+                conn.execute(
+                    "SELECT customer_id, spam_action_prefs FROM customer_settings"
+                ).fetchall()
+            )
+            assert json.loads(rows[1]) == {"5": "auto_off", "6": True, "7": "user_off"}
+            assert rows[2] == "{not json"  # invalid JSON left alone
+            assert rows[3] is None  # NULL left alone
+            assert json.loads(rows[4]) == {"8": "auto_off"}
+        finally:
+            conn.close()
+
+    def test_migration_is_idempotent(self):
+        import json
+
+        conn = self._pre_migration_conn()
+        try:
+            conn.execute(
+                "INSERT INTO customer_settings (customer_id, spam_action_prefs) VALUES (1, ?)",
+                (json.dumps({"5": False}),),
+            )
+            conn.commit()
+            run_migrations(conn, [self._migration_0022()])
+            assert run_migrations(conn, [self._migration_0022()]) == 0
+        finally:
+            conn.close()
+
+    def test_migration_skips_when_column_missing(self):
+        """The runner records the migration but the guard leaves the table alone."""
+        conn = sqlite3.connect(":memory:")
+        try:
+            conn.execute("CREATE TABLE customer_settings (customer_id INTEGER PRIMARY KEY)")
+            conn.commit()
+            run_migrations(conn, [self._migration_0022()])
+            assert table_columns(conn, "customer_settings") == {"customer_id"}
+            assert run_migrations(conn, [self._migration_0022()]) == 0
+        finally:
+            conn.close()

@@ -74,11 +74,16 @@ def _parse_list_entry(line):
     return set(), (name or None)
 
 
-def list_folders(client):
+def list_folders_strict(client):
+    """LIST folders, raising ``imaplib.IMAP4.error`` when the server refuses.
+
+    Used by spam capability detection, where an empty folder list produced
+    by a failed LIST must not be mistaken for "no junk folder" (U5.12).
+    """
     status, data = client.list()
-    folders = []
     if status != "OK":
-        return folders
+        raise imaplib.IMAP4.error(f"LIST failed: {status}")
+    folders = []
     for line in data:
         if not line:
             continue
@@ -93,6 +98,13 @@ def list_folders(client):
             continue
         folders.append(folder)
     return folders
+
+
+def list_folders(client):
+    try:
+        return list_folders_strict(client)
+    except imaplib.IMAP4.error:
+        return []
 
 
 def select_folder(client, folder):

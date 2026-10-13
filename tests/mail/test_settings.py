@@ -131,7 +131,76 @@ def test_pref_spam_toggle_own_account(authed_client, app):
     assert resp.status_code == 200
     settings = _read_settings(app, user_id)
     assert settings is not None
-    assert json.loads(settings.spam_action_prefs or "{}")[str(account_id)] is False
+    assert json.loads(settings.spam_action_prefs or "{}")[str(account_id)] == "user_off"
+
+
+def _write_spam_pref(app, user_id, account_id, value):
+    with app.app_context():
+        settings = CustomerSettings.query.filter_by(customer_id=user_id).first()
+        if not settings:
+            settings = CustomerSettings()
+            settings.customer_id = user_id
+            _db.session.add(settings)
+        settings.spam_action_prefs = json.dumps({str(account_id): value})
+        _db.session.commit()
+
+
+def test_settings_recovers_auto_disabled_spam(authed_client, app):
+    """U9.5: an auto_off pref is re-enabled when the server lists a junk folder."""
+    from unittest.mock import MagicMock, patch
+
+    client, user_id, account_id = authed_client
+    _write_spam_pref(app, user_id, account_id, "auto_off")
+    with (
+        patch("app.modules.mail.controllers.settings._imap_for_account") as mock_imap,
+        patch("app.modules.mail.services.spam.spam_destination", return_value="Junk"),
+        patch("app.modules.mail.controllers.settings.safe_logout"),
+    ):
+        mock_imap.return_value = (MagicMock(), "example.com")
+        resp = client.get("/app/mail/settings")
+    assert resp.status_code == 200
+    settings = _read_settings(app, user_id)
+    assert settings is not None
+    assert json.loads(settings.spam_action_prefs or "{}").get(str(account_id), True) is True
+    # The toggle renders back on and no auto-disabled note is shown.
+    body = resp.get_data(as_text=True)
+    assert "data-spam-auto-note" not in body
+
+
+def test_settings_keeps_user_disabled_spam(authed_client, app):
+    """U9.5: a user_off pref is sticky — never probed, never auto-re-enabled."""
+    from unittest.mock import patch
+
+    client, user_id, account_id = authed_client
+    _write_spam_pref(app, user_id, account_id, "user_off")
+    with patch("app.modules.mail.controllers.settings._imap_for_account") as mock_imap:
+        resp = client.get("/app/mail/settings")
+    mock_imap.assert_not_called()
+    assert resp.status_code == 200
+    settings = _read_settings(app, user_id)
+    assert settings is not None
+    assert json.loads(settings.spam_action_prefs or "{}")[str(account_id)] == "user_off"
+
+
+def test_settings_probe_failure_leaves_auto_off(authed_client, app):
+    """A failed recovery probe keeps the pref; the page still renders."""
+    from unittest.mock import patch
+
+    client, user_id, account_id = authed_client
+    _write_spam_pref(app, user_id, account_id, "auto_off")
+    with (
+        patch(
+            "app.modules.mail.controllers.settings._imap_for_account",
+            side_effect=OSError("connection refused"),
+        ),
+    ):
+        resp = client.get("/app/mail/settings")
+    assert resp.status_code == 200
+    settings = _read_settings(app, user_id)
+    assert settings is not None
+    assert json.loads(settings.spam_action_prefs or "{}")[str(account_id)] == "auto_off"
+    body = resp.get_data(as_text=True)
+    assert "data-spam-auto-note" in body
 
 
 def test_pref_lock_toggle_own_account(authed_client, app):

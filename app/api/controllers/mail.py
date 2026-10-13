@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
@@ -73,10 +74,11 @@ from app.modules.mail.services.secrets import decrypt_with_key
 from app.modules.mail.services.spam import (
     SpamFlagUnsupportedError,
     SpamFolderMissingError,
+    SpamTransientError,
     ensure_settings,
     not_spam,
     report_spam,
-    set_spam_action_enabled,
+    set_spam_auto_disabled,
     spam_action_enabled,
 )
 from app.shared.db import db
@@ -84,6 +86,8 @@ from app.shared.models.core import CustomerAccount, CustomerSettings, Domain
 from app.shared.ui_events import push_ui_event
 
 bp = create_api_blueprint("mail", "Mail operations")
+
+_logger = logging.getLogger(__name__)
 
 
 def _row_to_dict(row: Any) -> dict[str, Any]:
@@ -937,8 +941,14 @@ def api_move_message(path: MessagePath, body: MoveMessageBody):
 
 def _spam_auto_disable(customer_id: int, account_id: int, code: str, message: str):
     settings = ensure_settings(customer_id)
-    set_spam_action_enabled(settings, account_id, False)
+    set_spam_auto_disabled(settings, account_id)
     db.session.commit()
+    _logger.warning(
+        "spam action auto-disabled via api customer_id=%s account_id=%s code=%s",
+        customer_id,
+        account_id,
+        code,
+    )
     return api_error(code, message, 409)
 
 
@@ -949,16 +959,21 @@ def _spam_auto_disable(customer_id: int, account_id: int, code: str, message: st
         "Sets the IMAP \\Junk flag and moves the message to the server's Junk/Spam "
         "folder (resolved via the folder alias map; the folder is never auto-created). "
         "Honors the per-account Spam action setting: if disabled, returns "
-        "SPAM_ACTION_DISABLED; if no junk-canonical folder exists, the setting is "
-        "auto-disabled and SPAM_FOLDER_MISSING is returned; if the server rejects "
-        "the \\Junk flag, the setting is auto-disabled and SPAM_FLAG_UNSUPPORTED is "
-        "returned. Requires `mail:write` scope."
+        "SPAM_ACTION_DISABLED; if a successful LIST shows no junk-canonical folder, "
+        "the setting is auto-disabled and SPAM_FOLDER_MISSING is returned; if the "
+        "server rejects the \\Junk flag for an existing message, the setting is "
+        "auto-disabled and SPAM_FLAG_UNSUPPORTED is returned. Transient upstream "
+        "failures (refused LIST, vanished message, connection problems) return "
+        "SPAM_ACTION_TRANSIENT and never modify the setting. Auto-disabled accounts "
+        "are re-enabled automatically once the server lists a junk folder again "
+        "(re-probed from the Settings page). Requires `mail:write` scope."
     ),
     responses={
         "200": SpamActionResponse,
         "401": ErrorResponse,
         "404": ErrorResponse,
         "409": ErrorResponse,
+        "502": ErrorResponse,
     },
 )
 @require_api_token(scopes=["mail:write"])
@@ -1003,6 +1018,21 @@ def api_report_spam(path: MessagePath):
                 account_id,
                 "SPAM_FLAG_UNSUPPORTED",
                 "Server doesn't support Spam flags; the option has been disabled for this account.",
+            )
+        except SpamTransientError as exc:
+            _logger.warning(
+                "spam action transient failure via api customer_id=%s account_id=%s "
+                "message_id=%s: %s",
+                customer_id,
+                account_id,
+                message_id,
+                exc,
+                exc_info=True,
+            )
+            return api_error(
+                "SPAM_ACTION_TRANSIENT",
+                "The mail server could not complete the spam action; please retry.",
+                502,
             )
     finally:
         safe_logout(client)

@@ -10,6 +10,12 @@
   var chipsInstance = null;
   var editingEvent = null;
 
+  /* U12.56j: current event duration (minutes) and the start the editor
+   * last synced from; used to keep end = start + duration when the user
+   * changes the start date/time. */
+  var durationMin = 30;
+  var prevStart = null;
+
   function esc(s) {
     return LRCal.escapeHtml(s);
   }
@@ -118,6 +124,22 @@
     var m = iso.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
     if (m) return [m[1], m[2]];
     return [iso.slice(0, 10), '09:00'];
+  }
+
+  /* U12.56j: "HH:MM" -> minutes since midnight. */
+  function toMinutes(t) {
+    return parseInt(t.slice(0, 2), 10) * 60 + parseInt(t.slice(3), 10);
+  }
+
+  /* U12.56j: end = start + duration, rolling past midnight onto the
+   * following day(s) instead of wrapping within the same date. */
+  function deriveEnd(dateStr, timeStr, duration) {
+    var total = toMinutes(timeStr) + duration;
+    var days = Math.floor(total / 1440);
+    return {
+      date: days > 0 ? LRCal.toISO(LRCal.addDays(LRCal.parseLocalDate(dateStr), days)) : dateStr,
+      time: minutesLabel(total % 1440),
+    };
   }
 
   /* ---- notifications (multiple VALARMs, U12.30/U12.31) ---- */
@@ -314,7 +336,7 @@
   /* Convert event dt (event frame) -> browser-local date+time inputs. */
   function eventToFormDates(ev) {
     var span = LRCal.eventSpan(ev);
-    if (!span) return { sd: '', st: '09:00', ed: '', et: '10:00' };
+    if (!span) return { sd: '', st: '09:00', ed: '', et: '09:30' };
     var s = splitDT(LRCal.toISO(span.start) + 'T' + LRCal.formatTime(span.start));
     var e = splitDT(LRCal.toISO(span.end) + 'T' + LRCal.formatTime(span.end));
     return { sd: s[0], st: s[1], ed: e[0], et: e[1] };
@@ -325,8 +347,9 @@
     var isEdit = !!(opts.event && opts.event.id);
     editingEvent = isEdit ? opts.event : null;
 
-    var defaults = { sd: '', st: '09:00', ed: '', et: '10:00' };
-    if (opts.dtstart) {      var s = splitDT(opts.dtstart);
+    var defaults = { sd: '', st: '09:00', ed: '', et: '09:30' };
+    if (opts.dtstart) {
+      var s = splitDT(opts.dtstart);
       defaults.sd = s[0];
       defaults.st = s[1];
       if (opts.dtend) {
@@ -334,14 +357,28 @@
         defaults.ed = e[0];
         defaults.et = e[1];
       } else {
-        var endMin = parseInt(s[1].slice(0, 2), 10) * 60 + parseInt(s[1].slice(3), 10) + 60;
-        defaults.ed = s[0];
-        defaults.et = LRCal.pad(Math.floor(endMin / 60) % 24) + ':' + LRCal.pad(endMin % 60);
+        /* U12.56j: no end given -> default duration, with midnight rollover. */
+        var d = deriveEnd(s[0], s[1], LRCal.DEFAULT_EVENT_DURATION_MIN);
+        defaults.ed = d.date;
+        defaults.et = d.time;
       }
     }
 
     var ev = opts.event || {};
     var dates = isEdit ? eventToFormDates(ev) : defaults;
+    /* U12.56j: seed the duration tracker from the form values (the event's
+     * own duration when editing), then remember the start we synced from. */
+    durationMin = LRCal.DEFAULT_EVENT_DURATION_MIN;
+    prevStart = null;
+    if (dates.sd && dates.st && dates.ed && dates.et) {
+      var spanMin = Math.round(
+        (LRCal.parseLocalDate(dates.ed).getTime() + toMinutes(dates.et) * 60000 -
+          (LRCal.parseLocalDate(dates.sd).getTime() + toMinutes(dates.st) * 60000)) /
+          60000
+      );
+      if (spanMin > 0) durationMin = spanMin;
+      prevStart = { date: dates.sd, time: dates.st };
+    }
     var allDay = isEdit ? !!ev.all_day : !!opts.allDay;
     el('ce-title-label').textContent = isEdit ? window.LR.t('Edit Event') : window.LR.t('New Event');
 
@@ -410,39 +447,63 @@
     el('ce-end-time').classList.toggle('hidden', allDay);
   }
 
-  function syncEndFromStart() {
+  /* U12.56j: changing the start keeps the event's current duration
+   * (default LRCal.DEFAULT_EVENT_DURATION_MIN): end = start + duration,
+   * rolling past midnight onto the next day. The end date only follows
+   * the start date while the event was same-day (or had no end date);
+   * a multi-day end date stays where the user put it. */
+  function syncEndFromStart(changed) {
+    if (el('ce-allday').checked) return;
     var sd = el('ce-start-date').value;
     var st = el('ce-start-time').value;
     var ed = el('ce-end-date').value;
     var et = el('ce-end-time').value;
-    if (!sd || !st) return;
-    var startMin = parseInt(st.slice(0, 2), 10) * 60 + parseInt(st.slice(3), 10);
-    var endMin = startMin + 60;
-    var endDate = ed;
-    if (!endDate || endDate === sd) {
-      if (endMin >= 1440) {
-        endMin -= 1440;
-        endDate = LRCal.toISO(LRCal.addDays(LRCal.parseLocalDate(sd), 1));
-      } else if (!endDate) {
-        endDate = sd;
-      }
+    if (!sd || !st) {
+      prevStart = null;
+      return;
     }
-    if (!ed) el('ce-end-date').value = endDate;
-    if (!et || et === st) {
-      el('ce-end-time').value = LRCal.pad(Math.floor(endMin / 60) % 24) + ':' + LRCal.pad(endMin % 60);
+    /* Recompute the duration from the form (end is unchanged by this
+     * event, so measure it against the previous start). */
+    if (prevStart && prevStart.date && prevStart.time && ed && et) {
+      var spanMin = Math.round(
+        (LRCal.parseLocalDate(ed).getTime() + toMinutes(et) * 60000 -
+          (LRCal.parseLocalDate(prevStart.date).getTime() + toMinutes(prevStart.time) * 60000)) /
+          60000
+      );
+      if (spanMin > 0) durationMin = spanMin;
     }
+    var wasSameDay = !ed || !prevStart || !prevStart.date || ed === prevStart.date;
+    if (changed === 'time' || wasSameDay) {
+      var end = deriveEnd(sd, st, durationMin);
+      el('ce-end-date').value = end.date;
+      el('ce-end-time').value = end.time;
+    }
+    prevStart = { date: sd, time: st };
   }
 
   function collectPayload() {
     var allDay = el('ce-allday').checked;
+    var sd = el('ce-start-date').value;
+    var st = el('ce-start-time').value;
+    var ed = el('ce-end-date').value || sd;
+    var et = el('ce-end-time').value;
+    /* U12.56j: never submit end <= start — clamp to the default duration
+     * and write it back so the form shows what will be saved. */
+    if (!allDay && sd && st && et && (ed < sd || (ed === sd && toMinutes(et) <= toMinutes(st)))) {
+      var clamped = deriveEnd(sd, st, LRCal.DEFAULT_EVENT_DURATION_MIN);
+      ed = clamped.date;
+      et = clamped.time;
+      el('ce-end-date').value = ed;
+      el('ce-end-time').value = et;
+    }
     return {
       summary: el('ce-title').value.trim(),
       calendar_id: parseInt(el('ce-calendar').value, 10),
       all_day: allDay,
-      dtstart_date: el('ce-start-date').value,
-      dtstart_time: el('ce-start-time').value,
-      dtend_date: el('ce-end-date').value || el('ce-start-date').value,
-      dtend_time: el('ce-end-time').value,
+      dtstart_date: sd,
+      dtstart_time: st,
+      dtend_date: ed,
+      dtend_time: et,
       timezone: allDay ? '' : el('ce-timezone').value,
       location: el('ce-location').value.trim(),
       description: el('ce-description').value.trim(),
@@ -661,7 +722,7 @@
       var calendarId = el('qc-calendar').value;
       var date = popover.dataset.date;
       var startMin = parseInt(popover.dataset.startMin, 10) || 0;
-      var endMin = parseInt(popover.dataset.endMin, 10) || startMin + 60;
+      var endMin = parseInt(popover.dataset.endMin, 10) || startMin + LRCal.DEFAULT_EVENT_DURATION_MIN;
       var allDay = popover.dataset.allDay === '1';
 
       var saveBtn = el('qc-save');
@@ -705,7 +766,7 @@
       var allDay = popover.dataset.allDay === '1';
       var date = popover.dataset.date;
       var startMin = parseInt(popover.dataset.startMin, 10) || 0;
-      var endMin = parseInt(popover.dataset.endMin, 10) || startMin + 60;
+      var endMin = parseInt(popover.dataset.endMin, 10) || startMin + LRCal.DEFAULT_EVENT_DURATION_MIN;
       var summary = el('qc-summary').value.trim();
       var calId = el('qc-calendar').value;
       qc.hide();
@@ -746,15 +807,15 @@
       cell.classList.add('qc-highlighted');
       qc.open(cell.getBoundingClientRect(), cell.dataset.date, 0, 0, true);
     });
-    /* touch: tap an empty time cell -> quick create for that hour */
+    /* touch: tap an empty time cell -> quick create with the default duration */
     if (window.matchMedia('(pointer: coarse)').matches) {
       grid.addEventListener('click', function (e) {
         var cell = e.target.closest('.time-cell');
         if (!cell || e.target.closest('.cal-event')) return;
         qc.hide();
         cell.classList.add('qc-highlighted');
-        var startHour = parseInt(cell.dataset.hour, 10);
-        qc.open(cell.getBoundingClientRect(), cell.dataset.date, startHour * 60, Math.min(1440, (startHour + 1) * 60), false);
+        var startMin = parseInt(cell.dataset.hour, 10) * 60;
+        qc.open(cell.getBoundingClientRect(), cell.dataset.date, startMin, startMin + LRCal.DEFAULT_EVENT_DURATION_MIN, false);
       });
     }
   }
@@ -795,9 +856,11 @@
     el('ce-delete').addEventListener('click', deleteWithGuestsPrompt);
     el('ce-allday').addEventListener('change', toggleAllDay);
     el('ce-start-date').addEventListener('change', function () {
-      if (!el('ce-end-date').value) syncEndFromStart();
+      syncEndFromStart('date');
     });
-    el('ce-start-time').addEventListener('change', syncEndFromStart);
+    el('ce-start-time').addEventListener('change', function () {
+      syncEndFromStart('time');
+    });
     el('ce-tz-toggle').addEventListener('click', function () {
       var section = el('ce-tz-section');
       var openState = !section.classList.contains('hidden');

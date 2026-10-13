@@ -157,6 +157,10 @@
       .replace(/'/g, '&#39;');
   }
 
+  /* U12.56j: default new-event duration in minutes, shared by every
+   * creation entry point (editor dialog, quick-create, drag fallbacks). */
+  LRCal.DEFAULT_EVENT_DURATION_MIN = 30;
+
   LRCal.pad = pad;
   LRCal.toISO = toISO;
   LRCal.toFullISO = toFullISO;

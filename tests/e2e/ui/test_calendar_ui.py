@@ -194,3 +194,65 @@ class TestCalendarUI:
         page.go_forward()
         page.wait_for_function(f"() => history.state && history.state.calDate === '{next_date}'")
         page.wait_for_function(f"() => LRCal.toISO(LRCal.state.date) === '{next_date}'")
+
+    def _open_editor_at(self, page, dtstart):
+        page.goto(f"http://localhost:8001/app/calendar/?new=1&dtstart={dtstart}")
+        page.wait_for_selector("#cal-editor:not(.hidden)", timeout=10000)
+        page.wait_for_function("() => document.getElementById('ce-start-time').options.length > 0")
+
+    def test_editor_default_end_is_start_plus_thirty(self, logged_in_page):
+        """U12.56j: a start without an end derives end = start + 30 min on
+        the same date."""
+        page = logged_in_page
+        self._open_editor_at(page, "2026-10-21T14:00")
+        assert page.input_value("#ce-start-date") == "2026-10-21"
+        assert page.input_value("#ce-start-time") == "14:00"
+        assert page.input_value("#ce-end-date") == "2026-10-21"
+        assert page.input_value("#ce-end-time") == "14:30"
+
+    def test_editor_default_end_rolls_past_midnight(self, logged_in_page):
+        """U12.56j: 23:45 start derives 00:15 on the next day, not a
+        same-date wrap."""
+        page = logged_in_page
+        self._open_editor_at(page, "2026-10-21T23:45")
+        assert page.input_value("#ce-end-date") == "2026-10-22"
+        assert page.input_value("#ce-end-time") == "00:15"
+
+    def test_editor_start_time_change_preserves_custom_duration(self, logged_in_page):
+        """U12.56j: after the user sets a custom end, changing the start
+        shifts the end to preserve that duration (old behavior left the
+        end stale, producing end < start)."""
+        page = logged_in_page
+        self._open_editor_at(page, "2026-10-21T14:00")
+        page.select_option("#ce-end-time", "16:00")
+        page.select_option("#ce-start-time", "15:00")
+        assert page.input_value("#ce-end-time") == "17:00"
+        assert page.input_value("#ce-end-date") == "2026-10-21"
+
+    def test_editor_start_time_rolls_end_to_next_day(self, logged_in_page):
+        """U12.56j: duration-preserving sync crosses midnight (23:00 start
+        with a 2h duration ends at 01:00 the next day)."""
+        page = logged_in_page
+        self._open_editor_at(page, "2026-10-21T14:00")
+        page.select_option("#ce-end-time", "16:00")  # 2h duration
+        page.select_option("#ce-start-time", "23:00")
+        assert page.input_value("#ce-end-date") == "2026-10-22"
+        assert page.input_value("#ce-end-time") == "01:00"
+
+    def test_editor_start_date_change_moves_same_day_end(self, logged_in_page):
+        """U12.56j: on a same-day event, moving the start date moves the
+        end date with it and re-derives the end time from the duration."""
+        page = logged_in_page
+        self._open_editor_at(page, "2026-10-21T14:00")
+        page.fill("#ce-start-date", "2026-10-25")
+        assert page.input_value("#ce-end-date") == "2026-10-25"
+        assert page.input_value("#ce-end-time") == "14:30"
+
+    def test_editor_start_date_change_keeps_multi_day_end(self, logged_in_page):
+        """U12.56j: a multi-day event's end date is never clobbered by a
+        start-date change."""
+        page = logged_in_page
+        self._open_editor_at(page, "2026-10-21T14:00")
+        page.fill("#ce-end-date", "2026-10-23")
+        page.fill("#ce-start-date", "2026-10-22")
+        assert page.input_value("#ce-end-date") == "2026-10-23"

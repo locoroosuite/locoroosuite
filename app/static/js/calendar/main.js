@@ -188,7 +188,8 @@
   function openEditorWithDefaults() {
     var d = LRCal.state.date;
     var iso = LRCal.toISO(d);
-    LRCal.editor.open({ dtstart: iso + 'T09:00', dtend: iso + 'T10:00' });
+    /* U12.56j: no dtend — the editor derives it from the default duration. */
+    LRCal.editor.open({ dtstart: iso + 'T09:00' });
   }
 
   /* ---- deep-link prefill (?new=1, ?edit=<id>) ---- */

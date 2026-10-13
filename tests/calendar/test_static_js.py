@@ -58,3 +58,34 @@ def test_fetch_failures_never_cached_and_surface_as_toast():
     cache_store = source.index("rangeCache[key] = data;")
     failure = source.index("notifyFetchError();")
     assert cache_store < failure
+
+
+def _source(name):
+    return (STATIC_JS_DIR / "calendar" / name).read_text()
+
+
+def test_default_event_duration_is_a_shared_constant():
+    """U12.56j: the 30-minute default duration has one source of truth in
+    date_utils.js (loaded first) and no creation path hard-codes 60."""
+    assert "LRCal.DEFAULT_EVENT_DURATION_MIN = 30;" in _source("date_utils.js")
+    for name in ("editor.js", "dnd.js"):
+        source = _source(name)
+        assert "LRCal.DEFAULT_EVENT_DURATION_MIN" in source
+        assert "startMin + 60" not in source
+    # The Create button/FAB pass dtstart only; the editor derives the end.
+    assert "'T10:00'" not in _source("main.js")
+
+
+def test_editor_sync_end_from_start_is_duration_preserving():
+    """U12.56j: both start fields feed syncEndFromStart (no stale-guard),
+    the sync keeps multi-day end dates in place, and save clamps end
+    <= start to the default duration."""
+    source = _source("editor.js")
+    assert "syncEndFromStart('date');" in source
+    assert "syncEndFromStart('time');" in source
+    # The old guard (sync only when end date empty) must not come back.
+    assert "if (!el('ce-end-date').value) syncEndFromStart" not in source
+    assert "wasSameDay" in source
+    assert "deriveEnd(sd, st, LRCal.DEFAULT_EVENT_DURATION_MIN)" in source
+    # Midnight rollover derives a real next-day date instead of wrapping.
+    assert "Math.floor(total / 1440)" in source

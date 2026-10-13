@@ -104,7 +104,7 @@
         width: 0,
         height: 0,
       });
-      drag.endMin = drag.startMin + 60;
+      drag.endMin = drag.startMin + LRCal.DEFAULT_EVENT_DURATION_MIN;
       drag.liveDate = null;
       return;
     }
@@ -349,7 +349,7 @@
   }
 
   function finishCreateWith(d) {
-    var endMin = d.endMin || d.startMin + 60;
+    var endMin = d.endMin || d.startMin + LRCal.DEFAULT_EVENT_DURATION_MIN;
     var date = d.liveDate || d.date;
     hideGhost();
     clearHighlights();

@@ -1,4 +1,5 @@
 import json
+import re
 
 import pytest
 
@@ -47,6 +48,20 @@ def test_settings_page_renders(authed_client):
         'data-pref="notify_chat_enabled"',
     ):
         assert marker in body, marker
+
+
+def test_settings_switch_knobs_render_inside_track(authed_client):
+    client, _user_id, _account_id = authed_client
+    resp = client.get("/app/mail/settings")
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    tracks = re.findall(r'<span class="([^"]*after:absolute[^"]*)"', body)
+    assert body.count('type="checkbox" data-pref') == len(tracks) == 8
+    for track in tracks:
+        # The knob (::after) is absolutely positioned, so each track span must
+        # establish its own positioning context or the knob escapes the pill.
+        assert "relative" in track, track
+        assert "after:bg-white" in track, track
 
 
 def test_settings_page_requires_login(client):

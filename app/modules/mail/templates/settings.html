@@ -92,7 +92,7 @@
           <label class="inline-flex cursor-pointer items-center gap-2">
             <input type="checkbox" data-pref="preview_pane_default" class="peer sr-only" {% if settings.preview_pane_default %}checked{% endif %} />
             <span class="pref-status text-xs" aria-live="polite"></span>
-            <span class="h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
+            <span class="relative h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
           </label>
         </div>
         <div class="flex flex-col items-start gap-2 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -126,7 +126,7 @@
           <label class="inline-flex cursor-pointer items-center gap-2">
             <input type="checkbox" data-pref="protect_starred" class="peer sr-only" {% if settings.protect_starred %}checked{% endif %} />
             <span class="pref-status text-xs" aria-live="polite"></span>
-            <span class="h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
+            <span class="relative h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
           </label>
         </div>
         {% if accounts %}
@@ -148,7 +148,7 @@
               <label class="inline-flex cursor-pointer items-center gap-2">
                 <input type="checkbox" data-pref="spam_action_{{ account.id }}" class="peer sr-only" {% if spam_enabled %}checked{% endif %} />
                 <span class="pref-status text-xs" aria-live="polite"></span>
-                <span class="h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
+                <span class="relative h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
               </label>
             </div>
             <div class="flex flex-col items-start gap-2 rounded-lg bg-slate-50/70 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -159,7 +159,7 @@
               <label class="inline-flex cursor-pointer items-center gap-2">
                 <input type="checkbox" data-pref="locked_keyword_{{ account.id }}" class="peer sr-only" {% if lock_enabled %}checked{% endif %} />
                 <span class="pref-status text-xs" aria-live="polite"></span>
-                <span class="h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
+                <span class="relative h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
               </label>
             </div>
           </div>
@@ -211,7 +211,7 @@
             <label class="inline-flex cursor-pointer items-center gap-2">
               <input type="checkbox" data-pref="notify_mail_enabled" class="peer sr-only" {% if settings.notify_mail_enabled %}checked{% endif %} />
               <span class="pref-status text-xs" aria-live="polite"></span>
-              <span class="h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
+              <span class="relative h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
             </label>
           </div>
           <div class="flex flex-col items-start gap-2 rounded-lg bg-slate-50/70 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -222,7 +222,7 @@
             <label class="inline-flex cursor-pointer items-center gap-2">
               <input type="checkbox" data-pref="notify_calendar_enabled" class="peer sr-only" {% if settings.notify_calendar_enabled %}checked{% endif %} />
               <span class="pref-status text-xs" aria-live="polite"></span>
-              <span class="h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
+              <span class="relative h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
             </label>
           </div>
           <div class="flex flex-col items-start gap-2 rounded-lg bg-slate-50/70 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -233,7 +233,7 @@
             <label class="inline-flex cursor-pointer items-center gap-2">
               <input type="checkbox" data-pref="notify_chat_enabled" class="peer sr-only" {% if settings.notify_chat_enabled %}checked{% endif %} />
               <span class="pref-status text-xs" aria-live="polite"></span>
-              <span class="h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
+              <span class="relative h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
             </label>
           </div>
           <div class="flex flex-col items-start gap-2 rounded-lg bg-slate-50/70 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -244,7 +244,7 @@
             <label class="inline-flex cursor-pointer items-center gap-2">
               <input type="checkbox" data-pref="push_detailed" class="peer sr-only" {% if settings.push_detailed %}checked{% endif %} />
               <span class="pref-status text-xs" aria-live="polite"></span>
-              <span class="h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
+              <span class="relative h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-slate-900 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-slate-300"></span>
             </label>
           </div>
         </div>

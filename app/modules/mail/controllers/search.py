@@ -14,6 +14,7 @@ from app.modules.mail.controllers.helpers import (
 )
 from app.modules.mail.services.cache_db import list_cached_folders, open_cache, search_messages
 from app.modules.mail.services.folder_aliases import folder_display_names
+from app.modules.mail.services.folder_sort import move_destination_folders
 from app.modules.mail.services.imap_client import (
     fetch_message,
     list_folders,
@@ -81,15 +82,6 @@ def _decorate_row(row, timezone_name):
     }
 
 
-def _known_cache_folders(conn):
-    return [
-        row["folder"]
-        for row in conn.execute(
-            "SELECT DISTINCT folder FROM messages WHERE folder IS NOT NULL ORDER BY folder"
-        ).fetchall()
-    ]
-
-
 @mail_bp.route("/mail/search/parse")
 @require_customer
 def search_parse():
@@ -146,7 +138,7 @@ def search():
     query = filters.to_query() or raw_query
 
     conn = open_cache(account.cache_db_path, key)
-    known_folders = _known_cache_folders(conn)
+    known_folders = move_destination_folders(conn)
     settings = _get_or_create_settings(user_id)
     timezone_name = settings.timezone
 
@@ -339,25 +331,24 @@ def full_search():
     user_id = session.get("user_id")
     account_id = int(request.form.get("account_id") or 0)
     account = CustomerAccount.query.filter_by(id=account_id, customer_id=user_id).first_or_404()
+    key = get_user_key(user_id)
+    conn = open_cache(account.cache_db_path, key)
     if not (query or "").strip():
+        folders = move_destination_folders(conn)
         return render_template(
             "search_full.html",
             results=[],
             query=query,
             account_id=account_id,
-            folders=[],
-            folder_labels={},
+            folders=folders,
+            folder_labels=folder_display_names(folders),
         )
     settings = _get_or_create_settings(user_id)
-    key = get_user_key(user_id)
-    conn = open_cache(account.cache_db_path, key)
     uid_folder_pairs = {}
     results_remote = []
-    known_folders = []
     secret = decrypt_with_key(account.encrypted_secret, key) if account.encrypted_secret else None
     client, _domain = _imap_for_account(account, secret)
     for folder in list_folders(client):
-        known_folders.append(folder)
         select_folder(client, folder)
         uids = search_full_text(client, query)
         for uid in uids:
@@ -398,11 +389,12 @@ def full_search():
             item["is_flagged"] = False
 
     results_remote.sort(key=lambda row: row.get("date_ts") or 0, reverse=True)
+    move_folders = move_destination_folders(conn)
     return render_template(
         "search_full.html",
         results=results_remote,
         query=query,
         account_id=account_id,
-        folders=known_folders,
-        folder_labels=folder_display_names(known_folders),
+        folders=move_folders,
+        folder_labels=folder_display_names(move_folders),
     )

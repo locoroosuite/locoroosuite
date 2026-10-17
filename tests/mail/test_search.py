@@ -108,8 +108,12 @@ def test_search_rows_have_swipe_panels_and_inert_overlay(authed_client):
     assert resp.status_code == 200
     html = resp.data.decode()
     assert "data-message-actions-toggle" not in html, "the '...' toggle was removed (UX3g)"
-    assert 'data-swipe-panel="left"' not in html, "swipe archive panel must not exist (right swipe is inert, UX3g)"
-    assert "data-swipe-archive-form" not in html, "swipe archive form must not exist (right swipe is inert, UX3g)"
+    assert 'data-swipe-panel="left"' not in html, (
+        "swipe archive panel must not exist (right swipe is inert, UX3g)"
+    )
+    assert "data-swipe-archive-form" not in html, (
+        "swipe archive form must not exist (right swipe is inert, UX3g)"
+    )
     assert 'data-swipe-panel="right"' in html, "swipe actions panel missing from search rows"
     assert "data-row-foreground" in html, "swipe foreground wrapper missing"
     assert "data-select-circle" in html, "long-press selection circle missing (UX3h)"
@@ -119,13 +123,13 @@ def test_search_rows_have_swipe_panels_and_inert_overlay(authed_client):
     assert "opacity-0 pointer-events-none" in html
 
 
-def test_search_passes_folders_for_move_picker(authed_client):
-    """The view passes the account's known folders so the (previously dead)
-    'Move to folder' action works on search results."""
+def test_search_passes_folders_for_move_picker(authed_client, cache_conn_factory):
+    """U5.5a: search move destinations come from the folders table via the
+    shared helper (custom → system → INBOX), so empty custom folders are
+    offered. Regression test: the old DISTINCT-on-messages source listed
+    system folders only, in both the bulk toolbar and the row pickers."""
     client, _user_id, account_id = authed_client
-    cache_conn = MagicMock()
-    folder_row = {"folder": "INBOX"}
-    cache_conn.execute.return_value.fetchall.return_value = [folder_row]
+    cache_conn = cache_conn_factory(folders=["INBOX", "Sent", "Trash", "Projects"])
     with (
         _search_patches([_fake_row()]),
         patch("app.modules.mail.controllers.search.open_cache", return_value=cache_conn),
@@ -133,7 +137,10 @@ def test_search_passes_folders_for_move_picker(authed_client):
         resp = client.post("/app/mail/search", data={"q": "hello", "account_id": str(account_id)})
     assert resp.status_code == 200
     html = resp.data.decode()
-    assert 'folders: ["INBOX"]' in html
+    assert 'folders: ["Projects", "Sent", "Trash", "INBOX"]' in html
+    # The bulk-toolbar destination select (the reported surface) offers the
+    # empty custom folder.
+    assert '<option value="Projects">' in html
 
 
 def test_search_empty_shows_no_results_message(authed_client):

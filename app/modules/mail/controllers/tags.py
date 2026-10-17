@@ -11,6 +11,8 @@ from app.modules.mail.controllers.helpers import (
     normalize_subject_for_threading,
 )
 from app.modules.mail.services.cache_db import open_cache
+from app.modules.mail.services.folder_aliases import folder_display_names
+from app.modules.mail.services.folder_sort import move_destination_folders
 from app.modules.mail.services.spam import spam_action_enabled as _spam_action_enabled
 from app.shared.auth import require_customer
 from app.shared.keys import get_user_key
@@ -66,10 +68,18 @@ def tag_view(account_id, tag_id):
         threads.setdefault(thread_key, []).append(row)
     from app.modules.mail.services.cache_db import has_completed_sync
 
-    accounts, folder_sections, cached_folders, pinned, starred_count, sidebar_warning, folder_display = (
-        _folder_sidebar_context(user_id, account, key, conn)
-    )
+    (
+        accounts,
+        folder_sections,
+        cached_folders,
+        pinned,
+        starred_count,
+        sidebar_warning,
+        folder_display,
+    ) = _folder_sidebar_context(user_id, account, key, conn)
     send_failure = _consume_send_failure_notice(user_id)
+    # U5.5a: same move-destination mechanism as the folder view.
+    move_folders = move_destination_folders(conn)
     return render_template(
         "folder.html",
         account=account,
@@ -78,6 +88,8 @@ def tag_view(account_id, tag_id):
         active_folder_key=f"TAG {tag_id}".upper(),
         folder_sections=folder_sections,
         folder_display=folder_display,
+        move_folders=move_folders,
+        move_folder_labels=folder_display_names(move_folders),
         threads=threads,
         cached_folders=cached_folders,
         starred_count=starred_count,

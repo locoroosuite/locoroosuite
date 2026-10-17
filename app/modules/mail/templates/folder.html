@@ -157,13 +157,8 @@
       </div>
     </div>
 
-    {% set bulk_folders = [] %}
-    {% for section in folder_sections %}
-      {% for f in section.folders %}
-        {% if f not in bulk_folders %}{% set _ = bulk_folders.append(f) %}{% endif %}
-      {% endfor %}
-    {% endfor %}
-    {% set bulk_folder_display = folder_display or {} %}
+    {% set bulk_folders = move_folders or [] %}
+    {% set bulk_folder_display = move_folder_labels or {} %}
     <div id="bulk-toolbar-slot" data-current-folder="{{ folder }}">
       {% include "_bulk_toolbar.html" %}
     </div>
@@ -459,14 +454,10 @@
   const currentFolder = {{ folder|tojson }};
   const currentFolderKey = (currentFolder || '').toLowerCase();
   const currentAccountId = {{ account.id }};
-  {% set all_folders = [] %}
-  {% for section in folder_sections %}
-    {% for f in section.folders %}
-      {% if all_folders.append(f) %}{% endif %}
-    {% endfor %}
-  {% endfor %}
-  const allFolders = {{ all_folders | tojson }};
-  const folderDisplay = {{ (folder_display or {}) | tojson }};
+  // U5.5a: controller-provided move destinations (folders-table based,
+  // custom-first ordering) — not a flatten of the sidebar sections.
+  const allFolders = {{ (move_folders or []) | tojson }};
+  const folderDisplay = {{ (move_folder_labels or {}) | tojson }};
   const messagesUrl = {{ url_for('mail.folder_messages', account_id=account.id, folder=folder, snippet_debug=1 if snippet_debug else None)|tojson }};
   const currentPage = {{ pagination.current_page | default(1) if pagination is defined else 1 }};
   const initialSyncing = {{ initial_syncing|default(false)|tojson }};

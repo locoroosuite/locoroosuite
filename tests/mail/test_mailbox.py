@@ -311,9 +311,7 @@ def test_imap_for_account_closes_socket_on_login_failure(authed_client, app):
     with app.app_context():
         account = _db.session.get(CustomerAccount, account_id)
         with (
-            patch(
-                "app.modules.mail.controllers.helpers.connect_imap", return_value=mock_client
-            ),
+            patch("app.modules.mail.controllers.helpers.connect_imap", return_value=mock_client),
             patch(
                 "app.modules.mail.controllers.helpers.login_imap",
                 side_effect=_imaplib.IMAP4.error("rejected"),
@@ -324,7 +322,7 @@ def test_imap_for_account_closes_socket_on_login_failure(authed_client, app):
     mock_client.logout.assert_called_once()
 
 
-def test_folder_view_displays_canonical_labels(authed_client, app):
+def test_folder_view_displays_canonical_labels(authed_client, app, cache_conn_factory):
     """U4.15b: a Junk folder shows as "Spam" in the sidebar and header while
     URLs and data attributes keep the raw IMAP name."""
     client, _user_id, account_id = authed_client
@@ -339,8 +337,9 @@ def test_folder_view_displays_canonical_labels(authed_client, app):
         {"title": "Folders", "folders": []},
     ]
     display = {"INBOX": "INBOX", "Sent": "Sent", "Junk": "Spam"}
+    cache_conn = cache_conn_factory(folders=["INBOX", "Sent", "Junk"])
     with (
-        patch("app.modules.mail.controllers.mailbox.open_cache", return_value=MagicMock()),
+        patch("app.modules.mail.controllers.mailbox.open_cache", return_value=cache_conn),
         patch(
             "app.modules.mail.controllers.mailbox._build_threads",
             return_value=({}, _empty_pagination),
@@ -372,6 +371,53 @@ def test_folder_view_displays_canonical_labels(authed_client, app):
     assert 'class="text-base font-semibold truncate">Spam</div>' in html
     # The JS move-to-folder picker receives the display map (U4.15b).
     assert '"Junk": "Spam"' in html
+
+
+def test_folder_view_move_picker_uses_shared_helper(authed_client, app, cache_conn_factory):
+    """U5.5a: the folder view's move destinations (row picker, swipe sheet,
+    bulk toolbar) come from the folders table via move_destination_folders —
+    custom folders first (empty ones included), then system, then INBOX."""
+    client, _user_id, account_id = authed_client
+    mock_settings = MagicMock()
+    mock_settings.timezone = "UTC"
+    app.sync_manager.set_active_account.return_value = None
+    app.sync_manager.set_active_folder.return_value = None
+    app.sync_manager.enqueue_sync.return_value = False
+    sections = [
+        {"title": "INBOX", "folders": ["INBOX"]},
+        {"title": "System", "folders": ["Sent", "Junk"]},
+        {"title": "Folders", "folders": ["Projects"]},
+    ]
+    cache_conn = cache_conn_factory(folders=["INBOX", "Sent", "Junk", "Projects"])
+    with (
+        patch("app.modules.mail.controllers.mailbox.open_cache", return_value=cache_conn),
+        patch(
+            "app.modules.mail.controllers.mailbox._build_threads",
+            return_value=({}, _empty_pagination),
+        ),
+        patch(
+            "app.modules.mail.controllers.mailbox._get_or_create_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            "app.modules.mail.controllers.mailbox._folder_sidebar_context",
+            return_value=([], sections, {}, [], 0, None, {}),
+        ),
+        patch("app.modules.mail.controllers.mailbox._snippet_debug_enabled", return_value=False),
+        patch(
+            "app.modules.mail.controllers.mailbox._consume_send_failure_notice", return_value=None
+        ),
+        patch("app.modules.mail.controllers.mailbox._current_undo_action", return_value=None),
+        patch("app.modules.mail.controllers.mailbox._spam_action_enabled", return_value=False),
+        patch("app.modules.mail.services.cache_db.has_completed_sync", return_value=True),
+    ):
+        resp = client.get(f"/app/mail/folder/{account_id}/INBOX")
+    assert resp.status_code == 200
+    html = resp.data.decode()
+    # Row picker / swipe sheet list (custom → system → INBOX ordering).
+    assert 'const allFolders = ["Projects", "Sent", "Junk", "INBOX"];' in html
+    # Bulk toolbar destination select offers the empty custom folder.
+    assert '<option value="Projects">' in html
 
 
 def test_folder_messages_json(authed_client):

@@ -50,11 +50,7 @@ def build_folder_sections(folders, pinned, conn):
         used_keys.add("inbox")
 
     remaining = [actual_by_key[key] for key in keys_in_order if key not in used_keys]
-    latest_dates = _latest_message_dates(conn, remaining)
-    with_dates = [folder for folder in remaining if folder in latest_dates]
-    no_dates = [folder for folder in remaining if folder not in latest_dates]
-    with_dates.sort(key=lambda name: latest_dates[name], reverse=True)
-    recent_folders = with_dates + no_dates
+    recent_folders = _order_by_recent_activity(conn, remaining)
 
     sections = []
     if inbox_name:
@@ -68,6 +64,54 @@ def build_folder_sections(folders, pinned, conn):
     # custom folders can never create their first one.
     sections.append({"title": "Folders", "folders": recent_folders})
     return sections
+
+
+def move_destination_folders(conn) -> list[str]:
+    """U5.5a: the single source for every move-to-folder picker.
+
+    Reads the per-user ``folders`` table (the U5.4a IMAP LIST mirror), so
+    empty and never-opened custom folders are offered as destinations —
+    ``SELECT DISTINCT folder FROM messages`` hides them, which is how the
+    search bulk-move picker ended up listing system folders only. Ordering:
+    custom folders first (U4.15 Folders-section rule), then system folders
+    in fixed canonical order, then INBOX last (rarely a filing target).
+    Aliases are NOT deduplicated to one representative (U4.15b pickers list
+    every variant); display labels come from ``folder_display_names`` at the
+    call sites. Falls back to ``["INBOX"]`` when the table is empty (first
+    login).
+    """
+    from app.modules.mail.services.cache_db import list_cached_folders
+
+    names = [row["name"] for row in list_cached_folders(conn)]
+    if not names:
+        return ["INBOX"]
+
+    system_order = {key: index for index, key in enumerate(SYSTEM_FOLDERS)}
+    custom: list[str] = []
+    system: list[str] = []
+    inbox: list[str] = []
+    for name in names:
+        key = canonical_folder_key(name)
+        if key == "inbox":
+            inbox.append(name)
+        elif key in system_order:
+            system.append(name)
+        else:
+            custom.append(name)
+    # list_cached_folders yields alphabetical order; sort is stable, so
+    # multiple aliases of one canonical key stay alphabetical in-group.
+    system.sort(key=lambda name: system_order[canonical_folder_key(name)])
+    return _order_by_recent_activity(conn, custom) + system + inbox
+
+
+def _order_by_recent_activity(conn, folders):
+    """U4.15 Folders-section rule: folders with cached messages by most
+    recent message date (descending), then undated folders (input order)."""
+    latest_dates = _latest_message_dates(conn, folders)
+    with_dates = [folder for folder in folders if folder in latest_dates]
+    no_dates = [folder for folder in folders if folder not in latest_dates]
+    with_dates.sort(key=lambda name: latest_dates[name], reverse=True)
+    return with_dates + no_dates
 
 
 def _representative_folder(conn, candidates):

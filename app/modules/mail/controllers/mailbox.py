@@ -22,7 +22,8 @@ from app.modules.mail.controllers.helpers import (
 )
 from app.modules.mail.services.cache import purge_cache
 from app.modules.mail.services.cache_db import list_cached_folders, open_cache
-from app.modules.mail.services.folder_aliases import resolve_folder_name
+from app.modules.mail.services.folder_aliases import folder_display_names, resolve_folder_name
+from app.modules.mail.services.folder_sort import move_destination_folders
 from app.modules.mail.services.imap_client import (
     create_folder,
     encode_mailbox_name,
@@ -134,11 +135,20 @@ def folder_view(account_id, folder):
         protect_starred_enabled,
     )
 
-    accounts, folder_sections, cached_folders, pinned, starred_count, sidebar_warning, folder_display = (
-        _folder_sidebar_context(user_id, account, key, conn)
-    )
+    (
+        accounts,
+        folder_sections,
+        cached_folders,
+        pinned,
+        starred_count,
+        sidebar_warning,
+        folder_display,
+    ) = _folder_sidebar_context(user_id, account, key, conn)
     snippet_debug_enabled = _snippet_debug_enabled()
     send_failure = _consume_send_failure_notice(user_id)
+    # U5.5a: picker destinations come from the folders table via the shared
+    # helper — not the sidebar sections (which dedupe canonical aliases).
+    move_folders = move_destination_folders(conn)
     return render_template(
         "folder.html",
         account=account,
@@ -147,6 +157,8 @@ def folder_view(account_id, folder):
         active_folder_key=folder.upper(),
         folder_sections=folder_sections,
         folder_display=folder_display,
+        move_folders=move_folders,
+        move_folder_labels=folder_display_names(move_folders),
         threads=threads,
         cached_folders=cached_folders,
         starred_count=starred_count,
@@ -518,9 +530,15 @@ def smart_folder(account_id, view):
         row = _decorate_message_row(msg, timezone_name=settings.timezone)
         thread_key = normalize_subject_for_threading(row["subject"])
         threads.setdefault(thread_key, []).append(row)
-    accounts, folder_sections, cached_folders, pinned, starred_count, sidebar_warning, folder_display = (
-        _folder_sidebar_context(user_id, account, key, conn)
-    )
+    (
+        accounts,
+        folder_sections,
+        cached_folders,
+        pinned,
+        starred_count,
+        sidebar_warning,
+        folder_display,
+    ) = _folder_sidebar_context(user_id, account, key, conn)
     send_failure = _consume_send_failure_notice(user_id)
     from app.modules.mail.services.protection import (
         load_protected_folders,
@@ -528,6 +546,8 @@ def smart_folder(account_id, view):
         protect_starred_enabled,
     )
 
+    # U5.5a: same move-destination mechanism as the folder view.
+    move_folders = move_destination_folders(conn)
     return render_template(
         "folder.html",
         account=account,
@@ -536,6 +556,8 @@ def smart_folder(account_id, view):
         active_folder_key=view.upper(),
         folder_sections=folder_sections,
         folder_display=folder_display,
+        move_folders=move_folders,
+        move_folder_labels=folder_display_names(move_folders),
         threads=threads,
         cached_folders=cached_folders,
         starred_count=starred_count,

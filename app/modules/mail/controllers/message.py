@@ -28,11 +28,11 @@ from app.modules.mail.controllers.helpers import (
 )
 from app.modules.mail.services.cache_db import (
     get_message,
-    list_cached_folders,
     open_cache,
     update_flags,
 )
 from app.modules.mail.services.folder_aliases import folder_display_names
+from app.modules.mail.services.folder_sort import move_destination_folders
 from app.modules.mail.services.imap_client import (
     create_folder,
     fetch_message,
@@ -87,10 +87,11 @@ def message_view(account_id, message_id):
         return redirect(url_for("mail.mailbox"))
     key = get_user_key(session.get("user_id"))
     conn = open_cache(account.cache_db_path, key)
-    cached_folders = list_cached_folders(conn)
-    all_folder_names = [f[0] for f in cached_folders]
-    folder_display = folder_display_names(all_folder_names)
-    move_folders = [f for f in all_folder_names if f != message["folder"]]
+    # U5.5a: shared move-destination mechanism (folders table, custom-first
+    # ordering); labels disambiguate canonical aliases per U4.15b.
+    ordered_folders = move_destination_folders(conn)
+    folder_display = folder_display_names(ordered_folders)
+    move_folders = [f for f in ordered_folders if f != message["folder"]]
     thread_id = message["thread_id"]
     is_draft = message["folder"].lower() == "drafts" if message["folder"] else False
     if not is_draft:

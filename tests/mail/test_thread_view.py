@@ -475,7 +475,7 @@ class TestThreadConversationView:
             patch("app.modules.mail.controllers.message._load_message_detail") as mock_load,
             patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings,
             patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
-            patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders,
+            patch("app.modules.mail.controllers.message.move_destination_folders") as mock_folders,
             patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam,
             patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread,
         ):
@@ -569,7 +569,7 @@ class TestThreadConversationView:
             patch("app.modules.mail.controllers.message._load_message_detail") as mock_load,
             patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings,
             patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
-            patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders,
+            patch("app.modules.mail.controllers.message.move_destination_folders") as mock_folders,
             patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam,
             patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread,
         ):
@@ -659,7 +659,7 @@ class TestThreadConversationView:
             patch("app.modules.mail.controllers.message._load_message_detail") as mock_load,
             patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings,
             patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
-            patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders,
+            patch("app.modules.mail.controllers.message.move_destination_folders") as mock_folders,
             patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam,
             patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread,
         ):
@@ -747,7 +747,7 @@ class TestThreadConversationView:
             patch("app.modules.mail.controllers.message._load_message_detail") as mock_load,
             patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings,
             patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
-            patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders,
+            patch("app.modules.mail.controllers.message.move_destination_folders") as mock_folders,
             patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam,
             patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread,
         ):
@@ -836,7 +836,7 @@ class TestThreadConversationView:
             patch("app.modules.mail.controllers.message._load_message_detail") as mock_load,
             patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings,
             patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
-            patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders,
+            patch("app.modules.mail.controllers.message.move_destination_folders") as mock_folders,
             patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam,
             patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread,
         ):
@@ -925,7 +925,7 @@ class TestThreadConversationView:
             patch("app.modules.mail.controllers.message._load_message_detail") as mock_load,
             patch("app.modules.mail.controllers.message._get_or_create_settings") as mock_settings,
             patch("app.modules.mail.controllers.message.open_cache") as mock_cache,
-            patch("app.modules.mail.controllers.message.list_cached_folders") as mock_folders,
+            patch("app.modules.mail.controllers.message.move_destination_folders") as mock_folders,
             patch("app.modules.mail.controllers.message._spam_action_enabled") as mock_spam,
             patch("app.modules.mail.controllers.message._load_thread_for_detail") as mock_thread,
         ):

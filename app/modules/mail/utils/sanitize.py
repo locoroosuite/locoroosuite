@@ -668,6 +668,8 @@ def wrap_email_html(body_html, text_scale: float = 1.0):
         + "lrFit();"
         + "window.addEventListener('load',lrFit);"
         + "new MutationObserver(lrFit).observe(document.body,{childList:true,subtree:true});"
+        + "document.addEventListener('toggle',function(e){"
+        + "if(e.target&&e.target.tagName==='DETAILS'){setTimeout(lrResize,0);}},true);"
         + "</script>"
         + "</body></html>"
     )

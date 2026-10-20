@@ -285,6 +285,37 @@ class TestWrapperWidthFitUx8a:
         assert "lrIframeHeight" in wrapped
 
 
+class TestWrapperQuotedToggleResizeU4_7b:
+    """U4.7b: revealing/hiding trimmed content must resize the iframe.
+
+    The <details> toggle changes only the `open` attribute (not childList),
+    and `toggle` does not bubble — so the height-sync protocol needs an
+    explicit capture-phase listener, or the iframe keeps its collapsed
+    height and the quoted content scrolls inside a ~5-line box.
+    """
+
+    def test_toggle_listener_registered_on_document_capture(self):
+        wrapped = wrap_email_html("<p>test</p>")
+        # Capture phase on document: `toggle` never bubbles, so only a
+        # capturing document-level listener sees it from nested details.
+        assert (
+            "document.addEventListener('toggle',function(e){"
+            "if(e.target&&e.target.tagName==='DETAILS'){setTimeout(lrResize,0);}},true);" in wrapped
+        )
+
+    def test_toggle_listener_targets_details_and_reresizes(self):
+        wrapped = wrap_email_html("<p>test</p>")
+        assert "e.target.tagName==='DETAILS'" in wrapped
+        # Deferred re-measure lets the browser lay out revealed content
+        # before scrollHeight is read (same pattern as message.html).
+        assert "setTimeout(lrResize,0)" in wrapped
+
+    def test_toggle_listener_after_height_protocol_defined(self):
+        wrapped = wrap_email_html("<p>test</p>")
+        # lrResize must exist before the listener references it.
+        assert wrapped.index("function lrResize()") < wrapped.index("setTimeout(lrResize,0)")
+
+
 class TestStyleTagSanitizerUx8b:
     """UX8b: <style> contents are CSS-sanitized; @media preserved; remote
     url() stripped unless the user allowed remote images."""

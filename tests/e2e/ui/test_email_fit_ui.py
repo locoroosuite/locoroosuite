@@ -61,6 +61,13 @@ def seeded_fixed_width_message():
 
 @skip_if_no_services
 class TestEmailBodyFitMobileUi:
+    # Send-to-self threads contain two copies of the message (Sent + INBOX)
+    # and only the current (INBOX) copy renders expanded; the collapsed copy
+    # can sort first in the DOM, so selectors must be scoped to the expanded
+    # message's frame (its [data-thread-body] lacks the `hidden` class).
+    FRAME = "[data-thread-body]:not(.hidden) .thread-msg-body"
+    FIT_BTN = "[data-thread-body]:not(.hidden) [data-fit-toggle]"
+
     def test_fixed_width_body_fits_mobile_viewport(
         self, seeded_fixed_width_message, mobile_logged_in_page
     ):
@@ -71,12 +78,15 @@ class TestEmailBodyFitMobileUi:
         assert row is not None
         row.click()
         page.wait_for_url("**/mail/message/**", timeout=10000)
-        page.wait_for_selector(".thread-msg-body", timeout=10000)
+        page.wait_for_selector("[data-thread-body]:not(.hidden) .thread-msg-body", timeout=10000)
         # The body iframe is same-origin (srcdoc + allow-same-origin): verify
         # at the service level that the rendered document fits its viewport.
         page.wait_for_function(
             """() => {
-              const f = document.querySelector('.thread-msg-body');
+              const body = [...document.querySelectorAll('[data-thread-body]')].find(
+                (el) => !el.classList.contains('hidden')
+              );
+              const f = body && body.querySelector('.thread-msg-body');
               const d = f && f.contentDocument;
               if (!d || !d.querySelector('.email-body')) return false;
               return d.documentElement.scrollWidth <= d.documentElement.clientWidth;
@@ -100,10 +110,13 @@ class TestEmailBodyFitMobileUi:
         row = page.wait_for_selector(f".message-row:has-text('{info['subject']}')", timeout=15000)
         row.click()
         page.wait_for_url("**/mail/message/**", timeout=10000)
-        page.wait_for_selector(".thread-msg-body", timeout=10000)
+        page.wait_for_selector("[data-thread-body]:not(.hidden) .thread-msg-body", timeout=10000)
         page.wait_for_function(
             """() => {
-              const f = document.querySelector('.thread-msg-body');
+              const body = [...document.querySelectorAll('[data-thread-body]')].find(
+                (el) => !el.classList.contains('hidden')
+              );
+              const f = body && body.querySelector('.thread-msg-body');
               const d = f && f.contentDocument;
               if (!d || !d.querySelector('.email-body')) return false;
               const wrap = d.querySelector('.email-body');
@@ -112,10 +125,13 @@ class TestEmailBodyFitMobileUi:
             timeout=10000,
         )
         # Fitted by default; toggling reveals the natural (overflowing) width.
-        page.click("[data-fit-toggle]")
+        page.click("[data-thread-body]:not(.hidden) [data-fit-toggle]")
         page.wait_for_function(
             """() => {
-              const f = document.querySelector('.thread-msg-body');
+              const body = [...document.querySelectorAll('[data-thread-body]')].find(
+                (el) => !el.classList.contains('hidden')
+              );
+              const f = body && body.querySelector('.thread-msg-body');
               const d = f && f.contentDocument;
               if (!d || !d.querySelector('.email-body')) return false;
               const wrap = d.querySelector('.email-body');
@@ -125,10 +141,13 @@ class TestEmailBodyFitMobileUi:
             timeout=10000,
         )
         # And back to fitted.
-        page.click("[data-fit-toggle]")
+        page.click("[data-thread-body]:not(.hidden) [data-fit-toggle]")
         page.wait_for_function(
             """() => {
-              const f = document.querySelector('.thread-msg-body');
+              const body = [...document.querySelectorAll('[data-thread-body]')].find(
+                (el) => !el.classList.contains('hidden')
+              );
+              const f = body && body.querySelector('.thread-msg-body');
               const d = f && f.contentDocument;
               if (!d || !d.querySelector('.email-body')) return false;
               return !!d.querySelector('.email-body').style.transform;

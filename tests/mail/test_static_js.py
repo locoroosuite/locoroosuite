@@ -510,7 +510,7 @@ def test_thread_live_js_contract():
     # Fetches carry the current ids so the server returns only new rows.
     assert "'have='" in js
     # Fragment bodies get the same <base> rewrite as the page-rendered ones.
-    assert "<base target=\"_blank\"" in js
+    assert '<base target="_blank"' in js
     # Never build Tailwind class names at runtime (JIT scanner rule); the
     # only classList mutation allowed is the static "hidden" literal.
     stripped = js.replace("classList.add('hidden')", "").replace('classList.add("hidden")', "")
@@ -531,6 +531,22 @@ def test_message_view_thread_stack_wiring():
     assert "data-thread-count" in content
     stack = (MAIL_TEMPLATES / "_thread_stack.html").read_text()
     assert "data-thread-sort-ts" in stack
+
+
+def test_body_iframes_let_popups_escape_sandbox():
+    """U8.11: the message-view and preview-pane body iframes must carry
+    ``allow-popups-to-escape-sandbox``. Without it, tabs opened from body
+    links inherit the iframe's sandbox flags, and Firefox refuses to load
+    COOP-protected destinations (LinkedIn/Google/Microsoft login pages)
+    into them — NS_ERROR_DOM_COOP_FAILED, "the security configuration
+    doesn't match the previous page"."""
+    thread_stack = (MAIL_TEMPLATES / "_thread_stack.html").read_text()
+    assert (
+        'sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-same-origin"'
+        in thread_stack
+    )
+    preview = (MAIL_TEMPLATES / "message_preview.html").read_text()
+    assert 'sandbox="allow-popups allow-popups-to-escape-sandbox"' in preview
 
 
 def test_folder_view_refreshes_on_sent_and_drafts_sync():

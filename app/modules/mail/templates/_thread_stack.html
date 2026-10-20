@@ -130,7 +130,7 @@
           <div class="mb-2 hidden" data-fit-controls>
             <button type="button" class="rounded-full border border-slate-200 bg-white px-3 py-1 text-[0.6875rem] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900" data-fit-toggle data-fitted="1" data-label-fit="{{ _('Fit width') }}" data-label-actual="{{ _('Actual size') }}">{{ _('Actual size') }}</button>
           </div>
-          <iframe class="thread-msg-body w-full bg-white" sandbox="allow-scripts allow-popups allow-same-origin" referrerpolicy="no-referrer"></iframe>
+          <iframe class="thread-msg-body w-full bg-white" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-same-origin" referrerpolicy="no-referrer"></iframe>
           {% if tm.is_current and attachments %}
           <div class="mt-4 pt-3 border-t border-slate-100" data-attachments-section>
             <div class="text-sm font-semibold text-slate-900 mb-2">{{ _('Attachments') }}</div>

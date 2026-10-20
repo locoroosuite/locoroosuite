@@ -200,7 +200,7 @@ class TestImageAltTextPreservation:
         html = '<a href="#"><img alt="View offer" src="btn.png" /></a>'
         result = sanitize_html(html, allow_images=False)
         assert "View offer" in result
-        assert '<a href="#">' in result
+        assert '<a href="#" rel="noopener noreferrer">' in result
         assert "<img" not in result
 
     def test_img_kept_when_images_allowed(self):
@@ -587,3 +587,52 @@ class TestMalformedHrefSanitizationU8_2a:
         html = '<a href="privacy.html">Privacy</a>'
         result = sanitize_html(html)
         assert 'href="privacy.html"' in result
+
+
+class TestAnchorHardeningU8_11:
+    """U8.11: body anchors gain rel="noopener noreferrer" (merged, deduped)
+    and lose sender targets; href-less anchors stay untouched. Together with
+    the iframes' allow-popups-to-escape-sandbox (static contract test), this
+    is what lets Firefox load COOP-protected destinations from body links."""
+
+    def test_anchor_without_rel_gains_noopener_noreferrer(self):
+        result = sanitize_html('<p><a href="https://example.com/x">x</a></p>')
+        assert '<a href="https://example.com/x" rel="noopener noreferrer">' in result
+
+    def test_existing_rel_tokens_merged_and_deduped(self):
+        html = '<a href="https://example.com/x" rel="noopener nofollow">x</a>'
+        result = sanitize_html(html)
+        assert 'rel="noopener nofollow noreferrer"' in result
+
+    def test_sender_target_stripped(self):
+        html = '<a href="https://example.com/x" target="_blank">x</a>'
+        result = sanitize_html(html)
+        assert "target=" not in result
+        assert 'rel="noopener noreferrer"' in result
+
+    def test_named_target_stripped(self):
+        html = '<a href="https://example.com/x" target="foo">x</a>'
+        result = sanitize_html(html)
+        assert "target=" not in result
+
+    def test_mailto_and_tel_hardened_too(self):
+        html = '<p><a href="mailto:a@b.example">y</a><a href="tel:+61255501000">z</a></p>'
+        result = sanitize_html(html)
+        assert result.count('rel="noopener noreferrer"') == 2
+
+    def test_idempotent(self):
+        html = '<a href="https://example.com/x" target="_blank" rel="nofollow">x</a>'
+        once = sanitize_html(html)
+        twice = sanitize_html(once)
+        assert once == twice
+
+    def test_hrefless_anchor_untouched(self):
+        html = "<a>Unsubscribe</a>"
+        assert sanitize_html(html) == "<a>Unsubscribe</a>"
+
+    def test_class_and_style_preserved(self):
+        html = '<a class="btn" href="https://example.com/x" style="color:#fff;">x</a>'
+        result = sanitize_html(html)
+        assert 'class="btn"' in result
+        assert "color:#fff" in result
+        assert 'rel="noopener noreferrer"' in result

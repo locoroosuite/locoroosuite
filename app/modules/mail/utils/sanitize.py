@@ -317,6 +317,43 @@ def _strip_inline_style_urls(fragment):
     return _STYLE_ATTR_RE.sub(_repl, fragment)
 
 
+_ANCHOR_OPEN_RE = re.compile(r"<a\b[^>]*>", re.IGNORECASE)
+_TAG_ATTR_RE = re.compile(r"""([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)""")
+
+
+def _harden_anchors(fragment):
+    """Force ``rel="noopener noreferrer"`` and drop sender ``target`` (U8.11).
+
+    Body links open via the wrapper's ``<base target="_blank">``; sender
+    ``target`` values are stripped (named targets are a Firefox COOP failure
+    mode, ``_self`` would navigate the body iframe itself) and ``noopener
+    noreferrer`` is merged into every ``rel`` (deduped, sender tokens kept)
+    so opened tabs never keep an opener relationship or leak the referrer.
+    Anchors without ``href`` are left untouched.
+    """
+
+    def _harden(m):
+        tag = m.group(0)
+        if not any(am.group(1).lower() == "href" for am in _TAG_ATTR_RE.finditer(tag)):
+            return tag
+        rel_value = ""
+        for am in _TAG_ATTR_RE.finditer(tag):
+            if am.group(1).lower() == "rel":
+                raw = am.group(2)
+                rel_value = raw[1:-1] if raw[:1] in ('"', "'") else raw
+                break
+
+        def _strip_attr(am):
+            return " " if am.group(1).lower() in ("rel", "target") else am.group(0)
+
+        stripped = _TAG_ATTR_RE.sub(_strip_attr, tag)
+        tokens = [t for t in rel_value.split() if t]
+        merged = " ".join(dict.fromkeys([*tokens, "noopener", "noreferrer"]))
+        return stripped[:-1].rstrip() + f' rel="{merged}">'
+
+    return _ANCHOR_OPEN_RE.sub(_harden, fragment)
+
+
 def sanitize_html(html, allow_images=False):
     html = html or ""
     html = re.sub(r"<script[^>]*>.*?</script>", " ", html, flags=re.DOTALL | re.IGNORECASE)
@@ -351,6 +388,7 @@ def sanitize_html(html, allow_images=False):
         strip_comments=True,
     )
     html = cleaner.clean(html)
+    html = _harden_anchors(html)
     html = _sanitize_style_tags(html, allow_remote=allow_images)
     if not allow_images:
         html = _strip_inline_style_urls(html)

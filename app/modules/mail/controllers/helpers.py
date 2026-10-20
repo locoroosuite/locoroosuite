@@ -34,10 +34,12 @@ from app.modules.mail.services.imap_client import (
     fetch_message,
     list_folders,
     login_imap,
+    parse_append_uid,
     safe_logout,
     select_folder,
     set_flag,
 )
+from app.modules.mail.services.imap_sync import record_sent_copy
 from app.modules.mail.services.secrets import decrypt_with_key
 from app.modules.mail.services.smtp_client import smtp_connect, smtp_login, smtp_send
 from app.modules.mail.utils.sanitize import (
@@ -56,6 +58,7 @@ from app.shared.i18n import current_locale_name
 from app.shared.icalendar import parse_icalendar
 from app.shared.keys import get_user_key
 from app.shared.models.core import CustomerAccount, CustomerSettings, Domain
+from app.shared.ui_events import push_ui_event
 
 mail_bp = Blueprint("mail", __name__, template_folder="../templates")
 mail_sse_bp = Blueprint("mail_sse", __name__)
@@ -449,6 +452,29 @@ def normalize_subject_for_threading(subject):
     return re.sub(r"\s+", " ", s).lower().strip()
 
 
+def _thread_participants(rows, limit=3):
+    """Distinct participant names for a thread head row (U4.7e).
+
+    Rows are sorted newest-first; walk chronologically so the summary reads
+    in conversation order. Sent/draft rows render as the localized "You".
+    Capped at ``limit`` names with a "+N" suffix for longer threads.
+    """
+    names = []
+    seen = set()
+    for row in reversed(rows):
+        if row.get("is_sent") or row.get("is_draft"):
+            name = _("You")
+        else:
+            name = (row.get("sender_display") or "").strip()
+        if not name or name.lower() in seen:
+            continue
+        seen.add(name.lower())
+        names.append(name)
+    if len(names) <= limit:
+        return ", ".join(names)
+    return ", ".join(names[:limit]) + f" +{len(names) - limit}"
+
+
 def _build_threads(conn, folder, timezone_name=None, account_email=None, page=1, per_page=50):
     from app.modules.mail.services.cache_db import (
         count_messages_in_folder,
@@ -573,10 +599,12 @@ def _build_threads(conn, folder, timezone_name=None, account_email=None, page=1,
     page_threads = {}
     thread_counts = {}
     thread_omitted = {}
+    thread_participants = {}
     for key in page_keys:
         rows = sorted_threads[key]
         full = len(rows)
         thread_counts[key] = full
+        thread_participants[key] = _thread_participants(rows)
         if full > MAX_MESSAGES_PER_THREAD:
             page_threads[key] = rows[:MAX_MESSAGES_PER_THREAD]
             thread_omitted[key] = full - MAX_MESSAGES_PER_THREAD
@@ -592,6 +620,7 @@ def _build_threads(conn, folder, timezone_name=None, account_email=None, page=1,
         "per_page": per_page,
         "thread_counts": thread_counts,
         "thread_omitted": thread_omitted,
+        "thread_participants": thread_participants,
     }
 
 
@@ -803,11 +832,18 @@ def _send_worker(app, send_token, delay_seconds=0):
 
             warning = None
             imap_client = None
+            sent_append_ok = False
+            sent_append_uid = None
+            sent_raw = payload.get("sent_msg") or payload["msg"]
             try:
                 imap_client, _domain = _imap_for_account(account, secret, domain=domain)
-                ensure_folder_and_append(
-                    imap_client, "Sent", payload.get("sent_msg") or payload["msg"]
+                # U4.7e: the sender's own copy is stored read (\Seen).
+                status, data = ensure_folder_and_append(
+                    imap_client, "Sent", sent_raw, flags=["\\Seen"]
                 )
+                if status == "OK":
+                    sent_append_ok = True
+                    sent_append_uid = parse_append_uid(data)
             except Exception:
                 from app.shared.i18n import N_, translate_for_user
 
@@ -822,6 +858,30 @@ def _send_worker(app, send_token, delay_seconds=0):
             finally:
                 if imap_client:
                     safe_logout(imap_client)
+
+            if sent_append_ok:
+                # U4.7e/U4.7f: record the copy in the local cache so open
+                # views render it immediately, then notify SSE listeners.
+                if sent_append_uid is not None:
+                    try:
+                        conn = open_cache(account.cache_db_path, get_user_key(payload["user_id"]))
+                        record_sent_copy(conn, "Sent", sent_append_uid, sent_raw)
+                    except Exception:
+                        logger.warning(
+                            "send sent-copy cache record failed send_token=%s account_id=%s uid=%s",
+                            send_token,
+                            account.id,
+                            sent_append_uid,
+                            exc_info=True,
+                        )
+                try:
+                    push_ui_event(
+                        payload["user_id"], "mail", "send_complete", {"account_id": account.id}
+                    )
+                except Exception:
+                    logger.debug(
+                        "send ui_change push failed send_token=%s", send_token, exc_info=True
+                    )
 
             draft_uid = payload.get("draft_uid")
             if draft_uid:
@@ -1424,6 +1484,7 @@ def _load_thread_for_detail(
                 "date": row["date"],
                 "date_display": _format_short_date(row["date"], timezone_name),
                 "date_ts": _message_date_ts(row["date"]),
+                "sort_ts": _thread_sort_ts(row),
                 "flags": msg_flags,
                 "is_unread": "\\Seen" not in msg_flags,
                 "is_flagged": "\\Flagged" in msg_flags,

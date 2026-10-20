@@ -406,6 +406,48 @@ def _to_uid_str(uid):
     return str(uid)
 
 
+def record_sent_copy(conn, folder, uid, raw_bytes):
+    """Parse a just-appended sent copy and upsert it into the local cache.
+
+    Called by the send flows right after the IMAP APPEND succeeds (U4.7e)
+    so open views can render the message immediately instead of waiting for
+    the next folder sync. Flags are recorded as ``["\\\\Seen"]`` — the
+    sender's own mail is never unread. Idempotent by (folder, uid): the
+    later folder sync skips UIDs it already has.
+    """
+    try:
+        msg = email.message_from_bytes(raw_bytes)
+    except Exception:
+        logger.warning(
+            "record_sent_copy: unparseable sent copy folder=%s uid=%s", folder, uid, exc_info=True
+        )
+        return None
+    args = _prepare_message_args(msg)
+    return upsert_message(
+        conn,
+        _to_uid_str(uid),
+        folder,
+        args["subject"],
+        args["sender"],
+        args["recipients"],
+        args["date"],
+        ["\\Seen"],
+        args["snippet"],
+        args["body"],
+        args["has_attachments"],
+        args["message_id"],
+        thread_id=args["thread_id"],
+        in_reply_to=args["in_reply_to"],
+        ref_list=args["ref_list"],
+        is_bounce=args["is_bounce"],
+        bounce_reason=args["bounce_reason"],
+        original_subject=args["original_subject"],
+        cc=args["cc"],
+        attachment_list=args["attachment_list"],
+        body_html=args["body_html"],
+    )
+
+
 def _chunked(items, size=50):
     for idx in range(0, len(items), size):
         yield items[idx : idx + size]

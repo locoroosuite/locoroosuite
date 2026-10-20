@@ -1253,8 +1253,12 @@
       return;
     }
     updateIndicator(data);
-    const sameFolder = data.folder && data.folder.toLowerCase() === currentFolder.toLowerCase();
+    const folderName = (data.folder || '').toLowerCase();
+    const sameFolder = folderName && folderName === currentFolder.toLowerCase();
     const relevant = isSmartView ? true : sameFolder;
+    // U4.7f: Sent/Drafts messages merge into open threads, so a completed
+    // sync of those folders must also refresh the list.
+    const threadMergeFolder = folderName === 'sent' || folderName === 'drafts';
     if (relevant) {
       lastSyncStatus = data;
       if (data.state === 'complete') {
@@ -1264,6 +1268,8 @@
       if (!isSmartView && data.state === 'complete') {
         scheduleRefresh(true);
       }
+    } else if (!isSmartView && data.state === 'complete' && threadMergeFolder) {
+      scheduleRefresh(true);
     }
   });
   source.addEventListener('counts_updated', (evt) => {

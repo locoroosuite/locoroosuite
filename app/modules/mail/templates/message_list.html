@@ -4,8 +4,12 @@
 <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" role="img" aria-label="{{ _('Protected') }}" title="{{ _('Protected from deletion ({reason}). Use the ⋯ menu to {action} it.').format(reason=_(reason), action=_('unlock') if reason == 'locked' else (_('unstar') if reason == 'starred' else _('unstar and unlock'))) }}" data-protected-badge><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V8H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
 {% endmacro %}
 
-{% macro _thread_badges(msg, row_protected, row_protected_reason, loop, total) %}
+{% macro _thread_badges(msg, row_protected, row_protected_reason, loop, total, participants=None) %}
 {% if row_protected %}{{ _protected_pill(row_protected_reason) }}{% endif %}
+{% if participants %}
+{# U4.7e: thread head participant summary ("Alice, You +2"), desktop only #}
+<span class="hidden md:inline text-[0.75rem] text-slate-400 truncate max-w-[220px] flex-shrink-0" title="{{ participants }}">{{ participants }}</span>
+{% endif %}
 {% if loop.first and total > 1 %}
 <span class="thread-count text-[0.6875rem] md:text-[0.625rem] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500 flex-shrink-0">{{ total }}</span>
 {% endif %}
@@ -19,7 +23,7 @@
    sender + date, subject, snippet — with the star under the date. The
    sender/date/subject triplet reflows between the two layouts via
    flex-wrap + order instead of duplicated markup. #}
-{% macro message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred=False, thread_total=0, in_junk_folder=False) %}
+{% macro message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred=False, thread_total=0, in_junk_folder=False, participants=None) %}
 {% set total = thread_total or msgs|length %}
 {% set row_locked = '$Locked' in (msg.flags or []) %}
 {% set row_protected = row_locked or (protect_starred and msg.is_flagged) %}
@@ -46,7 +50,7 @@
           <div class="basis-full md:basis-auto md:flex-1 md:order-2 min-w-0 flex items-center gap-2">
             <span class="inline-flex items-center gap-1 text-[0.6875rem] md:text-[0.625rem] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 flex-shrink-0">{{ _('Delivery failed') }}</span>
             <span class="truncate text-[0.9375rem] md:text-[0.8125rem] {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
-            {{ _thread_badges(msg, row_protected, row_protected_reason, loop, total) }}
+            {{ _thread_badges(msg, row_protected, row_protected_reason, loop, total, participants) }}
           </div>
         </div>
         <div class="md:hidden mt-1 text-[0.8125rem] truncate {{ 'text-red-600/80' if msg.bounce_reason else 'text-slate-500' }}" data-snippet="true">{% if msg.bounce_reason %}{{ msg.bounce_reason }}{% else %}{{ msg.snippet|striptags }}{% endif %}</div>
@@ -71,7 +75,7 @@
           <div class="basis-full md:basis-auto md:flex-1 md:order-2 min-w-0 flex items-center gap-2">
             <span class="inline-flex items-center gap-1 text-[0.6875rem] md:text-[0.625rem] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 flex-shrink-0">{{ _('Draft') }}</span>
             <span class="truncate text-[0.9375rem] md:text-[0.8125rem] {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
-            {{ _thread_badges(msg, row_protected, row_protected_reason, loop, total) }}
+            {{ _thread_badges(msg, row_protected, row_protected_reason, loop, total, participants) }}
           </div>
         </div>
         <div class="md:hidden mt-1 text-[0.8125rem] text-slate-500 truncate" data-snippet="true">{{ msg.snippet|striptags }}</div>
@@ -95,7 +99,7 @@
           </div>
           <div class="basis-full md:basis-auto md:flex-1 md:order-2 min-w-0 flex items-center gap-2">
             <span class="truncate text-[0.9375rem] md:text-[0.8125rem] {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
-            {{ _thread_badges(msg, row_protected, row_protected_reason, loop, total) }}
+            {{ _thread_badges(msg, row_protected, row_protected_reason, loop, total, participants) }}
           </div>
         </div>
         <div class="md:hidden mt-1 text-[0.8125rem] text-slate-500 truncate" data-snippet="true">{{ msg.snippet|striptags }}</div>
@@ -119,7 +123,7 @@
           </div>
           <div class="basis-full md:basis-auto md:flex-1 md:order-2 min-w-0 flex items-center gap-2">
             <span class="truncate text-[0.9375rem] md:text-[0.8125rem] {{ 'font-bold text-slate-950' if msg.is_unread else 'text-slate-700' }}" data-subject="true" title="{{ msg.subject }}" tabindex="0" aria-label="{{ msg.subject }}">{{ msg.subject }}</span>
-            {{ _thread_badges(msg, row_protected, row_protected_reason, loop, total) }}
+            {{ _thread_badges(msg, row_protected, row_protected_reason, loop, total, participants) }}
           </div>
         </div>
         <div class="md:hidden mt-1 text-[0.8125rem] text-slate-600 truncate" data-snippet="true">{{ msg.snippet|striptags }}</div>
@@ -166,13 +170,19 @@
 {% for subject, msgs in threads.items() %}
 {% set tc = thread_counts or {} %}
 {% set to = thread_omitted or {} %}
+{% set tp = thread_participants or {} %}
 {% set full_count = tc.get(subject, msgs|length) %}
 {% set omitted = to.get(subject, 0) %}
 {% set collapsed_threshold = 4 %}
 {% set thread_key = msgs[0].id|string if msgs|length > 0 else '' %}
 {% set has_bounce = msgs | selectattr('is_bounce') | list | length > 0 %}
 {% set has_draft = msgs | selectattr('is_draft') | list | length > 0 %}
-<div class="thread-card border-l-2 {{ 'border-l-red-400' if has_bounce else ('border-l-amber-400' if has_draft else 'border-l-indigo-400') }}" data-thread-card="true" {% if thread_key %}data-thread-key="{{ thread_key }}"{% endif %}>
+{% set is_conversation = full_count > 1 %}
+{# U4.7e: the left accent is reserved for multi-message threads — a border
+   on every card (including single-message rows) signals nothing. Bounce
+   (red) and draft (amber) overrides apply to conversations only; single
+   bounce/draft rows already carry their own row-level border. #}
+<div class="thread-card{% if is_conversation %} border-l-2 {{ 'border-l-red-400' if has_bounce else ('border-l-amber-400' if has_draft else 'border-l-indigo-400') }}{% endif %}" data-thread-card="true" {% if thread_key %}data-thread-key="{{ thread_key }}"{% endif %}>
   <div class="divide-y divide-slate-200/70">
     {% if full_count > collapsed_threshold %}
       {% set visible_count = 2 %}
@@ -180,7 +190,7 @@
       {% set older_count = full_count - visible_count %}
 
       {% for msg in msgs[:visible_count] %}
-        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred, thread_total=full_count, in_junk_folder=in_junk_folder) }}
+        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred, thread_total=full_count, in_junk_folder=in_junk_folder, participants=tp.get(subject) if loop.first else none) }}
       {% endfor %}
 
       <div class="border-l-2 border-slate-200">
@@ -202,7 +212,7 @@
       </div>
     {% else %}
       {% for msg in msgs %}
-        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred, thread_total=full_count, in_junk_folder=in_junk_folder) }}
+        {{ message_row(msg, account, loop, msgs, snippet_debug, spam_action_enabled, protect_starred, thread_total=full_count, in_junk_folder=in_junk_folder, participants=tp.get(subject) if loop.first else none) }}
       {% endfor %}
     {% endif %}
   </div>

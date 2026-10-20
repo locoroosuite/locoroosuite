@@ -30,6 +30,13 @@ def send_message(
     )
     if draft_id:
         _cleanup_draft(account, domain, secret, draft_id, get_cache_conn)
+    # U4.7f: notify SSE listeners so open folder/conversation views refresh.
+    try:
+        from app.shared.ui_events import push_ui_event
+
+        push_ui_event(account.customer_id, "mail", "send_complete", {"account_id": account.id})
+    except Exception:
+        _logger.debug("send ui_change push failed account_id=%s", account.id, exc_info=True)
     return {
         "status": "sent",
         "message_id": msg_id,

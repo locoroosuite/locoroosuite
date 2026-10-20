@@ -49,7 +49,7 @@
             <h1 class="text-lg font-semibold text-slate-900 truncate min-w-0">{{ message["subject"] }}</h1>
           </div>
           {% if thread_count > 1 %}
-          <div class="text-[0.8125rem] md:text-xs text-slate-500 mt-0.5 truncate">{{ _('{n} messages in this conversation').format(n=thread_count) }}</div>
+          <div class="text-[0.8125rem] md:text-xs text-slate-500 mt-0.5 truncate" data-thread-count="{{ thread_count }}">{{ _('{n} messages in this conversation').format(n=thread_count) }}</div>
           {% endif %}
         </div>
       </div>
@@ -121,223 +121,10 @@
     </div>
   </div>
 
-  <div class="divide-y divide-slate-100">
-    {% for tm in thread_messages %}
-    <div class="thread-msg" data-thread-msg-id="{{ tm.id }}">
-      <div class="px-3 md:px-5 py-3 flex items-center justify-between gap-3 cursor-pointer select-none transition-colors duration-150 {% if tm.is_bounce %}bg-red-50/60{% elif tm.is_draft %}bg-amber-50/60{% elif tm.is_current %}bg-slate-50/80{% elif tm.is_sent %}hover:bg-indigo-50/60{% else %}hover:bg-slate-50/80{% endif %}" data-thread-header data-thread-expanded="{{ 'true' if tm.is_current else 'false' }}">
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="flex-shrink-0 w-8 h-8 rounded-full {% if tm.is_bounce %}bg-red-100 text-red-600{% elif tm.is_draft %}bg-amber-100 text-amber-600{% elif tm.is_sent %}bg-indigo-100 text-indigo-600{% else %}bg-slate-200 text-slate-600{% endif %} flex items-center justify-center text-xs font-semibold overflow-hidden">
-            {% if tm.is_bounce %}<svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>{% elif tm.is_draft %}<svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"/></svg>{% elif tm.is_sent %}{{ _('You') }}{% else %}{{ tm.sender_display[:1] | upper }}{% endif %}
-          </div>
-          <div class="min-w-0">
-            <div class="flex items-center gap-2 text-sm flex-wrap">
-              {% if tm.is_bounce %}
-              <span class="inline-flex items-center gap-1 text-[0.6875rem] md:text-[0.625rem] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">{{ _('Delivery failed') }}</span>
-              <span class="font-medium text-red-700 truncate" title="{{ tm.sender_tooltip }}">{{ tm.sender_display }}</span>
-              {% elif tm.is_draft %}
-              <span class="inline-flex items-center gap-1 text-[0.6875rem] md:text-[0.625rem] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">{{ _('Draft') }}</span>
-              <span class="font-medium text-amber-700">{{ _('You') }}</span>
-              {% if tm.recipients_display %}
-              <svg class="w-3 h-3 text-amber-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
-              <span class="text-slate-500 truncate cursor-pointer hover:underline" {% if tm.recipients_email %}data-copy-email="{{ tm.recipients_email }}" title="{{ _('Click to copy') }} {{ tm.recipients_email }}"{% endif %}>{{ tm.recipients_display }}</span>
-              {% endif %}
-              {% if tm.cc %}<span class="text-xs text-slate-400 hidden sm:inline"><span class="text-slate-300">&middot;</span> {{ _('cc') }} {{ tm.cc }}</span>{% endif %}
-              {% elif tm.is_sent %}
-              <span class="font-medium text-indigo-700 cursor-pointer hover:underline" data-copy-email="{{ account.email_address }}" title="{{ _('Click to copy') }} {{ account.email_address }}">{{ _('You') }}</span>
-              <span class="text-[0.75rem] md:text-[0.6875rem] text-slate-500 truncate max-w-[180px]">&lt;{{ account.email_address }}&gt;</span>
-              {% if tm.recipients_display %}
-              <svg class="w-3 h-3 text-indigo-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
-              <span class="text-slate-500 truncate cursor-pointer hover:underline" {% if tm.recipients_email %}data-copy-email="{{ tm.recipients_email }}" title="{{ _('Click to copy') }} {{ tm.recipients_email }}"{% endif %}>{{ tm.recipients_display }}</span>
-              {% endif %}
-              {% if tm.cc %}<span class="text-xs text-slate-400 hidden sm:inline"><span class="text-slate-300">&middot;</span> {{ _('cc') }} {{ tm.cc }}</span>{% endif %}
-              {% else %}
-              <span class="font-medium text-slate-900 truncate cursor-pointer hover:underline" data-copy-email="{% if tm.sender_email %}{{ tm.sender_email }}{% elif tm.sender_tooltip %}{{ tm.sender_tooltip }}{% else %}{{ tm.sender_display }}{% endif %}" title="{% if tm.sender_email %}{{ _('Click to copy') }} {{ tm.sender_email }}{% elif tm.sender_tooltip %}{{ tm.sender_tooltip }}{% else %}{{ tm.sender_display }}{% endif %}">{{ tm.sender_display }}</span>
-              {% if tm.sender_email %}
-              <span class="text-[0.75rem] md:text-[0.6875rem] text-slate-500 truncate max-w-[180px]">&lt;{{ tm.sender_email }}&gt;</span>
-              {% endif %}
-              <span class="text-xs text-slate-400 hidden sm:inline">{{ _('to') }} {{ tm.recipients }}{% if tm.cc %} <span class="text-slate-300">&middot;</span> {{ _('cc') }} {{ tm.cc }}{% endif %}</span>
-              {% endif %}
-              <span class="text-slate-300 hidden sm:inline">&middot;</span>
-              <span class="text-xs text-slate-400 whitespace-nowrap">{{ tm.date_display }}</span>
-              {% if tm.is_unread and not tm.is_current %}
-              <span class="inline-block w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
-              {% endif %}
-              {% if tm.has_attachments %}
-              <svg class="w-3 h-3 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              {% endif %}
-            </div>
-            {% if not tm.is_current %}
-            <div class="text-xs text-slate-500 line-clamp-1 mt-0.5" data-thread-snippet>{{ tm.snippet | striptags }}</div>
-            {% endif %}
-          </div>
-        </div>
-        {% if not tm.is_current %}
-        <div class="flex items-center gap-1.5 flex-shrink-0">
-          {% if tm.is_draft %}
-          <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=tm.uid) }}" class="text-[0.6875rem] md:text-[0.625rem] px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition" data-no-row-nav>{{ _('Edit') }}</a>
-          <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=tm.uid) }}" class="thread-draft-discard message-action" data-action="discard-draft" data-no-row-nav data-thread-draft>
-            <button class="text-[0.6875rem] md:text-[0.625rem] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">{{ _('Discard') }}</button>
-          </form>
-          {% endif %}
-          <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 flex-shrink-0" data-expand-icon viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
-        </div>
-        {% elif tm.is_draft and not is_draft %}
-        <div class="flex items-center gap-1.5 flex-shrink-0">
-          <a href="{{ url_for('mail.compose', account_id=account.id, draft_uid=tm.uid) }}" class="text-[0.6875rem] md:text-[0.625rem] px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition">{{ _('Edit') }}</a>
-          <form method="post" action="{{ url_for('mail.discard_draft', account_id=account.id, draft_uid=tm.uid) }}" class="thread-draft-discard message-action" data-action="discard-draft" data-thread-draft>
-            <button class="text-[0.6875rem] md:text-[0.625rem] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition">{{ _('Discard') }}</button>
-          </form>
-        </div>
-        {% endif %}
-      </div>
-
-      <div class="{% if not tm.is_current %}hidden{% endif %}" data-thread-body>
-        <div class="px-3 md:px-5 pb-4 md:pb-5">
-          {% if tm.is_bounce and tm.bounce_reason %}
-          <div class="mb-3 rounded-xl border border-red-200/80 bg-gradient-to-r from-red-50/60 to-white shadow-sm overflow-hidden">
-            <div class="flex items-start gap-3 px-3 md:px-4 py-3 border-l-4 border-red-400">
-              <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center mt-0.5">
-                <svg class="w-5 h-5 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="text-sm font-semibold text-red-800">{{ _('Delivery failed') }}</div>
-                <div class="text-xs text-red-600/80 mt-1 break-words">{{ tm.bounce_reason }}</div>
-              </div>
-            </div>
-          </div>
-          {% endif %}
-          {% if tm.is_current and not allow_images %}
-          <div class="text-xs text-slate-500 mb-3">
-            {{ _('External images blocked.') }} <a class="text-slate-900 underline decoration-slate-300" href="{{ url_for('mail.message_view', account_id=account.id, message_id=message["id"], show_images=1) }}">{{ _('Show external images') }}</a>
-          </div>
-          {% endif %}
-          {% if tm.is_current and ics_attachments %}
-          {% for ics in ics_attachments %}
-          <div class="mb-3 rounded-xl border border-blue-200/80 bg-gradient-to-r from-blue-50/60 to-white shadow-sm overflow-hidden" data-ics-card data-ical-text="{{ ics.ical_text | e }}">
-            <div class="flex items-start gap-3 px-3 md:px-4 py-3 border-l-4 border-blue-500">
-              <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center mt-0.5">
-                <svg class="w-5 h-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="text-sm font-semibold text-slate-900 truncate">{{ ics.parsed.summary or _('(no title)') }}</div>
-                <div class="text-xs text-slate-600 mt-0.5 space-y-0.5">
-                  {% if ics.formatted_date %}
-                  <div class="font-medium text-slate-700">{{ ics.formatted_date }}</div>
-                  {% endif %}
-                  {% if ics.parsed.location %}
-                  <div>{{ ics.parsed.location }}</div>
-                  {% endif %}
-                  {% if ics.parsed.organizer %}
-                  <div>{{ _('Organizer:') }} {{ ics.parsed.organizer.get('cn', ics.parsed.organizer.get('email', '')) }}</div>
-                  {% endif %}
-                  {% if ics.parsed.attendees %}
-                  <div class="truncate">{{ _('{n} attendee(s):').format(n=ics.parsed.attendees | length) }} {{ ics.parsed.attendees | map(attribute='cn') | join(', ') }}</div>
-                  {% endif %}
-                </div>
-                <div class="mt-2 flex flex-wrap items-center gap-2" data-ics-actions>
-                  <select data-ics-calendar-select class="text-xs rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-600 shadow-sm">
-                    <option value="">{{ _('Loading calendars...') }}</option>
-                  </select>
-                  <div data-ics-buttons data-method="{{ ics.parsed.get('method', '') | upper }}" data-status="{{ ics.parsed.get('status', 'CONFIRMED') | upper }}" class="flex flex-wrap items-center gap-2">
-                    <span class="text-xs text-slate-400">{{ _('Loading...') }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          {% endfor %}
-          {% endif %}
-          <div class="mb-2 hidden" data-fit-controls>
-            <button type="button" class="rounded-full border border-slate-200 bg-white px-3 py-1 text-[0.6875rem] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900" data-fit-toggle data-fitted="1" data-label-fit="{{ _('Fit width') }}" data-label-actual="{{ _('Actual size') }}">{{ _('Actual size') }}</button>
-          </div>
-          <iframe class="thread-msg-body w-full bg-white" sandbox="allow-scripts allow-popups allow-same-origin" referrerpolicy="no-referrer"></iframe>
-          {% if tm.is_current and attachments %}
-          <div class="mt-4 pt-3 border-t border-slate-100" data-attachments-section>
-            <div class="text-sm font-semibold text-slate-900 mb-2">{{ _('Attachments') }}</div>
-            <ul class="text-sm text-slate-600 space-y-1.5">
-              {% for attachment in attachments %}
-              {% set att_actions = attachment_actions.get(attachment.filename, {}) %}
-              <li class="flex items-center gap-1">
-                <button type="button"
-                        class="flex min-w-0 flex-1 items-center gap-2 rounded-lg py-1.5 pr-2 text-left transition hover:bg-slate-50 lr-hit"
-                        data-attachment-preview
-                        data-kind="{{ att_actions.get('kind', 'other') }}"
-                        data-preview-url="{{ url_for('mail.view_attachment', account_id=account.id, message_id=message['id'], index=attachment.index) }}"
-                        data-download-url="{{ url_for('mail.download_attachment', account_id=account.id, message_id=message['id'], index=attachment.index) }}"
-                        data-filename="{{ attachment.filename }}"
-                        title="{{ _('Preview attachment') }}"
-                        data-no-row-nav>
-                  <svg class="w-4 h-4 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  <span class="truncate flex-1 text-slate-700" title="{{ attachment.filename }}">{{ attachment.filename }}</span>
-                </button>
-                <div class="flex items-center gap-1 flex-shrink-0">
-                  {% if att_actions.get("view") %}
-                  <a href="{{ url_for('mail.view_attachment', account_id=account.id, message_id=message["id"], index=attachment.index) }}" target="_blank" rel="noopener" title="{{ _('View') }}" class="p-2.5 -m-1 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition lr-hit" data-no-row-nav>
-                    <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/><path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/></svg>
-                  </a>
-                  {% endif %}
-                  <a href="{{ url_for('mail.download_attachment', account_id=account.id, message_id=message["id"], index=attachment.index) }}" title="{{ _('Download') }}" class="p-2.5 -m-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition lr-hit" data-no-row-nav>
-                    <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"/><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"/></svg>
-                  </a>
-                  {% if att_actions.get("open_in_docs") %}
-                  <button type="button" title="{{ _('Open in Docs') }}" class="p-2.5 -m-1 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition lr-hit" data-open-in-docs data-download-url="{{ url_for('mail.download_attachment', account_id=account.id, message_id=message["id"], index=attachment.index) }}" data-filename="{{ attachment.filename }}" data-no-row-nav>
-                    <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M3.5 2A1.5 1.5 0 002 3.5V5c0 1.1.9 2 2 2h12a2 2 0 002-2V3.5A1.5 1.5 0 0016.5 2h-13zM4 8.5a.5.5 0 01.5-.5h11a.5.5 0 01.5.5v8a.5.5 0 01-.5.5h-11a.5.5 0 01-.5-.5v-8z"/></svg>
-                  </button>
-                  {% endif %}
-                </div>
-              </li>
-              {% endfor %}
-            </ul>
-          </div>
-          {% elif not tm.is_current and tm.attachment_names %}
-          <div class="mt-4 pt-3 border-t border-slate-100" data-attachments-section>
-            <div class="text-sm font-semibold text-slate-900 mb-2">{{ _('Attachments') }}</div>
-            <ul class="text-sm text-slate-600 space-y-1.5">
-              {% for filename in tm.attachment_names %}
-              {% set idx = loop.index0 %}
-              {% set att_actions = attachment_actions.get(filename, {}) %}
-              <li class="flex items-center gap-1">
-                <button type="button"
-                        class="flex min-w-0 flex-1 items-center gap-2 rounded-lg py-1.5 pr-2 text-left transition hover:bg-slate-50 lr-hit"
-                        data-attachment-preview
-                        data-kind="{{ att_actions.get('kind', 'other') }}"
-                        data-preview-url="{{ url_for('mail.view_attachment', account_id=account.id, message_id=tm.id, index=idx) }}"
-                        data-download-url="{{ url_for('mail.download_attachment', account_id=account.id, message_id=tm.id, index=idx) }}"
-                        data-filename="{{ filename }}"
-                        title="{{ _('Preview attachment') }}"
-                        data-no-row-nav>
-                  <svg class="w-4 h-4 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.444 5.556a1.414 1.414 0 010 2L8.1 13.9a2.828 2.828 0 01-4-4l5.8-5.8a4.243 4.243 0 016 6l-5.8 5.8a5.657 5.657 0 01-8-8l5.8-5.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  <span class="truncate flex-1 text-slate-700" title="{{ filename }}">{{ filename }}</span>
-                </button>
-                <div class="flex items-center gap-1 flex-shrink-0">
-                  {% if att_actions.get("view") %}
-                  <a href="{{ url_for('mail.view_attachment', account_id=account.id, message_id=tm.id, index=idx) }}" target="_blank" rel="noopener" title="{{ _('View') }}" class="p-2.5 -m-1 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition lr-hit" data-no-row-nav>
-                    <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/><path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/></svg>
-                  </a>
-                  {% endif %}
-                  <a href="{{ url_for('mail.download_attachment', account_id=account.id, message_id=tm.id, index=idx) }}" title="{{ _('Download') }}" class="p-2.5 -m-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition lr-hit" data-no-row-nav>
-                    <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"/><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"/></svg>
-                  </a>
-                  {% if att_actions.get("open_in_docs") %}
-                  <button type="button" title="{{ _('Open in Docs') }}" class="p-2.5 -m-1 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition lr-hit" data-open-in-docs data-download-url="{{ url_for('mail.download_attachment', account_id=account.id, message_id=tm.id, index=idx) }}" data-filename="{{ filename }}" data-no-row-nav>
-                    <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M3.5 2A1.5 1.5 0 002 3.5V5c0 1.1.9 2 2 2h12a2 2 0 002-2V3.5A1.5 1.5 0 0016.5 2h-13zM4 8.5a.5.5 0 01.5-.5h11a.5.5 0 01.5.5v8a.5.5 0 01-.5.5h-11a.5.5 0 01-.5-.5v-8z"/></svg>
-                  </button>
-                  {% endif %}
-                </div>
-              </li>
-              {% endfor %}
-            </ul>
-          </div>
-          {% endif %}
-          {% if not tm.is_current %}
-          <div class="mt-3 text-center">
-            <a class="text-[0.75rem] md:text-[0.6875rem] text-slate-500 hover:text-slate-600 transition" href="{{ url_for('mail.message_view', account_id=account.id, message_id=tm.id) }}">{{ _('View full message') }}</a>
-          </div>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-    {% endfor %}
+  {# U4.7f: thread stack lives in _thread_stack.html so the live-update
+     fragment route renders the exact same markup. #}
+  <div class="divide-y divide-slate-100" id="thread-stack">
+    {% include "_thread_stack.html" %}
   </div>
 </div>
 
@@ -426,17 +213,6 @@
     }
   });
 
-  document.querySelectorAll("[data-fit-toggle]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var msg = btn.closest(".thread-msg");
-      var iframe = msg ? msg.querySelector(".thread-msg-body") : null;
-      if (iframe && iframe.contentWindow) {
-        var fitted = btn.getAttribute("data-fitted") === "1";
-        iframe.contentWindow.postMessage({ lrFitSet: fitted ? 0 : 1 }, "*");
-      }
-    });
-  });
-
   document.querySelectorAll(".thread-msg").forEach(function (msgEl) {
     var msgId = parseInt(msgEl.getAttribute("data-thread-msg-id"));
     var bodyHtml = threadBodies[msgId];
@@ -451,39 +227,106 @@
     }
   });
 
-  document.querySelectorAll("[data-thread-header]").forEach(function (header) {
-    if (header.getAttribute("data-thread-expanded") === "true") return;
-    header.addEventListener("click", function (e) {
-      if (e.target.closest("[data-no-row-nav]")) return;
-      var msg = header.closest(".thread-msg");
-      var msgId = parseInt(msg.getAttribute("data-thread-msg-id"));
-      var body = msg.querySelector("[data-thread-body]");
-      var snippet = header.querySelector("[data-thread-snippet]");
-      var icon = header.querySelector("[data-expand-icon]");
-      var isHidden = body.classList.contains("hidden");
-      if (isHidden) {
+  // U4.7f: re/initialize thread-stack rows (iframes, expand/collapse
+  // handlers, fit toggles). Called once on load and again by
+  // js/mail/thread_live.js after new messages are inserted.
+  function lrApplyStack(root, prevExpandedIds, animateIds) {
+    root.querySelectorAll(".thread-msg").forEach(function (msgEl) {
+      var msgId = parseInt(msgEl.getAttribute("data-thread-msg-id"), 10);
+      var body = msgEl.querySelector("[data-thread-body]");
+      if (!body) return;
+      var wasExpanded =
+        prevExpandedIds &&
+        prevExpandedIds.map(String).indexOf(String(msgEl.getAttribute("data-thread-msg-id"))) >= 0;
+      if (wasExpanded && body.classList.contains("hidden")) {
+        // Restore the reader's expanded state (server renders non-current
+        // messages collapsed).
         body.classList.remove("hidden");
-        if (snippet) snippet.classList.add("hidden");
-        if (icon) icon.style.transform = "rotate(180deg)";
-        header.classList.add("bg-slate-50/80");
-        var iframe = msg.querySelector(".thread-msg-body");
-        if (iframe && threadBodies[msgId] && !iframe.srcdoc) {
-          iframe.srcdoc = threadBodies[msgId];
-          iframe.addEventListener("load", function () {
-            lrResizeIframe(iframe);
-            setTimeout(function () { lrResizeIframe(iframe); }, 300);
-          });
-        } else if (iframe) {
-          setTimeout(function () { lrResizeIframe(iframe); }, 50);
-        }
-      } else {
-        body.classList.add("hidden");
-        if (snippet) snippet.classList.remove("hidden");
-        if (icon) icon.style.transform = "";
-        header.classList.remove("bg-slate-50/80");
+        var prevSnippet = msgEl.querySelector("[data-thread-snippet]");
+        if (prevSnippet) prevSnippet.classList.add("hidden");
+        var prevIcon = msgEl.querySelector("[data-expand-icon]");
+        if (prevIcon) prevIcon.style.transform = "rotate(180deg)";
+        var prevHeader = msgEl.querySelector("[data-thread-header]");
+        if (prevHeader) prevHeader.classList.add("bg-slate-50/80");
+      }
+      var iframe = msgEl.querySelector(".thread-msg-body");
+      var bodyHtml = threadBodies[msgId];
+      var expanded = !body.classList.contains("hidden");
+      if (iframe && bodyHtml && expanded && !iframe.srcdoc) {
+        iframe.srcdoc = bodyHtml;
+        iframe.addEventListener("load", function () {
+          lrResizeIframe(iframe);
+          setTimeout(function () { lrResizeIframe(iframe); }, 300);
+        });
+      }
+      if (
+        animateIds &&
+        animateIds.map(String).indexOf(String(msgEl.getAttribute("data-thread-msg-id"))) >= 0
+      ) {
+        msgEl.style.opacity = "0";
+        msgEl.style.transform = "translateY(8px)";
+        msgEl.style.transition = "none";
+        msgEl.getBoundingClientRect();
+        msgEl.style.transition =
+          "transform 300ms cubic-bezier(0.22, 1, 0.36, 1), opacity 300ms cubic-bezier(0.22, 1, 0.36, 1)";
+        msgEl.style.transform = "";
+        msgEl.style.opacity = "";
+        setTimeout(function () {
+          msgEl.style.transition = "";
+        }, 400);
       }
     });
-  });
+    root.querySelectorAll("[data-thread-header]").forEach(function (header) {
+      if (header.getAttribute("data-thread-expanded") === "true") return;
+      if (header.getAttribute("data-lr-bound") === "1") return;
+      header.setAttribute("data-lr-bound", "1");
+      header.addEventListener("click", function (e) {
+        if (e.target.closest("[data-no-row-nav]")) return;
+        var msg = header.closest(".thread-msg");
+        var msgId = parseInt(msg.getAttribute("data-thread-msg-id"), 10);
+        var body = msg.querySelector("[data-thread-body]");
+        var snippet = header.querySelector("[data-thread-snippet]");
+        var icon = header.querySelector("[data-expand-icon]");
+        var isHidden = body.classList.contains("hidden");
+        if (isHidden) {
+          body.classList.remove("hidden");
+          if (snippet) snippet.classList.add("hidden");
+          if (icon) icon.style.transform = "rotate(180deg)";
+          header.classList.add("bg-slate-50/80");
+          var iframe = msg.querySelector(".thread-msg-body");
+          if (iframe && threadBodies[msgId] && !iframe.srcdoc) {
+            iframe.srcdoc = threadBodies[msgId];
+            iframe.addEventListener("load", function () {
+              lrResizeIframe(iframe);
+              setTimeout(function () { lrResizeIframe(iframe); }, 300);
+            });
+          } else if (iframe) {
+            setTimeout(function () { lrResizeIframe(iframe); }, 50);
+          }
+        } else {
+          body.classList.add("hidden");
+          if (snippet) snippet.classList.remove("hidden");
+          if (icon) icon.style.transform = "";
+          header.classList.remove("bg-slate-50/80");
+        }
+      });
+    });
+    root.querySelectorAll("[data-fit-toggle]").forEach(function (btn) {
+      if (btn.getAttribute("data-lr-bound") === "1") return;
+      btn.setAttribute("data-lr-bound", "1");
+      btn.addEventListener("click", function () {
+        var msg = btn.closest(".thread-msg");
+        var iframe = msg ? msg.querySelector(".thread-msg-body") : null;
+        if (iframe && iframe.contentWindow) {
+          var fitted = btn.getAttribute("data-fitted") === "1";
+          iframe.contentWindow.postMessage({ lrFitSet: fitted ? 0 : 1 }, "*");
+        }
+      });
+    });
+  }
+
+  window.LRMailThread = { bodies: threadBodies, applyStack: lrApplyStack };
+  lrApplyStack(document, null, null);
 
   var overflowBtn = document.querySelector("[data-overflow-toggle]");
   var overflowMenu = document.querySelector("[data-overflow-menu]");
@@ -931,5 +774,12 @@
     });
   });
 })();
+</script>
+<script src="{{ url_for('static', filename='js/mail/thread_live.js') }}?v={{ static_v('js/mail/thread_live.js') }}"></script>
+<script>
+  window.LRMailThreadLive.init({
+    accountId: {{ account.id | tojson }},
+    fragmentUrl: {{ url_for('mail.message_thread_fragment', account_id=account.id, message_id=message['id']) | tojson }}
+  });
 </script>
 {% endblock %}

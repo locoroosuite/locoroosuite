@@ -486,7 +486,67 @@ def test_message_rows_use_responsive_single_copy_layout():
     assert "md:w-36 lg:w-44 xl:w-52" in content
     # Mobile-only snippet line (UX3e) — desktop rows are single-line.
     assert (
-        'class="md:hidden mt-1 text-[0.8125rem] text-slate-600 truncate" data-snippet="true"' in content
+        'class="md:hidden mt-1 text-[0.8125rem] text-slate-600 truncate" data-snippet="true"'
+        in content
     )
     # Two star positions: desktop column + mobile under the date.
     assert content.count("{{ star_form(") == 2
+
+
+# --- U4.7e/U4.7f: conversation grouping + live thread updates ---
+
+
+def test_thread_live_js_contract():
+    """js/mail/thread_live.js must listen on the shared SSE stream, gate on
+    module/account, and only append fragment-rendered rows — the live
+    conversation update is progressive enhancement, never a full-surface
+    re-render (the sanitized current body, ICS cards, and banners must
+    survive)."""
+    js = (STATIC_DIR / "js" / "mail" / "thread_live.js").read_text()
+    assert "EventSource('/events/stream')" in js
+    assert "ui_change" in js
+    assert "data.module !== 'mail'" in js
+    assert "window.LRMailThread" in js
+    # Fetches carry the current ids so the server returns only new rows.
+    assert "'have='" in js
+    # Fragment bodies get the same <base> rewrite as the page-rendered ones.
+    assert "<base target=\"_blank\"" in js
+    # Never build Tailwind class names at runtime (JIT scanner rule); the
+    # only classList mutation allowed is the static "hidden" literal.
+    stripped = js.replace("classList.add('hidden')", "").replace('classList.add("hidden")', "")
+    assert "classList.add" not in stripped
+
+
+def test_message_view_thread_stack_wiring():
+    """message.html must render the thread stack through the shared partial
+    (same markup as the fragment route), expose the re-init hook for the
+    live updater, and load it with cache-busting."""
+    content = (MAIL_TEMPLATES / "message.html").read_text()
+    assert 'id="thread-stack"' in content
+    assert '{% include "_thread_stack.html" %}' in content
+    assert "window.LRMailThread = " in content
+    assert "lrApplyStack(document, null, null)" in content
+    assert "static_v('js/mail/thread_live.js')" in content
+    assert "window.LRMailThreadLive.init" in content
+    assert "data-thread-count" in content
+    stack = (MAIL_TEMPLATES / "_thread_stack.html").read_text()
+    assert "data-thread-sort-ts" in stack
+
+
+def test_folder_view_refreshes_on_sent_and_drafts_sync():
+    """U4.7f: a completed Sent/Drafts sync must refresh the open folder
+    list — those folders' messages merge into open threads."""
+    content = (MAIL_TEMPLATES / "folder.html").read_text()
+    assert "threadMergeFolder" in content
+    assert "=== 'sent' || folderName === 'drafts'" in content
+
+
+def test_thread_card_accent_reserved_for_conversations():
+    """U4.7e: the left accent border must be conditional on the thread
+    having more than one message — an unconditional border renders on
+    every card and signals nothing."""
+    content = (MAIL_TEMPLATES / "message_list.html").read_text()
+    assert "{% if is_conversation %} border-l-2" in content
+    assert "{% set is_conversation = full_count > 1 %}" in content
+    # Participant summary is passed only to the head row of a thread.
+    assert "participants=tp.get(subject) if loop.first else none" in content

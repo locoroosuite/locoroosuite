@@ -202,6 +202,60 @@ def message_preview(account_id, message_id):
     )
 
 
+@mail_bp.route("/mail/message/<int:account_id>/<int:message_id>/thread-fragment")
+@require_customer
+def message_thread_fragment(account_id, message_id):
+    """U4.7f: live-update fragment for the conversation view.
+
+    Returns JSON with only the thread messages the page does not already
+    have (``have`` = comma-separated message ids), rendered from the same
+    partial as the page, plus the full id list and per-message bodies.
+    Cache-only: never touches IMAP and never marks messages seen.
+    """
+    account = CustomerAccount.query.filter_by(
+        id=account_id, customer_id=session.get("user_id")
+    ).first_or_404()
+    key = get_user_key(session.get("user_id"))
+    if not key:
+        return jsonify({"error": {"code": "AUTH_REQUIRED", "message": "Session expired."}}), 401
+    conn = open_cache(account.cache_db_path, key)
+    row = get_message(conn, message_id)
+    if not row:
+        return jsonify({"error": {"code": "NOT_FOUND", "message": "Message not found."}}), 404
+    have = {part.strip() for part in (request.args.get("have") or "").split(",") if part.strip()}
+    settings = _get_or_create_settings(session.get("user_id"))
+    thread_messages = _load_thread_for_detail(
+        conn,
+        row["thread_id"],
+        message_id,
+        row["subject"],
+        account_email=account.email_address,
+        timezone_name=settings.timezone,
+        text_scale=text_scale_factor(settings.text_scale),
+    )
+    new_messages = [tm for tm in thread_messages if str(tm["id"]) not in have]
+    html = render_template(
+        "_thread_stack.html",
+        thread_messages=new_messages,
+        account=account,
+        message=row,
+        attachments=[],
+        attachment_actions={},
+        ics_attachments=[],
+        allow_images=False,
+        is_draft=False,
+    )
+    return jsonify(
+        {
+            "html": html,
+            "new_ids": [tm["id"] for tm in new_messages],
+            "ids": [tm["id"] for tm in thread_messages],
+            "bodies": {str(tm["id"]): tm["body_html"] for tm in new_messages},
+            "count": len(thread_messages),
+        }
+    )
+
+
 @mail_bp.route("/mail/message/<int:account_id>/<int:message_id>/mark", methods=["POST"])
 @require_customer
 def mark_message(account_id, message_id):

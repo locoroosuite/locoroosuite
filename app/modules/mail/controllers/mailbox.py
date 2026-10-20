@@ -179,6 +179,7 @@ def folder_view(account_id, folder):
         pagination=pagination,
         thread_counts=pagination.get("thread_counts", {}),
         thread_omitted=pagination.get("thread_omitted", {}),
+        thread_participants=pagination.get("thread_participants", {}),
         search_prefill=f"folder:{quote_token(folder)}",
     )
 
@@ -240,6 +241,7 @@ def folder_messages(account_id, folder):
         snippet_debug=snippet_debug_enabled,
         thread_counts=pagination.get("thread_counts", {}),
         thread_omitted=pagination.get("thread_omitted", {}),
+        thread_participants=pagination.get("thread_participants", {}),
     )
     return jsonify(
         {

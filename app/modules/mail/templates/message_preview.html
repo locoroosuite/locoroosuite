@@ -16,6 +16,16 @@
     <pre class="mt-2 text-[0.6875rem] text-amber-900 whitespace-pre-wrap">{{ snippet_debug_info | tojson }}</pre>
   </div>
   {% endif %}
+  {% if message["unsubscribe"] %}
+  <div class="text-xs text-slate-500" data-unsubscribe-row>
+    {% if message["unsubscribe"].kind == "url" %}
+    <a class="text-slate-900 underline decoration-slate-300" href="{{ message["unsubscribe"].url }}" target="_blank" rel="noopener noreferrer">{{ _('Unsubscribe') }}</a>
+    {% else %}
+    <a class="text-slate-900 underline decoration-slate-300" href="{{ url_for('mail.compose', account_id=account.id, to=message["unsubscribe"].to, subject=message["unsubscribe"].subject or '') }}">{{ _('Unsubscribe') }}</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <script type="application/json" id="message-preview-srcdoc">{{ body | tojson }}</script>
   <iframe
     id="message-preview-body"

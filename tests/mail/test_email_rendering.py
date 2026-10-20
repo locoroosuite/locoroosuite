@@ -531,3 +531,59 @@ class TestRewriteCIDUrls:
             result = _rewrite_cid_urls(html, cid_map, account_id=2, message_id=10)
         assert "cid:" not in result
         assert "attachment/3?inline=1" in result
+
+
+# The exact Klaviyo footer corruption seen in production: the sender's
+# template double-rendered the anchor, so the outer href attribute value is
+# another whole <a> tag. HTML5 duplicate-attribute rules keep the corrupt
+# first value ("<a class=") and discard the real URL (the second href).
+KLAVIYO_CORRUPT_FOOTER = (
+    '<a href="<a class=" unsubscribe-link"="" clicktracking="off" '
+    'href="https://manage.kmail-lists.com/subscriptions/unsubscribe?a=Y5Eitp&amp;c=01M">'
+    'Unsubscribe</a>" style="color:#6B6B6B;text-decoration:underline;">Unsubscribe'
+)
+
+
+class TestMalformedHrefSanitizationU8_2a:
+    """U8.2a: URI attributes whose parsed value contains markup are dropped
+    (rendered as plain text) instead of surviving as clickable junk links."""
+
+    def test_embedded_markup_href_dropped_text_preserved(self):
+        result = sanitize_html(KLAVIYO_CORRUPT_FOOTER)
+        # The anchor keeps its text but loses the corrupt href entirely.
+        assert "<a>Unsubscribe</a>" in result
+        assert "href" not in result
+
+    def test_embedded_markup_href_dropped_with_images_allowed(self):
+        result = sanitize_html(KLAVIYO_CORRUPT_FOOTER, allow_images=True)
+        assert "<a>Unsubscribe</a>" in result
+        assert "href" not in result
+
+    def test_valid_hrefs_untouched(self):
+        html = (
+            '<p><a href="https://example.com/a?b=1&amp;c=2">x</a>'
+            '<a href="mailto:a@b.example">y</a>'
+            '<a href="tel:+61255501000">z</a>'
+            '<a href="#anchor">w</a></p>'
+        )
+        result = sanitize_html(html)
+        assert 'href="https://example.com/a?b=1&amp;c=2"' in result
+        assert 'href="mailto:a@b.example"' in result
+        assert 'href="tel:+61255501000"' in result
+        assert 'href="#anchor"' in result
+
+    def test_cid_src_preserved_when_images_allowed(self):
+        html = '<img src="cid:image001.png@01DCED0F.C6C76180" alt="Logo">'
+        result = sanitize_html(html, allow_images=True)
+        assert 'src="cid:image001.png@01DCED0F.C6C76180"' in result
+
+    def test_markup_src_dropped_when_images_allowed(self):
+        html = '<img alt="x" src="<img>">'
+        result = sanitize_html(html, allow_images=True)
+        assert "<img" in result
+        assert "src=" not in result
+
+    def test_relative_href_still_allowed(self):
+        html = '<a href="privacy.html">Privacy</a>'
+        result = sanitize_html(html)
+        assert 'href="privacy.html"' in result

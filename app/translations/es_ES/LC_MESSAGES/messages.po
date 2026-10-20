@@ -5018,3 +5018,8 @@ msgstr "Previsualizar adjunto"
 
 msgid "Could not load the attachment preview."
 msgstr "No se ha podido cargar la vista previa del adjunto."
+
+#: app/modules/mail/templates/_thread_stack.html
+#: app/modules/mail/templates/message_preview.html
+msgid "Unsubscribe"
+msgstr "Cancelar suscripción"

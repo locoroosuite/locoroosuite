@@ -39,7 +39,7 @@ from app.modules.mail.services.imap_client import (
     select_folder,
 )
 from app.modules.mail.services.secrets import decrypt_with_key
-from app.modules.mail.utils.sanitize import html_to_text_lines
+from app.modules.mail.utils.sanitize import html_to_text_lines, normalize_header_text
 from app.shared.auth import require_customer
 from app.shared.db import db
 from app.shared.keys import get_user_key
@@ -49,6 +49,10 @@ logger = logging.getLogger(__name__)
 
 _TAG_RE = re.compile(r"<[^>]*>")
 _ENTITY_RE = re.compile(r"&nbsp;|&#160;", re.IGNORECASE)
+
+# U8.10: List-Unsubscribe mailto fallback prefill bounds.
+_UNSUB_PREFILL_MAX_TO = 320
+_UNSUB_PREFILL_MAX_SUBJECT = 998
 
 
 def _has_text_content(html):
@@ -260,6 +264,16 @@ def compose():
                     forward=is_forward,
                     timezone_name=settings.timezone,
                 )
+    if not prefill:
+        # U8.10: List-Unsubscribe mailto fallback links here with to/subject.
+        unsub_to = (request.args.get("to") or "").strip()[:_UNSUB_PREFILL_MAX_TO]
+        if unsub_to:
+            unsub_subject = (request.args.get("subject") or "").strip()[:_UNSUB_PREFILL_MAX_SUBJECT]
+            prefill = {
+                "to_addrs": normalize_header_text(unsub_to),
+                "subject": normalize_header_text(unsub_subject),
+                "body_html": "",
+            }
     if prefill and prefill.get("attachment_notice") and not compose_notice:
         compose_notice = prefill.pop("attachment_notice")
     return render_template(
@@ -487,7 +501,7 @@ def retry_send():
             payload["updated_at"] = payload["send_after"]
             payload["error"] = None
             payload["warning"] = None
-            if _send_failure_notice.get(user_id) == token:
+            if user_id is not None and _send_failure_notice.get(user_id) == token:
                 _send_failure_notice.pop(user_id, None)
             _start_send = True
         else:

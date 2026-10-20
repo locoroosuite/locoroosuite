@@ -113,6 +113,25 @@ _css_sanitizer_kwargs: dict[str, Any] = {"allowed_css_properties": ALLOWED_CSS_P
 if "allowed_at_rules" in inspect.signature(CSSSanitizer).parameters:
     _css_sanitizer_kwargs["allowed_at_rules"] = ["media"]
 CSS_SANITIZER = CSSSanitizer(**_css_sanitizer_kwargs)
+
+
+def _allow_attribute(tag: str, name: str, value: Any) -> bool:
+    """Attribute allowlist for bleach, plus the U8.2a malformed-href rule.
+
+    bleach treats scheme-less URI values as http(s) relatives and keeps them,
+    so a sender-corrupted href (markup inside the attribute value, e.g.
+    ``href="<a class="`` from a double-rendered footer anchor) would survive
+    as a clickable junk link. Dropping the attribute renders the anchor text
+    as plain text instead.
+    """
+    if name not in ALLOWED_ATTRS.get(tag, ()) and name not in ALLOWED_ATTRS.get("*", ()):
+        return False
+    if name in ("href", "src"):
+        val = value or ""
+        return "<" not in val and ">" not in val
+    return True
+
+
 URL_RE = re.compile(r"(https?://|www\.)\S+", re.IGNORECASE)
 GREETING_RE = re.compile(
     r"^(hi|hello|dear|hey|greetings)\b[\s,.:;-]*([A-Z][\w'\u2019.-]*\s*){0,3}[,!:;.-]*\s*",
@@ -303,12 +322,11 @@ def sanitize_html(html, allow_images=False):
 
         html = re.sub(r"<img\b[^>]*/?>", _preserve_or_strip_img, html, flags=re.IGNORECASE)
     tags = list(ALLOWED_TAGS)
-    attrs = dict(ALLOWED_ATTRS)
     if not allow_images and "img" in tags:
         tags.remove("img")
     cleaner = bleach.Cleaner(
         tags=tags,
-        attributes=attrs,
+        attributes=_allow_attribute,
         css_sanitizer=CSS_SANITIZER,
         protocols=["http", "https", "mailto", "tel", "cid"],
         strip=True,

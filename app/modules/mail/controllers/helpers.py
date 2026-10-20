@@ -53,6 +53,7 @@ from app.modules.mail.utils.sanitize import (
     strip_subject_from_text,
     wrap_email_html,
 )
+from app.modules.mail.utils.unsubscribe import extract_list_unsubscribe
 from app.shared.db import db
 from app.shared.i18n import current_locale_name
 from app.shared.icalendar import parse_icalendar
@@ -1000,6 +1001,7 @@ def _load_message_detail(
         flags = [flag for flag in flags if flag != "\\Seen"] + ["\\Seen"]
         update_flags(conn, message_id, flags)
     raw_msg = fetch_message(client, uid)
+    message["unsubscribe"] = extract_list_unsubscribe(raw_msg)
     live_cc = ""
     if raw_msg:
         cc_header = raw_msg.get("Cc", "") or ""

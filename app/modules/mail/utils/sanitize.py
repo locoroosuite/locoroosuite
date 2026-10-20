@@ -51,7 +51,9 @@ ALLOWED_TAGS = [
     "ul",
 ]
 ALLOWED_ATTRS = {
-    "*": ["class", "style"],
+    # "hidden" (U8.2b): senders hide preheaders with <div hidden>; dropping the
+    # attribute would un-hide the padding run.
+    "*": ["class", "hidden", "style"],
     "div": ["data-quote-block", "data-quote-summary", "data-quote-header"],
     "a": ["href", "title", "rel", "target"],
     "img": ["src", "alt", "title", "width", "height"],
@@ -74,6 +76,8 @@ ALLOWED_CSS_PROPERTIES = [
     "border-top",
     "border-width",
     "box-sizing",
+    "clip",
+    "clip-path",
     "color",
     "display",
     "font-family",
@@ -81,6 +85,7 @@ ALLOWED_CSS_PROPERTIES = [
     "font-style",
     "font-weight",
     "height",
+    "left",
     "line-height",
     "margin",
     "margin-bottom",
@@ -93,21 +98,30 @@ ALLOWED_CSS_PROPERTIES = [
     "min-width",
     "object-fit",
     "object-position",
+    "opacity",
+    "overflow",
     "overflow-wrap",
+    "overflow-x",
+    "overflow-y",
     "padding",
     "padding-bottom",
     "padding-left",
     "padding-right",
     "padding-top",
+    "position",
+    "right",
     "table-layout",
     "text-align",
     "text-decoration",
     "text-transform",
+    "top",
     "vertical-align",
+    "visibility",
     "white-space",
     "width",
     "word-break",
     "word-wrap",
+    "z-index",
 ]
 _css_sanitizer_kwargs: dict[str, Any] = {"allowed_css_properties": ALLOWED_CSS_PROPERTIES}
 if "allowed_at_rules" in inspect.signature(CSSSanitizer).parameters:
@@ -137,7 +151,11 @@ GREETING_RE = re.compile(
     r"^(hi|hello|dear|hey|greetings)\b[\s,.:;-]*([A-Z][\w'\u2019.-]*\s*){0,3}[,!:;.-]*\s*",
     re.IGNORECASE,
 )
-INVISIBLE_RE = re.compile(r"[\u00ad\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]")
+# U+034F (combining grapheme joiner) and U+180E are the invisible padding
+# characters bulk-appended to email preheaders.
+INVISIBLE_RE = re.compile(
+    r"[\u00ad\u034f\u180e\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]"
+)
 CSS_RULE_RE = re.compile(r"[.#]?[A-Za-z0-9_-]+\s*\{[^}]*\}")
 SEPARATOR_RE = re.compile(r"([*-_]{3,}|[•·]{3,}|[=]{3,})")
 JSON_LD_RE = re.compile(r"\{\s*\"@context\".*?\}\s*", re.DOTALL)

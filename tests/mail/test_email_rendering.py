@@ -324,13 +324,13 @@ class TestStyleTagSanitizerUx8b:
         assert ".y{color:red;}" in result
 
     def test_media_inner_disallowed_property_dropped(self):
-        html = "<style>@media (max-width:400px){.x{position:fixed;padding:4px}}</style><p>hi</p>"
+        html = "<style>@media (max-width:400px){.x{filter:blur(4px);padding:4px}}</style><p>hi</p>"
         result = sanitize_html(html, allow_images=False)
-        assert "position" not in result
+        assert "filter" not in result
         assert "padding:4px" in result
 
     def test_empty_media_block_dropped(self):
-        html = "<style>@media (max-width:400px){.x{position:fixed}}</style><p>hi</p>"
+        html = "<style>@media (max-width:400px){.x{filter:blur(4px)}}</style><p>hi</p>"
         result = sanitize_html(html, allow_images=False)
         assert "@media" not in result
         assert "<style" not in result

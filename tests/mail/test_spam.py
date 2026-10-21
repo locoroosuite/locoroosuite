@@ -106,10 +106,13 @@ class TestReportSpamService:
             destination = report_spam(client, "100")
         return client, mock_set, mock_move, destination
 
-    def test_sets_flag_then_moves(self):
+    def test_sets_junk_keyword_then_moves(self):
+        r"""U5.13: the junk marker is the `Junk` keyword — the `\Junk` system
+        flag is not RFC 3501 and Dovecot rejects it with BAD, which used to
+        make every "Report spam" fail and auto-disable."""
         client, mock_set, mock_move, destination = self._run()
         assert destination == "Junk"
-        mock_set.assert_called_once_with(client, "100", "\\Junk", add=True)
+        mock_set.assert_called_once_with(client, "100", "Junk", add=True)
         mock_move.assert_called_once_with(client, "100", "Junk")
         client.expunge.assert_called_once()
 
@@ -123,7 +126,7 @@ class TestReportSpamService:
                 pass
 
     def test_flag_rejection_raises(self):
-        """U5.13: a \\Junk STORE rejection for an existing message is a
+        """U5.13: a Junk-keyword STORE rejection for an existing message is a
         capability failure."""
         client = MagicMock()
         client.uid.return_value = ("OK", [b"100"])  # message still exists
@@ -210,11 +213,13 @@ class TestNotSpamService:
         ):
             destination = not_spam(client, "100", "Spam")
         assert destination == "INBOX"
-        mock_set.assert_called_once_with(client, "100", "\\Junk", add=False)
+        # keyword first, then the legacy \Junk system flag best-effort (U5.13b)
+        assert [c.args[2] for c in mock_set.call_args_list] == ["Junk", "\\Junk"]
+        assert all(c.kwargs.get("add") is False for c in mock_set.call_args_list)
         mock_move.assert_called_once_with(client, "100", "INBOX")
         client.expunge.assert_called_once()
 
-    def test_outside_junk_folder_clears_flag_only(self):
+    def test_outside_junk_folder_clears_keyword_only(self):
         client = MagicMock()
         with (
             patch("app.modules.mail.services.spam.set_flag") as mock_set,
@@ -222,7 +227,7 @@ class TestNotSpamService:
         ):
             destination = not_spam(client, "100", "INBOX")
         assert destination is None
-        mock_set.assert_called_once_with(client, "100", "\\Junk", add=False)
+        assert [c.args[2] for c in mock_set.call_args_list] == ["Junk", "\\Junk"]
         mock_move.assert_not_called()
 
     def test_flag_clear_failure_still_moves(self):
@@ -236,6 +241,16 @@ class TestNotSpamService:
             destination = not_spam(client, "100", "Junk")
         assert destination == "INBOX"
         mock_move.assert_called_once_with(client, "100", "INBOX")
+
+    def test_keyword_clear_failure_still_clears_legacy(self):
+        r"""The legacy \Junk clear must run even when the keyword clear failed:
+        they are independent best-effort clears (U5.13b)."""
+        client = MagicMock()
+        with patch("app.modules.mail.services.spam.set_flag") as mock_set:
+            not_spam(client, "100", "Junk")
+        assert mock_set.call_count == 2
+        assert mock_set.call_args_list[0].args[2] == "Junk"
+        assert mock_set.call_args_list[1].args[2] == "\\Junk"
 
 
 class TestSpamPrefs:
@@ -589,9 +604,9 @@ class TestUndoSpamActions:
             mock_imap.return_value = (MagicMock(), "example.com")
             resp = client.post(UNDO_URL, data={"token": token})
         assert resp.status_code == 302
-        manager.set_flag.assert_called_once()
-        assert manager.set_flag.call_args.kwargs.get("add") is False
-        assert "\\Junk" in manager.set_flag.call_args.args
+        # keyword clear + legacy \Junk best-effort clear, both before the move
+        assert [c.args[2] for c in manager.set_flag.call_args_list] == ["Junk", "\\Junk"]
+        assert all(c.kwargs.get("add") is False for c in manager.set_flag.call_args_list)
         manager.move_message.assert_called_once()
         # flag clear must precede the move
         order = [c[0] for c in manager.mock_calls]
@@ -613,6 +628,7 @@ class TestUndoSpamActions:
             resp = client.post(UNDO_URL, data={"token": token})
         assert resp.status_code == 302
         manager.set_flag.assert_called_once()
+        assert manager.set_flag.call_args.args[2] == "Junk"
         assert manager.set_flag.call_args.kwargs.get("add") is True
         manager.move_message.assert_called_once()
 

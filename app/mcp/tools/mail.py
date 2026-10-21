@@ -447,13 +447,13 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="mail_report_spam",
         title="Report Spam",
         description=(
-            "Report a message as spam: sets the IMAP \\Junk flag and moves the message to "
+            "Report a message as spam: sets the IMAP `Junk` keyword and moves the message to "
             "the server's Junk/Spam folder (resolved via the folder alias map; never "
             "auto-created). Honors the per-account Spam action setting — returns "
             "SPAM_ACTION_DISABLED when off; auto-disables the setting (recoverable: it "
             "re-enables once the server lists a junk folder again) and returns "
             "SPAM_FOLDER_MISSING / SPAM_FLAG_UNSUPPORTED when a successful LIST shows no "
-            "junk folder or the server rejects the \\Junk flag for an existing message. "
+            "junk folder or the server rejects the Junk keyword for an existing message. "
             "Transient failures (refused LIST, vanished message, connection problems) "
             "return SPAM_ACTION_TRANSIENT and never change the setting."
         ),
@@ -517,7 +517,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
                     db.session.commit()
                     _mail_logger.warning(
                         "spam action auto-disabled via mcp account_id=%s message_id=%s: "
-                        "server rejected \\Junk flag",
+                        "server rejected Junk keyword",
                         aid,
                         message_id,
                     )
@@ -553,9 +553,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="mail_not_spam",
         title="Mark Not Spam",
         description=(
-            "Mark a message as not spam: clears the IMAP \\Junk flag and moves the message "
+            "Mark a message as not spam: clears the IMAP `Junk` keyword and moves the message "
             "to INBOX when it is currently in a Junk/Spam folder; otherwise clears the "
-            "flag only. Not gated by the Spam action setting (recovery action)."
+            "keyword only. Not gated by the Spam action setting (recovery action)."
         ),
         annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
     )

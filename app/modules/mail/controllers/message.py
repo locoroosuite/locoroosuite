@@ -46,6 +46,8 @@ from app.modules.mail.services.imap_client import (
 )
 from app.modules.mail.services.secrets import decrypt_with_key
 from app.modules.mail.services.spam import (
+    JUNK_KEYWORD,
+    LEGACY_JUNK_FLAG,
     SpamFlagUnsupportedError,
     SpamFolderMissingError,
     SpamTransientError,
@@ -593,7 +595,7 @@ def junk_message(account_id, message_id):
         _set_spam_auto_disabled(settings, account.id)
         db.session.commit()
         logger.warning(
-            "spam action auto-disabled account_id=%s message_id=%s: server rejected \\Junk flag",
+            "spam action auto-disabled account_id=%s message_id=%s: server rejected Junk keyword",
             account.id,
             message_id,
         )
@@ -892,10 +894,14 @@ def undo_message_action():
     if action_type in ("junk", "not_spam"):
         add_flag = action_type == "not_spam"
         try:
-            set_flag(client, uid, "\\Junk", add=add_flag)
+            set_flag(client, uid, JUNK_KEYWORD, add=add_flag)
+            if not add_flag:
+                # Leaving junk: also clear the legacy \Junk system flag
+                # best-effort for servers that accepted it (U5.13b).
+                set_flag(client, uid, LEGACY_JUNK_FLAG, add=False)
         except imaplib.IMAP4.error:
             logger.warning(
-                "undo %s: junk flag restore failed folder=%s uid=%s",
+                "undo %s: junk keyword restore failed folder=%s uid=%s",
                 action_type,
                 action.get("destination_folder"),
                 uid,

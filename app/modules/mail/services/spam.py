@@ -11,6 +11,16 @@ from app.modules.mail.services.imap_client import (
 
 _logger = logging.getLogger(__name__)
 
+# The junk marker is the IMAP `Junk` keyword (no backslash). `\Junk` is not
+# an RFC 3501 system flag (only \Seen \Answered \Flagged \Deleted \Draft
+# are), and standard Dovecot answers `STORE +FLAGS (\Junk)` with
+# `BAD Invalid system flag \JUNK` — which used to make "Report spam" fail
+# and auto-disable on every Dovecot-hosted account (U5.13).
+JUNK_KEYWORD = "Junk"
+# Servers that historically accepted the non-standard \Junk system flag may
+# still carry it on old messages; cleared best-effort, never fatal (U5.13b).
+LEGACY_JUNK_FLAG = "\\Junk"
+
 # Values stored per account (string key) in the spam_action_prefs JSON:
 #   missing / True   -> enabled (default, U9.5)
 #   "user_off"       -> the customer turned it off in Settings; sticky,
@@ -105,7 +115,7 @@ class SpamFolderMissingError(Exception):
 
 
 class SpamFlagUnsupportedError(Exception):
-    """The server rejected the \\Junk flag for a message that still exists."""
+    """The server rejected the Junk keyword for a message that still exists."""
 
 
 class SpamTransientError(Exception):
@@ -145,11 +155,12 @@ def _uid_exists(client, uid):
 
 
 def report_spam(client, uid):
-    """Set \\Junk on the selected folder's message and move it to the junk folder.
+    """Set the Junk keyword on the selected folder's message and move it to
+    the junk folder.
 
     Returns the destination folder name. Raises SpamFolderMissingError when a
     successful LIST shows no junk-canonical folder, SpamFlagUnsupportedError
-    when the server rejects the \\Junk flag for a message verified to still
+    when the server rejects the Junk keyword for a message verified to still
     exist, and SpamTransientError for transient failures (refused LIST,
     vanished message, connection problems).
     """
@@ -157,7 +168,7 @@ def report_spam(client, uid):
     if not destination:
         raise SpamFolderMissingError()
     try:
-        set_flag(client, uid, "\\Junk", add=True)
+        set_flag(client, uid, JUNK_KEYWORD, add=True)
     except imaplib.IMAP4.error as exc:
         if _uid_exists(client, uid):
             raise SpamFlagUnsupportedError() from exc
@@ -178,17 +189,28 @@ def report_spam(client, uid):
 
 
 def clear_junk_flag(client, uid, folder):
+    r"""Clear the junk marker: the `Junk` keyword, then the legacy `\Junk`
+    system flag best-effort (U5.13b). Failures are logged and swallowed."""
     try:
-        set_flag(client, uid, "\\Junk", add=False)
+        set_flag(client, uid, JUNK_KEYWORD, add=False)
     except imaplib.IMAP4.error:
-        _logger.warning("junk flag clear failed folder=%s uid=%s", folder, uid, exc_info=True)
+        _logger.warning("junk keyword clear failed folder=%s uid=%s", folder, uid, exc_info=True)
+    try:
+        set_flag(client, uid, LEGACY_JUNK_FLAG, add=False)
+    except imaplib.IMAP4.error:
+        _logger.debug(
+            "legacy \\Junk clear failed (expected on servers that reject it) folder=%s uid=%s",
+            folder,
+            uid,
+        )
 
 
 def not_spam(client, uid, folder):
-    """Clear \\Junk and move the message to INBOX when it is in a junk folder.
+    """Clear the Junk keyword and move the message to INBOX when it is in a
+    junk folder.
 
-    Returns "INBOX" when the message was moved, None when only the flag was
-    cleared (message already outside a junk-canonical folder). Flag-clear
+    Returns "INBOX" when the message was moved, None when only the keyword was
+    cleared (message already outside a junk-canonical folder). Keyword-clear
     failures are logged and never abort the move (U5.13b).
     """
     destination = "INBOX" if is_junk_folder(folder) else None

@@ -956,12 +956,12 @@ def _spam_auto_disable(customer_id: int, account_id: int, code: str, message: st
     "/mail/messages/<int:message_id>/spam",
     summary="Report message as spam",
     description=(
-        "Sets the IMAP \\Junk flag and moves the message to the server's Junk/Spam "
+        "Sets the IMAP `Junk` keyword and moves the message to the server's Junk/Spam "
         "folder (resolved via the folder alias map; the folder is never auto-created). "
         "Honors the per-account Spam action setting: if disabled, returns "
         "SPAM_ACTION_DISABLED; if a successful LIST shows no junk-canonical folder, "
         "the setting is auto-disabled and SPAM_FOLDER_MISSING is returned; if the "
-        "server rejects the \\Junk flag for an existing message, the setting is "
+        "server rejects the Junk keyword for an existing message, the setting is "
         "auto-disabled and SPAM_FLAG_UNSUPPORTED is returned. Transient upstream "
         "failures (refused LIST, vanished message, connection problems) return "
         "SPAM_ACTION_TRANSIENT and never modify the setting. Auto-disabled accounts "
@@ -1049,8 +1049,8 @@ def api_report_spam(path: MessagePath):
     "/mail/messages/<int:message_id>/not-spam",
     summary="Mark message as not spam",
     description=(
-        "Clears the IMAP \\Junk flag and moves the message to INBOX when it is "
-        "currently in a Junk/Spam folder; otherwise clears the flag only. Not gated "
+        "Clears the IMAP `Junk` keyword and moves the message to INBOX when it is "
+        "currently in a Junk/Spam folder; otherwise clears the keyword only. Not gated "
         "by the Spam action setting (recovery action). Requires `mail:write` scope."
     ),
     responses={"200": SpamActionResponse, "401": ErrorResponse, "404": ErrorResponse},

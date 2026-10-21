@@ -393,7 +393,7 @@
       form.action = "{{ url_for('mail.move_message_route', account_id=account.id, message_id=message["id"]) }}";
       var inp = document.createElement("input");
       inp.type = "hidden";
-      inp.name = "dest";
+      inp.name = "destination";
       inp.value = folder;
       form.appendChild(inp);
       var btnEl = btn;

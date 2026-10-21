@@ -533,6 +533,16 @@ def test_message_view_thread_stack_wiring():
     assert "data-thread-sort-ts" in stack
 
 
+def test_message_view_move_picker_posts_destination_field():
+    """The message-view "Move to folder" picker builds its form in inline JS;
+    the hidden input's name must be ``destination`` — the field
+    ``move_message_route`` reads. It shipped as ``dest`` once, so every
+    detail-view move failed with "Destination folder is required." (400)."""
+    content = (MAIL_TEMPLATES / "message.html").read_text()
+    assert 'inp.name = "destination";' in content
+    assert 'inp.name = "dest"' not in content
+
+
 def test_body_iframes_let_popups_escape_sandbox():
     """U8.11: the message-view and preview-pane body iframes must carry
     ``allow-popups-to-escape-sandbox``. Without it, tabs opened from body

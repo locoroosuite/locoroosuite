@@ -4,7 +4,7 @@ import logging
 from typing import Annotated, Any
 
 from flask import Flask
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
@@ -125,12 +125,14 @@ def _merge_vcard_data(existing, updates):
     return merged
 
 
-def register(mcp: FastMCP, flask_app: Flask) -> None:
+def register(mcp: MCPServer, flask_app: Flask) -> None:
     @mcp.tool(
         name="contacts_list",
         title="List Contacts",
         description="List contacts in the user's address book. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def contacts_list(
@@ -173,7 +175,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="contacts_get",
         title="Get Contact",
         description="Get full details of a specific contact including raw vCard data. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def contacts_get(
@@ -200,7 +204,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="contacts_search",
         title="Search Contacts",
         description="Search contacts by name or email. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def contacts_search(
@@ -239,7 +245,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="contacts_create",
         title="Create Contact",
         description="Create a new contact via CardDAV.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def contacts_create(
@@ -317,7 +325,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="contacts_update",
         title="Update Contact",
         description="Update an existing contact via CardDAV.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def contacts_update(
@@ -419,7 +429,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         title="Delete Contact",
         description="Delete a contact by contact ID.",
         annotations=ToolAnnotations(
-            readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True
+            read_only_hint=False, open_world_hint=False, destructive_hint=True, idempotent_hint=True
         ),
     )
     @resilient_tool
@@ -456,7 +466,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         title="Bulk Delete Contacts",
         description="Delete multiple contacts at once.",
         annotations=ToolAnnotations(
-            readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True
+            read_only_hint=False, open_world_hint=False, destructive_hint=True, idempotent_hint=True
         ),
     )
     @resilient_tool

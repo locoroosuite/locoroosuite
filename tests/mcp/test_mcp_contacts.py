@@ -5,7 +5,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from app.api.token_service import create_api_token, generate_dek
 from app.shared.db import db as _db
@@ -76,7 +76,7 @@ def mcp_contacts(app, _clean_db):
 
     set_current_token(token_value)
 
-    mcp = FastMCP("test-contacts")
+    mcp = MCPServer("test-contacts")
     from app.mcp.tools.contacts import register as register_contacts
 
     register_contacts(mcp, app)

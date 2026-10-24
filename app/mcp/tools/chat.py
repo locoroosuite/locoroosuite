@@ -6,7 +6,7 @@ import time
 from typing import Annotated, Any
 
 from flask import Flask
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
@@ -68,12 +68,14 @@ def _matrix_err(exc: MatrixError) -> str:
     return err(exc.code, exc.message)
 
 
-def register(mcp: FastMCP, flask_app: Flask) -> None:
+def register(mcp: MCPServer, flask_app: Flask) -> None:
     @mcp.tool(
         name="chat_list_rooms",
         title="List Chat Rooms",
         description="List cached chat rooms and direct messages for the authenticated account. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def chat_list_rooms(account_id: _AccId = None) -> str:
@@ -90,7 +92,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="chat_create_room",
         title="Create Chat Room",
         description="Create a chat room (or direct message with is_direct=true and invite).",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def chat_create_room(
@@ -148,7 +152,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="chat_list_messages",
         title="List Chat Messages",
         description="List cached messages for a chat room. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def chat_list_messages(
@@ -178,7 +184,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="chat_send_message",
         title="Send Chat Message",
         description="Send a text message to a chat room.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def chat_send_message(
@@ -218,7 +226,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="chat_edit_message",
         title="Edit Chat Message",
         description="Edit one of your own chat messages.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def chat_edit_message(
@@ -252,7 +262,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="chat_delete_message",
         title="Delete Chat Message",
         description="Delete (redact) a chat message you sent.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=True),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=True
+        ),
     )
     @resilient_tool
     async def chat_delete_message(
@@ -282,7 +294,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="chat_react",
         title="React to Chat Message",
         description="Add an emoji reaction to a chat message.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def chat_react(
@@ -331,7 +345,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="chat_mark_room_read",
         title="Mark Chat Room Read",
         description="Send a read receipt for a chat room up to the given event.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def chat_mark_room_read(
@@ -362,7 +378,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="chat_invite_user",
         title="Invite User to Chat Room",
         description="Invite a Matrix user to a chat room.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def chat_invite_user(
@@ -387,7 +405,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="chat_leave_room",
         title="Leave Chat Room",
         description="Leave (and forget) a chat room.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=True),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=True
+        ),
     )
     @resilient_tool
     async def chat_leave_room(

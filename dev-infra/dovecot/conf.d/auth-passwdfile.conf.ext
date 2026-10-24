@@ -1,9 +1,11 @@
-passdb {
-  driver = passwd-file
-  args = scheme=SHA256-CRYPT username_format=%u /var/lib/dovecot-users/passwd
+# Dovecot 2.4: driver as section name, driver settings as direct keys.
+# mail-api writes {SHA256-CRYPT}-prefixed hashes; the scheme setting is the
+# fallback for entries without a prefix (was the old scheme= arg).
+passdb passwd-file {
+  passdb_default_password_scheme = SHA256-CRYPT
+  passwd_file_path = /var/lib/dovecot-users/passwd
 }
 
-userdb {
-  driver = passwd-file
-  args = username_format=%u /var/lib/dovecot-users/passwd
+userdb passwd-file {
+  passwd_file_path = /var/lib/dovecot-users/passwd
 }

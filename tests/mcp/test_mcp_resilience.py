@@ -5,7 +5,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from app.api.token_service import create_api_token, generate_dek
 from app.mcp.errors import get_registry_snapshot, health_check, structured_error
@@ -98,7 +98,7 @@ def mcp_all(app, _clean_db):
 
     set_current_token(token_value)
 
-    mcp = FastMCP("test-resilience")
+    mcp = MCPServer("test-resilience")
     from app.mcp.tools.calendar import register as register_calendar
     from app.mcp.tools.contacts import register as register_contacts
     from app.mcp.tools.docs import register as register_docs
@@ -285,7 +285,7 @@ class TestStructuredErrorSchema:
 
 class TestServerRestartSimulation:
     def test_fresh_mcp_instance_registers_all_tools(self, app, _clean_db):
-        mcp = FastMCP("test-restart")
+        mcp = MCPServer("test-restart")
         from app.mcp.tools.calendar import register as register_calendar
         from app.mcp.tools.contacts import register as register_contacts
         from app.mcp.tools.docs import register as register_docs
@@ -299,8 +299,8 @@ class TestServerRestartSimulation:
         assert len(tools) > 0
 
     def test_two_separate_mcp_instances_independent(self, app, _clean_db):
-        mcp1 = FastMCP("instance-1")
-        mcp2 = FastMCP("instance-2")
+        mcp1 = MCPServer("instance-1")
+        mcp2 = MCPServer("instance-2")
         from app.mcp.tools.mail import register as register_mail
 
         register_mail(mcp1, app)

@@ -14,7 +14,7 @@ gevent
 packaging
 dotenv
 markdown
-mcp>=1.27,<2
+mcp>=2,<3
 uvicorn
 httpx
 authlib

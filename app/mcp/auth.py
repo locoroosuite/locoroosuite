@@ -7,7 +7,7 @@ from typing import Any
 
 import jwt as pyjwt
 from flask import Flask
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from app.shared.db import db
 from app.shared.models.core import ApiRateLimitConfig, CustomerAccount
@@ -48,7 +48,7 @@ class McpAuthError(Exception):
         self.message = message
 
 
-def setup_auth(mcp: FastMCP, flask_app: Flask) -> None:
+def setup_auth(mcp: MCPServer, flask_app: Flask) -> None:
     pass
 
 

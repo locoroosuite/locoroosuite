@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
+import { McpServer } from "@modelcontextprotocol/server";
+import { z } from "zod";
 import { ApiClient } from "./client.js";
 import { registerMailTools } from "./tools/mail.js";
 import { registerContactsTools } from "./tools/contacts.js";
@@ -48,7 +49,7 @@ async function main() {
         name: "locoroosuite",
         version: "0.55.4",
     });
-    server.tool("accounts_list", "List the customer's email accounts", {}, async () => {
+    server.registerTool("accounts_list", { description: "List the customer's email accounts", inputSchema: z.object({}) }, async () => {
         const data = await client.get("/api/v1/accounts");
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
     });

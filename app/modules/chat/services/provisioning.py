@@ -159,7 +159,22 @@ def _client_for(account, domain, key):
                     exc.code,
                 )
                 conn.close()
-                conn = _relogin_from_backup(account, domain, key, path)
+                try:
+                    conn = _relogin_from_backup(account, domain, key, path)
+                except MatrixError as exc:
+                    if exc.code != "CHAT_ACCOUNT_RECOVERY_FAILED":
+                        raise
+                    # The stored password was rejected — the authentication
+                    # service was reset or the identity re-provisioned
+                    # out-of-band. Recover instead of dead-ending: a full
+                    # re-provision runs ensure_matrix_user, which resets the
+                    # MAS password and re-stores the row backup, then logs in
+                    # with the fresh password.
+                    logger.warning(
+                        "chat re-login rejected for account_id=%s; re-provisioning identity",
+                        account.id,
+                    )
+                    return _provision_new(account, domain, key, path, base_url)
                 creds = cache_db.get_credentials(conn)
                 if not creds:
                     raise

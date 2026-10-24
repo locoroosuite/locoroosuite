@@ -141,7 +141,7 @@ services:
   collabora:
     # Pinned by digest (CODE 25.04.9.4): the floating :latest tag broke
     # background conversion on 2026-09-26 after an upstream rebuild.
-    image: collabora/code@sha256:fe49c08c27e102c1877ad4ef2ac1a7bd8ccd2dfaa6641d4533389c204a92bb88
+    image: collabora/code@sha256:c7415b963e32eb0986a562583f154d36d3d7a461e1ddfb660a95e87094328acb
     container_name: locoroomail-collabora
     restart: unless-stopped
     environment:
@@ -196,7 +196,7 @@ services:
   # same pattern as the production deployment; mas-cli server applies DB
   # migrations and syncs the config into the database on startup.
   mas:
-    image: ghcr.io/element-hq/matrix-authentication-service:1.24.0
+    image: ghcr.io/element-hq/matrix-authentication-service:1.27.1
     container_name: locoroomail-mas
     restart: unless-stopped
     command: ["server", "-c", "/config/config.yaml"]
@@ -211,7 +211,7 @@ services:
       - locoroomail-dev
 
   mas-db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: locoroomail-mas-db
     restart: unless-stopped
     environment:
@@ -219,7 +219,9 @@ services:
       - POSTGRES_PASSWORD=devmas
       - POSTGRES_DB=mas
     volumes:
-      - mas-db-data:/var/lib/postgresql/data
+      # Postgres 18+ images mount the parent dir; data lives in version-specific
+      # subdirectories to support in-place pg_upgrade (docker-library/postgres#1259).
+      - mas-db-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mas -d mas"]
       interval: 10s

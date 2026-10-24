@@ -305,3 +305,56 @@ def test_provision_relogin_on_invalid_token(app, authed_client, domain_with_matr
         conn2.close()
         assert creds2["access_token"] == "mct_new"
     assert mas.login.call_count == 2
+
+
+def test_provision_reprovisions_when_stored_password_rejected(
+    app, authed_client, domain_with_matrix
+):
+    """A rejected stored password (e.g. after an MAS reset) self-heals.
+
+    The relogin path must not dead-end at CHAT_ACCOUNT_RECOVERY_FAILED:
+    ensure_matrix_user resets the MAS password, re-stores the row backup,
+    and the client gets a fresh login.
+    """
+    domain_id, account_id, user_id = domain_with_matrix
+    mas = _mock_mas()
+    mas.login.side_effect = [
+        {  # initial provision
+            "user_id": "@tester:locoroo.test",
+            "access_token": "mct_first",
+            "device_id": "DEV1",
+        },
+        MatrixError("M_FORBIDDEN", "Invalid username/password", 401),  # relogin rejected
+        {  # fresh login after re-provision
+            "user_id": "@tester:locoroo.test",
+            "access_token": "mct_reprovisioned",
+            "device_id": "DEV3",
+        },
+    ]
+
+    def matrix_factory(base_url, access_token=None, user_id=None):
+        client = _mock_matrix_client()
+        if access_token == "mct_first":
+            client.whoami.side_effect = MatrixError("M_UNKNOWN_TOKEN", "token expired", 401)
+        return client
+
+    with (
+        patch.object(provisioning, "mas_client_for_domain", return_value=mas),
+        patch.object(provisioning, "MatrixClient", side_effect=matrix_factory),
+        app.test_request_context(),
+    ):
+        from app.shared.db import db
+
+        account = db.session.get(CustomerAccount, account_id)
+        domain = db.session.get(Domain, domain_id)
+        assert account is not None and domain is not None
+        conn, _c, _creds = provisioning.ensure_chat_client(account, domain, user_id)
+        conn.close()
+        conn2, _c2, creds2 = provisioning.ensure_chat_client(account, domain, user_id)
+        conn2.close()
+        assert creds2["access_token"] == "mct_reprovisioned"
+    # initial login + rejected relogin + post-reprovision login
+    assert mas.login.call_count == 3
+    # the identity was taken over twice: initial provision + recovery reset
+    # (ensure_matrix_user re-set the password before the fresh login)
+    assert mas.set_password.call_count == 2

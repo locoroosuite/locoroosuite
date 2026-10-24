@@ -7,7 +7,7 @@ from email.mime.text import MIMEText
 from typing import Annotated, Any
 
 from flask import Flask
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
@@ -147,12 +147,14 @@ def _merge_flag(flags_list, flag, add):
     return result
 
 
-def register(mcp: FastMCP, flask_app: Flask) -> None:
+def register(mcp: MCPServer, flask_app: Flask) -> None:
     @mcp.tool(
         name="mail_list_folders",
         title="List Mail Folders",
         description="List all email folders with unread counts. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def mail_list_folders(account_id: _AccId = None) -> str:
@@ -180,7 +182,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="mail_list_messages",
         title="List Messages in Folder",
         description="List messages in a specific email folder with optional filters. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def mail_list_messages(
@@ -226,7 +230,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="mail_get_message",
         title="Get Message",
         description="Get full details of a specific email message. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def mail_get_message(
@@ -284,7 +290,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="mail_search",
         title="Search Messages",
         description="Search email messages by query string with optional filters. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def mail_search(
@@ -341,7 +349,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="mail_send",
         title="Send Email",
         description="Send an email message to one or more recipients.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def mail_send(
@@ -384,7 +394,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="mail_move_message",
         title="Move Message",
         description="Move a message to a different folder. Refuses to move to Trash if the message is protected (locked or starred when protect-starred is on).",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def mail_move_message(
@@ -457,7 +469,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
             "Transient failures (refused LIST, vanished message, connection problems) "
             "return SPAM_ACTION_TRANSIENT and never change the setting."
         ),
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def mail_report_spam(
@@ -557,7 +571,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
             "to INBOX when it is currently in a Junk/Spam folder; otherwise clears the "
             "keyword only. Not gated by the Spam action setting (recovery action)."
         ),
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def mail_not_spam(
@@ -605,7 +621,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         title="Delete Message",
         description="Delete a message by moving it to the Trash folder. Refuses if the message is protected (locked or starred when protect-starred is on).",
         annotations=ToolAnnotations(
-            readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True
+            read_only_hint=False, open_world_hint=False, destructive_hint=True, idempotent_hint=True
         ),
     )
     @resilient_tool
@@ -673,7 +689,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="mail_update_flags",
         title="Update Message Flags",
         description="Update read, flagged, or locked status on a message.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def mail_update_flags(
@@ -744,7 +762,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="mail_get_attachment",
         title="Get Attachment",
         description="Download an attachment from a message. Returns base64-encoded attachment data. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def mail_get_attachment(
@@ -800,7 +820,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="mail_view_attachment",
         title="View Attachment",
         description="Convert a pandoc-supported attachment to HTML for viewing. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def mail_view_attachment(
@@ -864,7 +886,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="mail_get_thread",
         title="Get Thread Messages",
         description="Get all messages in an email thread. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def mail_get_thread(
@@ -887,7 +911,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="mail_bulk_move",
         title="Bulk Move Messages",
         description="Move multiple messages to a destination folder. When moving to Trash, protected messages (locked or starred when protect-starred is on) are skipped and reported in the failed list with code PROTECTED.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def mail_bulk_move(
@@ -989,7 +1015,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         title="Bulk Delete Messages",
         description="Delete multiple messages by moving them to Trash.",
         annotations=ToolAnnotations(
-            readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True
+            read_only_hint=False, open_world_hint=False, destructive_hint=True, idempotent_hint=True
         ),
     )
     @resilient_tool
@@ -1112,7 +1138,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="mail_bulk_flag",
         title="Bulk Update Flags",
         description="Update read or flagged status on multiple messages.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def mail_bulk_flag(
@@ -1178,7 +1206,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="mail_save_draft",
         title="Save Email Draft",
         description="Save an email as a draft in the Drafts folder. Optionally replace an existing draft by providing its draft ID. Returns the saved draft with draft_id for future reference.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def mail_save_draft(
@@ -1287,7 +1317,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         title="Delete Email Draft",
         description="Delete a draft email from the Drafts folder by its draft ID.",
         annotations=ToolAnnotations(
-            readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True
+            read_only_hint=False, open_world_hint=False, destructive_hint=True, idempotent_hint=True
         ),
     )
     @resilient_tool
@@ -1321,7 +1351,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="mail_get_raw_message",
         title="Get Raw Message",
         description="Get the raw RFC 822 source of an email message as plain text. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def mail_get_raw_message(
@@ -1365,7 +1397,10 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         title="Create Mail Folder",
         description="Create a new mail folder (IMAP CREATE). Idempotent: creating an existing mailbox returns success with created=false. An optional parent nests the folder using the server hierarchy delimiter.",
         annotations=ToolAnnotations(
-            readOnlyHint=False, openWorldHint=False, destructiveHint=False, idempotentHint=True
+            read_only_hint=False,
+            open_world_hint=False,
+            destructive_hint=False,
+            idempotent_hint=True,
         ),
     )
     @resilient_tool
@@ -1429,7 +1464,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="mail_rename_folder",
         title="Rename Mail Folder",
         description="Rename a mail folder (IMAP RENAME). System folders (INBOX, Sent, Drafts, Trash, Junk, Bookings) cannot be renamed.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def mail_rename_folder(
@@ -1487,7 +1524,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         title="Delete Mail Folder",
         description="Delete a mail folder (IMAP DELETE). System folders and folders marked protected cannot be deleted.",
         annotations=ToolAnnotations(
-            readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True
+            read_only_hint=False, open_world_hint=False, destructive_hint=True, idempotent_hint=True
         ),
     )
     @resilient_tool

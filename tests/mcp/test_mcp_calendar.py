@@ -5,7 +5,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from app.api.token_service import create_api_token, generate_dek
 from app.shared.db import db as _db
@@ -78,7 +78,7 @@ def mcp_calendar(app, _clean_db):
 
     set_current_token(token_value)
 
-    mcp = FastMCP("test-calendar")
+    mcp = MCPServer("test-calendar")
     from app.mcp.tools.calendar import register as register_calendar
 
     register_calendar(mcp, app)

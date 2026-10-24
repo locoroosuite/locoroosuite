@@ -8,7 +8,7 @@ import os
 
 import httpx
 from flask import Flask
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -68,19 +68,16 @@ class BearerTokenMiddleware(BaseHTTPMiddleware):
         return response
 
 
-def create_mcp_app() -> tuple[FastMCP, Flask]:
+def create_mcp_app() -> tuple[MCPServer, Flask]:
     flask_app = _create_flask_app()
 
-    mcp = FastMCP(
+    mcp = MCPServer(
         name="locoroomail",
         instructions=(
             "LocoRooSuite MCP server. Provides tools for email (IMAP), "
             "contacts (CardDAV), calendar (CalDAV), and documents. "
             "All tools require authentication via Bearer token (API key or OAuth JWT)."
         ),
-        streamable_http_path="/mcp",
-        stateless_http=True,
-        json_response=True,
     )
 
     from app.mcp.tools.calendar import register as register_calendar
@@ -300,9 +297,12 @@ def create_asgi_app():
 
         scopes = list(_SCOPE_DESCRIPTIONS.keys())
 
-    mcp.settings.transport_security = _build_transport_security()
-
-    mcp_starlette = mcp.streamable_http_app()
+    mcp_starlette = mcp.streamable_http_app(
+        streamable_http_path="/mcp",
+        stateless_http=True,
+        json_response=True,
+        transport_security=_build_transport_security(),
+    )
     mcp_starlette.add_middleware(ContentTypeNormalizeMiddleware)
     mcp_starlette.add_middleware(BearerTokenMiddleware)
 

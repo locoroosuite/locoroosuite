@@ -6,7 +6,7 @@ export default defineConfig({
     include: ["test/**/*.test.ts", "tests/**/*.test.ts"],
     testTimeout: 15000,
     alias: {
-      "#client": path.resolve(__dirname, "src/client.ts"),
+      "#client": path.resolve(import.meta.dirname, "src/client.ts"),
     },
   },
 });

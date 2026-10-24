@@ -7,7 +7,7 @@ import uuid
 from typing import Annotated, Any, Literal
 
 from flask import Flask
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
@@ -127,12 +127,14 @@ def _markdown_to_odf(markdown_text, doc_type, flask_app):
                 os.unlink(p)
 
 
-def register(mcp: FastMCP, flask_app: Flask) -> None:
+def register(mcp: MCPServer, flask_app: Flask) -> None:
     @mcp.tool(
         name="docs_list_documents",
         title="List Documents",
         description="List documents with optional type filter and search. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_list_documents(
@@ -184,7 +186,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_get_document",
         title="Get Document",
         description="Get metadata for a specific document. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_get_document(
@@ -210,7 +214,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_create_document",
         title="Create Document",
         description="Create a new blank document (odt, ods, or odp).",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_create_document(
@@ -303,7 +309,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_rename_document",
         title="Rename Document",
         description="Rename an existing document to a new name.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_rename_document(
@@ -353,7 +361,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         title="Delete Document",
         description="Soft delete a document (move to trash).",
         annotations=ToolAnnotations(
-            readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True
+            read_only_hint=False, open_world_hint=False, destructive_hint=True, idempotent_hint=True
         ),
     )
     @resilient_tool
@@ -390,7 +398,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_download_document",
         title="Download Document",
         description="Download a document file as base64-encoded content. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_download_document(
@@ -436,7 +446,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_upload_document",
         title="Upload Document",
         description="Upload a new document file (not supported via MCP — use the web interface or REST API).",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_upload_document(account_id: _AccId = None) -> str:
@@ -448,7 +460,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_read_content",
         title="Read Document Content",
         description="Read the text content of a document. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_read_content(
@@ -494,7 +508,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_update_content",
         title="Update Document Content",
         description="Replace the content of a document. Supports markdown conversion for ODF formats.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_update_content(
@@ -572,7 +588,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_create_draft",
         title="Create Document Draft",
         description="Create an AI draft for a document.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_create_draft(
@@ -648,7 +666,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_list_drafts",
         title="List Document Drafts",
         description="List AI drafts for a document. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_list_drafts(
@@ -675,7 +695,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_apply_draft",
         title="Apply Document Draft",
         description="Apply (accept) an AI draft, replacing the document content.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_apply_draft(
@@ -724,7 +746,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         title="Discard Document Draft",
         description="Discard an AI draft.",
         annotations=ToolAnnotations(
-            readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True
+            read_only_hint=False, open_world_hint=False, destructive_hint=True, idempotent_hint=True
         ),
     )
     @resilient_tool
@@ -765,7 +787,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_export_pdf",
         title="Export Document as PDF",
         description="Export a document as a PDF file (base64-encoded). Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_export_pdf(
@@ -810,7 +834,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_convert_document",
         title="Convert Document to Editable",
         description="Convert a non-ODF document (PDF, DOCX, etc.) to an editable ODF document. The original is preserved.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_convert_document(
@@ -883,7 +909,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_list_folders",
         title="List Document Folders",
         description="List all folders for the account (explicit rows plus paths inferred from documents). Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_list_folders(
@@ -904,7 +932,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_create_folder",
         title="Create Document Folder",
         description="Create a folder (and any missing ancestors). Idempotent: creating an existing path succeeds.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_create_folder(
@@ -940,7 +970,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_rename_folder",
         title="Rename Document Folder",
         description="Rename a folder and its entire subtree. Document folder paths are rewritten accordingly.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_rename_folder(
@@ -988,7 +1020,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         title="Delete Document Folder",
         description="Delete a folder subtree. Contained documents are moved to the deleted folder's parent.",
         annotations=ToolAnnotations(
-            readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True
+            read_only_hint=False, open_world_hint=False, destructive_hint=True, idempotent_hint=True
         ),
     )
     @resilient_tool
@@ -1029,7 +1061,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_move_document",
         title="Move Document",
         description="Move a document to a folder (empty/omitted folder = root).",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_move_document(
@@ -1086,7 +1120,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_get_tags",
         title="Get Document Tags",
         description="Get the tags applied to a document. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_get_tags(
@@ -1111,7 +1147,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_update_tags",
         title="Update Document Tags",
         description="Add and/or remove tags on a document, or replace the full tag list with `set`. Each tag is max 50 chars.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_update_tags(
@@ -1166,7 +1204,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="docs_list_tags",
         title="List Account Tags",
         description="List the distinct tags in use across the account's active documents (sorted, case-insensitive). Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def docs_list_tags(

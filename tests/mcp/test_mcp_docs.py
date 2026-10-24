@@ -6,7 +6,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from app.api.token_service import create_api_token, generate_dek
 from app.shared.db import db as _db
@@ -72,7 +72,7 @@ def mcp_docs(app, _clean_db):
 
     set_current_token(token_value)
 
-    mcp = FastMCP("test-docs")
+    mcp = MCPServer("test-docs")
     from app.mcp.tools.docs import register as register_docs
 
     register_docs(mcp, app)

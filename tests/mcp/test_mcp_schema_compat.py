@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from app.api.token_service import create_api_token, generate_dek
 from app.shared.db import db as _db
@@ -110,7 +110,7 @@ def mcp_all_tools(app, _clean_db):
 
     set_current_token(token_value)
 
-    mcp = FastMCP("test")
+    mcp = MCPServer("test")
     from app.mcp.tools.calendar import register as register_calendar
     from app.mcp.tools.contacts import register as register_contacts
     from app.mcp.tools.docs import register as register_docs
@@ -173,11 +173,11 @@ class TestSchemaChatGPTCompatibility:
         tools = mcp_all_tools["tools"]
         for name in READ_ONLY_TOOLS:
             tool = tools[name]
-            assert tool.annotations.readOnlyHint is True, (
-                f"Read-only tool '{name}' missing readOnlyHint=True"
+            assert tool.annotations.read_only_hint is True, (
+                f"Read-only tool '{name}' missing read_only_hint=True"
             )
-            assert tool.annotations.destructiveHint is False, (
-                f"Read-only tool '{name}' has destructiveHint=True"
+            assert tool.annotations.destructive_hint is False, (
+                f"Read-only tool '{name}' has destructive_hint=True"
             )
 
     def test_all_tools_have_titles(self, mcp_all_tools):
@@ -217,6 +217,6 @@ class TestSchemaChatGPTCompatibility:
         ]
         for name in destructive_tools:
             tool = tools[name]
-            assert tool.annotations.destructiveHint is True, (
-                f"Destructive tool '{name}' missing destructiveHint=True"
+            assert tool.annotations.destructive_hint is True, (
+                f"Destructive tool '{name}' missing destructive_hint=True"
             )

@@ -5,7 +5,7 @@ import uuid
 from typing import Annotated, Any
 
 from flask import Flask
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
@@ -104,12 +104,14 @@ def _get_caldav_session(account, dek, flask_app):
         raise _ServiceConnectionError("CalDAV", base_url, exc) from exc
 
 
-def register(mcp: FastMCP, flask_app: Flask) -> None:
+def register(mcp: MCPServer, flask_app: Flask) -> None:
     @mcp.tool(
         name="calendar_list_calendars",
         title="List Calendars",
         description="List all calendars for the authenticated account. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def calendar_list_calendars(account_id: _AccId = None) -> str:
@@ -129,7 +131,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="calendar_create_calendar",
         title="Create Calendar",
         description="Create a new calendar via CalDAV.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def calendar_create_calendar(
@@ -184,7 +188,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="calendar_update_calendar",
         title="Update Calendar",
         description="Update a calendar's name and/or color.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def calendar_update_calendar(
@@ -243,7 +249,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         title="Delete Calendar",
         description="Delete a calendar and all its events.",
         annotations=ToolAnnotations(
-            readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True
+            read_only_hint=False, open_world_hint=False, destructive_hint=True, idempotent_hint=True
         ),
     )
     @resilient_tool
@@ -285,7 +291,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="calendar_list_events",
         title="List Events",
         description="List events in a calendar with optional date range filter. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def calendar_list_events(
@@ -328,7 +336,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="calendar_get_event",
         title="Get Event",
         description="Get full details of a specific calendar event. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def calendar_get_event(
@@ -352,7 +362,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="calendar_search_events",
         title="Search Events",
         description="Search calendar events by query string with optional date range. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def calendar_search_events(
@@ -387,7 +399,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="calendar_create_event",
         title="Create Event",
         description="Create a new calendar event.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def calendar_create_event(
@@ -479,7 +493,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="calendar_update_event",
         title="Update Event",
         description="Update an existing calendar event.",
-        annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def calendar_update_event(
@@ -615,7 +631,7 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         title="Delete Event",
         description="Delete a calendar event.",
         annotations=ToolAnnotations(
-            readOnlyHint=False, openWorldHint=False, destructiveHint=True, idempotentHint=True
+            read_only_hint=False, open_world_hint=False, destructive_hint=True, idempotent_hint=True
         ),
     )
     @resilient_tool
@@ -674,7 +690,9 @@ def register(mcp: FastMCP, flask_app: Flask) -> None:
         name="calendar_check_free_busy",
         title="Check Free/Busy",
         description="Check for conflicting events in a time range. Read-only.",
-        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False, destructiveHint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True, open_world_hint=False, destructive_hint=False
+        ),
     )
     @resilient_tool
     async def calendar_check_free_busy(

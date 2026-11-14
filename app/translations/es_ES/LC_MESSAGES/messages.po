@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-10 18:55+1030\n"
+"POT-Creation-Date: 2026-11-14 11:42+1030\n"
 "PO-Revision-Date: 2026-09-26 08:30+0930\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es_ES\n"
@@ -18,27 +18,27 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: app/__init__.py:226
+#: app/__init__.py:239
 msgid "Not Found"
 msgstr "No encontrado"
 
-#: app/__init__.py:227
+#: app/__init__.py:240
 msgid "The page you requested does not exist."
 msgstr "La página que has solicitado no existe."
 
-#: app/__init__.py:238
+#: app/__init__.py:251
 msgid "Method Not Allowed"
 msgstr "Método no permitido"
 
-#: app/__init__.py:239
+#: app/__init__.py:252
 msgid "This action is not supported."
 msgstr "Esta acción no es compatible."
 
-#: app/__init__.py:257
+#: app/__init__.py:270
 msgid "Cache key mismatch"
 msgstr "Falta de coincidencia en la clave de caché"
 
-#: app/__init__.py:259
+#: app/__init__.py:272
 msgid ""
 "Your local mail cache was encrypted with a different key. This can happen"
 " if your password was changed or your API access was reconfigured. Please"
@@ -50,11 +50,11 @@ msgstr ""
 "Restablece la caché para continuar — tu correo se volverá a sincronizar "
 "desde el servidor."
 
-#: app/__init__.py:283
+#: app/__init__.py:296
 msgid "Something went wrong"
 msgstr "Algo ha ido mal"
 
-#: app/__init__.py:284
+#: app/__init__.py:297
 msgid "An unexpected error occurred. Please try again or refresh the page."
 msgstr ""
 "Se ha producido un error inesperado. Inténtalo de nuevo o actualiza la "
@@ -220,7 +220,7 @@ msgid "Event not in calendar."
 msgstr "El evento no está en el calendario."
 
 #: app/modules/calendar/controllers/events.py:66
-#: app/modules/mail/controllers/helpers.py:1188
+#: app/modules/mail/controllers/helpers.py:1278
 #: app/workers/calendar_reminders.py:129
 msgid "at"
 msgstr "a las"
@@ -266,7 +266,7 @@ msgstr "Notificación duplicada."
 #: app/modules/calendar/controllers/events_api.py:434
 #: app/modules/calendar/controllers/imip_api.py:35
 #: app/modules/calendar/controllers/views.py:482
-#: app/modules/mail/controllers/settings.py:168
+#: app/modules/mail/controllers/settings.py:224
 msgid "No active account."
 msgstr "No hay ninguna cuenta activa."
 
@@ -381,7 +381,7 @@ msgstr "No se ha podido enviar la invitación."
 #: app/modules/calendar/controllers/views.py:246
 #: app/modules/calendar/controllers/views.py:485
 #: app/modules/calendar/templates/event_detail.html:16
-#: app/modules/mail/templates/message.html:214
+#: app/modules/mail/templates/_thread_stack.html:102
 msgid "(no title)"
 msgstr "(sin título)"
 
@@ -414,8 +414,8 @@ msgstr "Nuevo calendario"
 #: app/modules/calendar/templates/calendar_form.html:24
 #: app/modules/chat/templates/chat/index.html:179
 #: app/modules/contacts/templates/list.html:73
-#: app/modules/docs/templates/docs_list.html:203
-#: app/modules/docs/templates/docs_list.html:423
+#: app/modules/docs/templates/docs_list.html:200
+#: app/modules/docs/templates/docs_list.html:418
 msgid "Name"
 msgstr "Nombre"
 
@@ -437,20 +437,20 @@ msgid "Create Calendar"
 msgstr "Crear calendario"
 
 #: app/modules/calendar/templates/calendar_form.html:39
-#: app/modules/calendar/templates/index.html:280
-#: app/modules/calendar/templates/index.html:309
+#: app/modules/calendar/templates/index.html:277
+#: app/modules/calendar/templates/index.html:306
 #: app/modules/chat/templates/chat/index.html:191
 #: app/modules/chat/templates/chat/index.html:212
 #: app/modules/contacts/templates/form.html:92
 #: app/modules/docs/templates/docs_editor.html:208
-#: app/modules/mail/templates/settings.html:288
+#: app/modules/mail/templates/settings.html:306
 #: app/modules/mail/templates/twofa_confirm.html:31
 msgid "Cancel"
 msgstr "Cancelar"
 
 #: app/modules/calendar/templates/calendar_form.html:46
 #: app/modules/mail/templates/settings.html:12
-#: app/modules/mail/templates/settings.html:274
+#: app/modules/mail/templates/settings.html:292
 msgid "Danger zone"
 msgstr "Zona de peligro"
 
@@ -474,12 +474,12 @@ msgstr "Eliminar calendario"
 #: app/modules/calendar/templates/event_detail.html:41
 #: app/modules/calendar/templates/event_detail.html:44
 #: app/modules/calendar/templates/event_detail.html:109
-#: app/modules/calendar/templates/index.html:262
+#: app/modules/calendar/templates/index.html:259
 msgid "Tentative"
 msgstr "Provisional"
 
 #: app/modules/calendar/templates/event_detail.html:23
-#: app/modules/calendar/templates/index.html:263
+#: app/modules/calendar/templates/index.html:260
 msgid "Cancelled"
 msgstr "Cancelado"
 
@@ -511,24 +511,24 @@ msgstr "Rechazado"
 #: app/modules/contacts/templates/detail.html:20
 #: app/modules/contacts/templates/list.html:59
 #: app/modules/contacts/templates/list.html:91
-#: app/modules/mail/templates/message.html:169
-#: app/modules/mail/templates/message.html:178
+#: app/modules/mail/templates/_thread_stack.html:57
+#: app/modules/mail/templates/_thread_stack.html:66
 msgid "Edit"
 msgstr "Editar"
 
 #: app/modules/calendar/templates/event_detail.html:51
 #: app/modules/calendar/templates/event_detail.html:54
-#: app/modules/calendar/templates/index.html:278
+#: app/modules/calendar/templates/index.html:275
 #: app/modules/contacts/templates/detail.html:22
 #: app/modules/contacts/templates/list.html:61
 #: app/modules/contacts/templates/list.html:93
 #: app/modules/docs/templates/docs_editor.html:175
 #: app/modules/mail/templates/_bulk_toolbar.html:16
-#: app/modules/mail/templates/_row_common.html:44
-#: app/modules/mail/templates/_row_common.html:46
-#: app/modules/mail/templates/message.html:75
-#: app/modules/mail/templates/message.html:87
-#: app/modules/mail/templates/message_list.html:134
+#: app/modules/mail/templates/_row_common.html:40
+#: app/modules/mail/templates/_row_common.html:42
+#: app/modules/mail/templates/message.html:73
+#: app/modules/mail/templates/message.html:95
+#: app/modules/mail/templates/message_list.html:138
 #: app/modules/mail/templates/search.html:60
 #: app/modules/mail/templates/search_full.html:33
 msgid "Delete"
@@ -543,7 +543,7 @@ msgid "all day"
 msgstr "todo el día"
 
 #: app/modules/calendar/templates/event_detail.html:84
-#: app/modules/calendar/templates/index.html:224
+#: app/modules/calendar/templates/index.html:221
 #: app/templates/_search_panel_calendar.html:14
 msgid "Location"
 msgstr "Ubicación"
@@ -561,14 +561,14 @@ msgid "Pending"
 msgstr "Pendiente"
 
 #: app/modules/calendar/templates/event_detail.html:122
-#: app/modules/calendar/templates/index.html:229
+#: app/modules/calendar/templates/index.html:226
 msgid "Description"
 msgstr "Descripción"
 
 #: app/modules/calendar/templates/event_detail.html:129
-#: app/modules/calendar/templates/index.html:248
+#: app/modules/calendar/templates/index.html:245
 #: app/modules/mail/templates/settings.html:10
-#: app/modules/mail/templates/settings.html:172
+#: app/modules/mail/templates/settings.html:190
 msgid "Notifications"
 msgstr "Notificaciones"
 
@@ -589,7 +589,7 @@ msgid "View original email"
 msgstr "Ver el correo original"
 
 #: app/modules/calendar/templates/event_detail.html:173
-#: app/modules/calendar/templates/index.html:294
+#: app/modules/calendar/templates/index.html:291
 msgid "Send updates to guests?"
 msgstr "¿Enviar actualizaciones a los invitados?"
 
@@ -600,12 +600,12 @@ msgstr ""
 "evento?"
 
 #: app/modules/calendar/templates/event_detail.html:177
-#: app/modules/calendar/templates/index.html:297
+#: app/modules/calendar/templates/index.html:294
 msgid "Don't send"
 msgstr "No enviar"
 
 #: app/modules/calendar/templates/event_detail.html:180
-#: app/modules/calendar/templates/index.html:298
+#: app/modules/calendar/templates/index.html:295
 #: app/modules/chat/templates/chat/index.html:113
 #: app/modules/mail/templates/compose.html:89
 msgid "Send"
@@ -620,7 +620,7 @@ msgid "This event has guests. Do you want to notify them about the cancellation?
 msgstr "Este evento tiene invitados. ¿Quieres notificarles la cancelación?"
 
 #: app/modules/calendar/templates/event_detail.html:197
-#: app/modules/calendar/templates/index.html:310
+#: app/modules/calendar/templates/index.html:307
 msgid "Delete without notifying"
 msgstr "Eliminar sin notificar"
 
@@ -651,7 +651,7 @@ msgstr "Editar el calendario {name}"
 
 #: app/modules/calendar/templates/index.html:41
 #: app/modules/contacts/templates/list.html:14
-#: app/modules/docs/templates/docs_list.html:278
+#: app/modules/docs/templates/docs_list.html:272
 msgid "Sync"
 msgstr "Sincronizar"
 
@@ -681,195 +681,191 @@ msgstr ""
 msgid "Retry"
 msgstr "Reintentar"
 
-#: app/modules/calendar/templates/index.html:79
-msgid "Open calendars"
-msgstr "Abrir calendarios"
-
-#: app/modules/calendar/templates/index.html:85
+#: app/modules/calendar/templates/index.html:82
 msgid "Today"
 msgstr "Hoy"
 
-#: app/modules/calendar/templates/index.html:86
+#: app/modules/calendar/templates/index.html:83
 msgid "Previous period"
 msgstr "Periodo anterior"
 
-#: app/modules/calendar/templates/index.html:89
+#: app/modules/calendar/templates/index.html:86
 msgid "Next period"
 msgstr "Periodo siguiente"
 
-#: app/modules/calendar/templates/index.html:93
-#: app/modules/calendar/templates/index.html:102
+#: app/modules/calendar/templates/index.html:90
+#: app/modules/calendar/templates/index.html:99
 msgid "Month"
 msgstr "Mes"
 
-#: app/modules/calendar/templates/index.html:94
+#: app/modules/calendar/templates/index.html:91
 msgid "Week"
 msgstr "Semana"
 
-#: app/modules/calendar/templates/index.html:95
-#: app/modules/calendar/templates/index.html:100
+#: app/modules/calendar/templates/index.html:92
+#: app/modules/calendar/templates/index.html:97
 msgid "Day"
 msgstr "Día"
 
+#: app/modules/calendar/templates/index.html:93
 #: app/modules/calendar/templates/index.html:96
-#: app/modules/calendar/templates/index.html:99
 msgid "Schedule"
 msgstr "Programa"
 
-#: app/modules/calendar/templates/index.html:98
+#: app/modules/calendar/templates/index.html:95
 msgid "Calendar view"
 msgstr "Vista del calendario"
 
-#: app/modules/calendar/templates/index.html:101
+#: app/modules/calendar/templates/index.html:98
 msgid "3 days"
 msgstr "3 días"
 
-#: app/modules/calendar/templates/index.html:107
-#: app/modules/calendar/templates/index.html:121
+#: app/modules/calendar/templates/index.html:104
+#: app/modules/calendar/templates/index.html:118
 msgid "New event"
 msgstr "Nuevo evento"
 
-#: app/modules/calendar/templates/index.html:112
+#: app/modules/calendar/templates/index.html:109
 msgid "Sync calendars"
 msgstr "Sincronizar calendarios"
 
-#: app/modules/calendar/templates/index.html:156
-#: app/modules/calendar/templates/index.html:187
+#: app/modules/calendar/templates/index.html:153
+#: app/modules/calendar/templates/index.html:184
 msgid "Add title"
 msgstr "Añadir título"
 
-#: app/modules/calendar/templates/index.html:161
+#: app/modules/calendar/templates/index.html:158
 msgid "More options"
 msgstr "Más opciones"
 
-#: app/modules/calendar/templates/index.html:166
+#: app/modules/calendar/templates/index.html:163
 #: app/modules/docs/templates/docs_editor.html:209
 msgid "Save"
 msgstr "Guardar"
 
-#: app/modules/calendar/templates/index.html:173
+#: app/modules/calendar/templates/index.html:170
 msgid "Event editor"
 msgstr "Editor de eventos"
 
-#: app/modules/calendar/templates/index.html:178
+#: app/modules/calendar/templates/index.html:175
 msgid "New Event"
 msgstr "Nuevo evento"
 
-#: app/modules/calendar/templates/index.html:179
+#: app/modules/calendar/templates/index.html:176
 #: app/modules/chat/templates/chat/index.html:234
 #: app/modules/chat/templates/chat/index.html:283
-#: app/modules/mail/templates/message.html:300
+#: app/modules/mail/templates/message.html:138
 msgid "Close"
 msgstr "Cerrar"
 
-#: app/modules/calendar/templates/index.html:190 app/templates/layout.html:226
+#: app/modules/calendar/templates/index.html:187 app/templates/layout.html:230
 msgid "Calendar"
 msgstr "Calendario"
 
-#: app/modules/calendar/templates/index.html:196
+#: app/modules/calendar/templates/index.html:193
 msgid "All day"
 msgstr "Todo el día"
 
-#: app/modules/calendar/templates/index.html:201
+#: app/modules/calendar/templates/index.html:198
 msgid "Start"
 msgstr "Inicio"
 
-#: app/modules/calendar/templates/index.html:208
+#: app/modules/calendar/templates/index.html:205
 msgid "End"
 msgstr "Fin"
 
-#: app/modules/calendar/templates/index.html:236
+#: app/modules/calendar/templates/index.html:233
 msgid "Repeat"
 msgstr "Repetir"
 
-#: app/modules/calendar/templates/index.html:238
+#: app/modules/calendar/templates/index.html:235
 msgid "Does not repeat"
 msgstr "No se repite"
 
-#: app/modules/calendar/templates/index.html:239
+#: app/modules/calendar/templates/index.html:236
 msgid "Daily"
 msgstr "Cada día"
 
-#: app/modules/calendar/templates/index.html:240
+#: app/modules/calendar/templates/index.html:237
 msgid "Weekly"
 msgstr "Cada semana"
 
-#: app/modules/calendar/templates/index.html:241
+#: app/modules/calendar/templates/index.html:238
 msgid "Biweekly"
 msgstr "Cada dos semanas"
 
-#: app/modules/calendar/templates/index.html:242
+#: app/modules/calendar/templates/index.html:239
 msgid "Monthly"
 msgstr "Cada mes"
 
-#: app/modules/calendar/templates/index.html:243
+#: app/modules/calendar/templates/index.html:240
 msgid "Yearly"
 msgstr "Cada año"
 
-#: app/modules/calendar/templates/index.html:250
+#: app/modules/calendar/templates/index.html:247
 msgid "No notification"
 msgstr "Sin notificación"
 
-#: app/modules/calendar/templates/index.html:253
+#: app/modules/calendar/templates/index.html:250
 msgid "Add notification"
 msgstr "Añadir notificación"
 
-#: app/modules/calendar/templates/index.html:259
+#: app/modules/calendar/templates/index.html:256
 msgid "Status"
 msgstr "Estado"
 
-#: app/modules/calendar/templates/index.html:261
+#: app/modules/calendar/templates/index.html:258
 msgid "Confirmed"
 msgstr "Confirmado"
 
-#: app/modules/calendar/templates/index.html:267
+#: app/modules/calendar/templates/index.html:264
 msgid "Visibility"
 msgstr "Visibilidad"
 
-#: app/modules/calendar/templates/index.html:269
+#: app/modules/calendar/templates/index.html:266
 msgid "Public"
 msgstr "Público"
 
-#: app/modules/calendar/templates/index.html:270
+#: app/modules/calendar/templates/index.html:267
 msgid "Private"
 msgstr "Privado"
 
-#: app/modules/calendar/templates/index.html:271
+#: app/modules/calendar/templates/index.html:268
 msgid "Confidential"
 msgstr "Confidencial"
 
-#: app/modules/calendar/templates/index.html:283
+#: app/modules/calendar/templates/index.html:280
 msgid "Create Event"
 msgstr "Crear evento"
 
-#: app/modules/calendar/templates/index.html:295
+#: app/modules/calendar/templates/index.html:292
 msgid "Email the updated event details to all guests."
 msgstr ""
 "Enviar por correo electrónico los detalles actualizados del evento a "
 "todos los invitados."
 
-#: app/modules/calendar/templates/index.html:306
+#: app/modules/calendar/templates/index.html:303
 msgid "Delete event"
 msgstr "Eliminar evento"
 
-#: app/modules/calendar/templates/index.html:307
+#: app/modules/calendar/templates/index.html:304
 msgid "This event has guests. Notify them by email about the cancellation?"
 msgstr ""
 "Este evento tiene invitados. ¿Avisarles por correo electrónico de la "
 "cancelación?"
 
-#: app/modules/calendar/templates/index.html:311
+#: app/modules/calendar/templates/index.html:308
 msgid "Delete and notify"
 msgstr "Eliminar y avisar"
 
 #: app/modules/calendar/templates/search_events.html:5
-#: app/templates/layout.html:153
+#: app/templates/layout.html:156
 msgid "Search calendar"
 msgstr "Buscar en el calendario"
 
 #: app/modules/calendar/templates/search_events.html:6
 #: app/modules/contacts/templates/list.html:35
-#: app/modules/docs/templates/docs_list.html:348
+#: app/modules/docs/templates/docs_list.html:342
 msgid "Clear search"
 msgstr "Borrar búsqueda"
 
@@ -1060,7 +1056,7 @@ msgstr "Dominio de la cuenta no encontrado"
 msgid "Chat sync failed; retrying."
 msgstr "Error de sincronización del chat; reintentando."
 
-#: app/modules/chat/templates/chat/index.html:20 app/templates/layout.html:232
+#: app/modules/chat/templates/chat/index.html:20 app/templates/layout.html:236
 msgid "Chat"
 msgstr "Chat"
 
@@ -1347,7 +1343,7 @@ msgstr "Puesto"
 msgid "Create Contact"
 msgstr "Crear contacto"
 
-#: app/modules/contacts/templates/list.html:6 app/templates/layout.html:220
+#: app/modules/contacts/templates/list.html:6 app/templates/layout.html:224
 msgid "Contacts"
 msgstr "Contactos"
 
@@ -1379,7 +1375,7 @@ msgstr "Teléfono"
 #: app/modules/contacts/templates/list.html:77
 #: app/modules/docs/templates/docs_editor.html:140
 #: app/modules/docs/templates/docs_list.html:42
-#: app/modules/docs/templates/docs_list.html:426
+#: app/modules/docs/templates/docs_list.html:421
 msgid "Actions"
 msgstr "Acciones"
 
@@ -1394,8 +1390,8 @@ msgid "{count} contacts"
 msgstr "{count} contactos"
 
 #: app/modules/contacts/templates/list.html:108
-#: app/modules/mail/templates/folder.html:253
-#: app/modules/mail/templates/folder.html:256
+#: app/modules/mail/templates/folder.html:245
+#: app/modules/mail/templates/folder.html:248
 msgid "Previous"
 msgstr "Anterior"
 
@@ -1405,8 +1401,8 @@ msgid "Page {page} of {total_pages}"
 msgstr "Página {page} de {total_pages}"
 
 #: app/modules/contacts/templates/list.html:112
-#: app/modules/mail/templates/folder.html:261
-#: app/modules/mail/templates/folder.html:264
+#: app/modules/mail/templates/folder.html:253
+#: app/modules/mail/templates/folder.html:256
 msgid "Next"
 msgstr "Siguiente"
 
@@ -1533,9 +1529,9 @@ msgid "This link has been revoked or does not exist."
 msgstr "Este enlace ha sido revocado o no existe."
 
 #: app/modules/docs/controllers/wopi.py:129
-#: app/modules/docs/templates/docs_list.html:222
-#: app/modules/docs/templates/docs_list.html:309
-#: app/modules/docs/templates/docs_list.html:635
+#: app/modules/docs/templates/docs_list.html:219
+#: app/modules/docs/templates/docs_list.html:303
+#: app/modules/docs/templates/docs_list.html:630
 #: app/modules/docs/templates/docs_share_view.html:6
 #: app/modules/docs/templates/docs_share_view.html:58
 msgid "Document"
@@ -1563,11 +1559,13 @@ msgstr "Cambiar nombre"
 
 #: app/modules/docs/templates/docs_editor.html:147
 #: app/modules/docs/templates/docs_list.html:57
-#: app/modules/docs/templates/docs_list.html:370
+#: app/modules/docs/templates/docs_list.html:364
+#: app/modules/docs/templates/docs_list.html:366
+#: app/modules/mail/templates/_thread_stack.html:159
+#: app/modules/mail/templates/_thread_stack.html:198
 #: app/modules/mail/templates/attachment_view.html:34
 #: app/modules/mail/templates/attachment_view.html:36
-#: app/modules/mail/templates/message.html:258
-#: app/modules/mail/templates/message_preview.html:42
+#: app/modules/mail/templates/message_preview.html:61
 msgid "Download"
 msgstr "Descargar"
 
@@ -1584,8 +1582,8 @@ msgstr "Convertir a documento editable"
 #: app/modules/docs/templates/docs_editor.html:169
 #: app/modules/docs/templates/docs_editor.html:234
 #: app/modules/docs/templates/docs_list.html:74
-#: app/modules/docs/templates/docs_list.html:606
-#: app/modules/mail/templates/settings.html:185
+#: app/modules/docs/templates/docs_list.html:601
+#: app/modules/mail/templates/settings.html:203
 msgid "Share"
 msgstr "Compartir"
 
@@ -1634,31 +1632,31 @@ msgid "Share: {name}"
 msgstr "Compartir: {name}"
 
 #: app/modules/docs/templates/docs_editor.html:226
-#: app/modules/docs/templates/docs_list.html:597
+#: app/modules/docs/templates/docs_list.html:592
 msgid "Enter email addresses (comma-separated)"
 msgstr "Introduce direcciones de correo electrónico (separadas por comas)"
 
 #: app/modules/docs/templates/docs_editor.html:231
-#: app/modules/docs/templates/docs_list.html:232
-#: app/modules/docs/templates/docs_list.html:602
+#: app/modules/docs/templates/docs_list.html:229
+#: app/modules/docs/templates/docs_list.html:597
 #: app/modules/docs/templates/docs_share_view.html:69
 msgid "Can view"
 msgstr "Puede ver"
 
 #: app/modules/docs/templates/docs_editor.html:232
-#: app/modules/docs/templates/docs_list.html:232
-#: app/modules/docs/templates/docs_list.html:603
+#: app/modules/docs/templates/docs_list.html:229
+#: app/modules/docs/templates/docs_list.html:598
 #: app/modules/docs/templates/docs_share_view.html:66
 msgid "Can edit"
 msgstr "Puede editar"
 
 #: app/modules/docs/templates/docs_editor.html:240
-#: app/modules/docs/templates/docs_list.html:613
+#: app/modules/docs/templates/docs_list.html:608
 msgid "People with access"
 msgstr "Personas con acceso"
 
 #: app/modules/docs/templates/docs_editor.html:246
-#: app/modules/docs/templates/docs_list.html:619
+#: app/modules/docs/templates/docs_list.html:614
 msgid "No shares yet."
 msgstr "Aún no hay elementos compartidos."
 
@@ -1681,7 +1679,7 @@ msgid "Add tag"
 msgstr "Añadir etiqueta"
 
 #: app/modules/docs/templates/docs_list.html:85
-#: app/modules/docs/templates/docs_list.html:367
+#: app/modules/docs/templates/docs_list.html:361
 msgid "Move to trash"
 msgstr "Mover a la papelera"
 
@@ -1691,12 +1689,12 @@ msgid "Documents"
 msgstr "Documentos"
 
 #: app/modules/docs/templates/docs_list.html:122
-#: app/modules/docs/templates/docs_list.html:271
+#: app/modules/docs/templates/docs_list.html:265
 msgid "My Documents"
 msgstr "Mis documentos"
 
 #: app/modules/docs/templates/docs_list.html:129
-#: app/modules/docs/templates/docs_list.html:189
+#: app/modules/docs/templates/docs_list.html:186
 msgid "Shared with me"
 msgstr "Compartidos conmigo"
 
@@ -1715,9 +1713,9 @@ msgid "Folder name"
 msgstr "Nombre de la carpeta"
 
 #: app/modules/docs/templates/docs_list.html:149
-#: app/modules/docs/templates/docs_list.html:639
+#: app/modules/docs/templates/docs_list.html:634
 #: app/modules/mail/templates/folder.html:48
-#: app/modules/mail/templates/settings.html:187
+#: app/modules/mail/templates/settings.html:205
 msgid "Add"
 msgstr "Añadir"
 
@@ -1726,7 +1724,7 @@ msgid "No folders yet."
 msgstr "Aún no hay carpetas."
 
 #: app/modules/docs/templates/docs_list.html:162
-#: app/modules/docs/templates/docs_list.html:629
+#: app/modules/docs/templates/docs_list.html:624
 msgid "Tags"
 msgstr "Etiquetas"
 
@@ -1734,116 +1732,111 @@ msgstr "Etiquetas"
 msgid "No tags yet."
 msgstr "Aún no hay etiquetas."
 
-#: app/modules/docs/templates/docs_list.html:186
-#: app/modules/docs/templates/docs_list.html:267
-msgid "Open menu"
-msgstr "Abrir menú"
-
-#: app/modules/docs/templates/docs_list.html:196
+#: app/modules/docs/templates/docs_list.html:193
 msgid "No documents have been shared with you yet."
 msgstr "Todavía no se ha compartido contigo ningún documento."
 
-#: app/modules/docs/templates/docs_list.html:204
+#: app/modules/docs/templates/docs_list.html:201
 msgid "Shared by"
 msgstr "Compartido por"
 
-#: app/modules/docs/templates/docs_list.html:205
+#: app/modules/docs/templates/docs_list.html:202
 msgid "Permission"
 msgstr "Permiso"
 
-#: app/modules/docs/templates/docs_list.html:206
-#: app/modules/docs/templates/docs_list.html:424
+#: app/modules/docs/templates/docs_list.html:203
+#: app/modules/docs/templates/docs_list.html:419
 msgid "Last updated"
 msgstr "Última actualización"
 
-#: app/modules/docs/templates/docs_list.html:252
+#: app/modules/docs/templates/docs_list.html:249
 msgid "Home"
 msgstr "Inicio"
 
-#: app/modules/docs/templates/docs_list.html:260
+#: app/modules/docs/templates/docs_list.html:257
 msgid "Clear tag filter"
 msgstr "Quitar el filtro de etiquetas"
 
-#: app/modules/docs/templates/docs_list.html:271
+#: app/modules/docs/templates/docs_list.html:265
 #: app/templates/_search_panel.html:27
 msgid "Folder"
 msgstr "Carpeta"
 
-#: app/modules/docs/templates/docs_list.html:285
+#: app/modules/docs/templates/docs_list.html:279
 msgid "Upload"
 msgstr "Subir"
 
-#: app/modules/docs/templates/docs_list.html:299
+#: app/modules/docs/templates/docs_list.html:293
 msgid "New"
 msgstr "Nuevo"
 
-#: app/modules/docs/templates/docs_list.html:319
+#: app/modules/docs/templates/docs_list.html:313
 msgid "Spreadsheet"
 msgstr "Hoja de cálculo"
 
-#: app/modules/docs/templates/docs_list.html:329
+#: app/modules/docs/templates/docs_list.html:323
 msgid "Presentation"
 msgstr "Presentación"
 
-#: app/modules/docs/templates/docs_list.html:340
-#: app/modules/mail/templates/folder.html:183 app/templates/layout.html:371
+#: app/modules/docs/templates/docs_list.html:334
+#: app/modules/mail/templates/folder.html:175 app/templates/layout.html:375
 msgid "Undo"
 msgstr "Deshacer"
 
-#: app/modules/docs/templates/docs_list.html:347
+#: app/modules/docs/templates/docs_list.html:341
 msgid "No documents match your search."
 msgstr "Ningún documento coincide con tu búsqueda."
 
-#: app/modules/docs/templates/docs_list.html:353
+#: app/modules/docs/templates/docs_list.html:347
 msgid "No documents yet."
 msgstr "Aún no hay documentos."
 
-#: app/modules/docs/templates/docs_list.html:354
+#: app/modules/docs/templates/docs_list.html:348
 msgid "Create a new document or upload an existing file."
 msgstr "Crea un documento nuevo o sube un archivo existente."
 
-#: app/modules/docs/templates/docs_list.html:374
+#: app/modules/docs/templates/docs_list.html:369
 msgid "Export as PDF"
 msgstr "Exportar como PDF"
 
-#: app/modules/docs/templates/docs_list.html:425
+#: app/modules/docs/templates/docs_list.html:420
 msgid "Size"
 msgstr "Tamaño"
 
-#: app/modules/docs/templates/docs_list.html:479
+#: app/modules/docs/templates/docs_list.html:474
 msgid "Filter by tag"
 msgstr "Filtrar por etiqueta"
 
-#: app/modules/docs/templates/docs_list.html:512
+#: app/modules/docs/templates/docs_list.html:507
 #, python-brace-format
 msgid "Trash ({count})"
 msgstr "Papelera ({count})"
 
-#: app/modules/docs/templates/docs_list.html:527
-#: app/modules/docs/templates/docs_list.html:528
-#: app/modules/docs/templates/docs_list.html:556
+#: app/modules/docs/templates/docs_list.html:522
+#: app/modules/docs/templates/docs_list.html:523
+#: app/modules/docs/templates/docs_list.html:551
 msgid "Restore"
 msgstr "Restaurar"
 
-#: app/modules/docs/templates/docs_list.html:532
-#: app/modules/docs/templates/docs_list.html:533
-#: app/modules/docs/templates/docs_list.html:561
+#: app/modules/docs/templates/docs_list.html:527
+#: app/modules/docs/templates/docs_list.html:528
+#: app/modules/docs/templates/docs_list.html:556
 msgid "Delete permanently"
 msgstr "Eliminar definitivamente"
 
-#: app/modules/docs/templates/docs_list.html:574
+#: app/modules/docs/templates/docs_list.html:569
 msgid "Empty trash"
 msgstr "Vaciar papelera"
 
-#: app/modules/docs/templates/docs_list.html:590
+#: app/modules/docs/templates/docs_list.html:585
 msgid "Share document"
 msgstr "Compartir documento"
 
-#: app/modules/docs/templates/docs_list.html:637
+#: app/modules/docs/templates/docs_list.html:632
 msgid "Add a tag and press Enter"
 msgstr "Añade una etiqueta y pulsa Intro"
 
-#: app/modules/docs/templates/docs_list.html:643
+#: app/modules/docs/templates/docs_list.html:638
 msgid "Suggested"
 msgstr "Sugeridas"
 
@@ -1894,10 +1887,26 @@ msgstr "Debes seleccionar al menos un ámbito."
 msgid "API access is not enabled."
 msgstr "El acceso a la API no está activado."
 
+#: app/modules/mail/controllers/attachment_serving.py:62
+msgid "Attachment unavailable"
+msgstr "Adjunto no disponible"
+
+#: app/modules/mail/controllers/attachment_serving.py:64
+msgid ""
+"This attachment could not be loaded. It may have been moved or deleted, "
+"or the mail server could not be reached."
+msgstr ""
+"No se ha podido cargar este adjunto. Es posible que se haya movido o "
+"eliminado, o que no se pueda acceder al servidor de correo."
+
+#: app/modules/mail/controllers/attachment_serving.py:81
+msgid "No preview available"
+msgstr "Vista previa no disponible"
+
 #: app/modules/mail/controllers/attachments.py:90
 #: app/modules/mail/controllers/attachments.py:175
 #: app/modules/mail/controllers/attachments.py:192
-#: app/modules/mail/controllers/compose.py:548
+#: app/modules/mail/controllers/compose.py:567
 msgid "Session expired."
 msgstr "La sesión ha caducado."
 
@@ -1953,7 +1962,7 @@ msgstr "Demasiados intentos. Inténtalo de nuevo más tarde."
 msgid "Invalid code. Please try again."
 msgstr "Código no válido. Inténtalo de nuevo."
 
-#: app/modules/mail/controllers/compose.py:239
+#: app/modules/mail/controllers/compose.py:243
 msgid ""
 "Attachments are not restored automatically. Re-attach files before "
 "sending."
@@ -1961,45 +1970,45 @@ msgstr ""
 "Los adjuntos no se restauran automáticamente. Vuelve a adjuntar los "
 "archivos antes de enviar."
 
-#: app/modules/mail/controllers/compose.py:327
-#: app/modules/mail/controllers/compose.py:456
-#: app/modules/mail/controllers/compose.py:477
+#: app/modules/mail/controllers/compose.py:341
+#: app/modules/mail/controllers/compose.py:475
+#: app/modules/mail/controllers/compose.py:496
 msgid "Send request not found."
 msgstr "No se ha encontrado la solicitud de envío."
 
-#: app/modules/mail/controllers/compose.py:343
+#: app/modules/mail/controllers/compose.py:357
 msgid "Domain is unavailable."
 msgstr "El dominio no está disponible."
 
-#: app/modules/mail/controllers/compose.py:357
-#: app/modules/mail/controllers/compose.py:626
-#: app/modules/mail/controllers/mailbox.py:76
+#: app/modules/mail/controllers/compose.py:371
+#: app/modules/mail/controllers/compose.py:645
+#: app/modules/mail/controllers/mailbox.py:95
 msgid "Session expired. Please log in again."
 msgstr "La sesión ha caducado. Inicia sesión de nuevo."
 
-#: app/modules/mail/controllers/compose.py:373
-#: app/modules/mail/controllers/compose.py:642
+#: app/modules/mail/controllers/compose.py:387
+#: app/modules/mail/controllers/compose.py:661
 msgid "Total attachment size exceeds the limit. Remove some files and try again."
 msgstr ""
 "El tamaño total de los adjuntos supera el límite. Elimina algunos "
 "archivos e inténtalo de nuevo."
 
-#: app/modules/mail/controllers/compose.py:540
+#: app/modules/mail/controllers/compose.py:559
 msgid "Account not found."
 msgstr "Cuenta no encontrada."
 
-#: app/modules/mail/controllers/compose.py:610
+#: app/modules/mail/controllers/compose.py:629
 msgid "Unable to save draft right now."
 msgstr "No se puede guardar el borrador en este momento."
 
-#: app/modules/mail/controllers/compose.py:705
+#: app/modules/mail/controllers/compose.py:724
 msgid "Unable to save draft right now. Retry, check connection, or refresh."
 msgstr ""
 "No se puede guardar el borrador en este momento. Reintenta, comprueba la "
 "conexión o actualiza la página."
 
-#: app/modules/mail/controllers/helpers.py:161
-#: app/modules/mail/controllers/helpers.py:171
+#: app/modules/mail/controllers/helpers.py:182
+#: app/modules/mail/controllers/helpers.py:192
 msgid ""
 "IMAP is temporarily unavailable. Showing cached data while retrying in "
 "the background."
@@ -2007,16 +2016,24 @@ msgstr ""
 "IMAP no está disponible temporalmente. Se muestran datos de la caché "
 "mientras se reintenta en segundo plano."
 
-#: app/modules/mail/controllers/helpers.py:316
-#: app/modules/mail/controllers/helpers.py:900
-#: app/modules/mail/controllers/helpers.py:1371
-#: app/modules/mail/controllers/search.py:74
-#: app/modules/mail/controllers/search.py:210
-#: app/modules/mail/controllers/search.py:371 app/shared/push.py:169
+#: app/modules/mail/controllers/helpers.py:341
+#: app/modules/mail/controllers/helpers.py:989
+#: app/modules/mail/controllers/helpers.py:1467
+#: app/modules/mail/controllers/search.py:75
+#: app/modules/mail/controllers/search.py:202
+#: app/modules/mail/controllers/search.py:362 app/shared/push.py:169
 msgid "(no subject)"
 msgstr "(sin asunto)"
 
-#: app/modules/mail/controllers/helpers.py:656
+#: app/modules/mail/controllers/helpers.py:467
+#: app/modules/mail/templates/_thread_stack.html:6
+#: app/modules/mail/templates/_thread_stack.html:15
+#: app/modules/mail/templates/_thread_stack.html:22
+#: app/modules/mail/templates/message_list.html:96
+msgid "You"
+msgstr "Tú"
+
+#: app/modules/mail/controllers/helpers.py:707
 msgid ""
 "IMAP rejected this request while finalizing send. Retry or check account "
 "settings."
@@ -2024,31 +2041,31 @@ msgstr ""
 "IMAP rechazó la solicitud al finalizar el envío. Reinténtalo o revisa la "
 "configuración de la cuenta."
 
-#: app/modules/mail/controllers/helpers.py:661
+#: app/modules/mail/controllers/helpers.py:712
 msgid "Mail server authentication failed. Retry or verify account credentials."
 msgstr ""
 "Error de autenticación en el servidor de correo. Reinténtalo o verifica "
 "las credenciales de la cuenta."
 
-#: app/modules/mail/controllers/helpers.py:663
+#: app/modules/mail/controllers/helpers.py:714
 msgid "Connection timed out while sending. Retry, check connection, or refresh."
 msgstr ""
 "Se agotó el tiempo de conexión durante el envío. Reinténtalo, comprueba "
 "la conexión o actualiza la página."
 
-#: app/modules/mail/controllers/helpers.py:665
+#: app/modules/mail/controllers/helpers.py:716
 msgid "Mail server is temporarily unreachable. Retry in a moment."
 msgstr ""
 "El servidor de correo no está disponible temporalmente. Reinténtalo en un"
 " momento."
 
-#: app/modules/mail/controllers/helpers.py:667
+#: app/modules/mail/controllers/helpers.py:718
 msgid "Daily sending limit reached. Contact support to increase your quota."
 msgstr ""
 "Has alcanzado el límite de envío diario. Contacta con soporte para "
 "ampliar tu cuota."
 
-#: app/modules/mail/controllers/helpers.py:670
+#: app/modules/mail/controllers/helpers.py:721
 msgid ""
 "Unable to send this message right now. Retry, check connection, or "
 "refresh."
@@ -2056,114 +2073,111 @@ msgstr ""
 "No se puede enviar este mensaje ahora mismo. Reinténtalo, comprueba la "
 "conexión o actualiza la página."
 
-#: app/modules/mail/controllers/helpers.py:713
+#: app/modules/mail/controllers/helpers.py:764
 msgid "Message failed to send."
 msgstr "El mensaje no se ha podido enviar."
 
-#: app/modules/mail/controllers/helpers.py:794
+#: app/modules/mail/controllers/helpers.py:852
 msgid "Message sent, but saving to Sent failed."
 msgstr "Mensaje enviado, pero no se pudo guardar en Enviados."
 
-#: app/modules/mail/controllers/helpers.py:1110
+#: app/modules/mail/controllers/helpers.py:1200
 msgid "From:"
 msgstr "De:"
 
-#: app/modules/mail/controllers/helpers.py:1112
+#: app/modules/mail/controllers/helpers.py:1202
 msgid "Date:"
 msgstr "Fecha:"
 
-#: app/modules/mail/controllers/helpers.py:1114
+#: app/modules/mail/controllers/helpers.py:1204
 msgid "To:"
 msgstr "Para:"
 
-#: app/modules/mail/controllers/helpers.py:1116
+#: app/modules/mail/controllers/helpers.py:1206
 msgid "Cc:"
 msgstr "Cc:"
 
-#: app/modules/mail/controllers/helpers.py:1120
+#: app/modules/mail/controllers/helpers.py:1210
 #, python-format
 msgid "On %(date)s, %(sender)s wrote:"
 msgstr "El %(date)s, %(sender)s escribió:"
 
-#: app/modules/mail/controllers/helpers.py:1122
+#: app/modules/mail/controllers/helpers.py:1212
 #, python-format
 msgid "%(sender)s wrote:"
 msgstr "%(sender)s escribió:"
 
-#: app/modules/mail/controllers/helpers.py:1124
+#: app/modules/mail/controllers/helpers.py:1214
 msgid "Quoted text"
 msgstr "Texto citado"
 
-#: app/modules/mail/controllers/helpers.py:1146
-#: app/modules/mail/templates/message.html:54
+#: app/modules/mail/controllers/helpers.py:1236
 #: app/modules/mail/templates/print.html:9 app/templates/_search_panel.html:15
 msgid "From"
 msgstr "De"
 
-#: app/modules/mail/controllers/helpers.py:1147
+#: app/modules/mail/controllers/helpers.py:1237
 msgid "Date"
 msgstr "Fecha"
 
-#: app/modules/mail/controllers/helpers.py:1148
+#: app/modules/mail/controllers/helpers.py:1238
 #: app/modules/mail/templates/compose.html:57
 #: app/templates/_search_panel.html:23
 msgid "Subject"
 msgstr "Asunto"
 
-#: app/modules/mail/controllers/helpers.py:1149
+#: app/modules/mail/controllers/helpers.py:1239
 #: app/modules/mail/templates/compose.html:21
-#: app/modules/mail/templates/message.html:54
-#: app/modules/mail/templates/message_list.html:67
+#: app/modules/mail/templates/message_list.html:71
 #: app/modules/mail/templates/print.html:9 app/templates/_search_panel.html:19
 msgid "To"
 msgstr "Para"
 
-#: app/modules/mail/controllers/helpers.py:1150
+#: app/modules/mail/controllers/helpers.py:1240
 #: app/modules/mail/templates/compose.html:37
-#: app/modules/mail/templates/message.html:54
 #: app/modules/mail/templates/print.html:9
 msgid "Cc"
 msgstr "Cc"
 
-#: app/modules/mail/controllers/helpers.py:1165
-#: app/modules/mail/controllers/helpers.py:1168
+#: app/modules/mail/controllers/helpers.py:1255
+#: app/modules/mail/controllers/helpers.py:1258
 msgid "Forwarded message"
 msgstr "Mensaje reenviado"
 
-#: app/modules/mail/controllers/mailbox.py:247
+#: app/modules/mail/controllers/mailbox.py:291
 msgid "Folder name is required."
 msgstr "El nombre de la carpeta es obligatorio."
 
-#: app/modules/mail/controllers/mailbox.py:271
-#: app/modules/mail/controllers/mailbox.py:275
+#: app/modules/mail/controllers/mailbox.py:315
+#: app/modules/mail/controllers/mailbox.py:319
 msgid "Folder could not be created. Retry or check your connection."
 msgstr "No se ha podido crear la carpeta. Reintenta o comprueba tu conexión."
 
-#: app/modules/mail/controllers/mailbox.py:324
+#: app/modules/mail/controllers/mailbox.py:368
 msgid "System folders are always protected and cannot be changed."
 msgstr ""
 "Las carpetas del sistema siempre están protegidas y no se pueden "
 "modificar."
 
-#: app/modules/mail/controllers/mailbox.py:348
+#: app/modules/mail/controllers/mailbox.py:392
 msgid "System folders cannot be renamed."
 msgstr "Las carpetas del sistema no se pueden renombrar."
 
-#: app/modules/mail/controllers/mailbox.py:365
+#: app/modules/mail/controllers/mailbox.py:409
 msgid "Folder could not be renamed. Retry or check your connection."
 msgstr ""
 "No se ha podido cambiar el nombre de la carpeta. Reintenta o comprueba tu"
 " conexión."
 
-#: app/modules/mail/controllers/mailbox.py:389
+#: app/modules/mail/controllers/mailbox.py:433
 msgid "This folder is protected and cannot be deleted."
 msgstr "Esta carpeta está protegida y no se puede eliminar."
 
-#: app/modules/mail/controllers/mailbox.py:409
+#: app/modules/mail/controllers/mailbox.py:453
 msgid "Folder could not be deleted. Retry or check your connection."
 msgstr "No se ha podido eliminar la carpeta. Reintenta o comprueba tu conexión."
 
-#: app/modules/mail/controllers/message.py:280
+#: app/modules/mail/controllers/message.py:357
 msgid ""
 "Server doesn't support message lock flags, the option is disabled in your"
 " account"
@@ -2171,93 +2185,93 @@ msgstr ""
 "El servidor no admite marcas de bloqueo de mensajes; la opción está "
 "desactivada en tu cuenta"
 
-#: app/modules/mail/controllers/message.py:307
+#: app/modules/mail/controllers/message.py:384
 msgid "Destination folder is required."
 msgstr "La carpeta de destino es obligatoria."
 
-#: app/modules/mail/controllers/message.py:316
+#: app/modules/mail/controllers/message.py:393
 msgid "Message not found."
 msgstr "Mensaje no encontrado."
 
-#: app/modules/mail/controllers/message.py:322
+#: app/modules/mail/controllers/message.py:399
 msgid "Message is already in that folder."
 msgstr "El mensaje ya está en esa carpeta."
 
-#: app/modules/mail/controllers/message.py:387
+#: app/modules/mail/controllers/message.py:487
 msgid "Message deleted"
 msgstr "Mensaje eliminado"
 
-#: app/modules/mail/controllers/message.py:390
+#: app/modules/mail/controllers/message.py:490
 msgid "View Trash"
 msgstr "Ver la papelera"
 
-#: app/modules/mail/controllers/message.py:396
-#: app/modules/mail/controllers/message.py:441
-#: app/modules/mail/controllers/message.py:518
-#: app/modules/mail/controllers/message.py:565
-#: app/modules/mail/controllers/message.py:723
+#: app/modules/mail/controllers/message.py:496
+#: app/modules/mail/controllers/message.py:541
+#: app/modules/mail/controllers/message.py:644
+#: app/modules/mail/controllers/message.py:691
+#: app/modules/mail/controllers/message.py:866
 msgid "Undo unavailable for this message."
 msgstr "No se puede deshacer para este mensaje."
 
-#: app/modules/mail/controllers/message.py:432
+#: app/modules/mail/controllers/message.py:532
 msgid "Message archived"
 msgstr "Mensaje archivado"
 
-#: app/modules/mail/controllers/message.py:435
+#: app/modules/mail/controllers/message.py:535
 msgid "View Archived"
 msgstr "Ver archivados"
 
-#: app/modules/mail/controllers/message.py:459
+#: app/modules/mail/controllers/message.py:559
 msgid "Spam action is disabled in your settings."
 msgstr "La acción de spam está desactivada en tus ajustes."
 
-#: app/modules/mail/controllers/message.py:481
+#: app/modules/mail/controllers/message.py:587
 msgid "No Spam/Junk folder available on this server. The Spam action is disabled."
 msgstr ""
 "No hay ninguna carpeta de Spam disponible en este servidor. La acción de "
 "spam está desactivada."
 
-#: app/modules/mail/controllers/message.py:492
+#: app/modules/mail/controllers/message.py:603
 msgid "Server doesn't support Spam flags, the option is disabled in your account"
 msgstr ""
 "El servidor no admite marcas de spam; la opción está desactivada en tu "
 "cuenta"
 
-#: app/modules/mail/controllers/message.py:549
+#: app/modules/mail/controllers/message.py:619
 msgid "Spam action failed. Please try again."
 msgstr "La acción de spam falló. Inténtalo de nuevo."
 
-#: app/modules/mail/templates/settings.html:145
-msgid ""
-"Temporarily off: the server reported no Spam/Junk folder or rejected spam "
-"flags. It turns back on automatically when the server can accept it again."
-msgstr ""
-"Desactivado temporalmente: el servidor informó de que no hay carpeta de "
-"Spam o rechazó las marcas de spam. Se reactivará automáticamente cuando el "
-"servidor pueda aceptarlo de nuevo."
-
-#: app/modules/mail/controllers/message.py:503
+#: app/modules/mail/controllers/message.py:629
 #, python-format
 msgid "View %(destination)s"
 msgstr "Ver %(destination)s"
 
-#: app/modules/mail/controllers/message.py:509
+#: app/modules/mail/controllers/message.py:635
 msgid "Reported as spam"
 msgstr "Informado como spam"
 
-#: app/modules/mail/controllers/message.py:552
+#: app/modules/mail/controllers/message.py:678
 msgid "Marked as not spam"
 msgstr "Marcado como no spam"
 
-#: app/modules/mail/controllers/message.py:559
+#: app/modules/mail/controllers/message.py:685
 msgid "View Inbox"
 msgstr "Ver Recibidos"
 
-#: app/modules/mail/controllers/message.py:712
+#: app/modules/mail/controllers/message.py:821
+#: app/modules/mail/controllers/message.py:829
+msgid "This file type can't be previewed."
+msgstr "Este tipo de archivo no se puede previsualizar."
+
+#: app/modules/mail/controllers/message.py:832
+msgid "The preview could not be generated."
+msgstr "No se ha podido generar la vista previa."
+
+#: app/modules/mail/controllers/message.py:855
 msgid "Undo period expired."
 msgstr "El plazo para deshacer ha expirado."
 
-#: app/modules/mail/controllers/message.py:745
+#: app/modules/mail/controllers/message.py:888
 msgid "Undo failed; message not found."
 msgstr "No se pudo deshacer; no se encontró el mensaje."
 
@@ -2319,83 +2333,83 @@ msgstr ""
 "No se ha podido entregar la notificación de prueba. Comprueba la "
 "configuración push del servidor (ajustes PUSH_VAPID_*) y reintenta."
 
-#: app/modules/mail/controllers/search.py:270
+#: app/modules/mail/controllers/search.py:262
 msgid "Invalid action."
 msgstr "Acción no válida."
 
-#: app/modules/mail/controllers/search.py:272
+#: app/modules/mail/controllers/search.py:264
 msgid "Choose a destination folder."
 msgstr "Elige una carpeta de destino."
 
-#: app/modules/mail/controllers/search.py:274
+#: app/modules/mail/controllers/search.py:266
 msgid "Enter a search query first."
 msgstr "Escribe primero una búsqueda."
 
-#: app/modules/mail/controllers/settings.py:30
+#: app/modules/mail/controllers/settings.py:44
 msgid "Every 30 seconds"
 msgstr "Cada 30 segundos"
 
-#: app/modules/mail/controllers/settings.py:31
+#: app/modules/mail/controllers/settings.py:45
 msgid "Every minute"
 msgstr "Cada minuto"
 
-#: app/modules/mail/controllers/settings.py:32
+#: app/modules/mail/controllers/settings.py:46
 msgid "Every 2 minutes"
 msgstr "Cada 2 minutos"
 
-#: app/modules/mail/controllers/settings.py:33
+#: app/modules/mail/controllers/settings.py:47
 msgid "Every 5 minutes"
 msgstr "Cada 5 minutos"
 
-#: app/modules/mail/controllers/settings.py:34
+#: app/modules/mail/controllers/settings.py:48
 msgid "Every 10 minutes"
 msgstr "Cada 10 minutos"
 
-#: app/modules/mail/controllers/settings.py:35
+#: app/modules/mail/controllers/settings.py:49
 msgid "Every 30 minutes"
 msgstr "Cada 30 minutos"
 
-#: app/modules/mail/controllers/settings.py:101
+#: app/modules/mail/controllers/settings.py:151
 msgid "A setting key is required."
 msgstr "Se requiere una clave de ajuste."
 
-#: app/modules/mail/controllers/settings.py:108
-#: app/modules/mail/controllers/settings.py:114
-#: app/modules/mail/controllers/settings.py:118
+#: app/modules/mail/controllers/settings.py:158
+#: app/modules/mail/controllers/settings.py:164
+#: app/modules/mail/controllers/settings.py:168
 msgid "Sync frequency must be one of the preset values."
 msgstr "La frecuencia de sincronización debe ser uno de los valores predefinidos."
 
-#: app/modules/mail/controllers/settings.py:124
+#: app/modules/mail/controllers/settings.py:174
 msgid "Sort order must be newest-first or oldest-first."
 msgstr ""
 "El criterio de ordenación debe ser los más recientes primero o los más "
 "antiguos primero."
 
-#: app/modules/mail/controllers/settings.py:130
+#: app/modules/mail/controllers/settings.py:180
 msgid "Unknown timezone."
 msgstr "Zona horaria desconocida."
 
-#: app/modules/mail/controllers/settings.py:135
+#: app/modules/mail/controllers/settings.py:185
 msgid "Language must be auto, English, or Spanish."
 msgstr "El idioma debe ser auto, inglés o español."
 
-#: app/modules/mail/controllers/settings.py:139
+#: app/modules/mail/controllers/settings.py:189
 msgid "Theme must be light or dark."
 msgstr "El tema debe ser claro u oscuro."
 
-#: app/modules/mail/controllers/settings.py:142
+#: app/modules/mail/controllers/settings.py:194
 msgid "Text size must be default, large, or larger."
 msgstr "El tamaño del texto debe ser predeterminado, grande o más grande."
 
-#: app/modules/mail/controllers/settings.py:146
+#: app/modules/mail/controllers/settings.py:202
 msgid "No such active account."
 msgstr "No existe esa cuenta activa."
 
-#: app/modules/mail/controllers/settings.py:150
+#: app/modules/mail/controllers/settings.py:206
 msgid "Unknown setting."
 msgstr "Ajuste desconocido."
 
-#: app/modules/mail/controllers/settings.py:182
+#: app/modules/mail/controllers/settings.py:238
 msgid ""
 "Cache cleared, but background sync is unavailable. Re-open a folder to "
 "re-sync."
@@ -2403,24 +2417,24 @@ msgstr ""
 "Caché borrada, pero la sincronización en segundo plano no está "
 "disponible. Vuelve a abrir una carpeta para volver a sincronizar."
 
-#: app/modules/mail/controllers/tags.py:77
+#: app/modules/mail/controllers/tags.py:87
 #, python-format
 msgid "Tag %(tag_id)d"
 msgstr "Etiqueta %(tag_id)d"
 
 #: app/modules/mail/templates/_bulk_toolbar.html:4
-#: app/modules/mail/templates/_row_common.html:51
-#: app/modules/mail/templates/message.html:95
-#: app/modules/mail/templates/message_list.html:141
+#: app/modules/mail/templates/_row_common.html:47
+#: app/modules/mail/templates/message.html:103
+#: app/modules/mail/templates/message_list.html:145
 #: app/modules/mail/templates/search.html:67
 #: app/modules/mail/templates/search_full.html:40
 msgid "Mark as read"
 msgstr "Marcar como leído"
 
 #: app/modules/mail/templates/_bulk_toolbar.html:5
-#: app/modules/mail/templates/_row_common.html:51
-#: app/modules/mail/templates/message.html:95
-#: app/modules/mail/templates/message_list.html:141
+#: app/modules/mail/templates/_row_common.html:47
+#: app/modules/mail/templates/message.html:103
+#: app/modules/mail/templates/message_list.html:145
 #: app/modules/mail/templates/search.html:67
 #: app/modules/mail/templates/search_full.html:40
 msgid "Mark as unread"
@@ -2429,14 +2443,15 @@ msgstr "Marcar como no leído"
 #: app/modules/mail/templates/_bulk_toolbar.html:6
 #: app/modules/mail/templates/_row_common.html:16
 #: app/modules/mail/templates/message.html:31
+#: app/modules/mail/templates/message.html:80
 msgid "Star"
 msgstr "Destacar"
 
 #: app/modules/mail/templates/_bulk_toolbar.html:8
 #: app/modules/mail/templates/_bulk_toolbar.html:9
-#: app/modules/mail/templates/message.html:97
-#: app/modules/mail/templates/message.html:299
-#: app/modules/mail/templates/message_list.html:158
+#: app/modules/mail/templates/message.html:105
+#: app/modules/mail/templates/message.html:137
+#: app/modules/mail/templates/message_list.html:162
 #: app/modules/mail/templates/search.html:69
 msgid "Move to folder"
 msgstr "Mover a carpeta"
@@ -2464,41 +2479,149 @@ msgstr "Seleccionar las {n} conversaciones que coinciden con esta búsqueda"
 
 #: app/modules/mail/templates/_row_common.html:16
 #: app/modules/mail/templates/message.html:31
+#: app/modules/mail/templates/message.html:80
 msgid "Unstar"
 msgstr "Quitar destacado"
 
-#: app/modules/mail/templates/_row_common.html:30
-#: app/modules/mail/templates/_row_common.html:32
-#: app/modules/mail/templates/_row_common.html:38
-#: app/modules/mail/templates/_row_common.html:40
+#: app/modules/mail/templates/_row_common.html:34
+#: app/modules/mail/templates/_row_common.html:36
 #: app/modules/mail/templates/mailbox.html:33
-#: app/modules/mail/templates/message.html:72
-#: app/modules/mail/templates/message.html:84
-#: app/modules/mail/templates/message_list.html:131
+#: app/modules/mail/templates/message.html:70
+#: app/modules/mail/templates/message.html:92
+#: app/modules/mail/templates/message_list.html:135
 #: app/modules/mail/templates/search.html:57
 #: app/modules/mail/templates/search_full.html:30
 msgid "Archive"
 msgstr "Archivados"
 
-#: app/modules/mail/templates/_row_common.html:53
+#: app/modules/mail/templates/_row_common.html:49
 msgid "Mark read"
 msgstr "Marcar leído"
 
-#: app/modules/mail/templates/_row_common.html:53
+#: app/modules/mail/templates/_row_common.html:49
 msgid "Mark unread"
 msgstr "Marcar no leído"
 
-#: app/modules/mail/templates/_row_common.html:57
-#: app/modules/mail/templates/message.html:78
-#: app/modules/mail/templates/message_list.html:137
+#: app/modules/mail/templates/_row_common.html:54
+#: app/modules/mail/templates/message.html:76
+#: app/modules/mail/templates/message_list.html:141
 #: app/modules/mail/templates/search.html:63
 #: app/modules/mail/templates/search_full.html:36
 msgid "More actions"
 msgstr "Más acciones"
 
-#: app/modules/mail/templates/_row_common.html:59
+#: app/modules/mail/templates/_row_common.html:56
 msgid "More"
 msgstr "Más"
+
+#: app/modules/mail/templates/_thread_stack.html:11
+#: app/modules/mail/templates/_thread_stack.html:83
+#: app/modules/mail/templates/message_list.html:51
+msgid "Delivery failed"
+msgstr "Error de entrega"
+
+#: app/modules/mail/templates/_thread_stack.html:14
+#: app/modules/mail/templates/message.html:11
+#: app/modules/mail/templates/message_list.html:76
+msgid "Draft"
+msgstr "Borrador"
+
+#: app/modules/mail/templates/_thread_stack.html:18
+#: app/modules/mail/templates/_thread_stack.html:22
+#: app/modules/mail/templates/_thread_stack.html:26
+#: app/modules/mail/templates/_thread_stack.html:30
+msgid "Click to copy"
+msgstr "Haz clic para copiar"
+
+#: app/modules/mail/templates/_thread_stack.html:20
+#: app/modules/mail/templates/_thread_stack.html:28
+#: app/modules/mail/templates/_thread_stack.html:38
+msgid "cc"
+msgstr "cc"
+
+#: app/modules/mail/templates/_thread_stack.html:36
+#: app/modules/mail/templates/message_preview.html:22
+#: app/modules/mail/templates/message_preview.html:24
+msgid "Unsubscribe"
+msgstr "Cancelar suscripción"
+
+#: app/modules/mail/templates/_thread_stack.html:38
+msgid "to"
+msgstr "para"
+
+#: app/modules/mail/templates/_thread_stack.html:59
+#: app/modules/mail/templates/_thread_stack.html:68
+#: app/modules/mail/templates/message.html:17
+#: app/modules/mail/templates/message.html:61
+msgid "Discard"
+msgstr "Descartar"
+
+#: app/modules/mail/templates/_thread_stack.html:91
+#: app/modules/mail/templates/message_preview.html:4
+msgid "External images blocked."
+msgstr "Imágenes externas bloqueadas."
+
+#: app/modules/mail/templates/_thread_stack.html:91
+#: app/modules/mail/templates/message_preview.html:9
+msgid "Show external images"
+msgstr "Mostrar imágenes externas"
+
+#: app/modules/mail/templates/_thread_stack.html:111
+msgid "Organizer:"
+msgstr "Organizador:"
+
+#: app/modules/mail/templates/_thread_stack.html:114
+#, python-brace-format
+msgid "{n} attendee(s):"
+msgstr "{n} asistente(s):"
+
+#: app/modules/mail/templates/_thread_stack.html:119
+msgid "Loading calendars..."
+msgstr "Cargando calendarios..."
+
+#: app/modules/mail/templates/_thread_stack.html:122
+msgid "Loading..."
+msgstr "Cargando..."
+
+#: app/modules/mail/templates/_thread_stack.html:131
+msgid "Fit width"
+msgstr "Ajustar al ancho"
+
+#: app/modules/mail/templates/_thread_stack.html:131
+msgid "Actual size"
+msgstr "Tamaño real"
+
+#: app/modules/mail/templates/_thread_stack.html:136
+#: app/modules/mail/templates/_thread_stack.html:174
+#: app/modules/mail/templates/compose.html:78
+#: app/modules/mail/templates/mailbox.html:23
+#: app/modules/mail/templates/message_preview.html:39
+msgid "Attachments"
+msgstr "Adjuntos"
+
+#: app/modules/mail/templates/_thread_stack.html:148
+#: app/modules/mail/templates/_thread_stack.html:187
+#: app/modules/mail/templates/message_preview.html:51
+msgid "Preview attachment"
+msgstr "Previsualizar adjunto"
+
+#: app/modules/mail/templates/_thread_stack.html:155
+#: app/modules/mail/templates/_thread_stack.html:194
+#: app/modules/mail/templates/message_preview.html:57
+msgid "View"
+msgstr "Ver"
+
+#: app/modules/mail/templates/_thread_stack.html:163
+#: app/modules/mail/templates/_thread_stack.html:202
+#: app/modules/mail/templates/attachment_view.html:38
+#: app/modules/mail/templates/attachment_view.html:42
+#: app/modules/mail/templates/message_preview.html:65
+msgid "Open in Docs"
+msgstr "Abrir en Docs"
+
+#: app/modules/mail/templates/_thread_stack.html:214
+msgid "View full message"
+msgstr "Ver el mensaje completo"
 
 #: app/modules/mail/templates/api_settings.html:5
 msgid "API Access"
@@ -2612,20 +2735,22 @@ msgstr ""
 "Esto revocará todos los tokens y borrará todos los datos en caché. "
 "Tendrás que iniciar sesión de nuevo."
 
+#: app/modules/mail/templates/attachment_error.html:6
 #: app/modules/mail/templates/attachment_view.html:6
 msgid "Attachment View"
 msgstr "Vista de adjuntos"
 
-#: app/modules/mail/templates/attachment_view.html:38
-#: app/modules/mail/templates/attachment_view.html:42
-#: app/modules/mail/templates/message.html:262
-#: app/modules/mail/templates/message_preview.html:46
-msgid "Open in Docs"
-msgstr "Abrir en Docs"
+#: app/modules/mail/templates/attachment_error.html:29
+msgid "Download file"
+msgstr "Descargar archivo"
+
+#: app/modules/mail/templates/attachment_error.html:30
+msgid "Go back"
+msgstr "Volver"
 
 #: app/modules/mail/templates/compose.html:4
 #: app/modules/mail/templates/folder.html:23
-#: app/modules/mail/templates/folder.html:281
+#: app/modules/mail/templates/folder.html:273
 #: app/modules/mail/templates/mailbox.html:15
 #: app/modules/mail/templates/mailbox.html:39
 msgid "Compose"
@@ -2669,14 +2794,6 @@ msgstr "Enlace"
 #: app/modules/mail/templates/compose.html:71
 msgid "Clear"
 msgstr "Borrar"
-
-#: app/modules/mail/templates/compose.html:78
-#: app/modules/mail/templates/mailbox.html:23
-#: app/modules/mail/templates/message.html:245
-#: app/modules/mail/templates/message.html:273
-#: app/modules/mail/templates/message_preview.html:29
-msgid "Attachments"
-msgstr "Adjuntos"
 
 #: app/modules/mail/templates/compose.html:85
 msgid "Request read receipt"
@@ -2743,55 +2860,51 @@ msgstr "No leído"
 msgid "Starred"
 msgstr "Destacados"
 
-#: app/modules/mail/templates/folder.html:145
-msgid "Open folders"
-msgstr "Abrir carpetas"
-
-#: app/modules/mail/templates/folder.html:150
+#: app/modules/mail/templates/folder.html:147
 #, python-brace-format
 msgid "{count} conversation ({total} email)"
 msgstr "{count} conversación ({total} correo)"
 
-#: app/modules/mail/templates/folder.html:150
+#: app/modules/mail/templates/folder.html:147
 #, python-brace-format
 msgid "{count} conversation ({total} emails)"
 msgstr "{count} conversación ({total} correos)"
 
-#: app/modules/mail/templates/folder.html:150
+#: app/modules/mail/templates/folder.html:147
 #, python-brace-format
 msgid "{count} conversations ({total} email)"
 msgstr "{count} conversaciones ({total} correo)"
 
-#: app/modules/mail/templates/folder.html:150
+#: app/modules/mail/templates/folder.html:147
 #, python-brace-format
 msgid "{count} conversations ({total} emails)"
 msgstr "{count} conversaciones ({total} correos)"
 
-#: app/modules/mail/templates/folder.html:150
+#: app/modules/mail/templates/folder.html:147
 msgid "conversations"
 msgstr "conversaciones"
 
-#: app/modules/mail/templates/folder.html:155
+#: app/modules/mail/templates/folder.html:152
 msgid "Select all messages on this page"
 msgstr "Seleccionar todos los mensajes de esta página"
 
-#: app/modules/mail/templates/folder.html:156
+#: app/modules/mail/templates/folder.html:153
 msgid "Select"
 msgstr "Seleccionar"
 
-#: app/modules/mail/templates/folder.html:158
+#: app/modules/mail/templates/folder.html:155
 msgid "Preview"
 msgstr "Vista previa"
 
-#: app/modules/mail/templates/folder.html:177
+#: app/modules/mail/templates/folder.html:169
 msgid "Undo available for"
 msgstr "Deshacer disponible durante"
 
-#: app/modules/mail/templates/folder.html:180
+#: app/modules/mail/templates/folder.html:172
 msgid "View folder"
 msgstr "Ver carpeta"
 
-#: app/modules/mail/templates/folder.html:193
+#: app/modules/mail/templates/folder.html:185
 msgid ""
 "Next step: keep using cached messages; background sync will retry with "
 "backoff automatically."
@@ -2799,26 +2912,26 @@ msgstr ""
 "Siguiente paso: sigue usando los mensajes de la caché; la sincronización "
 "en segundo plano reintentará automáticamente de forma progresiva."
 
-#: app/modules/mail/templates/folder.html:199
+#: app/modules/mail/templates/folder.html:191
 msgid "Next step: retry send now, or open draft to edit and send again."
 msgstr ""
 "Siguiente paso: reintenta el envío ahora o abre el borrador para editarlo"
 " y enviarlo de nuevo."
 
-#: app/modules/mail/templates/folder.html:204
+#: app/modules/mail/templates/folder.html:196
 msgid "Retry send"
 msgstr "Reintentar el envío"
 
-#: app/modules/mail/templates/folder.html:206
+#: app/modules/mail/templates/folder.html:198
 msgid "Open draft"
 msgstr "Abrir borrador"
 
-#: app/modules/mail/templates/folder.html:247
+#: app/modules/mail/templates/folder.html:239
 #, python-brace-format
 msgid "Page {current} of {total}"
 msgstr "Página {current} de {total}"
 
-#: app/modules/mail/templates/folder.html:272
+#: app/modules/mail/templates/folder.html:264
 msgid "Select a message to preview."
 msgstr "Selecciona un mensaje para previsualizarlo."
 
@@ -2874,34 +2987,22 @@ msgstr "Aún no hay cuentas configuradas."
 msgid "Redirecting to Inbox…"
 msgstr "Redirigiendo a Recibidos…"
 
-#: app/modules/mail/templates/message.html:11
-#: app/modules/mail/templates/message.html:130
-#: app/modules/mail/templates/message_list.html:72
-msgid "Draft"
-msgstr "Borrador"
-
 #: app/modules/mail/templates/message.html:13
 msgid "This message has not been sent yet."
 msgstr "Este mensaje todavía no se ha enviado."
 
 #: app/modules/mail/templates/message.html:15
-#: app/modules/mail/templates/message.html:61
+#: app/modules/mail/templates/message.html:59
 msgid "Edit draft"
 msgstr "Editar borrador"
-
-#: app/modules/mail/templates/message.html:17
-#: app/modules/mail/templates/message.html:63
-#: app/modules/mail/templates/message.html:171
-#: app/modules/mail/templates/message.html:180
-msgid "Discard"
-msgstr "Descartar"
 
 #: app/modules/mail/templates/message.html:25
 msgid "Back to"
 msgstr "Volver a"
 
 #: app/modules/mail/templates/message.html:40
-#: app/modules/mail/templates/message_list.html:155
+#: app/modules/mail/templates/message.html:85
+#: app/modules/mail/templates/message_list.html:159
 msgid "Unlock"
 msgstr "Desbloquear"
 
@@ -2914,124 +3015,55 @@ msgstr "Bloquear (proteger contra la eliminación)"
 msgid "{n} messages in this conversation"
 msgstr "{n} mensajes en esta conversación"
 
-#: app/modules/mail/templates/message.html:66
+#: app/modules/mail/templates/message.html:64
 msgid "Reply"
 msgstr "Responder"
 
-#: app/modules/mail/templates/message.html:67
+#: app/modules/mail/templates/message.html:65
 msgid "Reply All"
 msgstr "Responder a todos"
 
-#: app/modules/mail/templates/message.html:68
+#: app/modules/mail/templates/message.html:66
 msgid "Forward"
 msgstr "Reenviar"
 
-#: app/modules/mail/templates/message.html:81
+#: app/modules/mail/templates/message.html:85
+#: app/modules/mail/templates/message_list.html:159
+msgid "Lock"
+msgstr "Bloquear"
+
+#: app/modules/mail/templates/message.html:89
 msgid "Reply all"
 msgstr "Responder a todos"
 
-#: app/modules/mail/templates/message.html:91
+#: app/modules/mail/templates/message.html:99
 msgid "Create event"
 msgstr "Crear evento"
 
-#: app/modules/mail/templates/message.html:100
-#: app/modules/mail/templates/message_list.html:145
+#: app/modules/mail/templates/message.html:108
+#: app/modules/mail/templates/message_list.html:149
 msgid "Not spam"
 msgstr "No es spam"
 
-#: app/modules/mail/templates/message.html:104
-#: app/modules/mail/templates/message_list.html:149
+#: app/modules/mail/templates/message.html:112
+#: app/modules/mail/templates/message_list.html:153
 msgid "Report spam"
 msgstr "Informar de spam"
 
-#: app/modules/mail/templates/message.html:108
+#: app/modules/mail/templates/message.html:116
 msgid "Download .eml"
 msgstr "Descargar .eml"
 
-#: app/modules/mail/templates/message.html:109
+#: app/modules/mail/templates/message.html:117
 #: app/modules/mail/templates/print.html:5
 msgid "Print"
 msgstr "Imprimir"
 
-#: app/modules/mail/templates/message.html:122
-#: app/modules/mail/templates/message.html:131
-#: app/modules/mail/templates/message.html:138
-#: app/modules/mail/templates/message_list.html:92
-msgid "You"
-msgstr "Tú"
-
-#: app/modules/mail/templates/message.html:127
-#: app/modules/mail/templates/message.html:195
-#: app/modules/mail/templates/message_list.html:47
-msgid "Delivery failed"
-msgstr "Error de entrega"
-
-#: app/modules/mail/templates/message.html:134
-#: app/modules/mail/templates/message.html:138
-#: app/modules/mail/templates/message.html:142
-#: app/modules/mail/templates/message.html:146
-msgid "Click to copy"
-msgstr "Haz clic para copiar"
-
-#: app/modules/mail/templates/message.html:136
-#: app/modules/mail/templates/message.html:144
-#: app/modules/mail/templates/message.html:150
-msgid "cc"
-msgstr "cc"
-
-#: app/modules/mail/templates/message.html:150
-msgid "to"
-msgstr "para"
-
-#: app/modules/mail/templates/message.html:203
-#: app/modules/mail/templates/message_preview.html:4
-msgid "External images blocked."
-msgstr "Imágenes externas bloqueadas."
-
-#: app/modules/mail/templates/message.html:203
-#: app/modules/mail/templates/message_preview.html:9
-msgid "Show external images"
-msgstr "Mostrar imágenes externas"
-
-#: app/modules/mail/templates/message.html:223
-msgid "Organizer:"
-msgstr "Organizador:"
-
-#: app/modules/mail/templates/message.html:226
-#, python-brace-format
-msgid "{n} attendee(s):"
-msgstr "{n} asistente(s):"
-
-#: app/modules/mail/templates/message.html:231
-msgid "Loading calendars..."
-msgstr "Cargando calendarios..."
-
-#: app/modules/mail/templates/message.html:234
-msgid "Loading..."
-msgstr "Cargando..."
-
-#: app/modules/mail/templates/message.html:254
-#: app/modules/mail/templates/message_preview.html:38
-msgid "View"
-msgstr "Ver"
-
-#: app/modules/mail/templates/message.html:283
-msgid "View full message"
-msgstr "Ver el mensaje completo"
-
-#: app/modules/mail/templates/message.html:242
-msgid "Fit width"
-msgstr "Ajustar al ancho"
-
-#: app/modules/mail/templates/message.html:242
-msgid "Actual size"
-msgstr "Tamaño real"
-
-#: app/modules/mail/templates/message.html:302
+#: app/modules/mail/templates/message.html:140
 msgid "Filter folders..."
 msgstr "Filtrar carpetas..."
 
-#: app/modules/mail/templates/message.html:309
+#: app/modules/mail/templates/message.html:147
 msgid "No other folders available"
 msgstr "No hay otras carpetas disponibles"
 
@@ -3052,34 +3084,30 @@ msgstr "quitar el destacado"
 msgid "unstar and unlock"
 msgstr "quitar el destacado y desbloquearlo"
 
-#: app/modules/mail/templates/message_list.html:36
-#: app/modules/mail/templates/message_list.html:61
-#: app/modules/mail/templates/message_list.html:86
-#: app/modules/mail/templates/message_list.html:111
+#: app/modules/mail/templates/message_list.html:40
+#: app/modules/mail/templates/message_list.html:65
+#: app/modules/mail/templates/message_list.html:90
+#: app/modules/mail/templates/message_list.html:115
 #: app/modules/mail/templates/search.html:38
 msgid "Select message"
 msgstr "Seleccionar mensaje"
 
-#: app/modules/mail/templates/message_list.html:155
-msgid "Lock"
-msgstr "Bloquear"
-
-#: app/modules/mail/templates/message_list.html:190
+#: app/modules/mail/templates/message_list.html:200
 #, python-brace-format
 msgid "{n} older message"
 msgstr "{n} mensaje anterior"
 
-#: app/modules/mail/templates/message_list.html:190
+#: app/modules/mail/templates/message_list.html:200
 #, python-brace-format
 msgid "{n} older messages"
 msgstr "{n} mensajes anteriores"
 
-#: app/modules/mail/templates/message_list.html:199
+#: app/modules/mail/templates/message_list.html:209
 #, python-brace-format
 msgid "{n} more in thread"
 msgstr "{n} más en la conversación"
 
-#: app/modules/mail/templates/message_list.html:199
+#: app/modules/mail/templates/message_list.html:209
 msgid "open all"
 msgstr "abrir todos"
 
@@ -3091,7 +3119,7 @@ msgstr "Depuración del extracto (dev)"
 msgid "Selected snippet:"
 msgstr "Extracto seleccionado:"
 
-#: app/modules/mail/templates/search.html:6 app/templates/layout.html:137
+#: app/modules/mail/templates/search.html:6 app/templates/layout.html:140
 msgid "Search mail"
 msgstr "Buscar en el correo"
 
@@ -3118,7 +3146,7 @@ msgstr "Resultados completos de la búsqueda \"{query}\""
 msgid "Redirecting to inbox…"
 msgstr "Redirigiendo a Recibidos…"
 
-#: app/modules/mail/templates/settings.html:4 app/templates/layout.html:256
+#: app/modules/mail/templates/settings.html:4 app/templates/layout.html:260
 msgid "Settings"
 msgstr "Ajustes"
 
@@ -3132,23 +3160,23 @@ msgid "General"
 msgstr "General"
 
 #: app/modules/mail/templates/settings.html:8
-#: app/modules/mail/templates/settings.html:70 app/templates/layout.html:214
+#: app/modules/mail/templates/settings.html:84 app/templates/layout.html:218
 msgid "Mail"
 msgstr "Correo"
 
 #: app/modules/mail/templates/settings.html:9
-#: app/modules/mail/templates/settings.html:117
+#: app/modules/mail/templates/settings.html:131
 msgid "Protection"
 msgstr "Protección"
 
 #: app/modules/mail/templates/settings.html:11
-#: app/modules/mail/templates/settings.html:252
+#: app/modules/mail/templates/settings.html:270
 #: app/modules/mail/templates/twofa_settings.html:4
 msgid "Security"
 msgstr "Seguridad"
 
 #: app/modules/mail/templates/settings.html:11
-#: app/modules/mail/templates/settings.html:252
+#: app/modules/mail/templates/settings.html:270
 msgid "API"
 msgstr "API"
 
@@ -3212,47 +3240,47 @@ msgstr "Grande"
 msgid "Larger"
 msgstr "Más grande"
 
-#: app/modules/mail/templates/settings.html:71
+#: app/modules/mail/templates/settings.html:85
 msgid "How your mailbox behaves."
 msgstr "Comportamiento de tu buzón."
 
-#: app/modules/mail/templates/settings.html:76
+#: app/modules/mail/templates/settings.html:90
 msgid "Sort order"
 msgstr "Criterio de ordenación"
 
-#: app/modules/mail/templates/settings.html:77
+#: app/modules/mail/templates/settings.html:91
 msgid "Default ordering of the message list."
 msgstr "Orden predeterminado de la lista de mensajes."
 
-#: app/modules/mail/templates/settings.html:82
+#: app/modules/mail/templates/settings.html:96
 msgid "Newest first"
 msgstr "Los más recientes primero"
 
-#: app/modules/mail/templates/settings.html:83
+#: app/modules/mail/templates/settings.html:97
 msgid "Oldest first"
 msgstr "Los más antiguos primero"
 
-#: app/modules/mail/templates/settings.html:89
+#: app/modules/mail/templates/settings.html:103
 msgid "Preview pane"
 msgstr "Panel de vista previa"
 
-#: app/modules/mail/templates/settings.html:90
+#: app/modules/mail/templates/settings.html:104
 msgid "Open the reading pane next to the message list by default."
 msgstr ""
 "Abre de forma predeterminada el panel de lectura junto a la lista de "
 "mensajes."
 
-#: app/modules/mail/templates/settings.html:100
+#: app/modules/mail/templates/settings.html:114
 msgid "Sync frequency"
 msgstr "Frecuencia de sincronización"
 
-#: app/modules/mail/templates/settings.html:101
+#: app/modules/mail/templates/settings.html:115
 msgid "How often to check for new mail when the app is open."
 msgstr ""
 "Con qué frecuencia comprobar si hay correo nuevo con la aplicación "
 "abierta."
 
-#: app/modules/mail/templates/settings.html:118
+#: app/modules/mail/templates/settings.html:132
 msgid ""
 "Guard rails that stop mail from being deleted by accident — or by an AI "
 "agent."
@@ -3260,37 +3288,47 @@ msgstr ""
 "Protecciones que evitan que el correo se elimine por accidente — o por un"
 " agente de IA."
 
-#: app/modules/mail/templates/settings.html:123
+#: app/modules/mail/templates/settings.html:137
 msgid "Protect starred emails"
 msgstr "Proteger el correo destacado"
 
-#: app/modules/mail/templates/settings.html:124
+#: app/modules/mail/templates/settings.html:138
 msgid "Starred emails refuse delete or move-to-Trash until they are un-starred."
 msgstr ""
 "El correo destacado no se puede eliminar ni mover a la papelera hasta que"
 " le quites el destacado."
 
-#: app/modules/mail/templates/settings.html:141
+#: app/modules/mail/templates/settings.html:156
 msgid "Spam reporting"
 msgstr "Informes de spam"
 
-#: app/modules/mail/templates/settings.html:142
+#: app/modules/mail/templates/settings.html:157
 msgid "Show the “report spam” action for this account."
 msgstr "Mostrar la acción “Informar de spam” para esta cuenta."
 
-#: app/modules/mail/templates/settings.html:152
+#: app/modules/mail/templates/settings.html:159
+msgid ""
+"Temporarily off: the server reported no Spam/Junk folder or rejected spam"
+" flags. It turns back on automatically when the server can accept it "
+"again."
+msgstr ""
+"Desactivado temporalmente: el servidor informó de que no hay carpeta de "
+"Spam o rechazó las marcas de spam. Se reactivará automáticamente cuando "
+"el servidor pueda aceptarlo de nuevo."
+
+#: app/modules/mail/templates/settings.html:170
 msgid "Message lock"
 msgstr "Bloqueo de mensajes"
 
-#: app/modules/mail/templates/settings.html:153
+#: app/modules/mail/templates/settings.html:171
 msgid "Allow locking individual messages so they refuse delete."
 msgstr "Permite bloquear mensajes individuales para que no se puedan eliminar."
 
-#: app/modules/mail/templates/settings.html:165
+#: app/modules/mail/templates/settings.html:183
 msgid "No active accounts yet."
 msgstr "Aún no hay cuentas activas."
 
-#: app/modules/mail/templates/settings.html:173
+#: app/modules/mail/templates/settings.html:191
 msgid ""
 "Choose what reaches your devices — new email, calendar reminders — and "
 "manage registered devices."
@@ -3298,69 +3336,69 @@ msgstr ""
 "Elige qué llega a tus dispositivos — correo nuevo, recordatorios del "
 "calendario — y gestiona los dispositivos registrados."
 
-#: app/modules/mail/templates/settings.html:179
+#: app/modules/mail/templates/settings.html:197
 msgid "Install the app"
 msgstr "Instalar la aplicación"
 
-#: app/modules/mail/templates/settings.html:180
+#: app/modules/mail/templates/settings.html:198
 msgid "Add LocoRooSuite to your home screen for a faster, full-screen experience."
 msgstr ""
 "Añade LocoRooSuite a tu pantalla de inicio para una experiencia más "
 "rápida y a pantalla completa."
 
-#: app/modules/mail/templates/settings.html:182 app/templates/layout.html:285
+#: app/modules/mail/templates/settings.html:200 app/templates/layout.html:289
 msgid "Install app"
 msgstr "Instalar aplicación"
 
-#: app/modules/mail/templates/settings.html:185
+#: app/modules/mail/templates/settings.html:203
 msgid "Tap the"
 msgstr "Toca el botón"
 
-#: app/modules/mail/templates/settings.html:185
+#: app/modules/mail/templates/settings.html:203
 msgid "button in the browser toolbar."
 msgstr "de la barra de herramientas del navegador."
 
-#: app/modules/mail/templates/settings.html:186
+#: app/modules/mail/templates/settings.html:204
 msgid "Scroll down and tap"
 msgstr "Desplázate hacia abajo y toca"
 
-#: app/modules/mail/templates/settings.html:186
+#: app/modules/mail/templates/settings.html:204
 msgid "Add to Home Screen"
 msgstr "Añadir a pantalla de inicio"
 
-#: app/modules/mail/templates/settings.html:187
+#: app/modules/mail/templates/settings.html:205
 msgid "Tap"
 msgstr "Toca"
 
-#: app/modules/mail/templates/settings.html:187
+#: app/modules/mail/templates/settings.html:205
 msgid "to install."
 msgstr "para instalar."
 
-#: app/modules/mail/templates/settings.html:192
+#: app/modules/mail/templates/settings.html:210
 msgid "Enable notifications"
 msgstr "Activar notificaciones"
 
-#: app/modules/mail/templates/settings.html:193
+#: app/modules/mail/templates/settings.html:211
 msgid "Disable on this device"
 msgstr "Desactivar en este dispositivo"
 
-#: app/modules/mail/templates/settings.html:194
+#: app/modules/mail/templates/settings.html:212
 msgid "Send test notification"
 msgstr "Enviar notificación de prueba"
 
-#: app/modules/mail/templates/settings.html:197
+#: app/modules/mail/templates/settings.html:215
 msgid "Registered devices"
 msgstr "Dispositivos registrados"
 
-#: app/modules/mail/templates/settings.html:199
+#: app/modules/mail/templates/settings.html:217
 msgid "No devices registered yet."
 msgstr "Aún no hay dispositivos registrados."
 
-#: app/modules/mail/templates/settings.html:204
+#: app/modules/mail/templates/settings.html:222
 msgid "New email notifications"
 msgstr "Notificaciones de correo nuevo"
 
-#: app/modules/mail/templates/settings.html:205
+#: app/modules/mail/templates/settings.html:223
 msgid ""
 "Get a device notification when new mail arrives, even when the app is "
 "closed."
@@ -3368,11 +3406,11 @@ msgstr ""
 "Recibe una notificación en el dispositivo cuando llegue correo nuevo, "
 "incluso con la aplicación cerrada."
 
-#: app/modules/mail/templates/settings.html:215
+#: app/modules/mail/templates/settings.html:233
 msgid "Calendar event reminders"
 msgstr "Recordatorios de eventos del calendario"
 
-#: app/modules/mail/templates/settings.html:216
+#: app/modules/mail/templates/settings.html:234
 msgid ""
 "Get a device notification at each event’s reminder time (e.g. 15 minutes "
 "before). Requires at least one registered device."
@@ -3381,11 +3419,11 @@ msgstr ""
 "del evento (p. ej. 15 minutos antes). Requiere al menos un dispositivo "
 "registrado."
 
-#: app/modules/mail/templates/settings.html:226
+#: app/modules/mail/templates/settings.html:244
 msgid "Chat messages and calls"
 msgstr "Mensajes y llamadas de chat"
 
-#: app/modules/mail/templates/settings.html:227
+#: app/modules/mail/templates/settings.html:245
 msgid ""
 "Get a device notification for new chat messages, conversation invites, "
 "and incoming calls, even when the app is closed."
@@ -3394,11 +3432,11 @@ msgstr ""
 "invitaciones a conversaciones y llamadas entrantes, incluso con la "
 "aplicación cerrada."
 
-#: app/modules/mail/templates/settings.html:237
+#: app/modules/mail/templates/settings.html:255
 msgid "Show sender and subject"
 msgstr "Mostrar remitente y asunto"
 
-#: app/modules/mail/templates/settings.html:238
+#: app/modules/mail/templates/settings.html:256
 msgid ""
 "Off by default: notifications only say “New email” so your mail stays "
 "private on the lock screen. Message bodies are never included."
@@ -3407,27 +3445,27 @@ msgstr ""
 " correo” para que tu correo siga siendo privado en la pantalla de "
 "bloqueo. Los cuerpos de los mensajes nunca se incluyen."
 
-#: app/modules/mail/templates/settings.html:257
+#: app/modules/mail/templates/settings.html:275
 msgid "Two-factor authentication"
 msgstr "Autenticación de dos factores"
 
-#: app/modules/mail/templates/settings.html:258
+#: app/modules/mail/templates/settings.html:276
 msgid "Enable 2FA and manage trusted devices."
 msgstr "Activa la 2FA y gestiona los dispositivos de confianza."
 
-#: app/modules/mail/templates/settings.html:264
+#: app/modules/mail/templates/settings.html:282
 msgid "API access"
 msgstr "Acceso a la API"
 
-#: app/modules/mail/templates/settings.html:265
+#: app/modules/mail/templates/settings.html:283
 msgid "Manage API tokens for AI agents and external tools."
 msgstr "Gestiona tokens de API para agentes de IA y herramientas externas."
 
-#: app/modules/mail/templates/settings.html:279
+#: app/modules/mail/templates/settings.html:297
 msgid "Reset mail cache"
 msgstr "Restablecer la caché de correo"
 
-#: app/modules/mail/templates/settings.html:280
+#: app/modules/mail/templates/settings.html:298
 msgid ""
 "Clears the locally cached mail for your active account and re-syncs from "
 "the server. Nothing is deleted from your mailbox."
@@ -3435,15 +3473,15 @@ msgstr ""
 "Borra el correo almacenado en caché de tu cuenta activa y vuelve a "
 "sincronizarlo desde el servidor. No se elimina nada de tu buzón."
 
-#: app/modules/mail/templates/settings.html:282 app/templates/error.html:8
+#: app/modules/mail/templates/settings.html:300 app/templates/error.html:8
 msgid "Reset cache"
 msgstr "Restablecer la caché"
 
-#: app/modules/mail/templates/settings.html:285
+#: app/modules/mail/templates/settings.html:303
 msgid "Clear the cached mail and re-sync from the server?"
 msgstr "¿Borrar el correo de la caché y volver a sincronizar desde el servidor?"
 
-#: app/modules/mail/templates/settings.html:287
+#: app/modules/mail/templates/settings.html:305
 msgid "Yes, reset cache"
 msgstr "Sí, restablecer la caché"
 
@@ -3767,81 +3805,81 @@ msgstr "Error"
 msgid "An unexpected error occurred."
 msgstr "Se ha producido un error inesperado."
 
-#: app/templates/layout.html:136
+#: app/templates/layout.html:139
 msgid "Search mail — try from:, is:unread, has:attachment"
 msgstr "Buscar correo — prueba from:, is:unread, has:attachment"
 
-#: app/templates/layout.html:144
+#: app/templates/layout.html:147
 msgid "Search contacts by name, email, or phone"
 msgstr "Buscar contactos por nombre, correo o teléfono"
 
-#: app/templates/layout.html:145
+#: app/templates/layout.html:148
 msgid "Search contacts"
 msgstr "Buscar contactos"
 
-#: app/templates/layout.html:152
+#: app/templates/layout.html:155
 msgid "Search calendar events"
 msgstr "Buscar eventos del calendario"
 
-#: app/templates/layout.html:160 app/templates/layout.html:161
+#: app/templates/layout.html:163 app/templates/layout.html:164
 msgid "Filter conversations"
 msgstr "Filtrar conversaciones"
 
-#: app/templates/layout.html:168
+#: app/templates/layout.html:171
 msgid "Search documents by name"
 msgstr "Buscar documentos por nombre"
 
-#: app/templates/layout.html:169
+#: app/templates/layout.html:172
 msgid "Search documents"
 msgstr "Buscar documentos"
 
-#: app/templates/layout.html:192 app/templates/layout.html:274
+#: app/templates/layout.html:195 app/templates/layout.html:278
 msgid "Show search options"
 msgstr "Mostrar opciones de búsqueda"
 
-#: app/templates/layout.html:207
+#: app/templates/layout.html:211
 msgid "App launcher"
 msgstr "Selector de aplicaciones"
 
-#: app/templates/layout.html:238
+#: app/templates/layout.html:242
 msgid "Docs"
 msgstr "Docs"
 
-#: app/templates/layout.html:244
+#: app/templates/layout.html:248
 msgid "Admin"
 msgstr "Admin"
 
-#: app/templates/layout.html:259 app/templates/layout.html:266
+#: app/templates/layout.html:263 app/templates/layout.html:270
 msgid "Domain Management"
 msgstr "Gestión de dominios"
 
-#: app/templates/layout.html:261
+#: app/templates/layout.html:265
 msgid "Log out"
 msgstr "Cerrar sesión"
 
-#: app/templates/layout.html:289
+#: app/templates/layout.html:293
 msgid "Install LocoRooSuite"
 msgstr "Instalar LocoRooSuite"
 
-#: app/templates/layout.html:290
+#: app/templates/layout.html:294
 msgid "Add the app to your home screen for a faster, full-screen experience."
 msgstr ""
 "Añade la aplicación a tu pantalla de inicio para una experiencia más "
 "rápida y a pantalla completa."
 
-#: app/templates/layout.html:292
+#: app/templates/layout.html:296
 msgid "Dismiss install banner"
 msgstr "Descartar el banner de instalación"
 
-#: app/templates/layout.html:296
+#: app/templates/layout.html:300
 msgid "Install"
 msgstr "Instalar"
 
-#: app/templates/layout.html:300 app/templates/layout.html:304
+#: app/templates/layout.html:304 app/templates/layout.html:308
 msgid "Turn on notifications"
 msgstr "Activar notificaciones"
 
-#: app/templates/layout.html:305
+#: app/templates/layout.html:309
 msgid ""
 "Get a notification when new mail arrives. You can turn this off anytime "
 "in Settings."
@@ -3849,23 +3887,23 @@ msgstr ""
 "Recibe una notificación cuando llegue correo nuevo. Puedes desactivarlo "
 "cuando quieras en Ajustes."
 
-#: app/templates/layout.html:307
+#: app/templates/layout.html:311
 msgid "Dismiss notifications prompt"
 msgstr "Descartar el aviso de notificaciones"
 
-#: app/templates/layout.html:311
+#: app/templates/layout.html:315
 msgid "Turn on"
 msgstr "Activar"
 
-#: app/templates/layout.html:312
+#: app/templates/layout.html:316
 msgid "Don’t ask again"
 msgstr "No volver a preguntar"
 
-#: app/templates/layout.html:340
+#: app/templates/layout.html:344
 msgid "Done."
 msgstr "Listo."
 
-#: app/templates/layout.html:343
+#: app/templates/layout.html:347
 msgid ""
 "Action failed. Please retry. If it keeps happening, check your connection"
 " or refresh."
@@ -3873,15 +3911,15 @@ msgstr ""
 "La acción ha fallado. Reintenta. Si sigue ocurriendo, comprueba tu "
 "conexión o actualiza la página."
 
-#: app/templates/layout.html:363
+#: app/templates/layout.html:367
 msgid "Preparing to send…"
 msgstr "Preparando el envío…"
 
-#: app/templates/layout.html:366
+#: app/templates/layout.html:370
 msgid "Dismiss"
 msgstr "Descartar"
 
-#: app/templates/layout.html:372
+#: app/templates/layout.html:376
 msgid "Send now"
 msgstr "Enviar ahora"
 
@@ -3936,6 +3974,15 @@ msgstr "hace 1 mes"
 msgid "1 year ago"
 msgstr "hace 1 año"
 
+msgid "AI activity"
+msgstr "Actividad de IA"
+
+msgid "AI is composing a draft…"
+msgstr "La IA está redactando un borrador…"
+
+msgid "AI is working"
+msgstr "La IA está trabajando"
+
 msgid "Action failed."
 msgstr "La acción ha fallado."
 
@@ -3945,6 +3992,9 @@ msgstr "La acción ha fallado. Inténtalo de nuevo."
 #, python-brace-format
 msgid "Action failed: {error}"
 msgstr "La acción ha fallado: {error}"
+
+msgid "Actions taken by AI agents on your account"
+msgstr "Acciones realizadas por agentes de IA en tu cuenta"
 
 msgid "Add attachments"
 msgstr "Añadir adjuntos"
@@ -4118,9 +4168,6 @@ msgstr "No se ha podido cargar el documento desde Docs. Reintenta."
 msgid "Could not move the document. Please try again."
 msgstr "No se ha podido mover el documento. Inténtalo de nuevo."
 
-msgid "Could not open in Docs: "
-msgstr "No se ha podido abrir en Docs: "
-
 msgid "Could not parse invite"
 msgstr "No se ha podido analizar la invitación"
 
@@ -4201,9 +4248,6 @@ msgstr "Conexión directa: funciona"
 msgid "Direct message"
 msgstr "Mensaje directo"
 
-msgid "Download file"
-msgstr "Descargar archivo"
-
 msgid "Draft discarded."
 msgstr "Borrador descartado."
 
@@ -4230,9 +4274,6 @@ msgstr "Evento eliminado del calendario."
 
 msgid "Failed to delete event."
 msgstr "No se pudo eliminar el evento."
-
-msgid "Failed to download attachment"
-msgstr "Error al descargar el adjunto"
 
 msgid "Failed to handle cancellation."
 msgstr "No se ha podido procesar la cancelación."
@@ -4441,6 +4482,9 @@ msgstr "No se encontró micrófono. Conecta uno e inténtalo de nuevo."
 msgid "No other folders available."
 msgstr "No hay otras carpetas disponibles."
 
+msgid "No recent AI activity."
+msgstr "Sin actividad reciente de IA."
+
 msgid "No rooms match your filter."
 msgstr "Ninguna sala coincide con tu filtro."
 
@@ -4467,6 +4511,9 @@ msgstr "Notificaciones activadas en este dispositivo."
 
 msgid "November"
 msgstr "noviembre"
+
+msgid "OK"
+msgstr "Aceptar"
 
 msgid "October"
 msgstr "octubre"
@@ -4613,6 +4660,10 @@ msgstr "dom"
 msgid "Sync error in {folder}{message}"
 msgstr "Error de sincronización en {folder}{message}"
 
+#, fuzzy
+msgid "Sync failed."
+msgstr "Error de envío"
+
 #, python-brace-format
 msgid "Syncing {done} of {total}..."
 msgstr "Sincronizando {done} de {total}..."
@@ -4742,9 +4793,6 @@ msgstr "Sin título"
 #, python-brace-format
 msgid "Up to {max} per file · {total} total"
 msgstr "Hasta {max} por archivo · {total} en total"
-
-msgid "Upload failed"
-msgstr "Error al subir"
 
 #, python-brace-format
 msgid "Upload failed ({status})"
@@ -4884,6 +4932,10 @@ msgstr "hace {n} h"
 msgid "{n}m ago"
 msgstr "hace {n} min"
 
+#, fuzzy, python-brace-format
+msgid "{n}s ago"
+msgstr "hace {n} s"
+
 #~ msgid "F"
 #~ msgstr "V"
 
@@ -4994,32 +5046,24 @@ msgstr "hace {n} min"
 #~ msgid "Deleting..."
 #~ msgstr "Eliminando..."
 
+#~ msgid "Open calendars"
+#~ msgstr "Abrir calendarios"
 
-msgid "Attachment unavailable"
-msgstr "Adjunto no disponible"
+#~ msgid "Open menu"
+#~ msgstr "Abrir menú"
 
-msgid "This attachment could not be loaded. It may have been moved or deleted, or the mail server could not be reached."
-msgstr "No se ha podido cargar este adjunto. Es posible que se haya movido o eliminado, o que no se pueda acceder al servidor de correo."
+#~ msgid "Open folders"
+#~ msgstr "Abrir carpetas"
 
-msgid "No preview available"
-msgstr "Vista previa no disponible"
+#~ msgid "Could not open in Docs: "
+#~ msgstr "No se ha podido abrir en Docs: "
 
-msgid "This file type can't be previewed."
-msgstr "Este tipo de archivo no se puede previsualizar."
+#~ msgid "Failed to download attachment"
+#~ msgstr "Error al descargar el adjunto"
 
-msgid "The preview could not be generated."
-msgstr "No se ha podido generar la vista previa."
+#~ msgid "Upload failed"
+#~ msgstr "Error al subir"
 
-msgid "Go back"
-msgstr "Volver"
+#~ msgid "Could not load the attachment preview."
+#~ msgstr "No se ha podido cargar la vista previa del adjunto."
 
-msgid "Preview attachment"
-msgstr "Previsualizar adjunto"
-
-msgid "Could not load the attachment preview."
-msgstr "No se ha podido cargar la vista previa del adjunto."
-
-#: app/modules/mail/templates/_thread_stack.html
-#: app/modules/mail/templates/message_preview.html
-msgid "Unsubscribe"
-msgstr "Cancelar suscripción"

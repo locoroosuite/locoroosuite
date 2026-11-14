@@ -1,3 +1,28 @@
+// U16.17: MCP tool responses are flattened. The REST API returns
+// { "data": ... } (single resource) or { "data": [...], ...siblings }
+// (collections with pagination / total_count / receipts); the MCP layer
+// unwraps both so tool results never carry a .data nesting. Collections
+// keep their sibling keys and expose the array as "items".
+function unwrapEnvelope(json) {
+    if (json === null || typeof json !== "object" || Array.isArray(json)) {
+        return json;
+    }
+    const obj = json;
+    if (!("data" in obj)) {
+        return obj;
+    }
+    const { data, ...rest } = obj;
+    // Collections always expose the stable "items" key (U16.17) — agent code
+    // never branches on JSON type. Siblings (pagination, total_count,
+    // receipts) are preserved.
+    if (Array.isArray(data)) {
+        return { ...rest, items: data };
+    }
+    if (Object.keys(rest).length > 0) {
+        return { ...rest, items: data };
+    }
+    return data ?? null;
+}
 export class ApiClient {
     baseUrl;
     token;
@@ -59,7 +84,10 @@ export class ApiClient {
             }
             throw new ApiError(response.status, code, message);
         }
-        return json;
+        // U16.17: unwrap the REST API envelope — MCP tool results are flattened.
+        // Single resources become the object itself; paginated collections
+        // become { items: [...], pagination: {...} }.
+        return unwrapEnvelope(json);
     }
     async get(path, params) {
         return this.request("GET", path, { params });

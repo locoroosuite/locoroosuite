@@ -3,9 +3,6 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.utils import formatdate, make_msgid
 from typing import Any
 
 from flask import Response, current_app, g, request
@@ -43,6 +40,7 @@ from app.api.schemas.mail import (
     SendMessageBody,
     SpamActionResponse,
     ThreadPath,
+    ThreadQuery,
     UpdateFlagsBody,
 )
 from app.modules.mail.services.cache import build_cache_path
@@ -50,7 +48,6 @@ from app.modules.mail.services.cache_db import (
     delete_folder_in_cache,
     delete_message_by_id,
     get_message,
-    get_message_by_uid_and_folder,
     list_cached_folders,
     list_messages_with_threading,
     list_thread_messages,
@@ -59,7 +56,6 @@ from app.modules.mail.services.cache_db import (
     search_messages,
     update_flags,
     upsert_folder,
-    upsert_message,
 )
 from app.modules.mail.services.protection import (
     LOCKED_KEYWORD,
@@ -122,6 +118,7 @@ def _message_to_dict(row, settings=None):
     flags_list = _parse_flags_list(d.get("flags"))
     return {
         "id": d["id"],
+        "imap_uid": d.get("uid"),
         "folder": d.get("folder"),
         "subject": d.get("subject") or "",
         "from": d.get("sender") or "",
@@ -155,56 +152,6 @@ def _merge_flag(flags_list, flag, add):
     if add:
         return list(dict.fromkeys([*flags_list, flag]))
     return [f for f in flags_list if f != flag]
-
-
-def _sync_single_message_to_cache(account, domain, secret, account_id, dek, folder, uid):
-    from app.modules.mail.services.imap_client import (
-        fetch_message_with_flags,
-        safe_logout,
-        select_folder,
-    )
-    from app.modules.mail.services.imap_sync import _prepare_message_args, _to_uid_str
-
-    uid_str = _to_uid_str(uid)
-    client = _imap_connect(account, domain, secret)
-    try:
-        select_folder(client, folder)
-        msg, flags, internal_date = fetch_message_with_flags(client, uid_str)
-    finally:
-        safe_logout(client)
-    if not msg:
-        return None
-    args = _prepare_message_args(msg, account=account)
-    conn = _get_cache_conn(account_id, dek)
-    try:
-        upsert_message(
-            conn,
-            uid_str,
-            folder,
-            args["subject"],
-            args["sender"],
-            args["recipients"],
-            args["date"],
-            flags,
-            args["snippet"],
-            args["body"],
-            args["has_attachments"],
-            args["message_id"],
-            thread_id=args["thread_id"],
-            in_reply_to=args["in_reply_to"],
-            ref_list=args["ref_list"],
-            internal_date=internal_date,
-            is_bounce=args["is_bounce"],
-            bounce_reason=args["bounce_reason"],
-            original_subject=args["original_subject"],
-            cc=args["cc"],
-            attachment_list=args["attachment_list"],
-            body_html=args["body_html"],
-        )
-        row = get_message_by_uid_and_folder(conn, uid_str, folder)
-    finally:
-        conn.close()
-    return row
 
 
 @bp.get(
@@ -483,7 +430,9 @@ def api_get_message(path: MessagePath, query: GetMessageQuery):
             finally:
                 safe_logout(client)
         except Exception:
-            pass
+            _logger.warning(
+                "mark-read IMAP sync failed message_id=%s", path.message_id, exc_info=True
+            )
     result = _message_to_dict_from_raw(d, _get_settings())
     return api_response(result)
 
@@ -492,6 +441,7 @@ def _message_to_dict_from_raw(d, settings=None):
     flags_list = _parse_flags_list(d.get("flags"))
     return {
         "id": d["id"],
+        "imap_uid": d.get("uid"),
         "folder": d.get("folder"),
         "subject": d.get("subject") or "",
         "from": d.get("sender") or "",
@@ -512,19 +462,38 @@ def _message_to_dict_from_raw(d, settings=None):
 @bp.get(
     "/mail/threads/<thread_id>",
     summary="Get message thread",
-    description="Returns all messages in a conversation thread, ordered chronologically. Requires `mail:read` scope.",
+    description="Returns all messages in a conversation thread, ordered chronologically. "
+    "Supports `include_bodies=false` (headers + snippet only) and `body_format=plain|html|both` "
+    "to keep payloads small. Requires `mail:read` scope.",
     responses={"200": MessageListResponse, "401": ErrorResponse},
 )
 @require_api_token(scopes=["mail:read"])
-def api_get_thread(path: ThreadPath):
+def api_get_thread(path: ThreadPath, query: ThreadQuery):
     thread_id = path.thread_id
     account_id = get_api_account_id()
     dek = g.api_context["dek"]
+    include_bodies = (query.include_bodies or "true").strip().lower() != "false"
+    body_format = (query.body_format or "both").strip().lower()
+    if body_format not in ("plain", "html", "both"):
+        return api_error("VALIDATION_ERROR", "'body_format' must be plain, html, or both", 400)
     conn = _get_cache_conn(account_id, dek)
     try:
         rows = list_thread_messages(conn, thread_id)
         settings = _get_settings()
-        items = [_message_to_dict_from_raw(_row_to_dict(r), settings) for r in rows]
+        items = []
+        for r in rows:
+            d = _row_to_dict(r)
+            if not include_bodies:
+                d = {**d, "body": "", "body_html": ""}
+            item = _message_to_dict_from_raw(d, settings)
+            if not include_bodies:
+                item.pop("body_plain", None)
+                item.pop("body_html", None)
+            elif body_format == "plain":
+                item.pop("body_html", None)
+            elif body_format == "html":
+                item.pop("body_plain", None)
+            items.append(item)
         return api_response(items)
     finally:
         conn.close()
@@ -623,7 +592,7 @@ def api_update_flags(path: MessagePath, body: UpdateFlagsBody):
             finally:
                 safe_logout(client)
         except Exception:
-            pass
+            _logger.warning("flags IMAP sync failed", exc_info=True)
     push_ui_event(
         g.api_context["customer_id"],
         "mail",
@@ -1200,8 +1169,11 @@ def api_raw_message(path: MessagePath):
 @bp.post(
     "/mail/drafts",
     summary="Create draft",
-    description="Creates a new draft in the Drafts folder via IMAP. If a replace_uid is provided, the existing draft is deleted first. Requires `mail:write` scope.",
-    responses={"200": MessageDetailResponse, "401": ErrorResponse},
+    description="Creates a new draft in the Drafts folder via IMAP (stored with \\Draft \\Seen flags). "
+    "If replace_uid is provided (cache message id or IMAP UID), the existing draft is verified and deleted "
+    "first; unknown identifiers return DRAFT_NOT_FOUND instead of creating a duplicate. "
+    "Requires `mail:write` scope.",
+    responses={"200": MessageDetailResponse, "401": ErrorResponse, "404": ErrorResponse},
 )
 @require_api_token(scopes=["mail:write"])
 @require_scope("mail", "write")
@@ -1209,80 +1181,63 @@ def api_mail_create_draft(body: CreateDraftBody):
     account_id = get_api_account_id()
     dek = g.api_context["dek"]
     account, domain, secret = _get_account_and_secret(account_id, dek)
-    to_list = body.to
-    cc_list = body.cc
-    bcc_list = body.bcc
-    subject = body.subject
-    body_html = body.body_html
-    body_plain = body.body_plain
-    replace_uid = body.replace_uid
 
-    msg = MIMEMultipart("mixed")
-    msg["From"] = account.email_address
-    msg["To"] = ", ".join(to_list) if isinstance(to_list, list) else to_list
-    if cc_list:
-        msg["Cc"] = ", ".join(cc_list) if isinstance(cc_list, list) else cc_list
-    if bcc_list:
-        msg["Bcc"] = ", ".join(bcc_list) if isinstance(bcc_list, list) else bcc_list
-    msg["Subject"] = subject
-    msg["Date"] = formatdate(localtime=True)
-    msg["Message-ID"] = make_msgid(domain=account.email_address.split("@")[1])
-
-    alt = MIMEMultipart("alternative")
-    if body_plain:
-        alt.attach(MIMEText(body_plain, "plain", "utf-8"))
-    if body_html:
-        alt.attach(MIMEText(body_html, "html", "utf-8"))
-    msg.attach(alt)
-
-    from app.modules.mail.services.imap_client import (
-        append_message,
-        create_folder,
-        delete_message_by_uid,
-        parse_append_uid,
-        safe_logout,
-        select_folder,
+    from app.modules.mail.services.drafts import (
+        DraftNotFoundError,
+        resolve_reply_context,
+        save_draft,
     )
 
-    client = _imap_connect(account, domain, secret)
-    try:
-        if replace_uid:
+    in_reply_to, references = None, None
+    if body.in_reply_to or body.reply_to_message_id:
+        conn = _get_cache_conn(account_id, dek)
+        try:
             try:
-                select_folder(client, "Drafts")
-                delete_message_by_uid(client, str(replace_uid))
-            except Exception:
-                pass
+                in_reply_to, references = resolve_reply_context(
+                    conn, body.reply_to_message_id, body.in_reply_to
+                )
+            except ValueError as exc:
+                return api_error("VALIDATION_ERROR", str(exc), 400)
+        finally:
+            conn.close()
 
-        import imaplib as _imaplib
+    try:
+        result = save_draft(
+            account,
+            domain,
+            secret,
+            to=list(body.to) if body.to else None,
+            cc=list(body.cc) if body.cc else None,
+            bcc=list(body.bcc) if body.bcc else None,
+            subject=body.subject,
+            body_plain=body.body_plain,
+            body_html=body.body_html,
+            replace=body.replace_uid,
+            in_reply_to=in_reply_to,
+            references=references,
+            get_cache_conn=lambda: _get_cache_conn(account_id, dek),
+            enqueue_sync=lambda folder, reason, priority: _safe_enqueue_sync(
+                account_id, folder=folder, reason=reason, priority=priority
+            ),
+        )
+    except DraftNotFoundError as exc:
+        return api_error("DRAFT_NOT_FOUND", str(exc), 404)
+    except Exception as exc:
+        _logger.error("create draft failed account_id=%s", account_id, exc_info=True)
+        return api_error("MAILBOX_UNAVAILABLE", f"Draft could not be saved: {exc}", 502)
 
-        try:
-            _status, resp_data = append_message(client, "Drafts", msg.as_bytes(), flags=["\\Draft"])
-        except _imaplib.IMAP4.error:
-            create_folder(client, "Drafts")
-            _status, resp_data = append_message(client, "Drafts", msg.as_bytes(), flags=["\\Draft"])
-        draft_uid = parse_append_uid(resp_data)
-    finally:
-        safe_logout(client)
-
-    _safe_enqueue_sync(account_id, folder="Drafts", reason="draft_saved", priority=5)
-
-    push_ui_event(g.api_context["customer_id"], "mail", "draft_saved", {"account_id": account_id})
-
-    result = {
-        "status": "draft",
-        "draft_id": draft_uid,
-        "draft_uid": draft_uid,
-        "message_id": msg["Message-ID"],
-    }
-    if draft_uid:
-        try:
-            row = _sync_single_message_to_cache(
-                account, domain, secret, account_id, dek, "Drafts", draft_uid
-            )
-            if row:
-                result.update(_message_to_dict(row))
-        except Exception:
-            pass
+    push_ui_event(
+        g.api_context["customer_id"],
+        "mail",
+        "draft_saved",
+        {
+            "account_id": account_id,
+            "draft_uid": result.get("draft_uid"),
+            "message_id": result.get("id"),
+            "thread_id": result.get("thread_id"),
+            "snippet": (result.get("snippet") or "")[:200],
+        },
+    )
 
     return api_response(result, 201)
 
@@ -1290,8 +1245,10 @@ def api_mail_create_draft(body: CreateDraftBody):
 @bp.delete(
     "/mail/drafts/<uid>",
     summary="Delete draft",
-    description="Deletes a draft from the Drafts folder by UID via IMAP. Requires `mail:write` scope.",
-    responses={"200": MessageDetailResponse, "401": ErrorResponse},
+    description="Deletes a draft from the Drafts folder. Accepts the cache message id or the IMAP UID. "
+    "The deletion is verified (UID existence checked before, cache rows removed after); unknown or "
+    "already-deleted drafts return DRAFT_NOT_FOUND. Requires `mail:write` scope.",
+    responses={"200": MessageDetailResponse, "401": ErrorResponse, "404": ErrorResponse},
 )
 @require_api_token(scopes=["mail:write"])
 @require_scope("mail", "write")
@@ -1301,38 +1258,63 @@ def api_mail_delete_draft(path: DraftPath):
     dek = g.api_context["dek"]
     account, domain, secret = _get_account_and_secret(account_id, dek)
 
-    from app.modules.mail.services.imap_client import (
-        delete_message_by_uid,
-        safe_logout,
-        select_folder,
+    from app.modules.mail.services.drafts import (
+        DraftDeletionError,
+        DraftNotFoundError,
+        delete_draft,
     )
 
-    client = _imap_connect(account, domain, secret)
     try:
-        select_folder(client, "Drafts")
-        delete_message_by_uid(client, str(uid))
-    finally:
-        safe_logout(client)
+        result = delete_draft(
+            account,
+            domain,
+            secret,
+            uid,
+            get_cache_conn=lambda: _get_cache_conn(account_id, dek),
+            enqueue_sync=lambda folder, reason, priority: _safe_enqueue_sync(
+                account_id, folder=folder, reason=reason, priority=priority
+            ),
+        )
+    except DraftNotFoundError as exc:
+        return api_error("DRAFT_NOT_FOUND", str(exc), 404)
+    except DraftDeletionError as exc:
+        _logger.error(
+            "draft deletion not verified account_id=%s uid=%s", account_id, uid, exc_info=True
+        )
+        return api_error("DRAFT_DELETE_FAILED", str(exc), 502)
+    except Exception as exc:
+        _logger.error("delete draft failed account_id=%s uid=%s", account_id, uid, exc_info=True)
+        return api_error("MAILBOX_UNAVAILABLE", f"Draft could not be deleted: {exc}", 502)
 
-    _safe_enqueue_sync(account_id, folder="Drafts", reason="draft_deleted", priority=5)
+    push_ui_event(
+        g.api_context["customer_id"],
+        "mail",
+        "draft_deleted",
+        {
+            "account_id": account_id,
+            "draft_uid": result.get("draft_uid"),
+            "message_id": result.get("draft_id"),
+        },
+    )
 
-    push_ui_event(g.api_context["customer_id"], "mail", "draft_deleted", {"account_id": account_id})
-
-    return api_response({"status": "deleted", "draft_id": uid, "draft_uid": uid})
+    return api_response(result)
 
 
 @bp.post(
     "/mail/messages",
     summary="Send message",
-    description="Sends an email via SMTP and stores a copy in the Sent folder. If a draft_id is provided, the corresponding draft is deleted after sending. At least one recipient and one body (plain or HTML) are required. Requires `mail:write` scope.",
+    description="Sends an email via SMTP and stores a copy in the Sent folder. Reply threading: pass "
+    "`reply_to_message_id` (cache message id) or `in_reply_to` (raw RFC 5322 Message-ID) so the reply "
+    "groups with the source conversation. If a draft_id is provided (cache message id or IMAP UID), the "
+    "corresponding draft is deleted after sending and the outcome is reported as `draft_deleted`. "
+    "At least one recipient and one body (plain or HTML) are required. Requires `mail:write` scope.",
     responses={"200": MessageDetailResponse, "401": ErrorResponse, "400": ErrorResponse},
 )
 @require_api_token(scopes=["mail:write"])
 @require_scope("mail", "write")
 def api_send_message(body: SendMessageBody):
-    account_id = get_api_account_id()
-    dek = g.api_context["dek"]
-    account, domain, secret = _get_account_and_secret(account_id, dek)
+    # Validate the request shape before touching account credentials so a
+    # malformed body is always a 400, never a 500 (error handling rules).
     to_list = body.to
     cc_list = body.cc
     bcc_list = body.bcc
@@ -1345,47 +1327,89 @@ def api_send_message(body: SendMessageBody):
     to_list = list(to_list)
     cc_list = list(cc_list)
     bcc_list = list(bcc_list)
+    if not to_list:
+        return api_error("VALIDATION_ERROR", "'to' is required", 400)
+    if not body.body_html and not body.body_plain:
+        return api_error("VALIDATION_ERROR", "'body_html' or 'body_plain' is required", 400)
+
+    account_id = get_api_account_id()
+    dek = g.api_context["dek"]
+    account, domain, secret = _get_account_and_secret(account_id, dek)
     subject = body.subject
     body_html = body.body_html
     body_plain = body.body_plain
     draft_id = body.draft_id or body.draft_uid
-    if not to_list:
-        return api_error("VALIDATION_ERROR", "'to' is required", 400)
-    if not body_html and not body_plain:
-        return api_error("VALIDATION_ERROR", "'body_html' or 'body_plain' is required", 400)
 
+    from app.modules.mail.services.drafts import resolve_reply_context
     from app.modules.mail.services.send import send_message
 
-    result = send_message(
-        account,
-        domain,
-        secret,
-        to=to_list,
-        cc=cc_list,
-        bcc=bcc_list,
-        subject=subject,
-        body_plain=body_plain,
-        body_html=body_html,
-        draft_id=draft_id,
-        get_cache_conn=lambda: _get_cache_conn(account_id, dek),
-    )
+    in_reply_to, references = None, None
+    if body.in_reply_to or body.reply_to_message_id:
+        conn = _get_cache_conn(account_id, dek)
+        try:
+            try:
+                in_reply_to, references = resolve_reply_context(
+                    conn, body.reply_to_message_id, body.in_reply_to
+                )
+            except ValueError as exc:
+                return api_error("VALIDATION_ERROR", str(exc), 400)
+        finally:
+            conn.close()
+
+    try:
+        result = send_message(
+            account,
+            domain,
+            secret,
+            to=to_list,
+            cc=cc_list,
+            bcc=bcc_list,
+            subject=subject,
+            body_plain=body_plain,
+            body_html=body_html,
+            draft_id=draft_id,
+            in_reply_to=in_reply_to,
+            references=references,
+            get_cache_conn=lambda: _get_cache_conn(account_id, dek),
+        )
+    except Exception as exc:
+        _logger.error("send failed account_id=%s", account_id, exc_info=True)
+        return api_error("SEND_FAILED", f"Message could not be sent: {exc}", 502)
 
     sent_uid = result.pop("sent_uid", None)
 
     _safe_enqueue_sync(account_id, folder="Sent", reason="send_complete", priority=5)
     _safe_enqueue_sync(account_id, folder="Drafts", reason="send_complete", priority=5)
 
-    push_ui_event(g.api_context["customer_id"], "mail", "message_sent", {"account_id": account_id})
+    push_ui_event(
+        g.api_context["customer_id"],
+        "mail",
+        "message_sent",
+        {"account_id": account_id, "to": to_list[:5], "subject": (subject or "")[:120]},
+    )
 
     if sent_uid:
         try:
-            row = _sync_single_message_to_cache(
-                account, domain, secret, account_id, dek, "Sent", sent_uid
+            from app.modules.mail.services.message_sync import (
+                fetch_and_cache_message,
+                sent_copy_summary,
             )
-            if row:
-                result.update(_message_to_dict(row))
+
+            row = fetch_and_cache_message(
+                account,
+                domain,
+                secret,
+                lambda: _get_cache_conn(account_id, dek),
+                "Sent",
+                sent_uid,
+            )
+            summary = sent_copy_summary(row)
+            if summary:
+                result.update(summary)
         except Exception:
-            pass
+            _logger.exception(
+                "sent copy cache sync failed account_id=%s uid=%s", account_id, sent_uid
+            )
 
     return api_response(result, 201)
 

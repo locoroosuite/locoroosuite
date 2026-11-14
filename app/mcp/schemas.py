@@ -34,10 +34,13 @@ class EventAttendee(BaseModel):
 
 
 class EventReminder(BaseModel):
-    type: str | None = Field(default=None, description="Alarm action type (DISPLAY or EMAIL)")
-    trigger_minutes: str | None = Field(
+    type: str | None = Field(
         default=None,
-        description="Trigger as iCalendar duration before event (e.g. -PT15M for 15 minutes before)",
+        description="Reminder type: DISPLAY, EMAIL, or PUSH (case-insensitive, default DISPLAY)",
+    )
+    trigger_minutes: int | str | None = Field(
+        default=None,
+        description="Minutes before the event start (e.g. 15 for 15 minutes before, 0 for at start)",
     )
 
 

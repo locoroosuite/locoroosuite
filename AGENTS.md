@@ -200,6 +200,13 @@ Every REST API endpoint in `app/api/controllers/` **must** have a corresponding 
 2. `app/mcp/tools/<module>.py` (Python MCP tools)
 3. `packages/locoroosuite-mcp/src/tools/<module>.ts` (TypeScript MCP client)
 
+**Parity is test-enforced, not aspirational:**
+- `tests/mcp/test_parity.py` enumerates REST routes ↔ MCP tool names ↔ TS tool registrations and fails when a layer drifts. Extend its mapping table when you add endpoints.
+- Every new/changed endpoint ships with tests in the **same change**, one per layer: `tests/api/` (endpoint), `tests/mcp/` (Python tool), `packages/locoroosuite-mcp/tests/integration/` (TS tool). An endpoint without its three-layer test set is incomplete.
+- **Shared services, not duplicated logic**: business logic lives in `app/modules/<mod>/services/` and is called by both the REST controller and the MCP tool. Never reimplement endpoint behavior inside a controller or tool body — the draft bugs of Nov 2026 (silent replace failures, phantom deletes, drifted ID spaces) all came from duplicated implementations. Reference: `app/modules/mail/services/drafts.py`.
+- **Response envelope**: MCP tool results are flattened (HLD U16.17) — use `ok()` / `ok_items()` / `ok_paginated()` from `app/mcp/helpers.py`; never hand-roll a `{"data": ...}` wrapper. Collections always use the `items` key. The TS client unwraps the REST envelope centrally in `src/client.ts`.
+- **AI activity (HLD U27)**: REST traffic emits `ai_activity` SSE events automatically via the hook in `app/api/openapi.py` — byte-stream endpoints (downloads) must be added to `_BYTESTREAM_SUFFIXES` there. MCP tools emit automatically via `resilient_tool` + the events bridge (`app/mcp/events_bridge.py`). New user-visible actions therefore surface in the web UI activity feed for free — but verify it in a test (peek the SSE queue) when adding a new write endpoint.
+
 ### Timezone Awareness
 
 - Every user-facing datetime **must** be converted to their configured timezone (`CustomerSettings.timezone`).

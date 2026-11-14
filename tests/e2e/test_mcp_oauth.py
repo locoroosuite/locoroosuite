@@ -183,24 +183,25 @@ class TestOAuthMCPFlow:
     def test_mail_list_folders(self, oauth_token):
         result = _mcp_tool_call(MCP_URL, oauth_token, "mail_list_folders")
         assert "error" not in result, f"mail_list_folders error: {result['error']}"
-        assert "data" in result
-        assert isinstance(result["data"], list)
+        # U16.17: flattened envelope — collections use the items key
+        assert "items" in result
+        assert isinstance(result["items"], list)
 
     def test_calendar_list_calendars(self, oauth_token):
         result = _mcp_tool_call(MCP_URL, oauth_token, "calendar_list_calendars")
         assert "error" not in result, f"calendar_list_calendars error: {result['error']}"
-        assert "data" in result
-        assert isinstance(result["data"], list)
+        assert "items" in result
+        assert isinstance(result["items"], list)
 
     def test_contacts_list(self, oauth_token):
         result = _mcp_tool_call(MCP_URL, oauth_token, "contacts_list")
         assert "error" not in result, f"contacts_list error: {result['error']}"
-        assert "data" in result
+        assert "items" in result
 
     def test_docs_list_documents(self, oauth_token):
         result = _mcp_tool_call(MCP_URL, oauth_token, "docs_list_documents")
         assert "error" not in result, f"docs_list_documents error: {result['error']}"
-        assert "data" in result
+        assert "items" in result
 
     def test_tool_discovery(self, oauth_token):
         resp = requests.post(

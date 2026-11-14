@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { isServerAvailable, createClient, assertSuccess } from "./helpers.js";
+import { isServerAvailable, createClient, assertSuccess, assertItems } from "./helpers.js";
+import type { ApiCollection } from "./helpers.js";
 import { ApiError } from "../../src/client.js";
 import type { ApiClient } from "../../src/client.js";
 
@@ -9,8 +10,8 @@ describe.skipIf(!(await isServerAvailable()))("MCP Client → API: Chat", () => 
 
   beforeAll(async () => {
     client = createClient();
-    const accountsRes = await client.get("/api/v1/accounts") as { data: Array<{ id: number; email: string }> };
-    const accounts = accountsRes.data!;
+    const accountsRes = await client.get("/api/v1/accounts");
+    const accounts = assertItems<{ id: number; email: string }>(accountsRes, "accounts");
     expect(accounts.length).toBeGreaterThan(0);
     accountId = String(accounts[0].id);
     client = createClient(accountId);
@@ -19,9 +20,9 @@ describe.skipIf(!(await isServerAvailable()))("MCP Client → API: Chat", () => 
   describe("chat_list_rooms", () => {
     it("returns rooms array with required fields", async () => {
       const res = await client.get("/api/v1/chat/rooms");
-      const r = assertSuccess<Array<Record<string, unknown>>>(res, "list_rooms");
-      expect(Array.isArray(r.data)).toBe(true);
-      for (const room of r.data!) {
+      const items = assertItems<Record<string, unknown>>(res, "list_rooms");
+      expect(Array.isArray(items)).toBe(true);
+      for (const room of items) {
         expect(room).toHaveProperty("room_id");
         expect(room).toHaveProperty("display_name");
         expect(room).toHaveProperty("is_direct");
@@ -53,8 +54,8 @@ describe.skipIf(!(await isServerAvailable()))("MCP Client → API: Chat", () => 
         topic: "created by vitest",
       });
       const r = assertSuccess<Record<string, unknown>>(res, "create_room");
-      expect(r.data).toHaveProperty("room_id");
-      roomId = r.data!.room_id as string;
+      expect(r).toHaveProperty("room_id");
+      roomId = r.room_id as string;
       expect(roomId.length).toBeGreaterThan(0);
     });
 
@@ -63,15 +64,15 @@ describe.skipIf(!(await isServerAvailable()))("MCP Client → API: Chat", () => 
         body: "hello from the MCP integration test",
       });
       const r = assertSuccess<{ event_id: string }>(res, "send_message");
-      expect(r.data!.event_id).toBeTruthy();
-      eventId = r.data!.event_id;
+      expect(r.event_id).toBeTruthy();
+      eventId = r.event_id;
     });
 
     it("lists messages including the one just sent", async () => {
       const res = await client.get(`/api/v1/chat/rooms/${encodeURIComponent(roomId)}/messages`);
-      const r = assertSuccess<Array<Record<string, unknown>>>(res, "list_messages");
-      expect(Array.isArray(r.data)).toBe(true);
-      const found = r.data!.find((m) => m.event_id === eventId);
+      const r = assertSuccess<ApiCollection<Record<string, unknown>>>(res, "list_messages");
+      expect(Array.isArray(r.items)).toBe(true);
+      const found = r.items!.find((m) => m.event_id === eventId);
       expect(found).toBeDefined();
       expect(found).toHaveProperty("sender");
       expect(found).toHaveProperty("origin_server_ts");

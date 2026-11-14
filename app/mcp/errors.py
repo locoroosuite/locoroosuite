@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 import json
 import logging
+import time
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -234,15 +235,21 @@ def _resolve_known_error(exc: Exception, tool_name: str, request_id: str) -> str
 def resilient_tool(func: Callable) -> Callable:
     @functools.wraps(func)
     async def wrapper(*args: Any, **kwargs: Any) -> str:
+        started = time.monotonic()
         try:
             result = await func(*args, **kwargs)
             if not isinstance(result, str):
-                return json.dumps({"data": result})
+                _emit_ai_activity(func.__name__, kwargs, "ok", started)
+                # U16.17: flattened — never re-wrap in a .data envelope.
+                return json.dumps(result, default=str)
+            _emit_ai_activity(func.__name__, kwargs, "ok", started)
             return result
         except McpAuthError as exc:
+            _emit_ai_activity(func.__name__, kwargs, f"auth_error:{exc.code}", started)
             return _auth_error(exc, func.__name__)
         except Exception as exc:
             request_id = uuid.uuid4().hex[:12]
+            _emit_ai_activity(func.__name__, kwargs, "error", started)
             known = _resolve_known_error(exc, func.__name__, request_id)
             if known:
                 return known
@@ -255,6 +262,68 @@ def resilient_tool(func: Callable) -> Callable:
             )
 
     return wrapper
+
+
+# U27.2: keys safe to surface in an ai_activity summary — metadata and short
+# snippets only, never bodies or credentials (U27.9).
+_SUMMARY_KEYS = (
+    "to",
+    "cc",
+    "subject",
+    "folder_id",
+    "folder",
+    "q",
+    "query",
+    "message_id",
+    "thread_id",
+    "calendar_id",
+    "event_id",
+    "summary",
+    "contact_id",
+    "document_id",
+    "room_id",
+    "name",
+)
+
+
+def summarize_args(kwargs: dict[str, Any]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for key in _SUMMARY_KEYS:
+        value = kwargs.get(key)
+        if value in (None, "", [], {}):
+            continue
+        if isinstance(value, (list, tuple)):
+            value = list(value)[:5]
+        elif isinstance(value, str):
+            value = value[:120]
+        out[key] = value
+    return out
+
+
+def _emit_ai_activity(tool: str, kwargs: dict[str, Any], status: str, started: float) -> None:
+    """Fire-and-forget U27.2 emission after each MCP tool call."""
+    try:
+        from app.mcp.events_bridge import bridge_ai_activity
+        from app.mcp.helpers import current_tool_call_context
+
+        ctx = current_tool_call_context()
+        if ctx.customer_id is None:
+            return
+        duration_ms = int((time.monotonic() - started) * 1000)
+        summary = summarize_args(kwargs)
+        text = tool + (
+            " (" + ", ".join(f"{k}={v}" for k, v in summary.items()) + ")" if summary else ""
+        )
+        bridge_ai_activity(
+            ctx.customer_id,
+            tool,
+            text,
+            account_id=ctx.account_id,
+            status=status,
+            duration_ms=duration_ms,
+        )
+    except Exception:
+        _logger.warning("ai activity emission failed tool=%s", tool, exc_info=True)
 
 
 def get_registry_snapshot(mcp: Any) -> dict[str, Any]:

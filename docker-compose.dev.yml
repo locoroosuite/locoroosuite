@@ -19,6 +19,9 @@ services:
       - SERVER_NAME=${SERVER_NAME:-}
       - FLASK_BACKEND_URL=http://localhost:5001
       - NGROK_URL=${NGROK_URL:-}
+      # Dev/integration-test friendly: agents and the vitest suites burst well
+      # past the 60/min production default (U14.22).
+      - API_RATE_LIMIT_PER_MINUTE=${API_RATE_LIMIT_PER_MINUTE:-600}
     volumes:
       - ./data:/app/data
     depends_on:

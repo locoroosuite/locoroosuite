@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from typing import Annotated, Any
 
 from flask import Flask
@@ -13,7 +11,15 @@ from pydantic import Field
 
 from app.mcp.auth import McpAuthError
 from app.mcp.errors import resilient_tool
-from app.mcp.helpers import binary_response, err, ok, ok_paginated, resolve_read, resolve_write
+from app.mcp.helpers import (
+    binary_response,
+    err,
+    ok,
+    ok_items,
+    ok_paginated,
+    resolve_read,
+    resolve_write,
+)
 from app.mcp.schemas import BulkFlagItem, BulkMessageIdItem, ensure_typed
 from app.modules.mail.services.protection import folder_is_protected, message_is_protected
 
@@ -69,6 +75,7 @@ def _message_summary(row, settings=None):
     flags = _parse_flags(d.get("flags"))
     return {
         "id": d.get("id"),
+        "imap_uid": d.get("uid"),
         "folder": d.get("folder"),
         "subject": d.get("subject", ""),
         "from": d.get("sender", ""),
@@ -176,7 +183,7 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 ]
             finally:
                 conn.close()
-        return ok(items)
+        return ok_items(items)
 
     @mcp.tool(
         name="mail_list_messages",
@@ -214,7 +221,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
             try:
                 from app.modules.mail.services.cache_db import list_messages_with_threading
 
-                rows = list_messages_with_threading(conn, folder_id, limit=limit + 1)
+                rows = list_messages_with_threading(
+                    conn, folder_id, limit=limit + 1, after_id=cursor
+                )
             finally:
                 conn.close()
             settings = _settings_for(ctx["customer_id"])
@@ -224,7 +233,8 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
         if flagged:
             items = [m for m in items if m["flagged"]]
         has_more = len(rows) > limit
-        return ok_paginated(items, has_more=has_more)
+        next_cursor = str(items[-1]["id"]) if items and has_more else None
+        return ok_paginated(items, next_cursor=next_cursor, has_more=has_more)
 
     @mcp.tool(
         name="mail_get_message",
@@ -343,12 +353,15 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 conn.close()
             settings = _settings_for(ctx["customer_id"])
         items = [_message_summary(r, settings) for r in rows]
-        return ok(items)
+        return ok_items(items)
 
     @mcp.tool(
         name="mail_send",
         title="Send Email",
-        description="Send an email message to one or more recipients.",
+        description="Send an email message to one or more recipients. For replies, pass "
+        "reply_to_message_id (message id from read tools) or in_reply_to (raw Message-ID) so the "
+        "reply threads into the source conversation. Optionally pass draft_id (message id or IMAP "
+        "UID) to delete that draft after sending — the response reports draft_deleted.",
         annotations=ToolAnnotations(
             read_only_hint=False, open_world_hint=False, destructive_hint=False
         ),
@@ -362,15 +375,40 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
         body_plain: Annotated[str | None, Field(description="Plain text body content")] = None,
         body_html: Annotated[str | None, Field(description="HTML body content")] = None,
         draft_id: Annotated[
-            str | None, Field(description="ID of a draft to delete after sending")
+            str | None,
+            Field(
+                description="Draft to delete after sending — cache message id or IMAP UID (both accepted)"
+            ),
+        ] = None,
+        in_reply_to: Annotated[
+            str | None, Field(description="Raw RFC 5322 Message-ID being replied to")
+        ] = None,
+        reply_to_message_id: Annotated[
+            str | None,
+            Field(
+                description="Cache message id being replied to (server derives threading headers)"
+            ),
         ] = None,
         account_id: _AccId = None,
     ) -> str:
         ctx, aid, dek = resolve_write(flask_app, "mail", account_id)
         with flask_app.app_context():
             account, domain, secret = _get_account_and_secret(aid, dek, flask_app)
+            from app.modules.mail.services.drafts import resolve_reply_context
             from app.modules.mail.services.send import send_message
 
+            in_reply_to_val, references_val = None, None
+            if in_reply_to or reply_to_message_id:
+                conn = _get_cache_conn(aid, dek, flask_app)
+                try:
+                    try:
+                        in_reply_to_val, references_val = resolve_reply_context(
+                            conn, reply_to_message_id, in_reply_to
+                        )
+                    except ValueError as exc:
+                        return err("VALIDATION_ERROR", str(exc))
+                finally:
+                    conn.close()
             result = send_message(
                 account,
                 domain,
@@ -382,12 +420,41 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 body_plain=body_plain,
                 body_html=body_html,
                 draft_id=draft_id,
+                in_reply_to=in_reply_to_val,
+                references=references_val,
                 get_cache_conn=lambda: _get_cache_conn(aid, dek, flask_app),
             )
-        result.pop("sent_uid", None)
-        from app.shared.ui_events import push_ui_event
+            sent_uid = result.pop("sent_uid", None)
+            if sent_uid:
+                try:
+                    from app.modules.mail.services.message_sync import (
+                        fetch_and_cache_message,
+                        sent_copy_summary,
+                    )
 
-        push_ui_event(ctx["customer_id"], "mail", "message_sent", {"account_id": aid})
+                    row = fetch_and_cache_message(
+                        account,
+                        domain,
+                        secret,
+                        lambda: _get_cache_conn(aid, dek, flask_app),
+                        "Sent",
+                        sent_uid,
+                    )
+                    summary = sent_copy_summary(row)
+                    if summary:
+                        result.update(summary)
+                except Exception:
+                    _mail_logger.exception(
+                        "sent copy cache sync failed account_id=%s uid=%s", aid, sent_uid
+                    )
+        from app.mcp.events_bridge import bridge_ui_event
+
+        bridge_ui_event(
+            ctx["customer_id"],
+            "mail",
+            "message_sent",
+            {"account_id": aid, "to": list(to)[:5], "subject": (subject or "")[:120]},
+        )
         return ok(result)
 
     @mcp.tool(
@@ -445,9 +512,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 client.expunge()
             finally:
                 safe_logout(client)
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "mail",
             "message_moved",
@@ -553,9 +620,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                     )
             finally:
                 safe_logout(client)
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "mail",
             "message_moved",
@@ -602,9 +669,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 destination = not_spam(client, d.get("uid"), d.get("folder", "INBOX"))
             finally:
                 safe_logout(client)
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "mail",
             "message_moved",
@@ -675,9 +742,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 delete_message_by_id(conn, message_id)
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "mail",
             "message_deleted",
@@ -748,9 +815,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 )
             finally:
                 safe_logout(client)
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "mail",
             "flags_updated",
@@ -885,7 +952,8 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
     @mcp.tool(
         name="mail_get_thread",
         title="Get Thread Messages",
-        description="Get all messages in an email thread. Read-only.",
+        description="Get all messages in an email thread. Read-only. Use include_bodies=false or "
+        "body_format='plain' to keep payloads small (HTML quote chains are the usual bloat).",
         annotations=ToolAnnotations(
             read_only_hint=True, open_world_hint=False, destructive_hint=False
         ),
@@ -893,9 +961,21 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
     @resilient_tool
     async def mail_get_thread(
         thread_id: Annotated[str, Field(description="Thread ID to retrieve messages for")],
+        include_bodies: Annotated[
+            bool | None,
+            Field(description="Set false to return header fields and snippet only (default true)"),
+        ] = None,
+        body_format: Annotated[
+            str | None,
+            Field(description="Body format filter: 'plain', 'html', or 'both' (default 'both')"),
+        ] = None,
         account_id: _AccId = None,
     ) -> str:
         ctx, aid, dek = resolve_read(flask_app, "mail", account_id)
+        fmt = (body_format or "both").strip().lower()
+        if fmt not in ("plain", "html", "both"):
+            return err("VALIDATION_ERROR", "body_format must be plain, html, or both")
+        with_bodies = True if include_bodies is None else bool(include_bodies)
         with flask_app.app_context():
             conn = _get_cache_conn(aid, dek, flask_app)
             try:
@@ -905,7 +985,19 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
             finally:
                 conn.close()
             settings = _settings_for(ctx["customer_id"])
-        return ok([_message_detail(_row_to_dict(r), settings) for r in rows])
+        items = []
+        for r in rows:
+            d = _row_to_dict(r)
+            if not with_bodies:
+                item = _message_summary(d, settings)
+            else:
+                item = _message_detail(d, settings)
+                if fmt == "plain":
+                    item.pop("body_html", None)
+                elif fmt == "html":
+                    item.pop("body_plain", None)
+            items.append(item)
+        return ok_items(items)
 
     @mcp.tool(
         name="mail_bulk_move",
@@ -1005,9 +1097,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                         safe_logout(client)
                 except Exception as exc:
                     return err("IMAP_ERROR", str(exc))
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(ctx["customer_id"], "mail", "messages_moved", {"account_id": aid})
+        bridge_ui_event(ctx["customer_id"], "mail", "messages_moved", {"account_id": aid})
         return ok({"succeeded": succeeded, "failed": failed})
 
     @mcp.tool(
@@ -1129,9 +1221,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                         )
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(ctx["customer_id"], "mail", "messages_deleted", {"account_id": aid})
+        bridge_ui_event(ctx["customer_id"], "mail", "messages_deleted", {"account_id": aid})
         return ok({"succeeded": succeeded, "failed": failed})
 
     @mcp.tool(
@@ -1197,15 +1289,19 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                     succeeded.append({"message_id": v.message_id})
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(ctx["customer_id"], "mail", "flags_updated", {"account_id": aid})
+        bridge_ui_event(ctx["customer_id"], "mail", "flags_updated", {"account_id": aid})
         return ok({"succeeded": succeeded, "failed": failed})
 
     @mcp.tool(
         name="mail_save_draft",
         title="Save Email Draft",
-        description="Save an email as a draft in the Drafts folder. Optionally replace an existing draft by providing its draft ID. Returns the saved draft with draft_id for future reference.",
+        description="Save an email as a draft in the Drafts folder (stored read, \\Draft \\Seen). "
+        "Pass draft_id to replace an existing draft — both the message id returned by read tools and "
+        "the IMAP UID (imap_uid) are accepted; unknown ids return DRAFT_NOT_FOUND instead of creating "
+        "a duplicate. The response includes draft_uid, draft_id (cache id), imap_uid and thread_id. "
+        "For a reply draft, pass reply_to_message_id or in_reply_to so it threads correctly.",
         annotations=ToolAnnotations(
             read_only_hint=False, open_world_hint=False, destructive_hint=False
         ),
@@ -1219,103 +1315,89 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
         body_plain: Annotated[str | None, Field(description="Plain text body content")] = None,
         body_html: Annotated[str | None, Field(description="HTML body content")] = None,
         draft_id: Annotated[
-            str | None, Field(description="ID of an existing draft to replace")
+            str | None,
+            Field(
+                description="Existing draft to replace — cache message id or IMAP UID (both accepted)"
+            ),
+        ] = None,
+        in_reply_to: Annotated[
+            str | None, Field(description="Raw RFC 5322 Message-ID being replied to")
+        ] = None,
+        reply_to_message_id: Annotated[
+            str | None,
+            Field(
+                description="Cache message id being replied to (server derives threading headers)"
+            ),
         ] = None,
         account_id: _AccId = None,
     ) -> str:
         ctx, aid, dek = resolve_write(flask_app, "mail", account_id)
         with flask_app.app_context():
             account, domain, secret = _get_account_and_secret(aid, dek, flask_app)
-            from_addr = account.email_address
-            msg = MIMEMultipart("alternative")
-            msg["From"] = from_addr
-            if to:
-                msg["To"] = ", ".join(to)
-            if cc:
-                msg["Cc"] = ", ".join(cc)
-            msg["Subject"] = subject or "(no subject)"
-            msg["Message-ID"] = f"<{__import__('uuid').uuid4()}@{domain.name}>"
-            if body_plain:
-                msg.attach(MIMEText(body_plain, "plain"))
-            if body_html:
-                msg.attach(MIMEText(body_html, "html"))
-            if not body_plain and not body_html:
-                msg.attach(MIMEText("", "plain"))
-            msg_bytes = msg.as_bytes()
-            from app.modules.mail.services.imap_client import (
-                append_message,
-                create_folder,
-                delete_message_by_uid,
-                parse_append_uid,
-                safe_logout,
-                select_folder,
+            from app.modules.mail.services.drafts import (
+                DraftNotFoundError,
+                resolve_reply_context,
+                save_draft,
             )
 
-            imap = _imap_connect(account, domain, secret)
+            in_reply_to_val, references_val = None, None
+            if in_reply_to or reply_to_message_id:
+                conn = _get_cache_conn(aid, dek, flask_app)
+                try:
+                    try:
+                        in_reply_to_val, references_val = resolve_reply_context(
+                            conn, reply_to_message_id, in_reply_to
+                        )
+                    except ValueError as exc:
+                        return err("VALIDATION_ERROR", str(exc))
+                finally:
+                    conn.close()
             try:
-                if draft_id:
-                    try:
-                        select_folder(imap, "Drafts")
-                        delete_message_by_uid(imap, str(draft_id))
-                    except Exception:
-                        _mail_logger.debug(
-                            "old draft deletion failed during draft save, draft_id=%s",
-                            draft_id,
-                            exc_info=True,
-                        )
-                try:
-                    select_folder(imap, "Drafts")
-                    _, append_data = append_message(imap, "Drafts", msg_bytes, flags=["\\Draft"])
-                except Exception:
-                    create_folder(imap, "Drafts")
-                    select_folder(imap, "Drafts")
-                    _, append_data = append_message(imap, "Drafts", msg_bytes, flags=["\\Draft"])
-                draft_uid = parse_append_uid(append_data)
-            finally:
-                safe_logout(imap)
-            if draft_id:
-                try:
-                    imap2 = _imap_connect(account, domain, secret)
-                    try:
-                        select_folder(imap2, "Drafts")
-                        delete_message_by_uid(imap2, str(draft_id))
-                    finally:
-                        safe_logout(imap2)
-                except Exception:
-                    _mail_logger.warning(
-                        "draft deletion from IMAP failed after send, draft_id=%s",
-                        draft_id,
-                        exc_info=True,
-                    )
-                with flask_app.app_context():
-                    try:
-                        conn = _get_cache_conn(aid, dek, flask_app)
-                        from app.modules.mail.services.cache_db import delete_messages_by_uids
+                result = save_draft(
+                    account,
+                    domain,
+                    secret,
+                    to=to,
+                    cc=cc,
+                    bcc=bcc,
+                    subject=subject,
+                    body_plain=body_plain,
+                    body_html=body_html,
+                    replace=draft_id,
+                    in_reply_to=in_reply_to_val,
+                    references=references_val,
+                    get_cache_conn=lambda: _get_cache_conn(aid, dek, flask_app),
+                    enqueue_sync=lambda folder, reason, priority: _enqueue_sync(
+                        flask_app, aid, folder=folder, reason=reason, priority=priority
+                    ),
+                )
+            except DraftNotFoundError as exc:
+                return err("DRAFT_NOT_FOUND", str(exc))
+            except Exception as exc:
+                _mail_logger.exception("save draft failed account_id=%s", aid)
+                return err("MAILBOX_UNAVAILABLE", f"Draft could not be saved: {exc}")
+        from app.mcp.events_bridge import bridge_ui_event
 
-                        delete_messages_by_uids(conn, "Drafts", [str(draft_id)])
-                        conn.close()
-                    except Exception:
-                        _mail_logger.warning(
-                            "draft cache cleanup failed after send, draft_id=%s",
-                            draft_id,
-                            exc_info=True,
-                        )
-        from app.shared.ui_events import push_ui_event
-
-        push_ui_event(ctx["customer_id"], "mail", "draft_saved", {"account_id": aid})
-        return ok(
+        bridge_ui_event(
+            ctx["customer_id"],
+            "mail",
+            "draft_saved",
             {
-                "status": "draft",
-                "draft_uid": draft_uid,
-                "draft_id": draft_uid,
-                "message_id": msg["Message-ID"],
-            }
+                "account_id": aid,
+                "draft_uid": result.get("draft_uid"),
+                "message_id": result.get("id"),
+                "thread_id": result.get("thread_id"),
+                "snippet": (result.get("snippet") or "")[:200],
+            },
         )
+        return ok(result)
 
     @mcp.tool(
         name="mail_delete_draft",
         title="Delete Email Draft",
-        description="Delete a draft email from the Drafts folder by its draft ID.",
+        description="Delete a draft email from the Drafts folder. Accepts the cache message id "
+        "(draft_id) or the IMAP UID (draft_uid/imap_uid). Unknown or already-deleted drafts return "
+        "DRAFT_NOT_FOUND; a successful response means the draft is verified gone.",
         annotations=ToolAnnotations(
             read_only_hint=False, open_world_hint=False, destructive_hint=True, idempotent_hint=True
         ),
@@ -1323,29 +1405,54 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
     @resilient_tool
     async def mail_delete_draft(
         draft_uid: Annotated[
-            str, Field(description="Draft UID returned by mail_save_draft.draft_uid")
+            str,
+            Field(description="Draft to delete — cache message id or IMAP UID (both accepted)"),
         ],
         account_id: _AccId = None,
     ) -> str:
         ctx, aid, dek = resolve_write(flask_app, "mail", account_id)
         with flask_app.app_context():
             account, domain, secret = _get_account_and_secret(aid, dek, flask_app)
-            from app.modules.mail.services.imap_client import (
-                delete_message_by_uid,
-                safe_logout,
-                select_folder,
+            from app.modules.mail.services.drafts import (
+                DraftDeletionError,
+                DraftNotFoundError,
+                delete_draft,
             )
 
-            client = _imap_connect(account, domain, secret)
             try:
-                select_folder(client, "Drafts")
-                delete_message_by_uid(client, str(draft_uid))
-            finally:
-                safe_logout(client)
-        from app.shared.ui_events import push_ui_event
+                result = delete_draft(
+                    account,
+                    domain,
+                    secret,
+                    draft_uid,
+                    get_cache_conn=lambda: _get_cache_conn(aid, dek, flask_app),
+                    enqueue_sync=lambda folder, reason, priority: _enqueue_sync(
+                        flask_app, aid, folder=folder, reason=reason, priority=priority
+                    ),
+                )
+            except DraftNotFoundError as exc:
+                return err("DRAFT_NOT_FOUND", str(exc))
+            except DraftDeletionError as exc:
+                _mail_logger.exception(
+                    "draft deletion not verified account_id=%s uid=%s", aid, draft_uid
+                )
+                return err("DRAFT_DELETE_FAILED", str(exc))
+            except Exception as exc:
+                _mail_logger.exception("delete draft failed account_id=%s uid=%s", aid, draft_uid)
+                return err("MAILBOX_UNAVAILABLE", f"Draft could not be deleted: {exc}")
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(ctx["customer_id"], "mail", "draft_deleted", {"account_id": aid})
-        return ok({"status": "deleted", "draft_uid": draft_uid})
+        bridge_ui_event(
+            ctx["customer_id"],
+            "mail",
+            "draft_deleted",
+            {
+                "account_id": aid,
+                "draft_uid": result.get("draft_uid"),
+                "message_id": result.get("draft_id"),
+            },
+        )
+        return ok(result)
 
     @mcp.tool(
         name="mail_get_raw_message",
@@ -1453,9 +1560,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
             finally:
                 conn.close()
             _enqueue_sync(flask_app, aid, folder=full_name, reason="folder_created", priority=5)
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"], "mail", "folder_created", {"account_id": aid, "folder": full_name}
         )
         return ok({"id": full_name, "name": full_name, "created": created})
@@ -1509,9 +1616,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
             finally:
                 conn.close()
             _enqueue_sync(flask_app, aid, folder=new_name, reason="folder_renamed", priority=5)
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "mail",
             "folder_renamed",
@@ -1563,9 +1670,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 delete_folder_in_cache(conn, folder)
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"], "mail", "folder_deleted", {"account_id": aid, "folder": folder}
         )
         return ok({"id": folder, "deleted": True})

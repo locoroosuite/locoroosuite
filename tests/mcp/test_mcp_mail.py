@@ -31,30 +31,30 @@ def mcp_mail(app, _clean_db):
         user_id = user.id
 
         domain = Domain(  # type: ignore[call-arg]
-            name="example.com",
-            is_active=True,
-            status="active",
-            imap_host="imap.example.com",
-            imap_port=993,
-            imap_tls=True,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
+            name="example.com",  # pyright: ignore[reportCallIssue]
+            is_active=True,  # pyright: ignore[reportCallIssue]
+            status="active",  # pyright: ignore[reportCallIssue]
+            imap_host="imap.example.com",  # pyright: ignore[reportCallIssue]
+            imap_port=993,  # pyright: ignore[reportCallIssue]
+            imap_tls=True,  # pyright: ignore[reportCallIssue]
+            smtp_host="smtp.example.com",  # pyright: ignore[reportCallIssue]
+            smtp_port=587,  # pyright: ignore[reportCallIssue]
+            smtp_tls_mode="starttls",  # pyright: ignore[reportCallIssue]
         )
         _db.session.add(domain)
         _db.session.flush()
 
         dek = generate_dek()
         account = CustomerAccount(  # type: ignore[call-arg]
-            customer_id=user.id,
-            domain_id=domain.id,
-            email_address="mcp-mail@example.com",
-            auth_type="password",
-            username="mcp-mail@example.com",
-            cache_db_path="",
-            api_enabled=True,
-            dek_wrapped_cred=b"placeholder",
-            is_active=True,
+            customer_id=user.id,  # pyright: ignore[reportCallIssue]
+            domain_id=domain.id,  # pyright: ignore[reportCallIssue]
+            email_address="mcp-mail@example.com",  # pyright: ignore[reportCallIssue]
+            auth_type="password",  # pyright: ignore[reportCallIssue]
+            username="mcp-mail@example.com",  # pyright: ignore[reportCallIssue]
+            cache_db_path="",  # pyright: ignore[reportCallIssue]
+            api_enabled=True,  # pyright: ignore[reportCallIssue]
+            dek_wrapped_cred=b"placeholder",  # pyright: ignore[reportCallIssue]
+            is_active=True,  # pyright: ignore[reportCallIssue]
         )
         _db.session.add(account)
         _db.session.commit()
@@ -156,8 +156,8 @@ class TestMcpMailListTools:
             patch(f"{CACHE_DB}.list_cached_folders", return_value=[mock_row]),
         ):
             result = asyncio.run(tools["mail_list_folders"].fn())
-        data = json.loads(result)["data"]
-        assert data[0]["name"] == "INBOX"
+        data = json.loads(result)
+        assert data["items"][0]["name"] == "INBOX"
 
     def test_list_folders_empty(self, mcp_mail):
         tools = mcp_mail["tools"]
@@ -166,8 +166,8 @@ class TestMcpMailListTools:
             patch(f"{CACHE_DB}.list_cached_folders", return_value=[]),
         ):
             result = asyncio.run(tools["mail_list_folders"].fn())
-        data = json.loads(result)["data"]
-        assert data == []
+        data = json.loads(result)
+        assert data["items"] == []
 
     def test_list_folders_with_account_id(self, mcp_mail):
         tools = mcp_mail["tools"]
@@ -176,8 +176,8 @@ class TestMcpMailListTools:
             patch(f"{CACHE_DB}.list_cached_folders", return_value=[]),
         ):
             result = asyncio.run(tools["mail_list_folders"].fn(account_id=mcp_mail["account_id"]))
-        data = json.loads(result)["data"]
-        assert data == []
+        data = json.loads(result)
+        assert data["items"] == []
 
     def test_list_messages(self, mcp_mail):
         tools = mcp_mail["tools"]
@@ -187,7 +187,7 @@ class TestMcpMailListTools:
         ):
             result = asyncio.run(tools["mail_list_messages"].fn(folder_id="INBOX"))
         data = json.loads(result)
-        assert "data" in data
+        assert "items" in data and "pagination" in data
 
     def test_get_message(self, mcp_mail):
         tools = mcp_mail["tools"]
@@ -197,7 +197,7 @@ class TestMcpMailListTools:
             patch(f"{CACHE_DB}.get_message", return_value=mock_row),
         ):
             result = asyncio.run(tools["mail_get_message"].fn(message_id=1))
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["id"] == 1
 
     def test_get_message_not_found(self, mcp_mail):
@@ -217,8 +217,8 @@ class TestMcpMailListTools:
             patch(f"{CACHE_DB}.search_local", return_value=[]),
         ):
             result = asyncio.run(tools["mail_search"].fn(q="hello"))
-        data = json.loads(result)["data"]
-        assert data == []
+        data = json.loads(result)
+        assert data["items"] == []
 
     def test_get_thread(self, mcp_mail):
         tools = mcp_mail["tools"]
@@ -227,8 +227,8 @@ class TestMcpMailListTools:
             patch(f"{CACHE_DB}.list_thread_messages", return_value=[]),
         ):
             result = asyncio.run(tools["mail_get_thread"].fn(thread_id="thread-123"))
-        data = json.loads(result)["data"]
-        assert data == []
+        data = json.loads(result)
+        assert data["items"] == []
 
     def test_list_messages_includes_protected(self, mcp_mail):
         # HLD U5.15h: the protected state is visible before a delete is attempted.
@@ -242,7 +242,7 @@ class TestMcpMailListTools:
             ),
         ):
             result = asyncio.run(tools["mail_list_messages"].fn(folder_id="INBOX"))
-        by_id = {m["id"]: m for m in json.loads(result)["data"]}
+        by_id = {m["id"]: m for m in json.loads(result)["items"]}
         assert by_id[1]["protected"] is True
         assert by_id[2]["protected"] is False
 
@@ -265,7 +265,7 @@ class TestMcpMailMutationTools:
             patch(f"{UI_EVENTS}.push_ui_event"),
         ):
             result = asyncio.run(tools["mail_update_flags"].fn(message_id=1, read=True))
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["id"] == 1
 
     def test_bulk_move_validates_items(self, mcp_mail):
@@ -324,7 +324,7 @@ class TestMcpMailMutationTools:
             patch(f"{CACHE_DB}.get_message", return_value=starred_row),
         ):
             result = asyncio.run(tools["mail_bulk_delete"].fn(items=[{"message_id": 1}]))
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         codes = [f["error"]["code"] for f in data["failed"]]
         assert "PROTECTED" in codes
         assert data["succeeded"] == []
@@ -374,7 +374,7 @@ class TestMcpMailMutationTools:
             patch(f"{UI_EVENTS}.push_ui_event"),
         ):
             result = asyncio.run(tools["mail_move_message"].fn(message_id=1, folder_id="Archive"))
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["moved_to"] == "Archive"
 
     def test_bulk_move_to_trash_skips_protected(self, mcp_mail):
@@ -388,7 +388,7 @@ class TestMcpMailMutationTools:
             result = asyncio.run(
                 tools["mail_bulk_move"].fn(items=[{"message_id": 1}], folder_id="Trash")
             )
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         codes = [f["error"]["code"] for f in data["failed"]]
         assert "PROTECTED" in codes
         assert data["succeeded"] == []
@@ -414,7 +414,7 @@ class TestMcpMailMutationTools:
             patch(f"{UI_EVENTS}.push_ui_event"),
         ):
             result = asyncio.run(tools["mail_create_folder"].fn(name="NewFolder"))
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["created"] is True
         sync_mock.enqueue_sync.assert_any_call(
             mcp_mail["account_id"], folder="NewFolder", reason="folder_created", priority=5
@@ -438,7 +438,7 @@ class TestMcpMailMutationTools:
             patch(f"{UI_EVENTS}.push_ui_event"),
         ):
             result = asyncio.run(tools["mail_rename_folder"].fn(folder_id="Old", name="New"))
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["name"] == "New"
         sync_mock.enqueue_sync.assert_any_call(
             mcp_mail["account_id"], folder="New", reason="folder_renamed", priority=5

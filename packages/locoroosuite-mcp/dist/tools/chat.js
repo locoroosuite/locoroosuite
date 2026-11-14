@@ -100,6 +100,13 @@ export function registerChatTools(server, client) {
         });
         return json(data);
     });
+    server.registerTool("chat_join_room", { description: "Join a chat room by ID or alias", inputSchema: z.object({
+            account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
+            room_id: z.string().describe("Matrix room ID or alias"),
+        }) }, async ({ account_id, room_id }) => {
+        const data = await client.post(`/api/v1/chat/rooms/${encodeURIComponent(room_id)}/join`, client.accountId(account_id));
+        return json(data);
+    });
     server.registerTool("chat_leave_room", { description: "Leave a chat room", inputSchema: z.object({
             account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
             room_id: z.string().describe("Matrix room ID"),

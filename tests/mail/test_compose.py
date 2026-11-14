@@ -1251,7 +1251,7 @@ class TestDraftFlag:
                 },
             )
         assert resp.status_code == 200
-        assert captured_flags == ["\\Draft"]
+        assert captured_flags == ["\\Draft", "\\Seen"]
 
     def test_manual_save_sets_draft_flag(self, app, authed_client):
 
@@ -1284,7 +1284,7 @@ class TestDraftFlag:
                 },
             )
         assert resp.status_code == 302
-        assert captured_flags == ["\\Draft"]
+        assert captured_flags == ["\\Draft", "\\Seen"]
 
     def test_manual_save_replaces_old_draft(self, app, authed_client):
         client, _user_id, account_id = authed_client

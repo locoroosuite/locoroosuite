@@ -98,36 +98,36 @@ def oauth_user(app, _clean_db):
     user_id = None
     account_id = None
     with app.app_context():
-        user = User(email="oauth@example.com", role="customer", is_active=True)
+        user = User(email="oauth@example.com", role="customer", is_active=True)  # pyright: ignore[reportCallIssue]
         user.password_hash = "x"
         _db.session.add(user)
         _db.session.flush()
         user_id = user.id
 
         domain = Domain(
-            name="example.com",
-            is_active=True,
-            status="active",
-            imap_host="imap.example.com",
-            imap_port=993,
-            imap_tls=True,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
+            name="example.com",  # pyright: ignore[reportCallIssue]
+            is_active=True,  # pyright: ignore[reportCallIssue]
+            status="active",  # pyright: ignore[reportCallIssue]
+            imap_host="imap.example.com",  # pyright: ignore[reportCallIssue]
+            imap_port=993,  # pyright: ignore[reportCallIssue]
+            imap_tls=True,  # pyright: ignore[reportCallIssue]
+            smtp_host="smtp.example.com",  # pyright: ignore[reportCallIssue]
+            smtp_port=587,  # pyright: ignore[reportCallIssue]
+            smtp_tls_mode="starttls",  # pyright: ignore[reportCallIssue]
         )
         _db.session.add(domain)
         _db.session.flush()
 
         account = CustomerAccount(
-            customer_id=user.id,
-            domain_id=domain.id,
-            email_address="oauth@example.com",
-            auth_type="password",
-            username="oauth@example.com",
-            cache_db_path="",
-            api_enabled=True,
-            dek_wrapped_cred=b"placeholder",
-            is_active=True,
+            customer_id=user.id,  # pyright: ignore[reportCallIssue]
+            domain_id=domain.id,  # pyright: ignore[reportCallIssue]
+            email_address="oauth@example.com",  # pyright: ignore[reportCallIssue]
+            auth_type="password",  # pyright: ignore[reportCallIssue]
+            username="oauth@example.com",  # pyright: ignore[reportCallIssue]
+            cache_db_path="",  # pyright: ignore[reportCallIssue]
+            api_enabled=True,  # pyright: ignore[reportCallIssue]
+            dek_wrapped_cred=b"placeholder",  # pyright: ignore[reportCallIssue]
+            is_active=True,  # pyright: ignore[reportCallIssue]
         )
         _db.session.add(account)
         _db.session.commit()
@@ -146,22 +146,22 @@ def oauth_user_with_dek(app, _clean_db):
     account_id = None
     dek = generate_dek()
     with app.app_context():
-        user = User(email="oauth-dek@example.com", role="customer", is_active=True)
+        user = User(email="oauth-dek@example.com", role="customer", is_active=True)  # pyright: ignore[reportCallIssue]
         user.password_hash = "x"
         _db.session.add(user)
         _db.session.flush()
         user_id = user.id
 
         domain = Domain(
-            name="example.com",
-            is_active=True,
-            status="active",
-            imap_host="imap.example.com",
-            imap_port=993,
-            imap_tls=True,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
+            name="example.com",  # pyright: ignore[reportCallIssue]
+            is_active=True,  # pyright: ignore[reportCallIssue]
+            status="active",  # pyright: ignore[reportCallIssue]
+            imap_host="imap.example.com",  # pyright: ignore[reportCallIssue]
+            imap_port=993,  # pyright: ignore[reportCallIssue]
+            imap_tls=True,  # pyright: ignore[reportCallIssue]
+            smtp_host="smtp.example.com",  # pyright: ignore[reportCallIssue]
+            smtp_port=587,  # pyright: ignore[reportCallIssue]
+            smtp_tls_mode="starttls",  # pyright: ignore[reportCallIssue]
         )
         _db.session.add(domain)
         _db.session.flush()
@@ -170,14 +170,14 @@ def oauth_user_with_dek(app, _clean_db):
         wrapped = wrap_dek_with_credential(dek, cred_key)
 
         account = CustomerAccount(
-            customer_id=user.id,
-            domain_id=domain.id,
-            email_address="oauth-dek@example.com",
-            auth_type="password",
-            username="oauth-dek@example.com",
-            cache_db_path="",
-            api_enabled=True,
-            dek_wrapped_cred=wrapped,
+            customer_id=user.id,  # pyright: ignore[reportCallIssue]
+            domain_id=domain.id,  # pyright: ignore[reportCallIssue]
+            email_address="oauth-dek@example.com",  # pyright: ignore[reportCallIssue]
+            auth_type="password",  # pyright: ignore[reportCallIssue]
+            username="oauth-dek@example.com",  # pyright: ignore[reportCallIssue]
+            cache_db_path="",  # pyright: ignore[reportCallIssue]
+            api_enabled=True,  # pyright: ignore[reportCallIssue]
+            dek_wrapped_cred=wrapped,  # pyright: ignore[reportCallIssue]
         )
         _db.session.add(account)
         _db.session.commit()
@@ -215,7 +215,7 @@ class TestOAuthMCPIntegration:
         pub_key = serialization.load_pem_public_key(pub_key_bytes)
         payload = pyjwt.decode(
             access_token,
-            pub_key,
+            pub_key,  # pyright: ignore[reportArgumentType]
             algorithms=["RS256"],
             options={"verify_aud": False},
         )
@@ -344,7 +344,7 @@ class TestOAuthMCPIntegration:
         pub_key = serialization.load_pem_public_key(pub_key_bytes)
         payload = pyjwt.decode(
             access_token,
-            pub_key,
+            pub_key,  # pyright: ignore[reportArgumentType]
             algorithms=["RS256"],
             options={"verify_aud": False},
         )
@@ -514,7 +514,7 @@ class TestOAuthMCPIntegration:
             account = _db.session.get(CustomerAccount, account_id)
             with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
                 db_path = tmp.name
-            account.cache_db_path = db_path
+            account.cache_db_path = db_path  # pyright: ignore[reportOptionalMemberAccess]
             _db.session.commit()
 
             from app.modules.mail.services.cache_db import open_cache
@@ -591,8 +591,8 @@ class TestOAuthMCPIntegration:
                 text = content[0]["text"]
                 parsed = json.loads(text)
                 assert "error" not in parsed, f"MCP tool returned error: {parsed}"
-                assert "data" in parsed
-                folder_names = [f["name"] for f in parsed["data"]]
+                assert "items" in parsed
+                folder_names = [f["name"] for f in parsed["items"]]
                 assert "INBOX" in folder_names
                 assert "Sent" in folder_names
         finally:
@@ -611,7 +611,7 @@ class TestOAuthMCPIntegration:
             account = _db.session.get(CustomerAccount, account_id)
             with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
                 db_path = tmp.name
-            account.cache_db_path = db_path
+            account.cache_db_path = db_path  # pyright: ignore[reportOptionalMemberAccess]
             _db.session.commit()
 
             from app.modules.mail.services.cache_db import open_cache, upsert_folder
@@ -679,6 +679,6 @@ class TestOAuthMCPIntegration:
                 assert "error" not in parsed, (
                     f"MCP tool returned error after _user_keys wipe: {parsed}"
                 )
-                assert "data" in parsed
+                assert "items" in parsed
         finally:
             os.unlink(db_path)

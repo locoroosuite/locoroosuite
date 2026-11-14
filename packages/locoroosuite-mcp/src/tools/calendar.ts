@@ -122,8 +122,8 @@ export function registerCalendarTools(server: McpServer, client: ApiClient) {
                 role: z.string().optional(),
               })).optional().describe("Attendees"),
               reminders: z.array(z.object({
-                type: z.string(),
-                trigger_minutes: z.number(),
+                type: z.string().describe("DISPLAY, EMAIL, or PUSH (case-insensitive, default DISPLAY)"),
+                trigger_minutes: z.number().describe("Minutes before the event start (0 = at start)"),
               })).optional().describe("Reminders"),
               recurrence: z.string().optional().describe("RRULE string for recurrence"),
             }) }, async ({ account_id, calendar_id, summary, description, location, start, end, is_all_day, attendees, reminders, recurrence }) => {
@@ -159,8 +159,8 @@ export function registerCalendarTools(server: McpServer, client: ApiClient) {
                 role: z.string().optional(),
               })).optional().describe("Attendees (replaces existing)"),
               reminders: z.array(z.object({
-                type: z.string(),
-                trigger_minutes: z.number(),
+                type: z.string().describe("DISPLAY, EMAIL, or PUSH (case-insensitive, default DISPLAY)"),
+                trigger_minutes: z.number().describe("Minutes before the event start (0 = at start)"),
               })).optional().describe("Reminders (replaces existing)"),
               recurrence: z.string().optional().describe("RRULE string for recurrence"),
               scope: z.enum(["instance", "future", "series"]).optional().describe("For recurring events: which occurrences to update"),

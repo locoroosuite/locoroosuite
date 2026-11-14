@@ -51,9 +51,9 @@ from app.shared.ui_events import push_ui_event
 bp = create_api_blueprint("calendar", "Calendar management")
 
 
-def _row_to_dict(row):
+def _row_to_dict(row) -> dict:
     if row is None:
-        return None
+        return {}
     keys = row.keys()
     return {k: row[k] for k in keys}
 
@@ -78,25 +78,9 @@ def _calendar_to_dict(row):
 
 
 def _event_to_dict(row):
-    d = _row_to_dict(row) or {}
-    ical_raw = d.get("raw_ical") or d.get("ical_text")
-    parsed = {}
-    if ical_raw:
-        parsed = parse_icalendar(ical_raw) or {}
-    return {
-        "id": d["id"],
-        "uid": d.get("uid"),
-        "summary": parsed.get("summary", "") or d.get("summary", ""),
-        "description": parsed.get("description", "") or d.get("description", ""),
-        "location": parsed.get("location", "") or d.get("location", ""),
-        "start": parsed.get("dtstart") or d.get("dtstart"),
-        "end": parsed.get("dtend") or d.get("dtend"),
-        "is_all_day": parsed.get("all_day")
-        if parsed.get("all_day") is not None
-        else bool(d.get("all_day")),
-        "status": parsed.get("status", "") or d.get("status", ""),
-        "calendar_id": d.get("calendar_id"),
-    }
+    from app.modules.calendar.services.event_view import event_to_payload
+
+    return event_to_payload(row)
 
 
 @bp.get(
@@ -418,10 +402,12 @@ def api_create_event(body: CreateEventBody):
         "attendees": body.attendees,
         "alarms": [],
     }
-    for r in body.reminders:
-        event_data["alarms"].append(
-            {"action": r.get("type", "DISPLAY"), "trigger": r.get("trigger_minutes", "-PT15M")}
-        )
+    from app.modules.calendar.services.reminders import reminders_to_alarms
+
+    alarms, reminder_error = reminders_to_alarms(body.reminders, summary)
+    if reminder_error:
+        return api_error("VALIDATION_ERROR", reminder_error, 400)
+    event_data["alarms"] = alarms
     if body.recurrence:
         event_data["rrule"] = body.recurrence
     ical_text = generate_icalendar(event_data, uid=event_data["uid"])
@@ -499,8 +485,17 @@ def api_update_event(path: EventPath, body: UpdateEventBody):
         "timezone": body.timezone if body.timezone is not None else parsed.get("timezone"),
         "attendees": body.attendees if body.attendees is not None else parsed.get("attendees", []),
         "sequence": parsed.get("sequence", 0) + 1,
+        # body.reminders replaces the alarm set when provided (U15.57);
+        # omitted reminders keep the event's existing alarms.
         "alarms": parsed.get("alarms", []),
     }
+    if body.reminders is not None:
+        from app.modules.calendar.services.reminders import reminders_to_alarms
+
+        alarms, reminder_error = reminders_to_alarms(body.reminders, event_data["summary"])
+        if reminder_error:
+            return api_error("VALIDATION_ERROR", reminder_error, 400)
+        event_data["alarms"] = alarms
     ical_text = generate_icalendar(event_data, uid=event_data["uid"])
     calendar_id = body.calendar_id if body.calendar_id is not None else d.get("calendar_id")
     try:

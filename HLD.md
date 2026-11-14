@@ -254,7 +254,7 @@ U6.1d - Compose keyboard tab order must be: To, (if visible) Cc, (if visible) Bc
 U6.2 - Attachment size limits are enforced by the SMTP server (no additional app-level limit in MVP).
 U6.2a - In addition to SMTP enforcement, the app applies pre-send attachment size limits with clear structured errors before SMTP is attempted (see U6.14). SMTP rejection remains the final backstop.
 U6.3 - Outgoing emails are saved to Sent using IMAP APPEND.
-U6.4 - Drafts: if the IMAP server supports a Drafts folder, save drafts via IMAP APPEND with the `\Draft` flag set.
+U6.4 - Drafts: if the IMAP server supports a Drafts folder, save drafts via IMAP APPEND with the `\Draft` and `\Seen` flags set. Drafts are never unread mail (Gmail parity; same philosophy as the read-sent-copy rule in U4.7e): they must not render as unread in message lists and must not count toward unread badges (U4.14a).
 U6.4a - On save-draft/auto-save, if Drafts does not exist, attempt to create it once and then append. If Drafts creation/append fails, keep the user on compose and show a clear inline error with next steps.
 U6.4b - Draft messages are visually distinguished in the message list with an amber "Draft" badge, pencil icon, and amber-tinted background. In the thread card, threads containing drafts show an amber left border.
 U6.4c - When viewing a draft in the message detail view, show a prominent "Draft" banner at the top with "This message has not been sent yet." text. The toolbar shows "Edit draft" and "Discard" buttons instead of Reply/Reply All/Forward. Draft thread messages in the conversation view show an amber "Draft" badge and pencil avatar icon.
@@ -263,6 +263,8 @@ U6.4e - Discard draft: `POST /mail/draft/<account_id>/<draft_uid>/discard` delet
 U6.4f - Drafts in thread view: drafts matching a thread (by `thread_id` or normalized subject) are merged into the thread in the folder message list, sorted by date. Threads containing drafts sort to the top based on the draft's timestamp. In the message detail conversation view, draft messages from the Drafts folder are included in the thread if they match by subject.
 U6.5 - Auto-save drafts while composing. Auto-save replaces the previous draft (if any) by deleting the old UID before appending the new one.
 U6.5a - API draft support: the REST API exposes endpoints to create, replace, and delete drafts via IMAP APPEND to the Drafts folder. `POST /api/v1/mail/drafts` accepts the same fields as the send endpoint (`to`, `cc`, `bcc`, `subject`, `body_html`, `body_plain`) plus an optional `replace_uid` to update an existing draft (deletes the old UID before appending). Returns `{"status": "draft", "draft_uid": "<uid>", "message_id": "<id>"}`. `DELETE /api/v1/mail/drafts/<uid>` removes a draft from the Drafts folder. The send endpoint (`POST /api/v1/mail/messages`) accepts an optional `draft_uid`; after a successful send, the referenced draft is deleted from the Drafts folder. If Drafts folder does not exist on APPEND, the API creates it once (matching U6.4a behavior).
+U6.5b - Draft identifier contract (single ID space, both accepted): every message read endpoint (list, get, search, thread; U15.22-U15.25) exposes `imap_uid` and `folder` alongside the cache `id`, so agents can discover the IMAP UID of any draft. All draft write parameters (`replace_uid`, `draft_uid`, `draft_id`, and the send endpoint's draft reference) accept **either** the IMAP UID or the cache message `id` — the server resolves cache-id → UID via the Drafts folder rows in the mail cache before touching IMAP. An identifier that matches no existing draft is a loud error (404 `DRAFT_NOT_FOUND`), never a silent no-op. Cache ids are never recycled (the mail cache `messages.id` is `INTEGER PRIMARY KEY AUTOINCREMENT`, migration 0006): an id the agent saw always names the same message, even after the row is deleted and replaced.
+U6.5c - Honest draft mutations: (a) replace — if the referenced draft cannot be resolved or deleted, the API returns an error instead of silently appending a duplicate; (b) delete — the endpoint verifies the UID exists in the Drafts folder before issuing the IMAP delete and verifies the cache row is gone after; a nonexistent/already-deleted draft returns 404, never a success response; (c) delete-after-send — the send endpoint's draft cleanup uses the same identifier resolution and reports the outcome in the response (`"draft_deleted": true/false` plus an error code when false) instead of swallowing cleanup failures.
 U6.6 - Provide an "undo send" grace period (5–10 seconds) before SMTP send.
 U6.6a - After pressing Send, show a send status page with a visible countdown and actions: Undo and "Send now". "Send now" skips the remaining countdown and starts SMTP immediately.
 U6.6b - Scheduled sends must continue in background even if the user navigates away from the send status page.
@@ -859,11 +861,12 @@ U15.11 - `GET /api/v1/accounts` — list the customer's email accounts. Returns 
 U15.20 - All mail endpoints require at least `mail:read`. Write operations require `mail:write`. All endpoints require `account_id` parameter.
 
 U15.21 - `GET /api/v1/mail/folders` — list folders with unread counts.
-U15.22 - `GET /api/v1/mail/folders/{folder_id}/messages` — list messages in a folder. Supports `?unread=true`, `?flagged=true`, `?since=<iso8601>` filters. Returns message ID, subject, from, to, date, flags, snippet, thread_id.
+U15.22 - `GET /api/v1/mail/folders/{folder_id}/messages` — list messages in a folder. Supports `?unread=true`, `?flagged=true`, `?since=<iso8601>` filters. Returns message ID, subject, from, to, date, flags, snippet, thread_id, plus `imap_uid` and `folder` (U6.5b).
 U15.23 - `GET /api/v1/mail/messages/{message_id}` — full message: subject, from, to, cc, bcc, date, flags, body (plain text and/or HTML), attachments list (filename, size, content-type). Body content is the cached version (same as web UI).
 U15.24 - `GET /api/v1/mail/messages/{message_id}/attachments/{attachment_id}` — download a single attachment.
-U15.25 - `GET /api/v1/mail/threads/{thread_id}` — list all messages in a thread.
-U15.26 - `POST /api/v1/mail/messages` — send a new email. Body: `{ "to": [...], "cc": [...], "bcc": [...], "subject": "...", "body_plain": "...", "body_html": "...", "attachments": [...] }`. Attachments are uploaded separately via `POST /api/v1/mail/attachments` first, then referenced by ID. Follows the same undo-send pattern as the web UI (U6.6) with a default 5-second grace period. The response includes a `send_id` that can be used to cancel within the grace period.
+U15.25 - `GET /api/v1/mail/threads/{thread_id}` — list all messages in a thread. Supports `?include_bodies=<bool>` (default `true`) and `?body_format=plain|html|both` (default `both`) so agents can avoid multi-megabyte payloads: with `include_bodies=false` messages return header fields plus a snippet only; `body_format=plain` strips `body_html` (quoted HTML chains are the usual bloat). Each message includes `imap_uid` and `folder` (U6.5b).
+U15.26 - `POST /api/v1/mail/messages` — send a new email. Body: `{ "to": [...], "cc": [...], "bcc": [...], "subject": "...", "body_plain": "...", "body_html": "...", "attachments": [...], "in_reply_to": "...", "reply_to_message_id": "..." }`. Attachments are uploaded separately via `POST /api/v1/mail/attachments` first, then referenced by ID. Reply threading: `in_reply_to` carries a raw RFC 5322 `Message-ID` and `reply_to_message_id` carries a cache message `id` (the identifier read endpoints expose; the server resolves it to the source message's `Message-ID`/`References`). Exactly one of the two is needed to thread; when provided, the outgoing message gets `In-Reply-To` and `References` headers and its `thread_id` is computed so the reply groups with the source conversation (U4.7 rules). The optional `draft_uid`/`draft_id` follows U6.5b/U6.5c (either ID space accepted; deletion outcome reported). Follows the same undo-send pattern as the web UI (U6.6) with a default 5-second grace period. The response includes a `send_id` that can be used to cancel within the grace period.
+U15.26a - Threads are never invented client-side: when neither threading parameter is provided the send behaves as today (fresh thread), which is correct for new conversations. Agents performing a reply must pass one of the two parameters.
 U15.27 - `POST /api/v1/mail/attachments` — upload an attachment for use in compose. Returns an attachment ID. Supports `Content-Type: multipart/form-data`. Max size per attachment follows SMTP limits (no app-level limit per U6.2).
 U15.28 - `PATCH /api/v1/mail/messages/{message_id}` — update message flags: `{ "flags": { "read": true, "flagged": false } }`.
 U15.29 - `POST /api/v1/mail/messages/{message_id}/move` — move message to another folder: `{ "folder_id": "..." }`.
@@ -898,7 +901,7 @@ U15.53 - `PUT /api/v1/calendar/calendars/{calendar_id}` — update calendar name
 U15.54 - `DELETE /api/v1/calendar/calendars/{calendar_id}` — delete a calendar and all its events. Requires confirmation: `{ "confirm": true }`.
 U15.55 - `GET /api/v1/calendar/calendars/{calendar_id}/events` — list events. Supports `?since=<iso8601>`, `?until=<iso8601>`, `?search=<query>`. Returns event ID, summary, start, end, location, is_all_day, status, recurrence rule summary.
 U15.56 - `GET /api/v1/calendar/events/{event_id}` — full event detail: summary, description, location, start/end (with timezone), is_all_day, calendar, recurrence rule, attendees, reminders, categories, status, created, last_modified.
-U15.57 - `POST /api/v1/calendar/events` — create an event. Body includes: summary, description, location, start, end (ISO 8601 with timezone), calendar_id, is_all_day, attendees (array of `{email, name?, role?}`), reminders (array of `{type, trigger_minutes}`), recurrence (RRULE string). The server converts start/end times to iCalendar DTSTART/DTEND with TZID. Attendee invitation emails (iMIP) follow U12.25 behavior.
+U15.57 - `POST /api/v1/calendar/events` — create an event. Body includes: summary, description, location, start, end (ISO 8601 with timezone), calendar_id, is_all_day, attendees (array of `{email, name?, role?}`), reminders (array of `{type, trigger_minutes}`), recurrence (RRULE string). The server converts start/end times to iCalendar DTSTART/DTEND with TZID. Reminder `type` values are normalized (`display`/`Display` → `DISPLAY`; supported: `DISPLAY`, `EMAIL`, `PUSH`), `trigger_minutes` (integer, minutes before start) is converted to a valid iCalendar TRIGGER duration (`60` → `-PT1H`), and unknown types or non-integer triggers are rejected with `VALIDATION_ERROR` (400) before CalDAV is touched. Reads (U15.56) echo reminders back as `{type, trigger_minutes}` normalized the same way. Attendee invitation emails (iMIP) follow U12.25 behavior.
 U15.58 - `PUT /api/v1/calendar/events/{event_id}` — update an event. Same fields as create. For recurring events, body must include `scope`: `"instance"` (RECURRENCE-ID), `"future"`, or `"series"` per U12.23.
 U15.59 - `DELETE /api/v1/calendar/events/{event_id}` — delete an event. For recurring events, requires `scope` parameter same as update. Returns the deleted event data for undo.
 U15.60 - `GET /api/v1/calendar/search` — search events by summary. Parameter: `q`, `since`, `until`. Returns same format as event list.
@@ -987,12 +990,12 @@ U16.7 - Mail tools (require `mail:read` and/or `mail:write`):
   - `mail_list_messages` — list messages in a folder (with pagination).
   - `mail_get_message` — get full message content including body.
   - `mail_search` — search messages.
-  - `mail_send` — compose and send a new email.
+  - `mail_send` — compose and send a new email (supports reply threading via `reply_to_message_id` or `in_reply_to`).
   - `mail_move_message` — move a message to a different folder.
   - `mail_delete_message` — move a message to Trash.
   - `mail_update_flags` — update read/flagged status.
   - `mail_get_attachment` — download an attachment.
-  - `mail_get_thread` — get all messages in a conversation thread.
+  - `mail_get_thread` — get all messages in a conversation thread (supports `include_bodies` / `body_format` to keep payloads small).
   - `mail_bulk_move` — move multiple messages.
   - `mail_bulk_delete` — delete multiple messages.
   - `mail_bulk_flag` — update flags on multiple messages.
@@ -1053,6 +1056,8 @@ U16.15 - The package version tracks with the REST API version (v1). When the RES
 
 U16.16 - The package declares its MCP protocol version and tool schema on startup. The MCP protocol version is independent of the REST API version.
 
+U16.17 - MCP tool responses are flattened: the REST API's `{"data": ...}` envelope (U15.6) is unwrapped by the MCP layer, so tool results present the resource fields directly at the top level — single resources as the object itself (`result.subject`, `result.body_plain`), collections as `{"items": [...], "pagination": {"next_cursor": ..., "has_more": ...}}` (pagination present when the endpoint paginates; `items` is the stable array key so agent code never branches on JSON type). Errors keep their original code and message (U16.13). Tool descriptions state the response shape. Applies identically to the Python MCP server (U17.10 parity) — no MCP client ever sees a `.data` nesting.
+
 ## Out of Scope for MVP
 
 U16.50 - No SSE transport (stdio only). Note: HTTP/SSE transport is provided by the Python MCP server (U17).
@@ -1104,7 +1109,7 @@ U17.9 - The resolved identity (customer ID, account ID, scopes, DEK) is stored i
 
 ## Tool Definitions
 
-U17.10 - The Python MCP server exposes the same tools as the TypeScript package (U16.6-U16.10), with identical names, input schemas, and behavior. Tool definitions are implemented in `app/mcp/tools/` with one file per module.
+U17.10 - The Python MCP server exposes the same tools as the TypeScript package (U16.6-U16.10), with identical names, input schemas, and behavior. Tool definitions are implemented in `app/mcp/tools/` with one file per module. Tool responses are flattened per U16.17 (the `.data` envelope is unwrapped).
 
 U17.11 - Each tool declares `securitySchemes` per the MCP authorization spec:
   - Read-only tools (e.g., `mail_list_folders`, `contacts_search`, `calendar_list_events`): `{ type: "oauth2", scopes: ["mail:read"] }` and optionally `{ type: "noauth" }` for mixed-mode tools.
@@ -2027,3 +2032,27 @@ U26.8 - REST API (`/api/v1/*`) and MCP responses remain English-only: they are m
 U26.9 - Adding a language requires only: a new `translations/<locale>/LC_MESSAGES/messages.po` catalog plus registration in the supported-locales config — no code changes elsewhere.
 
 U26.10 - i18n is a requirement for every user-facing change, new features and bug fixes alike: user-visible strings go through `_()` / `N_()` (Python) or `window.LR.t()` (JS), and date/time/number formatting goes through Flask-Babel (server, U26.7) or `Intl` (client). Client-side `Intl` APIs require BCP-47 locale tags (`es-ES`); the JS catalog (`window.LR_I18N.locale`) exposes gettext catalog names (`es_ES`, U26.2), so client code must normalize underscores to hyphens before any `Intl` call and fall back to English if `Intl` rejects the tag. Changes that touch user-facing UI or strings are verified in both supported locales (an unlocalized string or an unnormalized locale crashing the view JS is a bug, not a cosmetic issue).
+
+# Use Case U27 – AI Activity Visibility (Real-Time in the Web UI)
+
+## Overview
+
+U27.1 - Goal: when an AI agent (any MCP client or REST API token consumer) acts on the customer's mailbox while the webmail is open, the user sees it happening in real time — what the agent is doing, on which account, and for drafts, the content appearing and growing live. AI actions must never be invisible to a watching user. U15.52 is unchanged: API consumers still receive no push; U27 events flow only to the customer's own web UI stream.
+
+## Event Source
+
+U27.2 - Every authenticated `/api/v1/*` request emits an `ai_activity` SSE event (via the existing `ui_change` event path and `/events/stream`, U4.5) after the response completes. Payload: `{module, tool, summary, account_id, status, duration_ms}` where `tool` is a human-readable operation name (e.g. `mail_save_draft`, `mail_search`), and `summary` is a short English, machine-facing description with key arguments only (recipients, subject, folder, query — never full bodies, never credentials). Failed calls emit with an error status so the user sees the agent struggling, not silence.
+U27.3 - Noise control: pure byte-stream endpoints (attachment downloads, raw message downloads) do not emit. Identical consecutive `(tool, account_id)` events within 2 seconds coalesce (last-wins, `count` incremented). Emission is fire-and-forget and must never block or fail the API response; it respects the bounded SSE queue (U23.4).
+U27.4 - Emission points: every REST API request is covered by a single API-layer hook (`/api/v1/*` after-response, covering the TS stdio package and any direct API consumer). The Python MCP server calls the shared service layer in-process (not the REST API), so its tool dispatch emits the same `ai_activity` event through the same shared bus — one hook per surface, no double-emission, identical payload shape.
+
+## UI Surfaces
+
+U27.5 - Global AI activity indicator (all authenticated customer pages): a header badge with a pulsing "AI is working" state appears while `ai_activity` events keep arriving; it fades to idle after 15s of silence and hides after a further 30s. Clicking opens the activity feed popover listing recent events (time, tool, summary, status; error status styled red). The feed is client-side, in-memory per tab (last 50 events), localized per U26 (the SSE payload stays English per U26.8; the JS layer translates tool names and labels). Mail events link to the relevant folder/thread when the payload carries one.
+U27.6 - Live draft composition: when a `draft_saved` `ui_change` event (or an `ai_activity` event with `tool=mail_save_draft`) arrives, an open message-detail/preview conversation refreshes via the existing thread-live path (U4.7f) and shows the draft card updating in place with an "AI is composing…" state (shimmer plus the amber draft styling of U6.4b/U6.4c) while saves keep arriving; the state clears 15s after the last save. An open Drafts folder list refreshes the same way. The update granularity is per save operation — the visible composition grows one save at a time, which is exactly how agents write drafts.
+U27.7 - Rich draft events: the `draft_saved` `ui_change` payload carries `{account_id, draft_uid, message_id, thread_id (when derivable), snippet}` so open views can decide relevance without an extra fetch; full content still comes from the thread fragment refresh.
+U27.8 - Sends by AI: the sent message appears in the open thread via the existing `message_sent` path (U4.7f); the activity feed records the recipients. A send that follows visible drafting reads as the natural conclusion of the composition state.
+
+## Privacy & Limits
+
+U27.9 - Activity events carry metadata and short snippets only — never full bodies, attachments, tokens, or credentials. They are pushed only to the acting customer's own SSE stream and are not persisted server-side (the SSE bus is in-memory).
+U27.10 - `ai_activity` is additive: existing `ui_change` actions (`draft_saved`, `draft_deleted`, `message_sent`, syncs) are unchanged, and the web UI treats unknown actions as no-ops (forward compatibility).

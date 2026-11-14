@@ -108,8 +108,19 @@ class SendMessageBody(BaseModel):
     subject: str = Field("", description="Email subject line")
     body_plain: str = Field("", description="Plain-text body")
     body_html: str = Field("", description="HTML body")
-    draft_id: str | None = Field(default=None, description="Draft UID to delete after send")
+    draft_id: str | None = Field(
+        default=None,
+        description="Draft to delete after sending — accepts the cache message id or the IMAP UID (U6.5b)",
+    )
     draft_uid: str | None = Field(default=None, description="Alias for draft_id")
+    in_reply_to: str | None = Field(
+        default=None,
+        description="Raw RFC 5322 Message-ID being replied to; threads the reply into the source conversation",
+    )
+    reply_to_message_id: str | None = Field(
+        default=None,
+        description="Cache message id being replied to; the server derives In-Reply-To/References from it",
+    )
 
 
 class CreateDraftBody(BaseModel):
@@ -119,7 +130,18 @@ class CreateDraftBody(BaseModel):
     subject: str = Field("", description="Email subject line")
     body_plain: str = Field("", description="Plain-text body")
     body_html: str = Field("", description="HTML body")
-    replace_uid: str | None = Field(default=None, description="Draft UID to replace")
+    replace_uid: str | None = Field(
+        default=None,
+        description="Existing draft to replace — accepts the cache message id or the IMAP UID (U6.5b); unknown identifiers are rejected with DRAFT_NOT_FOUND",
+    )
+    in_reply_to: str | None = Field(
+        default=None,
+        description="Raw RFC 5322 Message-ID being replied to; threads the draft into the source conversation",
+    )
+    reply_to_message_id: str | None = Field(
+        default=None,
+        description="Cache message id being replied to; the server derives In-Reply-To/References from it",
+    )
 
 
 class DraftPath(BaseModel):
@@ -167,6 +189,20 @@ class GetMessageQuery(BaseModel):
         default=None, description="Mail account ID (defaults to primary account)"
     )
     mark_read: str | None = Field(default=None, description="Set to 'true' to mark as read")
+
+
+class ThreadQuery(BaseModel):
+    account_id: int | None = Field(
+        default=None, description="Mail account ID (defaults to primary account)"
+    )
+    include_bodies: str | None = Field(
+        default=None,
+        description="Set to 'false' to return header fields and snippet only (smaller payloads)",
+    )
+    body_format: str | None = Field(
+        default=None,
+        description="Body format filter: 'plain', 'html', or 'both' (default 'both')",
+    )
 
 
 class BulkFlagBody(BaseModel):

@@ -13,7 +13,15 @@ from pydantic import Field
 
 from app.mcp.auth import McpAuthError
 from app.mcp.errors import resilient_tool
-from app.mcp.helpers import binary_response, err, ok, ok_paginated, resolve_read, resolve_write
+from app.mcp.helpers import (
+    binary_response,
+    err,
+    ok,
+    ok_items,
+    ok_paginated,
+    resolve_read,
+    resolve_write,
+)
 from app.modules.docs.services.cache_db import parse_tags
 
 _AccId = Annotated[int | None, Field(description="Account ID (uses default account if omitted)")]
@@ -288,9 +296,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 row = get_active_document(conn, doc_id)
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"], "docs", "document_created", {"account_id": aid, "doc_id": doc_id}
         )
         return ok(
@@ -346,9 +354,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 row = get_active_document(conn, document_id)
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "docs",
             "document_renamed",
@@ -384,9 +392,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 soft_delete_document(conn, document_id)
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "docs",
             "document_deleted",
@@ -574,9 +582,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 row = get_active_document(conn, document_id)
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "docs",
             "document_updated",
@@ -652,9 +660,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 row = get_active_document(conn, draft_id)
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "docs",
             "draft_created",
@@ -731,9 +739,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
             finally:
                 conn.close()
             delete_file(account.customer_id, aid, draft_id)
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "docs",
             "draft_applied",
@@ -773,9 +781,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
             from app.modules.docs.services.storage import delete_file
 
             delete_file(account.customer_id, aid, draft_id)
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "docs",
             "draft_discarded",
@@ -894,9 +902,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 row = get_active_document(conn, new_id)
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"], "docs", "document_converted", {"account_id": aid, "doc_id": new_id}
         )
         return ok(_doc_to_dict(row) if row else {"id": new_id})
@@ -926,7 +934,7 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 items = folders_svc.list_flat(conn, aid)
             finally:
                 conn.close()
-        return ok(items)
+        return ok_items(items)
 
     @mcp.tool(
         name="docs_create_folder",
@@ -1102,9 +1110,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 row = get_document(conn, document_id)
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "docs",
             "document_moved",
@@ -1190,9 +1198,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 tags = get_document_tags(conn, document_id)
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "docs",
             "document_tagged",

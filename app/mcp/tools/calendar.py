@@ -11,7 +11,7 @@ from pydantic import Field
 
 from app.mcp.auth import McpAuthError
 from app.mcp.errors import resilient_tool
-from app.mcp.helpers import err, ok, ok_paginated, resolve_read, resolve_write
+from app.mcp.helpers import err, ok, ok_items, ok_paginated, resolve_read, resolve_write
 from app.mcp.schemas import EventAttendee, EventReminder
 from app.mcp.tools.mail import _ServiceConnectionError
 
@@ -50,27 +50,9 @@ def _calendar_to_dict(row):
 
 
 def _event_to_dict(row):
-    d = _row_to_dict(row) if not isinstance(row, dict) else row
-    from app.shared.icalendar import parse_icalendar
+    from app.modules.calendar.services.event_view import event_to_payload
 
-    ical_raw = d.get("raw_ical") or d.get("ical_text")
-    parsed: dict[str, Any] = {}
-    if ical_raw:
-        parsed = parse_icalendar(ical_raw) or {}
-    return {
-        "id": d["id"],
-        "uid": d.get("uid"),
-        "summary": parsed.get("summary", "") or d.get("summary", ""),
-        "description": parsed.get("description", "") or d.get("description", ""),
-        "location": parsed.get("location", "") or d.get("location", ""),
-        "start": parsed.get("dtstart") or d.get("dtstart"),
-        "end": parsed.get("dtend") or d.get("dtend"),
-        "is_all_day": parsed.get("all_day")
-        if parsed.get("all_day") is not None
-        else bool(d.get("all_day")),
-        "status": parsed.get("status", "") or d.get("status", ""),
-        "calendar_id": d.get("calendar_id"),
-    }
+    return event_to_payload(row)
 
 
 def _get_caldav_session(account, dek, flask_app):
@@ -125,7 +107,7 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 items = [_calendar_to_dict(r) for r in rows]
             finally:
                 conn.close()
-        return ok(items)
+        return ok_items(items)
 
     @mcp.tool(
         name="calendar_create_calendar",
@@ -177,9 +159,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 )
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"], "calendar", "calendar_created", {"account_id": aid, "uid": cal_uid}
         )
         return ok(result)
@@ -234,9 +216,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 result = _calendar_to_dict(cal_row) if cal_row else {"id": calendar_id}
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "calendar",
             "calendar_updated",
@@ -277,9 +259,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 delete_calendar_by_id(conn, calendar_id)
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "calendar",
             "calendar_deleted",
@@ -456,10 +438,14 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 "attendees": [a.model_dump(exclude_none=True) for a in (attendees or [])],
                 "alarms": [],
             }
-            for r in reminders or []:
-                event_data["alarms"].append(
-                    {"action": r.type or "DISPLAY", "trigger": r.trigger_minutes or "-PT15M"}
-                )
+            from app.modules.calendar.services.reminders import reminders_to_alarms
+
+            alarms, reminder_error = reminders_to_alarms(
+                [r.model_dump(exclude_none=True) for r in (reminders or [])], summary
+            )
+            if reminder_error:
+                return err("VALIDATION_ERROR", reminder_error)
+            event_data["alarms"] = alarms
             if recurrence:
                 event_data["rrule"] = recurrence
             ical_text = generate_icalendar(event_data, uid=event_data["uid"])
@@ -482,9 +468,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 result = _event_to_dict(evt_row) if evt_row else {"uid": uid, "summary": summary}
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"], "calendar", "event_created", {"account_id": aid, "uid": uid}
         )
         return ok(result)
@@ -567,8 +553,20 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 if attendees is not None
                 else parsed.get("attendees", []),
                 "sequence": parsed.get("sequence", 0) + 1,
+                # reminders replace the alarm set when provided (U15.57);
+                # omitted reminders keep the event's existing alarms.
                 "alarms": parsed.get("alarms", []),
             }
+            if reminders is not None:
+                from app.modules.calendar.services.reminders import reminders_to_alarms
+
+                alarms, reminder_error = reminders_to_alarms(
+                    [r.model_dump(exclude_none=True) for r in reminders],
+                    event_data["summary"],
+                )
+                if reminder_error:
+                    return err("VALIDATION_ERROR", reminder_error)
+                event_data["alarms"] = alarms
             if recurrence is not None:
                 event_data["rrule"] = recurrence
             elif parsed.get("rrule"):
@@ -616,9 +614,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 )
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "calendar",
             "event_updated",
@@ -679,9 +677,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 delete_event_by_uid(conn, uid, calendar_id=cal_id)
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"], "calendar", "event_deleted", {"account_id": aid, "uid": uid}
         )
         return ok()

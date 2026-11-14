@@ -31,3 +31,22 @@ class AccountIdQuery(BaseModel):
 class BulkResponse(BaseModel):
     succeeded: list = Field(default_factory=list, description="Successfully processed items")
     failed: list = Field(default_factory=list, description="Failed items with error details")
+
+
+class EventPublishBody(BaseModel):
+    type: str = Field(..., description="Event type: 'ui_change' or 'ai_activity'")
+    module: str | None = Field(default=None, description="Module name for ui_change events")
+    action: str | None = Field(default=None, description="Action name for ui_change events")
+    data: dict | None = Field(
+        default=None, description="Payload for ui_change events (metadata + snippets only)"
+    )
+    tool: str | None = Field(default=None, description="Tool name for ai_activity events")
+    summary: str | None = Field(
+        default=None, description="Short activity summary (metadata + snippets only)"
+    )
+    account_id: int | None = Field(default=None, description="Account the activity touched")
+    status: str | None = Field(default=None, description="Activity status: ok or error detail")
+    duration_ms: int | None = Field(default=None, description="Activity duration in milliseconds")
+    count: int | None = Field(
+        default=None, description="Number of coalesced identical events (U27.3)"
+    )

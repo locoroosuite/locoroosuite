@@ -33,30 +33,30 @@ def mcp_docs(app, _clean_db):
         user_id = user.id
 
         domain = Domain(
-            name="example.com",
-            is_active=True,
-            status="active",
-            imap_host="imap.example.com",
-            imap_port=993,
-            imap_tls=True,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
+            name="example.com",  # pyright: ignore[reportCallIssue]
+            is_active=True,  # pyright: ignore[reportCallIssue]
+            status="active",  # pyright: ignore[reportCallIssue]
+            imap_host="imap.example.com",  # pyright: ignore[reportCallIssue]
+            imap_port=993,  # pyright: ignore[reportCallIssue]
+            imap_tls=True,  # pyright: ignore[reportCallIssue]
+            smtp_host="smtp.example.com",  # pyright: ignore[reportCallIssue]
+            smtp_port=587,  # pyright: ignore[reportCallIssue]
+            smtp_tls_mode="starttls",  # pyright: ignore[reportCallIssue]
         )
         _db.session.add(domain)
         _db.session.flush()
 
         dek = generate_dek()
         account = CustomerAccount(
-            customer_id=user.id,
-            domain_id=domain.id,
-            email_address="mcp-docs@example.com",
-            auth_type="password",
-            username="mcp-docs@example.com",
-            cache_db_path="",
-            api_enabled=True,
-            dek_wrapped_cred=b"placeholder",
-            is_active=True,
+            customer_id=user.id,  # pyright: ignore[reportCallIssue]
+            domain_id=domain.id,  # pyright: ignore[reportCallIssue]
+            email_address="mcp-docs@example.com",  # pyright: ignore[reportCallIssue]
+            auth_type="password",  # pyright: ignore[reportCallIssue]
+            username="mcp-docs@example.com",  # pyright: ignore[reportCallIssue]
+            cache_db_path="",  # pyright: ignore[reportCallIssue]
+            api_enabled=True,  # pyright: ignore[reportCallIssue]
+            dek_wrapped_cred=b"placeholder",  # pyright: ignore[reportCallIssue]
+            is_active=True,  # pyright: ignore[reportCallIssue]
         )
         _db.session.add(account)
         _db.session.commit()
@@ -145,12 +145,12 @@ class TestDocsListTools:
             patch(f"{DOCS_CACHE_DB}.list_documents", return_value=[mock_row]),
         ):
             result = asyncio.run(tools["docs_list_documents"].fn())
-        data = json.loads(result)["data"]
-        assert len(data) == 1
-        assert data[0]["id"] == "doc-1"
-        assert data[0]["name"] == "Report.odt"
-        assert data[0]["type"] == "odt"
-        assert data[0]["size"] == 1024
+        data = json.loads(result)
+        assert len(data["items"]) == 1
+        assert data["items"][0]["id"] == "doc-1"
+        assert data["items"][0]["name"] == "Report.odt"
+        assert data["items"][0]["type"] == "odt"
+        assert data["items"][0]["size"] == 1024
 
     def test_list_documents_empty(self, mcp_docs):
         tools = mcp_docs["tools"]
@@ -159,8 +159,8 @@ class TestDocsListTools:
             patch(f"{DOCS_CACHE_DB}.list_documents", return_value=[]),
         ):
             result = asyncio.run(tools["docs_list_documents"].fn())
-        data = json.loads(result)["data"]
-        assert data == []
+        data = json.loads(result)
+        assert data["items"] == []
 
     def test_list_documents_with_type_filter(self, mcp_docs):
         tools = mcp_docs["tools"]
@@ -171,9 +171,9 @@ class TestDocsListTools:
             patch(f"{DOCS_CACHE_DB}.list_documents", return_value=[odt_row, ods_row]),
         ):
             result = asyncio.run(tools["docs_list_documents"].fn(type="ods"))
-        data = json.loads(result)["data"]
-        assert len(data) == 1
-        assert data[0]["type"] == "ods"
+        data = json.loads(result)
+        assert len(data["items"]) == 1
+        assert data["items"][0]["type"] == "ods"
 
     def test_list_documents_with_search(self, mcp_docs):
         tools = mcp_docs["tools"]
@@ -184,9 +184,9 @@ class TestDocsListTools:
             patch(f"{DOCS_CACHE_DB}.list_documents", return_value=[row1, row2]),
         ):
             result = asyncio.run(tools["docs_list_documents"].fn(search="report"))
-        data = json.loads(result)["data"]
-        assert len(data) == 1
-        assert data[0]["name"] == "Quarterly Report"
+        data = json.loads(result)
+        assert len(data["items"]) == 1
+        assert data["items"][0]["name"] == "Quarterly Report"
 
     def test_get_document(self, mcp_docs):
         tools = mcp_docs["tools"]
@@ -196,7 +196,7 @@ class TestDocsListTools:
             patch(f"{DOCS_CACHE_DB}.get_active_document", return_value=mock_row),
         ):
             result = asyncio.run(tools["docs_get_document"].fn(document_id="doc-1"))
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["id"] == "doc-1"
         assert data["name"] == "Report.odt"
         assert data["size"] == 2048
@@ -235,7 +235,7 @@ class TestDocsCreateDocument:
             patch(f"{UI_EVENTS}.push_ui_event"),
         ):
             result = asyncio.run(tools["docs_create_document"].fn(name="New Doc.odt", type="odt"))
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["id"] == "new-doc"
         assert data["name"] == "New Doc.odt"
         assert data["type"] == "odt"
@@ -267,7 +267,7 @@ class TestDocsCreateDocument:
             patch(f"{UI_EVENTS}.push_ui_event"),
         ):
             result = asyncio.run(tools["docs_create_document"].fn(name="Sheet.ods", type="ods"))
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["type"] == "ods"
 
 
@@ -285,7 +285,7 @@ class TestDocsMutationTools:
             result = asyncio.run(
                 tools["docs_rename_document"].fn(document_id="doc-1", name="New Name")
             )
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["name"] == "New Name"
 
     def test_rename_document_empty_name(self, mcp_docs):
@@ -360,7 +360,7 @@ class TestDocsConvertTool:
         ):
             result = asyncio.run(tools["docs_convert_document"].fn(document_id="src-pdf-1"))
 
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["type"] == "odg"
         # Regression guard: convert_upload MUST be asked for target "odg".
         assert mock_convert.call_args.args[2] == "odg"
@@ -453,7 +453,7 @@ class TestDocsTags:
             patch(f"{DOCS_CACHE_DB}.get_document_tags", return_value=["urgent"]),
         ):
             result = asyncio.run(tools["docs_get_tags"].fn(document_id="doc-1"))
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["tags"] == ["urgent"]
 
     def test_get_tags_not_found(self, mcp_docs):
@@ -478,7 +478,7 @@ class TestDocsTags:
             patch(f"{UI_EVENTS}.push_ui_event"),
         ):
             result = asyncio.run(tools["docs_update_tags"].fn(document_id="doc-1", add=["finance"]))
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["tags"] == ["finance"]
         mock_update.assert_called_once()
 
@@ -495,7 +495,7 @@ class TestDocsTags:
             patch(f"{UI_EVENTS}.push_ui_event"),
         ):
             result = asyncio.run(tools["docs_update_tags"].fn(document_id="doc-1", set=["new"]))
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["tags"] == ["new"]
         mock_set.assert_called_once()
         mock_update.assert_not_called()
@@ -507,7 +507,7 @@ class TestDocsTags:
             patch(f"{DOCS_CACHE_DB}.list_all_tags", return_value=["apple", "zebra"]),
         ):
             result = asyncio.run(tools["docs_list_tags"].fn())
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data == ["apple", "zebra"]
 
     def test_list_tags_empty(self, mcp_docs):
@@ -517,7 +517,7 @@ class TestDocsTags:
             patch(f"{DOCS_CACHE_DB}.list_all_tags", return_value=[]),
         ):
             result = asyncio.run(tools["docs_list_tags"].fn())
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data == []
 
 
@@ -537,7 +537,7 @@ class TestDocsFolders:
             patch("app.modules.docs.services.folders.leaf_name", return_value="Work"),
         ):
             result = asyncio.run(tools["docs_create_folder"].fn(name="Work"))
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["path"] == "Work"
         assert "count" in data
         assert data["count"] == 0
@@ -554,7 +554,7 @@ class TestDocsFolders:
             patch(f"{DOCS_CACHE_DB}.subtree_documents", return_value=[]),
         ):
             result = asyncio.run(tools["docs_rename_folder"].fn(path="Work/Child", name="Kid"))
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["path"] == "Work/Kid"
         assert data["name"] == "Kid"
         assert data["parent"] == "Work"

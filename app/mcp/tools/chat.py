@@ -12,7 +12,7 @@ from pydantic import Field
 
 from app.mcp.auth import McpAuthError
 from app.mcp.errors import resilient_tool
-from app.mcp.helpers import err, ok, resolve_read, resolve_write
+from app.mcp.helpers import err, ok, ok_items, resolve_read, resolve_write
 from app.modules.chat.services import cache_db, receipts
 from app.modules.chat.services.cache import get_cache_path
 from app.modules.chat.services.cache_db import _decorate_room_display_name
@@ -86,7 +86,7 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 rooms = [_room_dict(r) for r in cache_db.list_rooms(conn, own_id)]
             finally:
                 conn.close()
-        return ok(rooms)
+        return ok_items(rooms)
 
     @mcp.tool(
         name="chat_create_room",
@@ -178,7 +178,7 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 receipts.decorate_statuses(conn, room, items, own_id)
             finally:
                 conn.close()
-        return ok(items)
+        return ok_items(items)
 
     @mcp.tool(
         name="chat_send_message",
@@ -398,6 +398,32 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                     return _matrix_err(exc)
                 cache_db.upsert_member(conn, room_id, user_id, membership="invite")
                 return ok({"invited": user_id})
+            finally:
+                conn.close()
+
+    @mcp.tool(
+        name="chat_join_room",
+        title="Join Chat Room",
+        description="Join a chat room by ID or alias.",
+        annotations=ToolAnnotations(
+            read_only_hint=False, open_world_hint=False, destructive_hint=False
+        ),
+    )
+    @resilient_tool
+    async def chat_join_room(
+        room_id: Annotated[str, Field(description="Matrix room ID or alias")],
+        account_id: _AccId = None,
+    ) -> str:
+        _ctx, aid, dek = resolve_write(flask_app, "chat", account_id)
+        with flask_app.app_context():
+            conn, client, _own_id = _open_chat(aid, dek)
+            try:
+                try:
+                    client.join_room(room_id)
+                except MatrixError as exc:
+                    return _matrix_err(exc)
+                cache_db.upsert_room(conn, room_id, membership="join")
+                return ok({"joined": room_id})
             finally:
                 conn.close()
 

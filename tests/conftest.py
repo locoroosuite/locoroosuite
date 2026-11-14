@@ -9,6 +9,7 @@ os.environ.setdefault(
     os.path.join(tempfile.mkdtemp(prefix="lr-push-test-"), "push_keywrap.key"),
 )
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,6 +17,25 @@ import pytest
 from app.shared.db import db as _db
 from app.shared.keys import clear_user_key, set_user_key
 from app.shared.models.core import CustomerAccount, Domain, User
+
+# Per-account cache DBs must never land in the repo's data/caches dir:
+# fixtures that rely on build_cache_path's default would share files across
+# sessions with different DEKs (CacheKeyMismatchError flakiness in combined
+# runs) and leave artifacts in the tree. Redirect every module's CACHE_DIR
+# to a per-session temp dir instead.
+_TEST_CACHE_DIR = Path(tempfile.mkdtemp(prefix="lr-caches-test-"))
+
+
+def _redirect_cache_dirs() -> None:
+    from app.modules.calendar.services import cache as _cal_cache
+    from app.modules.chat.services import cache as _chat_cache
+    from app.modules.contacts.services import cache as _contacts_cache
+    from app.modules.docs.services import cache as _docs_cache
+    from app.modules.mail.services import cache as _mail_cache
+
+    for module in (_cal_cache, _chat_cache, _contacts_cache, _docs_cache, _mail_cache):
+        module.CACHE_DIR = _TEST_CACHE_DIR  # pyright: ignore[reportAttributeAccessIssue]
+
 
 _test_app = None
 
@@ -46,6 +66,7 @@ def app():
 
             from app import create_app
 
+            _redirect_cache_dirs()
             app = create_app()
             app.config["TESTING"] = True
             app.config["WTF_CSRF_ENABLED"] = False

@@ -104,7 +104,7 @@ export function registerMailTools(server: McpServer, client: ApiClient) {
               return json(data);
             });
 
-  server.registerTool("mail_send", { description: "Compose and send a new email", inputSchema: z.object({
+  server.registerTool("mail_send", { description: "Compose and send a new email. For replies, pass reply_to_message_id (message id from read tools) or in_reply_to (raw RFC 5322 Message-ID) so the reply threads into the source conversation. Optionally pass draft_id to delete that draft after sending (the response reports draft_deleted).", inputSchema: z.object({
               account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
               to: z.array(z.string()).describe("Recipient email addresses"),
               cc: z.array(z.string()).optional().describe("CC recipients"),
@@ -112,8 +112,10 @@ export function registerMailTools(server: McpServer, client: ApiClient) {
               subject: z.string().describe("Email subject"),
               body_plain: z.string().optional().describe("Plain text body"),
               body_html: z.string().optional().describe("HTML body"),
-              draft_id: z.string().optional().describe("Draft ID to delete after sending"),
-            }) }, async ({ account_id, to, cc, bcc, subject, body_plain, body_html, draft_id }) => {
+              draft_id: z.string().optional().describe("Draft to delete after sending — cache message id or IMAP UID (both accepted)"),
+              in_reply_to: z.string().optional().describe("Raw RFC 5322 Message-ID being replied to (threads the reply)"),
+              reply_to_message_id: z.string().optional().describe("Cache message id being replied to (server derives threading headers)"),
+            }) }, async ({ account_id, to, cc, bcc, subject, body_plain, body_html, draft_id, in_reply_to, reply_to_message_id }) => {
               const data = await client.post("/api/v1/mail/messages", {
                 ...client.accountId(account_id),
                 to,
@@ -123,6 +125,8 @@ export function registerMailTools(server: McpServer, client: ApiClient) {
                 body_plain,
                 body_html,
                 draft_id,
+                in_reply_to,
+                reply_to_message_id,
               });
               return json(data);
             });
@@ -214,13 +218,15 @@ export function registerMailTools(server: McpServer, client: ApiClient) {
               return json(data);
             });
 
-  server.registerTool("mail_get_thread", { description: "Get all messages in a conversation thread", inputSchema: z.object({
+  server.registerTool("mail_get_thread", { description: "Get all messages in a conversation thread. Use include_bodies=false or body_format=plain to keep payloads small (HTML quote chains are the usual bloat).", inputSchema: z.object({
               account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
               thread_id: z.string().describe("Thread ID"),
-            }) }, async ({ account_id, thread_id }) => {
+              include_bodies: z.boolean().optional().describe("Set false to return header fields and snippet only (default true)"),
+              body_format: z.enum(["plain", "html", "both"]).optional().describe("Body format filter (default both)"),
+            }) }, async ({ account_id, thread_id, include_bodies, body_format }) => {
               const data = await client.get(
                 `/api/v1/mail/threads/${encodeURIComponent(thread_id)}`,
-                client.accountId(account_id),
+                { ...client.accountId(account_id), include_bodies: include_bodies?.toString(), body_format },
               );
               return json(data);
             });
@@ -271,7 +277,7 @@ export function registerMailTools(server: McpServer, client: ApiClient) {
               return json(data);
             });
 
-  server.registerTool("mail_save_draft", { description: "Save an email as a draft in the Drafts folder", inputSchema: z.object({
+  server.registerTool("mail_save_draft", { description: "Save an email as a draft in the Drafts folder. Pass replace_uid to replace an existing draft — both the message id returned by read tools and the IMAP UID (imap_uid) are accepted; unknown ids return DRAFT_NOT_FOUND instead of creating a duplicate. The response includes draft_uid, draft_id (cache id), imap_uid and thread_id. For a reply draft, pass reply_to_message_id or in_reply_to.", inputSchema: z.object({
               account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
               to: z.array(z.string()).optional().describe("Recipient email addresses"),
               cc: z.array(z.string()).optional().describe("CC recipients"),
@@ -279,8 +285,10 @@ export function registerMailTools(server: McpServer, client: ApiClient) {
               subject: z.string().optional().describe("Email subject"),
               body_plain: z.string().optional().describe("Plain text body"),
               body_html: z.string().optional().describe("HTML body"),
-              replace_uid: z.string().optional().describe("UID of an existing draft to replace"),
-            }) }, async ({ account_id, to, cc, bcc, subject, body_plain, body_html, replace_uid }) => {
+              replace_uid: z.string().optional().describe("Existing draft to replace — cache message id or IMAP UID (both accepted)"),
+              in_reply_to: z.string().optional().describe("Raw RFC 5322 Message-ID being replied to (threads the draft)"),
+              reply_to_message_id: z.string().optional().describe("Cache message id being replied to (server derives threading headers)"),
+            }) }, async ({ account_id, to, cc, bcc, subject, body_plain, body_html, replace_uid, in_reply_to, reply_to_message_id }) => {
               const data = await client.post("/api/v1/mail/drafts", {
                 ...client.accountId(account_id),
                 to,
@@ -290,13 +298,15 @@ export function registerMailTools(server: McpServer, client: ApiClient) {
                 body_plain,
                 body_html,
                 replace_uid,
+                in_reply_to,
+                reply_to_message_id,
               });
               return json(data);
             });
 
-  server.registerTool("mail_delete_draft", { description: "Delete a draft email by UID", inputSchema: z.object({
+  server.registerTool("mail_delete_draft", { description: "Delete a draft email. Accepts the cache message id (draft_id) or the IMAP UID (draft_uid/imap_uid); unknown or already-deleted drafts return DRAFT_NOT_FOUND. A successful response means the deletion was verified.", inputSchema: z.object({
               account_id: z.string().optional().describe("Account ID (uses default if omitted)"),
-              draft_uid: z.string().describe("Draft UID to delete"),
+              draft_uid: z.string().describe("Draft to delete — cache message id or IMAP UID (both accepted)"),
             }) }, async ({ account_id, draft_uid }) => {
               const data = await client.delete(
                 `/api/v1/mail/drafts/${encodeURIComponent(draft_uid)}`,

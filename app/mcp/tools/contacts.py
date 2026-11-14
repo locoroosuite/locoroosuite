@@ -10,7 +10,7 @@ from pydantic import Field
 
 from app.mcp.auth import McpAuthError
 from app.mcp.errors import resilient_tool
-from app.mcp.helpers import err, ok, ok_paginated, resolve_read, resolve_write
+from app.mcp.helpers import err, ok, ok_items, ok_paginated, resolve_read, resolve_write
 from app.mcp.schemas import BulkContactIdItem, ensure_typed
 from app.mcp.tools.mail import _ServiceConnectionError
 
@@ -239,7 +239,7 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 ]
             finally:
                 conn.close()
-        return ok(items)
+        return ok_items(items)
 
     @mcp.tool(
         name="contacts_create",
@@ -314,9 +314,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 result = _contact_to_dict(row) if row else {"uid": uid, "fn": vcard_data["fn"]}
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"], "contacts", "contact_created", {"account_id": aid, "uid": uid}
         )
         return ok(result)
@@ -417,9 +417,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 result = _contact_to_dict(row) if row else {"uid": uid, "fn": merged.get("fn", "")}
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"], "contacts", "contact_updated", {"account_id": aid, "uid": uid}
         )
         return ok(result)
@@ -451,9 +451,9 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                 delete_contact_by_uid(conn, d["uid"])
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(
+        bridge_ui_event(
             ctx["customer_id"],
             "contacts",
             "contact_deleted",
@@ -499,7 +499,7 @@ def register(mcp: MCPServer, flask_app: Flask) -> None:
                     succeeded.append({"contact_id": v.contact_id})
             finally:
                 conn.close()
-        from app.shared.ui_events import push_ui_event
+        from app.mcp.events_bridge import bridge_ui_event
 
-        push_ui_event(ctx["customer_id"], "contacts", "contacts_deleted", {"account_id": aid})
+        bridge_ui_event(ctx["customer_id"], "contacts", "contacts_deleted", {"account_id": aid})
         return ok({"succeeded": succeeded, "failed": failed})

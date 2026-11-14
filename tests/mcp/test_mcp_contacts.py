@@ -25,40 +25,40 @@ def mcp_contacts(app, _clean_db):
     account_id = None
 
     with app.app_context():
-        user = User(email="mcp-contacts@example.com", role="customer", is_active=True)
+        user = User(email="mcp-contacts@example.com", role="customer", is_active=True)  # pyright: ignore[reportCallIssue]
         user.password_hash = "x"
         _db.session.add(user)
         _db.session.flush()
         user_id = user.id
 
         domain = Domain(
-            name="example.com",
-            is_active=True,
-            status="active",
-            imap_host="imap.example.com",
-            imap_port=993,
-            imap_tls=True,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            carddav_host="localhost",
-            carddav_port=5232,
-            carddav_use_tls=False,
+            name="example.com",  # pyright: ignore[reportCallIssue]
+            is_active=True,  # pyright: ignore[reportCallIssue]
+            status="active",  # pyright: ignore[reportCallIssue]
+            imap_host="imap.example.com",  # pyright: ignore[reportCallIssue]
+            imap_port=993,  # pyright: ignore[reportCallIssue]
+            imap_tls=True,  # pyright: ignore[reportCallIssue]
+            smtp_host="smtp.example.com",  # pyright: ignore[reportCallIssue]
+            smtp_port=587,  # pyright: ignore[reportCallIssue]
+            smtp_tls_mode="starttls",  # pyright: ignore[reportCallIssue]
+            carddav_host="localhost",  # pyright: ignore[reportCallIssue]
+            carddav_port=5232,  # pyright: ignore[reportCallIssue]
+            carddav_use_tls=False,  # pyright: ignore[reportCallIssue]
         )
         _db.session.add(domain)
         _db.session.flush()
 
         dek = generate_dek()
         account = CustomerAccount(
-            customer_id=user.id,
-            domain_id=domain.id,
-            email_address="mcp-contacts@example.com",
-            auth_type="password",
-            username="mcp-contacts@example.com",
-            cache_db_path="",
-            api_enabled=True,
-            dek_wrapped_cred=b"placeholder",
-            is_active=True,
+            customer_id=user.id,  # pyright: ignore[reportCallIssue]
+            domain_id=domain.id,  # pyright: ignore[reportCallIssue]
+            email_address="mcp-contacts@example.com",  # pyright: ignore[reportCallIssue]
+            auth_type="password",  # pyright: ignore[reportCallIssue]
+            username="mcp-contacts@example.com",  # pyright: ignore[reportCallIssue]
+            cache_db_path="",  # pyright: ignore[reportCallIssue]
+            api_enabled=True,  # pyright: ignore[reportCallIssue]
+            dek_wrapped_cred=b"placeholder",  # pyright: ignore[reportCallIssue]
+            is_active=True,  # pyright: ignore[reportCallIssue]
         )
         _db.session.add(account)
         _db.session.commit()
@@ -172,10 +172,10 @@ class TestContactsListTools:
             patch(f"{CONTACTS_CACHE_DB}.count_contacts", return_value=1),
         ):
             result = asyncio.run(tools["contacts_list"].fn())
-        data = json.loads(result)["data"]
-        assert len(data) == 1
-        assert data[0]["fn"] == "Alice Smith"
-        assert data[0]["email_work"] == "alice@example.com"
+        data = json.loads(result)
+        assert len(data["items"]) == 1
+        assert data["items"][0]["fn"] == "Alice Smith"
+        assert data["items"][0]["email_work"] == "alice@example.com"
 
     def test_list_contacts_empty(self, mcp_contacts):
         tools = mcp_contacts["tools"]
@@ -185,8 +185,8 @@ class TestContactsListTools:
             patch(f"{CONTACTS_CACHE_DB}.count_contacts", return_value=0),
         ):
             result = asyncio.run(tools["contacts_list"].fn())
-        data = json.loads(result)["data"]
-        assert data == []
+        data = json.loads(result)
+        assert data["items"] == []
 
     def test_list_contacts_with_search(self, mcp_contacts):
         tools = mcp_contacts["tools"]
@@ -197,8 +197,8 @@ class TestContactsListTools:
             patch(f"{CONTACTS_CACHE_DB}.count_contacts", return_value=1),
         ):
             result = asyncio.run(tools["contacts_list"].fn(q="bob"))
-        data = json.loads(result)["data"]
-        assert len(data) == 1
+        data = json.loads(result)
+        assert len(data["items"]) == 1
 
     def test_get_contact(self, mcp_contacts):
         tools = mcp_contacts["tools"]
@@ -210,7 +210,7 @@ class TestContactsListTools:
             patch(f"{CONTACTS_CACHE_DB}.get_contact", return_value=mock_row),
         ):
             result = asyncio.run(tools["contacts_get"].fn(contact_id=1))
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["id"] == 1
         assert data["fn"] == "Alice Smith"
         assert "vcard_raw" in data
@@ -236,9 +236,9 @@ class TestContactsListTools:
             patch(f"{CONTACTS_CACHE_DB}.search_contacts_api", return_value=[mock_row]),
         ):
             result = asyncio.run(tools["contacts_search"].fn(q="alice"))
-        data = json.loads(result)["data"]
-        assert len(data) == 1
-        assert data[0]["name"] == "Alice"
+        data = json.loads(result)
+        assert len(data["items"]) == 1
+        assert data["items"][0]["name"] == "Alice"
 
 
 class TestContactsMutationTools:
@@ -281,7 +281,7 @@ class TestContactsMutationTools:
             patch(f"{UI_EVENTS}.push_ui_event"),
         ):
             result = asyncio.run(tools["contacts_bulk_delete"].fn(items=[{"contact_id": 1}]))
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert len(data["succeeded"]) == 1
         assert data["succeeded"][0]["contact_id"] == 1
 
@@ -297,7 +297,7 @@ class TestContactsMutationTools:
             result = asyncio.run(
                 tools["contacts_bulk_delete"].fn(items=[{"contact_id": 1}, {"contact_id": 999}])
             )
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert len(data["succeeded"]) == 1
         assert len(data["failed"]) == 1
 

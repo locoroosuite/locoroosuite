@@ -618,7 +618,7 @@ def auto_save_draft():
                 )
 
         status, data = ensure_folder_and_append(
-            client, "Drafts", msg_root.as_bytes(), flags=["\\Draft"]
+            client, "Drafts", msg_root.as_bytes(), flags=["\\Draft", "\\Seen"]
         )
         if status != "OK":
             raise RuntimeError("Unable to save draft to Drafts folder.")
@@ -702,7 +702,7 @@ def save_draft():
                     "failed to delete old draft from cache uid=%s", old_draft_uid, exc_info=True
                 )
         status, _data = ensure_folder_and_append(
-            client, "Drafts", msg_root.as_bytes(), flags=["\\Draft"]
+            client, "Drafts", msg_root.as_bytes(), flags=["\\Draft", "\\Seen"]
         )
         if status != "OK":
             raise RuntimeError("Unable to save draft to Drafts folder.")

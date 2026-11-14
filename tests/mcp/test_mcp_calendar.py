@@ -215,11 +215,11 @@ class TestCalendarListTools:
             patch(f"{CALENDAR_CACHE_DB}.get_all_calendars", return_value=[mock_row]),
         ):
             result = asyncio.run(tools["calendar_list_calendars"].fn())
-        data = json.loads(result)["data"]
-        assert len(data) == 1
-        assert data[0]["name"] == "Work"
-        assert data[0]["color"] == "#4285f4"
-        assert data[0]["is_default"] is True
+        data = json.loads(result)
+        assert len(data["items"]) == 1
+        assert data["items"][0]["name"] == "Work"
+        assert data["items"][0]["color"] == "#4285f4"
+        assert data["items"][0]["is_default"] is True
 
     def test_list_calendars_empty(self, mcp_calendar):
         tools = mcp_calendar["tools"]
@@ -228,8 +228,8 @@ class TestCalendarListTools:
             patch(f"{CALENDAR_CACHE_DB}.get_all_calendars", return_value=[]),
         ):
             result = asyncio.run(tools["calendar_list_calendars"].fn())
-        data = json.loads(result)["data"]
-        assert data == []
+        data = json.loads(result)
+        assert data["items"] == []
 
     def test_list_events(self, mcp_calendar):
         tools = mcp_calendar["tools"]
@@ -241,9 +241,9 @@ class TestCalendarListTools:
             patch(f"{CALENDAR_CACHE_DB}.get_events_range", return_value=[mock_evt]),
         ):
             result = asyncio.run(tools["calendar_list_events"].fn(calendar_id=1))
-        data = json.loads(result)["data"]
-        assert len(data) == 1
-        assert data[0]["summary"] == "Standup"
+        data = json.loads(result)
+        assert len(data["items"]) == 1
+        assert data["items"][0]["summary"] == "Standup"
 
     def test_list_events_calendar_not_found(self, mcp_calendar):
         tools = mcp_calendar["tools"]
@@ -263,7 +263,7 @@ class TestCalendarListTools:
             patch(f"{CALENDAR_CACHE_DB}.get_event", return_value=mock_evt),
         ):
             result = asyncio.run(tools["calendar_get_event"].fn(event_id=1))
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["id"] == 1
         assert data["summary"] == "Review"
         assert data["location"] == "Zoom"
@@ -286,8 +286,8 @@ class TestCalendarListTools:
             patch(f"{CALENDAR_CACHE_DB}.search_events", return_value=[mock_evt]),
         ):
             result = asyncio.run(tools["calendar_search_events"].fn(q="sprint"))
-        data = json.loads(result)["data"]
-        assert len(data) == 1
+        data = json.loads(result)
+        assert len(data["items"]) == 1
 
     def test_check_free_busy(self, mcp_calendar):
         tools = mcp_calendar["tools"]
@@ -305,7 +305,7 @@ class TestCalendarListTools:
                     end="2025-06-01T12:00:00",
                 )
             )
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert len(data) == 1
         assert data[0]["summary"] == "Busy Block"
 
@@ -322,7 +322,7 @@ class TestCalendarListTools:
                     end="2025-06-01T12:00:00",
                 )
             )
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data == []
 
 
@@ -375,7 +375,7 @@ class TestCalendarMutationTools:
                     calendar_id=1, name="Personal", color="#ff0000"
                 )
             )
-        data = json.loads(result)["data"]
+        data = json.loads(result)
         assert data["name"] == "Personal"
         assert data["color"] == "#ff0000"
 

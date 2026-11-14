@@ -225,3 +225,116 @@ class TestErrorPageResetButton:
             )
         assert "Reset cache" not in html
         assert "Back to login" in html
+
+
+def _make_legacy_messages_no_autoincrement(db_path, key="0" * 64):
+    """Build a cache DB whose `messages` table predates AUTOINCREMENT ids
+    (migration 0006) and holds two seeded rows plus FTS content."""
+    conn = sqlcipher3.connect(db_path)
+    conn.row_factory = sqlcipher3.Row
+    conn.execute(f"PRAGMA key = \"x'{key}'\"")
+    conn.execute(
+        """
+        CREATE TABLE messages (
+            id INTEGER PRIMARY KEY,
+            uid TEXT, folder TEXT, subject TEXT, sender TEXT, recipients TEXT,
+            date TEXT, date_ts INTEGER, internal_date_ts INTEGER, flags TEXT,
+            snippet TEXT, body TEXT, body_html TEXT, has_attachments INTEGER DEFAULT 0,
+            message_id TEXT, thread_id TEXT, in_reply_to TEXT, ref_list TEXT,
+            calendar_event_uid TEXT, is_bounce INTEGER DEFAULT 0, bounce_reason TEXT,
+            original_subject TEXT, cc TEXT, attachment_list TEXT
+        )
+        """
+    )
+    conn.execute(
+        "CREATE VIRTUAL TABLE message_fts USING fts5("
+        "subject, sender, recipients, body, content='messages', content_rowid='id')"
+    )
+    conn.execute(
+        "CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN "
+        "INSERT INTO message_fts(rowid, subject, sender, recipients, body) "
+        "VALUES (new.id, new.subject, new.sender, new.recipients, new.body); END;"
+    )
+    conn.execute(
+        "INSERT INTO messages(uid, folder, subject, body) VALUES ('1', 'INBOX', 'alpha subject', 'alpha body')"
+    )
+    conn.execute(
+        "INSERT INTO messages(uid, folder, subject, body) VALUES ('2', 'Drafts', 'beta draft', 'beta body')"
+    )
+    conn.commit()
+    conn.close()
+
+
+class TestMessagesIdAutoincrementMigration:
+    """U6.5b identifier stability: cache ids must never be recycled."""
+
+    def _open_migrated(self, tmp_path, name="msgs.db"):
+        db_path = str(tmp_path / name)
+        key = "0" * 64
+        _make_legacy_messages_no_autoincrement(db_path, key)
+        cache_db.clear_cache_schema_memo(db_path)
+        conn = cache_db.open_cache(db_path, key)
+        return conn, db_path
+
+    def test_ids_preserved_and_autoincrement_added(self, tmp_path):
+        conn, db_path = self._open_migrated(tmp_path)
+        try:
+            create_row = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='messages'"
+            ).fetchone()
+            assert create_row is not None
+            assert "AUTOINCREMENT" in create_row[0].upper()
+            ids = {r["uid"]: r["id"] for r in conn.execute("SELECT id, uid FROM messages")}
+            assert ids == {"1": 1, "2": 2}
+        finally:
+            conn.close()
+            cache_db.clear_cache_schema_memo(db_path)
+
+    def test_deleted_id_is_never_reused(self, tmp_path):
+        conn, db_path = self._open_migrated(tmp_path, "reuse.db")
+        try:
+            conn.execute("DELETE FROM messages WHERE uid = '2'")
+            conn.commit()
+            conn.execute(
+                "INSERT INTO messages(uid, folder, subject, body) "
+                "VALUES ('3', 'Drafts', 'replacement draft', 'new body')"
+            )
+            conn.commit()
+            row = conn.execute("SELECT id FROM messages WHERE uid = '3'").fetchone()
+            assert row is not None
+            assert row["id"] > 2, "deleted id must not be recycled (U6.5b)"
+        finally:
+            conn.close()
+            cache_db.clear_cache_schema_memo(db_path)
+
+    def test_fts_and_triggers_survive_rebuild(self, tmp_path):
+        conn, db_path = self._open_migrated(tmp_path, "fts.db")
+        try:
+            hits = conn.execute(
+                "SELECT subject FROM message_fts WHERE message_fts MATCH 'alpha'"
+            ).fetchall()
+            assert len(hits) == 1
+            conn.execute(
+                "INSERT INTO messages(uid, folder, subject, body) "
+                "VALUES ('9', 'INBOX', 'gamma searchable', 'gamma body')"
+            )
+            conn.commit()
+            hits = conn.execute(
+                "SELECT subject FROM message_fts WHERE message_fts MATCH 'gamma'"
+            ).fetchall()
+            assert len(hits) == 1
+        finally:
+            conn.close()
+            cache_db.clear_cache_schema_memo(db_path)
+
+    def test_migration_is_idempotent(self, tmp_path):
+        conn, db_path = self._open_migrated(tmp_path, "idem.db")
+        conn.close()
+        cache_db.clear_cache_schema_memo(db_path)
+        conn = cache_db.open_cache(db_path, "0" * 64)  # second open re-runs runner
+        try:
+            count_row = conn.execute("SELECT COUNT(*) FROM messages").fetchone()
+            assert count_row is not None and count_row[0] == 2
+        finally:
+            conn.close()
+            cache_db.clear_cache_schema_memo(db_path)

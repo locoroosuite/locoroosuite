@@ -9,9 +9,15 @@
  * The fragment returns only messages the page does not already have
  * (`have=` ids), so existing DOM (sanitized current body, ICS cards,
  * banners) is never re-rendered or destroyed.
+ *
+ * U27.6: also listens for `ai_activity` events — when an AI agent is
+ * saving drafts for this account, the conversation shows an
+ * "AI is composing…" state that clears 15s after the last save.
  */
 (function () {
   'use strict';
+
+  var COMPOSING_CLEAR_MS = 15000;
 
   function init(opts) {
     var stackEl = document.getElementById('thread-stack');
@@ -22,6 +28,46 @@
     var fragmentUrl = opts.fragmentUrl;
     var timer = null;
     var inFlight = false;
+    var composingTimer = null;
+    var composingBanner = null;
+
+    function setComposing(active) {
+      stackEl.classList.toggle('lr-ai-composing', active);
+      if (active) {
+        if (!composingBanner) {
+          composingBanner = document.createElement('div');
+          composingBanner.className = 'mb-3 flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-2.5 text-sm text-amber-800';
+          composingBanner.setAttribute('data-ai-composing', '1');
+          composingBanner.innerHTML =
+            '<span class="relative flex h-2.5 w-2.5">' +
+            '  <span class="absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75 animate-ping"></span>' +
+            '  <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>' +
+            '</span>' +
+            '<span>' + escapeHtml(window.LR.t('AI is composing a draft…')) + '</span>';
+          stackEl.parentNode.insertBefore(composingBanner, stackEl);
+        }
+      } else {
+        if (composingBanner) {
+          composingBanner.remove();
+          composingBanner = null;
+        }
+      }
+    }
+
+    function escapeHtml(text) {
+      var div = document.createElement('div');
+      div.textContent = String(text == null ? '' : text);
+      return div.innerHTML;
+    }
+
+    function markComposing() {
+      setComposing(true);
+      if (composingTimer) clearTimeout(composingTimer);
+      composingTimer = setTimeout(function () {
+        setComposing(false);
+        composingTimer = null;
+      }, COMPOSING_CLEAR_MS);
+    }
 
     function rowIds() {
       return Array.prototype.map.call(
@@ -120,7 +166,21 @@
       }
       if (data.module !== 'mail') return;
       if (data.account_id && String(data.account_id) !== accountId) return;
+      if (data.action === 'draft_saved') markComposing();
       schedule();
+    });
+    // U27.6: an AI agent saving drafts for this account keeps the
+    // composing state alive even between ui_change refreshes.
+    source.addEventListener('ai_activity', function (evt) {
+      var data;
+      try {
+        data = JSON.parse(evt.data || '{}');
+      } catch (e) {
+        return;
+      }
+      if (data.tool !== 'mail_save_draft') return;
+      if (data.account_id && String(data.account_id) !== accountId) return;
+      markComposing();
     });
   }
 

@@ -23,27 +23,40 @@ export function createClient(accountId?: string): ApiClient {
   return new ApiClient(BASE_URL, API_TOKEN, accountId || null);
 }
 
-export interface ApiResponse<T = unknown> {
-  data?: T;
+// U16.17: the client unwraps the REST envelope — single resources are the
+// object itself, collections are { items: [...], pagination?, ... }.
+export interface ApiCollection<T = unknown> {
+  items?: T[];
   error?: { code: string; message: string };
   pagination?: { next_cursor: string | null; has_more: boolean };
   total_count?: number;
   receipts?: Array<Record<string, unknown>>;
 }
 
-export function assertSuccess<T>(response: unknown, label: string): ApiResponse<T> {
-  const r = response as ApiResponse<T>;
-  if (r.error) {
+export function assertSuccess<T>(response: unknown, label: string): T {
+  const r = response as { error?: { code: string; message: string } };
+  if (
+    r !== null &&
+    typeof r === "object" &&
+    "error" in r &&
+    r.error &&
+    typeof r.error === "object"
+  ) {
     throw new Error(`${label} returned error: ${r.error.code} — ${r.error.message}`);
   }
-  if (!Object.prototype.hasOwnProperty.call(r, "data")) {
-    throw new Error(`${label} missing "data" key in response`);
+  return response as T;
+}
+
+export function assertItems<T>(response: unknown, label: string): T[] {
+  const r = assertSuccess<ApiCollection<T>>(response, label);
+  if (!Array.isArray(r.items)) {
+    throw new Error(`${label} missing "items" array in response`);
   }
-  return r;
+  return r.items;
 }
 
 export function assertError(response: unknown, expectedCode: string, label: string): void {
-  const r = response as ApiResponse;
+  const r = response as { error?: { code: string; message: string } };
   if (!r.error) {
     throw new Error(`${label} expected error ${expectedCode} but got success`);
   }

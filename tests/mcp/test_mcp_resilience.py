@@ -33,43 +33,43 @@ def _mock_conn():
 def mcp_all(app, _clean_db):
     user_id = None
     with app.app_context():
-        user = User(email="resilience@example.com", role="customer", is_active=True)
+        user = User(email="resilience@example.com", role="customer", is_active=True)  # pyright: ignore[reportCallIssue]
         user.password_hash = "x"
         _db.session.add(user)
         _db.session.flush()
         user_id = user.id
 
         domain = Domain(
-            name="example.com",
-            is_active=True,
-            status="active",
-            imap_host="imap.example.com",
-            imap_port=993,
-            imap_tls=True,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_tls_mode="starttls",
-            carddav_host="localhost",
-            carddav_port=5232,
-            carddav_use_tls=False,
-            caldav_host="localhost",
-            caldav_port=5232,
-            caldav_use_tls=False,
+            name="example.com",  # pyright: ignore[reportCallIssue]
+            is_active=True,  # pyright: ignore[reportCallIssue]
+            status="active",  # pyright: ignore[reportCallIssue]
+            imap_host="imap.example.com",  # pyright: ignore[reportCallIssue]
+            imap_port=993,  # pyright: ignore[reportCallIssue]
+            imap_tls=True,  # pyright: ignore[reportCallIssue]
+            smtp_host="smtp.example.com",  # pyright: ignore[reportCallIssue]
+            smtp_port=587,  # pyright: ignore[reportCallIssue]
+            smtp_tls_mode="starttls",  # pyright: ignore[reportCallIssue]
+            carddav_host="localhost",  # pyright: ignore[reportCallIssue]
+            carddav_port=5232,  # pyright: ignore[reportCallIssue]
+            carddav_use_tls=False,  # pyright: ignore[reportCallIssue]
+            caldav_host="localhost",  # pyright: ignore[reportCallIssue]
+            caldav_port=5232,  # pyright: ignore[reportCallIssue]
+            caldav_use_tls=False,  # pyright: ignore[reportCallIssue]
         )
         _db.session.add(domain)
         _db.session.flush()
 
         dek = generate_dek()
         account = CustomerAccount(
-            customer_id=user.id,
-            domain_id=domain.id,
-            email_address="resilience@example.com",
-            auth_type="password",
-            username="resilience@example.com",
-            cache_db_path="",
-            api_enabled=True,
-            dek_wrapped_cred=b"placeholder",
-            is_active=True,
+            customer_id=user.id,  # pyright: ignore[reportCallIssue]
+            domain_id=domain.id,  # pyright: ignore[reportCallIssue]
+            email_address="resilience@example.com",  # pyright: ignore[reportCallIssue]
+            auth_type="password",  # pyright: ignore[reportCallIssue]
+            username="resilience@example.com",  # pyright: ignore[reportCallIssue]
+            cache_db_path="",  # pyright: ignore[reportCallIssue]
+            api_enabled=True,  # pyright: ignore[reportCallIssue]
+            dek_wrapped_cred=b"placeholder",  # pyright: ignore[reportCallIssue]
+            is_active=True,  # pyright: ignore[reportCallIssue]
         )
         _db.session.add(account)
         _db.session.commit()
@@ -201,7 +201,7 @@ class TestRegistryStability:
         ):
             result = asyncio.run(tools["contacts_list"].fn())
             data = json.loads(result)
-            assert "data" in data
+            assert "items" in data
 
     def test_cross_module_failure_does_not_affect_other_modules(self, mcp_all):
         tools = mcp_all["tools"]
@@ -220,7 +220,7 @@ class TestRegistryStability:
         ):
             result = asyncio.run(tools["docs_list_documents"].fn())
             data = json.loads(result)
-            assert "data" in data
+            assert "items" in data and "pagination" in data
 
 
 class TestRepeatedFailures:
@@ -244,7 +244,7 @@ class TestRepeatedFailures:
         ):
             result = asyncio.run(tools["mail_list_folders"].fn())
             data = json.loads(result)
-            assert "data" in data
+            assert "items" in data
 
 
 class TestHealthEndpoint:

@@ -58,7 +58,7 @@ def _baseline_schema(conn) -> None:
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             uid TEXT,
             folder TEXT,
             subject TEXT,
@@ -287,10 +287,130 @@ def _drop_folders_account_id(conn) -> None:
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS folders_name_idx ON folders(name)")
 
 
+def _messages_id_autoincrement(conn) -> None:
+    """0006 — messages.id never gets reused (U6.5b identifier stability).
+
+    Plain ``INTEGER PRIMARY KEY`` rowids are recycled after deletes: a draft
+    replacing another could inherit the old draft's cache id, so an agent
+    holding a pre-replace id would silently target the replacement. The
+    rebuild adds AUTOINCREMENT (monotonic ids) while preserving ids, the
+    FTS index, and triggers.
+    """
+    has_table = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='messages'"
+    ).fetchone()
+    if not has_table:
+        return
+    create_sql = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='messages'"
+    ).fetchone()[0]
+    if create_sql and "AUTOINCREMENT" in create_sql.upper():
+        return
+
+    columns = [
+        "id",
+        "uid",
+        "folder",
+        "subject",
+        "sender",
+        "recipients",
+        "date",
+        "date_ts",
+        "internal_date_ts",
+        "flags",
+        "snippet",
+        "body",
+        "body_html",
+        "has_attachments",
+        "message_id",
+        "thread_id",
+        "in_reply_to",
+        "ref_list",
+        "calendar_event_uid",
+        "is_bounce",
+        "bounce_reason",
+        "original_subject",
+        "cc",
+        "attachment_list",
+    ]
+    column_list = ", ".join(columns)
+    conn.execute(
+        """
+        CREATE TABLE _messages_autoinc_migration (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uid TEXT,
+            folder TEXT,
+            subject TEXT,
+            sender TEXT,
+            recipients TEXT,
+            date TEXT,
+            date_ts INTEGER,
+            internal_date_ts INTEGER,
+            flags TEXT,
+            snippet TEXT,
+            body TEXT,
+            body_html TEXT,
+            has_attachments INTEGER DEFAULT 0,
+            message_id TEXT,
+            thread_id TEXT,
+            in_reply_to TEXT,
+            ref_list TEXT,
+            calendar_event_uid TEXT,
+            is_bounce INTEGER DEFAULT 0,
+            bounce_reason TEXT,
+            original_subject TEXT,
+            cc TEXT,
+            attachment_list TEXT
+        )
+        """
+    )
+    conn.execute(
+        f"INSERT INTO _messages_autoinc_migration ({column_list}) "
+        f"SELECT {column_list} FROM messages"
+    )
+    # Dropping the table drops its triggers; the FTS table's rowid mapping
+    # is regenerated from the rebuilt table below.
+    conn.execute("DROP TABLE messages")
+    conn.execute("ALTER TABLE _messages_autoinc_migration RENAME TO messages")
+    conn.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
+            INSERT INTO message_fts(rowid, subject, sender, recipients, body)
+            VALUES (new.id, new.subject, new.sender, new.recipients, new.body);
+        END;
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
+            INSERT INTO message_fts(message_fts, rowid, subject, sender, recipients, body)
+            VALUES ('delete', old.id, old.subject, old.sender, old.recipients, old.body);
+        END;
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
+            INSERT INTO message_fts(message_fts, rowid, subject, sender, recipients, body)
+            VALUES ('delete', old.id, old.subject, old.sender, old.recipients, old.body);
+            INSERT INTO message_fts(rowid, subject, sender, recipients, body)
+            VALUES (new.id, new.subject, new.sender, new.recipients, new.body);
+        END;
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS messages_folder_date_ts_idx "
+        "ON messages(folder, COALESCE(internal_date_ts, date_ts) DESC, id DESC)"
+    )
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS messages_uid_folder_idx ON messages(uid, folder)")
+    conn.execute("INSERT INTO message_fts(message_fts) VALUES('rebuild')")
+
+
 MAIL_CACHE_MIGRATIONS: tuple[Migration, ...] = (
     Migration("mail_0001_baseline_schema", _baseline_schema),
     Migration("mail_0002_ensure_message_columns", _ensure_message_columns),
     Migration("mail_0003_ensure_folder_columns", _ensure_folder_columns),
     Migration("mail_0004_ensure_message_indexes", _ensure_message_indexes),
     Migration("mail_0005_drop_folders_account_id", _drop_folders_account_id),
+    Migration("mail_0006_messages_id_autoincrement", _messages_id_autoincrement),
 )

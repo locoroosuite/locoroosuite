@@ -101,7 +101,9 @@ services:
       - locoroomail-dev
 
   redis:
-    image: redis:alpine
+    # Track redis 8.x (major track tag) — refreshed at release time via
+    # `make images-audit` (HLD U26.11).
+    image: redis:8-alpine
     container_name: locoroomail-redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
@@ -142,9 +144,10 @@ services:
       - locoroomail-dev
 
   collabora:
-    # Pinned by digest (CODE 25.04.9.4): the floating :latest tag broke
-    # background conversion on 2026-09-26 after an upstream rebuild.
-    image: collabora/code@sha256:c7415b963e32eb0986a562583f154d36d3d7a461e1ddfb660a95e87094328acb
+    # Pinned by digest (CODE 26.04.6.1.1, refreshed 2026-11-19): the floating
+    # :latest tag broke background conversion on 2026-09-26 after an upstream
+    # rebuild. Refresh deliberately via `make images-audit`.
+    image: collabora/code@sha256:95f29f1c0a1778999125f53f058d968fe0afb37c95e32ebfb9f3444140faebd2
     container_name: locoroomail-collabora
     restart: unless-stopped
     environment:
@@ -199,7 +202,7 @@ services:
   # same pattern as the production deployment; mas-cli server applies DB
   # migrations and syncs the config into the database on startup.
   mas:
-    image: ghcr.io/element-hq/matrix-authentication-service:1.27.1
+    image: ghcr.io/element-hq/matrix-authentication-service:1.29.0
     container_name: locoroomail-mas
     restart: unless-stopped
     command: ["server", "-c", "/config/config.yaml"]

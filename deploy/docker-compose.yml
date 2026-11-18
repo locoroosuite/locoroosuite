@@ -16,7 +16,9 @@ services:
       - locoroomail
 
   collabora:
-    image: collabora/code:latest
+    # Pinned to a release tag (refreshed 2026-11-19) so upgrades are
+    # deliberate and the audit (`make images-audit`) can track them.
+    image: collabora/code:26.04.6.1.1
     container_name: locoroomail-collabora
     restart: unless-stopped
     environment:
@@ -30,7 +32,12 @@ services:
       - locoroomail
 
   nginx:
-    image: nginx:alpine
+    # Stable-branch track tag (currently 1.30.x — carries the 2026-11-18
+    # "nginx2root" security fixes, CVE-2026-123007 et al.). Floating
+    # :alpine/:latest resolves per-pull and made upgrades accidental; the
+    # stable branch gets security patches without mainline behavior changes.
+    # Refresh deliberately via `make images-audit` (HLD U26.11).
+    image: nginx:1.30-alpine
     container_name: locoroomail-nginx
     restart: unless-stopped
     ports:

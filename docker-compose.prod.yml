@@ -56,7 +56,9 @@ services:
       - locoroomail
 
   collabora:
-    image: collabora/code:latest
+    # Pinned to a release tag (refreshed 2026-11-19) so upgrades are
+    # deliberate and the audit (`make images-audit`) can track them.
+    image: collabora/code:26.04.6.1.1
     container_name: locoroomail-collabora
     restart: unless-stopped
     environment:

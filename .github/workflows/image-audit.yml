@@ -1,0 +1,52 @@
+# Docker image freshness audit (HLD U26.11).
+#
+# Runs scripts/audit-images.sh weekly so pinned base images / compose images
+# don't silently drift behind upstream security releases (e.g. the 2026-11-18
+# "nginx2root" set, CVE-2026-123007 et al.). The same script is a mandatory
+# release step (CONTRIBUTING.md → Releases).
+#
+# On failure, opens (or updates) a tracking issue so drift is visible without
+# anyone remembering to run the audit by hand.
+
+name: image-audit
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq jq
+
+      - name: Audit image refs against registries
+        id: audit
+        run: |
+          set -o pipefail
+          ./scripts/audit-images.sh 2>&1 | tee audit-report.txt
+        continue-on-error: true
+
+      - name: Open/update tracking issue on failure
+        if: steps.audit.outcome == 'failure'
+        uses: peter-evans/create-issue-from-file@v4
+        with:
+          title: "Docker image audit: outdated images"
+          content-filepath: audit-report.txt
+          labels: |
+            dependencies
+            security
+      - name: Fail the job on audit failure
+        if: steps.audit.outcome == 'failure'
+        run: |
+          echo "Image audit failed — see the report above and the tracking issue."
+          exit 1

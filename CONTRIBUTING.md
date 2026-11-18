@@ -160,20 +160,28 @@ npm run build --prefix packages/locoroosuite-mcp
 # 3. Verify tests still pass.
 npm test --prefix packages/locoroosuite-mcp
 
-# 4. Commit.
+# 4. Refresh dependencies and Docker images (HLD U26.11 — every release
+#    ships current images). The audit fails when a pinned image is behind
+#    upstream; bump the refs it lists, then rebuild and re-test:
+#      make images-audit          # reports outdated refs
+#      # ...edit Dockerfiles / compose files / policy table...
+#      make restart               # rebuild with fresh base layers + run
+#      ./venv/bin/pytest tests/e2e/   # infra images changed → e2e gate
+
+# 5. Commit.
 git add package.json packages/locoroosuite-mcp/package.json \
         packages/locoroosuite-mcp/src/index.ts \
         packages/locoroosuite-mcp/dist/index.js
 git commit -m "Bump version to 0.5.1"
 
-# 5. Create an ANNOTATED tag on the bump commit (not a lightweight tag).
+# 6. Create an ANNOTATED tag on the bump commit (not a lightweight tag).
 #    Format: vX.Y.Z, message starts with "Version X.Y.Z" then release-note bullets.
 git tag -a v0.5.1 -m "Version 0.5.1
 
 - <bullet summarizing each notable change since the last tag>
 - ..."
 
-# 6. Push commits AND tags (tags are not pushed by default).
+# 7. Push commits AND tags (tags are not pushed by default).
 git push --follow-tags
 ```
 
@@ -187,3 +195,7 @@ git push --follow-tags
 ### What goes in a release
 
 Group completed work since the last tag into one release. A release may contain multiple feature/fix commits — the tag message summarizes them. Don't tag until the version-bump commit is in place.
+
+### Release freshness guarantee
+
+Every release ships current dependencies and container images (HLD U26.11). `make images-audit` is the gate: it compares every image ref in Dockerfiles and compose files against the registries and fails on drift. Between releases the same audit runs weekly on CI (`.github/workflows/image-audit.yml`) and opens a tracking issue on drift. When a database/other major is deliberately held back (e.g. `postgres:18-alpine`), the audit reports it without failing — the decision stays visible instead of silent.

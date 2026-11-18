@@ -11,7 +11,7 @@ REMOTE_LC_USER ?=
 REMOTE_LC_PATH ?=
 
 .PHONY: start stop restart rebuild dev-fast ssh deploy dev-up dev-down dev-build logs mail-api-shell \
-        e2e-reset e2e-test \
+        e2e-reset e2e-test images-audit \
         prod-up prod-down prod-build prod-restart prod-logs dev-setup npm-publish migrate-status push \
         lint format typecheck typecheck-mcp typecheck-ratchet check css
 
@@ -197,6 +197,14 @@ push:
 # app/static/css/tailwind.css (no CDN at runtime).
 css:
 	npx --yes tailwindcss@3.4.17 -c tailwind.config.js -i app/static/css/tailwind.src.css -o app/static/css/tailwind.css --minify
+
+# --- Image freshness (HLD U26.11) ---
+# Audit every Docker image ref (Dockerfiles + compose files) against the
+# registries. Fails when a pinned image is outdated or an image is missing
+# from the policy table. Run before every release (CONTRIBUTING.md) and
+# weekly via .github/workflows/image-audit.yml.
+images-audit:
+	./scripts/audit-images.sh
 
 # --- Static checks (scoped to files touched vs BASE_REF, default: master) ---
 # See AGENTS.md -> "Static Checks (last step)" for the policy these enforce.

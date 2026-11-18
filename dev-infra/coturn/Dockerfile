@@ -4,7 +4,7 @@
 # 3478 tcp/udp, 5349 tcp (TLS) and the UDP relay range on the host. The app
 # never talks to coturn; it only mints ephemeral REST credentials from the
 # domain's `turn_shared_secret` (see app/modules/chat/services/turn.py).
-FROM coturn/coturn:4.18
+FROM coturn/coturn:4.19
 
 COPY turnserver.conf /etc/coturn/turnserver.conf
 # The coturn base image runs as a non-root user, so RUN chmod fails with
